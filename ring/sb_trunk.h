@@ -1,0 +1,41 @@
+/* =============================================================================
+ * sb_trunk.h - trunk circuits: seizure, dial pulses, ring cadence
+ *
+ * esp32.md 8. Everything the switchboard does on a trunk arrives on one input,
+ * SEIZE_n, because the trunk board has no other supervisory signal. Seizure is
+ * a long assertion, release a long release, a dial pulse a short release inside
+ * a seizure, and ring applied by mistake a 20Hz alternation. The classifier in
+ * 8.1 separates them on interval length, never on a transition count.
+ * ========================================================================== */
+
+#pragma once
+
+#include <Arduino.h>
+#include "sb_table.h"
+
+void trunkInit();
+
+/* Runs once per 200Hz poll, after expanderPollInputs(). Drives the classifier,
+ * the digit counter, the state machine and the ring cadence. */
+void trunkPoll(uint32_t now_ms);
+
+/* From sbgame/trunk/<n>/ring/set. Starts or stops the cadence. A request beyond
+ * the concurrent-ring cap is queued rather than rung (esp32.md 8.5). */
+void trunkSetRing(uint8_t n, bool on);
+
+/* Failsafe (esp32.md 10): drop every ring relay, cancel every request and
+ * return every ringing trunk to IDLE. */
+void trunkReleaseAll();
+
+/* Drop ring relays without discarding state. Called before asserting /RESET,
+ * which must never happen while ring is applied (esp32.md 6.2, 8.5). */
+void trunkInhibitRing();
+
+/* Republish seize, ring and fault for every live trunk. */
+void trunkPublishAll();
+
+/* How many trunks are ringing, and how many are queued behind the cap. For the
+ * console banner: the cap is invisible from the MQTT side, because a queued
+ * trunk publishes ring="off" exactly like an idle one. */
+uint8_t trunkRingingCount();
+uint8_t trunkQueuedCount();

@@ -6,9 +6,7 @@
 # Editing backups
 *.bak
 
-# The ESP32 firmware is NOT owned by this repo. It lives in the Syncthing share at
-# /home/sidell/s/game/ring/, beside the esp32.md and mqtt.md it is written to, and
-# esp32.md §1 records that ownership. The ring/ directory here is a stale local
-# working copy from 2026-09-04 that predates the I2C, MQTT and trunk modules, and
-# committing it would put a second, wrong source of truth for the firmware in git.
-/ring/
+# Broker address and credentials. secrets.h.example is tracked and carries the
+# placeholders; copy it to secrets.h and fill it in. The working copy is never
+# committed, so a real password cannot reach the remote by accident.
+/ring/secrets.h

@@ -1,0 +1,218 @@
+/* =============================================================================
+ * sb_net.cpp
+ * ========================================================================== */
+
+#include <ETH.h>
+#include <MQTT.h>
+
+#include "sb_net.h"
+#include "sb_station.h"
+#include "sb_trunk.h"
+#include "secrets.h"
+
+/* Topics and payloads are short - the longest is
+ * "sbgame/station/24/hook/set" - so the client buffer only has to hold one
+ * small message. 512 is generous and costs nothing worth counting. */
+static MQTTClient mqtt(512);
+
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+static NetworkClient net_client;
+#else
+static WiFiClient net_client;
+#endif
+
+static bool     just_connected  = false;
+static bool     sync_requested  = false;
+static uint32_t last_game_beat  = 0;
+static bool     game_beat_seen  = false;
+static uint32_t next_attempt_ms = 0;
+static uint32_t backoff_ms      = MQTT_RECONNECT_MIN_MS;
+static uint32_t last_hb_ms      = 0;
+static bool     eth_up_logged   = false;
+
+/* ---- topic construction -------------------------------------------------
+ * mqtt.md 3: a circuit id prefixed with "sbgame/" is that circuit's topic
+ * root, which is the whole reason the id format is what it is. Built in one
+ * place so the two never drift apart. */
+static void circuitTopic(const CircuitMap& c, const char* leaf,
+                         char* out, size_t n) {
+  char id[16];
+  circuitId(c, id, sizeof id);
+  snprintf(out, n, "%s%s/%s", TOPIC_PREFIX, id, leaf);
+}
+
+static void ctlTopic(const char* leaf, char* out, size_t n) {
+  snprintf(out, n, "%sctl/%s", TOPIC_PREFIX, leaf);
+}
+
+/* ---- publishing --------------------------------------------------------- */
+
+void netPublishState(const CircuitMap& c, const char* leaf, const char* payload) {
+  if (!mqtt.connected()) return;
+  char topic[64];
+  circuitTopic(c, leaf, topic, sizeof topic);
+  mqtt.publish(topic, payload, /*retained=*/true, /*qos=*/1);
+}
+
+void netPublishEvent(const CircuitMap& c, const char* leaf, const char* payload) {
+  if (!mqtt.connected()) return;
+  char topic[64];
+  circuitTopic(c, leaf, topic, sizeof topic);
+  /* Unretained and QoS 0. A retained digit would replay into a later call, and
+   * QoS 1's redelivery on reconnect is exactly how a duplicate would arise -
+   * and for a digit a duplicate is as wrong as a loss (mqtt.md 2, 7). */
+  mqtt.publish(topic, payload, /*retained=*/false, /*qos=*/0);
+}
+
+void netPublishCtl(const char* leaf, const char* payload, bool retained, int qos) {
+  if (!mqtt.connected()) return;
+  char topic[64];
+  ctlTopic(leaf, topic, sizeof topic);
+  mqtt.publish(topic, payload, retained, qos);
+}
+
+void netPublishI2cScan(bool all_present) {
+  if (all_present) { netPublishCtl("i2c", "ok", true, 1); return; }
+
+  char payload[96] = "missing:";
+  for (uint8_t i = 0; i < N_EXPANDERS; ++i) {
+    if (!expanderConfigured(i) || exp_state[i].present) continue;
+    char one[12];
+    snprintf(one, sizeof one, " 0x%02X", expanders[i].addr);
+    strncat(payload, one, sizeof(payload) - strlen(payload) - 1);
+  }
+  netPublishCtl("i2c", payload, true, 1);
+}
+
+void netHeartbeat(uint32_t now_ms) {
+  if (now_ms - last_hb_ms < ESP_HEARTBEAT_MS) return;
+  last_hb_ms = now_ms;
+  char payload[12];
+  snprintf(payload, sizeof payload, "%lu", (unsigned long)(now_ms / 1000));
+  netPublishCtl("esp_heartbeat", payload, /*retained=*/false, /*qos=*/1);
+}
+
+/* ---- incoming ----------------------------------------------------------- */
+
+/* mqtt.md 6 is the whole of the inbound surface: two per-circuit commands and
+ * two ctl topics. Parsed rather than dispatched through a table because there
+ * are only two shapes and the circuit number has to come out of the middle. */
+static void onMessage(String& topic, String& payload) {
+  const char* t = topic.c_str();
+  const char* p = payload.c_str();
+
+  unsigned n = 0;
+  char     leaf[24];
+
+  if (sscanf(t, "sbgame/station/%u/%23s", &n, leaf) == 2 &&
+      strcmp(leaf, "hook/set") == 0) {
+    stationSetHook((uint8_t)n, strcmp(p, "on") == 0);
+    return;
+  }
+  if (sscanf(t, "sbgame/trunk/%u/%23s", &n, leaf) == 2 &&
+      strcmp(leaf, "ring/set") == 0) {
+    trunkSetRing((uint8_t)n, strcmp(p, "on") == 0);
+    return;
+  }
+  if (strcmp(t, "sbgame/ctl/game_heartbeat") == 0) {
+    last_game_beat = millis();
+    game_beat_seen = true;
+    return;
+  }
+  if (strcmp(t, "sbgame/ctl/sync") == 0) {
+    sync_requested = true;
+    return;
+  }
+  Serial.printf("mqtt: unexpected topic %s\n", t);
+}
+
+/* ---- connection --------------------------------------------------------- */
+
+void netInit() {
+  /* esp32.md 4.2 step 3. The no-argument form resolves to the Olimex PHY
+   * parameters through the esp32-poe-iso variant header: LAN8720 at address 0,
+   * MDC 23, MDIO 18, power 12, clock on GPIO17. That last one holds only while
+   * PSRAM is disabled - with PSRAM on, the variant moves the clock to GPIO0 and
+   * I2C SCL off GPIO16, which would collide with esp32.md 3's pin map. Leave
+   * PSRAM off for this board. */
+  ETH.begin();
+
+  mqtt.begin(MQTT_BROKER_HOST, MQTT_PORT, net_client);
+  mqtt.setKeepAlive(MQTT_KEEPALIVE_S);      // mqtt.md 8.1: 5s, so the broker
+  mqtt.setCleanSession(true);               // notices a lost controller promptly
+  mqtt.onMessage(onMessage);
+
+  /* The will is registered before connecting, which is the only time it can be:
+   * the broker holds it on our behalf and publishes it if we disappear without
+   * disconnecting cleanly (mqtt.md 8.1). */
+  char status_topic[64];
+  ctlTopic("status", status_topic, sizeof status_topic);
+  mqtt.setWill(status_topic, "offline", /*retained=*/true, /*qos=*/1);
+}
+
+/* esp32.md 9.1: publish the birth message, subscribe, then publish every state
+ * topic once. A clean session forgets subscriptions, so every reconnect repeats
+ * all of it. The state publish is left to the caller, which owns the circuits. */
+static void onConnected() {
+  netPublishCtl("status", "online", /*retained=*/true, /*qos=*/1);
+
+  char topic[64];
+  snprintf(topic, sizeof topic, "%sstation/+/hook/set", TOPIC_PREFIX);
+  mqtt.subscribe(topic, 1);
+  snprintf(topic, sizeof topic, "%strunk/+/ring/set", TOPIC_PREFIX);
+  mqtt.subscribe(topic, 1);
+  ctlTopic("game_heartbeat", topic, sizeof topic); mqtt.subscribe(topic, 1);
+  ctlTopic("sync",           topic, sizeof topic); mqtt.subscribe(topic, 1);
+
+  backoff_ms     = MQTT_RECONNECT_MIN_MS;
+  just_connected = true;
+  Serial.printf("mqtt: connected to %s as %s\n", MQTT_BROKER_HOST, MQTT_CLIENT_ID);
+}
+
+void netService(uint32_t now_ms) {
+  mqtt.loop();                       // sends the keepalive and dispatches messages
+
+  if (mqtt.connected()) return;
+
+  /* Nothing to attempt until the PHY has a link and an address. */
+  if (!ETH.linkUp()) { eth_up_logged = false; return; }
+  if (ETH.localIP() == IPAddress((uint32_t)0)) return;
+  if (!eth_up_logged) {
+    Serial.print("eth: link up, address ");
+    Serial.println(ETH.localIP());
+    eth_up_logged = true;
+  }
+
+  if (now_ms < next_attempt_ms) return;
+
+  if (mqtt.connect(MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD)) {
+    onConnected();
+    return;
+  }
+
+  /* Backoff, doubling to a ceiling. Reconnecting hard in a tight loop against a
+   * broker that is down achieves nothing and floods the log. */
+  next_attempt_ms = now_ms + backoff_ms;
+  backoff_ms = (backoff_ms * 2 > MQTT_RECONNECT_MAX_MS) ? MQTT_RECONNECT_MAX_MS
+                                                        : backoff_ms * 2;
+  Serial.printf("mqtt: connect failed, retry in %lums\n", (unsigned long)backoff_ms);
+}
+
+bool netConnected() { return mqtt.connected(); }
+
+bool netTakeJustConnected() {
+  const bool v = just_connected;
+  just_connected = false;
+  return v;
+}
+
+bool netTakeSyncRequest() {
+  const bool v = sync_requested;
+  sync_requested = false;
+  return v;
+}
+
+bool netGameAlive(uint32_t now_ms) {
+  if (!game_beat_seen) return false;
+  return (now_ms - last_game_beat) <= GAME_HEARTBEAT_TIMEOUT_MS;
+}
