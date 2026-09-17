@@ -50,7 +50,7 @@ static constexpr uint8_t N_STATIONS = 23;
 static constexpr uint8_t N_TRUNKS   = 8;
 
 /* ---- Pins (esp32.md 3; generator 3.1/3.2 is the authority) ---------------
- * PIN_PWM_A/B, PIN_SD, PIN_ENBL and PIN_SYNC are declared in ring.ino, which
+ * PIN_PWM_A/B, PIN_SD, PIN_ENBL and PIN_SYNC are declared in esp32.ino, which
  * owns the waveform. The I2C pins and /RESET are here because the expander
  * driver is a separate translation unit and needs them.
  * ------------------------------------------------------------------------- */

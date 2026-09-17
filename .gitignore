@@ -9,4 +9,4 @@
 # Broker address and credentials. secrets.h.example is tracked and carries the
 # placeholders; copy it to secrets.h and fill it in. The working copy is never
 # committed, so a real password cannot reach the remote by accident.
-/ring/secrets.h
+/esp32/secrets.h
