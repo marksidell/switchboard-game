@@ -1,0 +1,14 @@
+# Compiled bench tools. Sources are here; build them with the commands in CLAUDE.md.
+/pilot_loopback_test
+/tone_out
+/tone_monitor
+
+# Editing backups
+*.bak
+
+# The ESP32 firmware is NOT owned by this repo. It lives in the Syncthing share at
+# /home/sidell/s/game/ring/, beside the esp32.md and mqtt.md it is written to, and
+# esp32.md §1 records that ownership. The ring/ directory here is a stale local
+# working copy from 2026-09-04 that predates the I2C, MQTT and trunk modules, and
+# committing it would put a second, wrong source of truth for the firmware in git.
+/ring/
