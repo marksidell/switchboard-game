@@ -37,7 +37,7 @@ engine renders pilots with.
 ## Run
 
 ```
-./audio/build/sbaudio --card Digiface --broker localhost:1883 \
+./audio/build/sbaudio --card USB24306452 --broker localhost:1883 \
     --mqtt-user sbgame --mqtt-pass-file /etc/sbaudio/mqtt.pass --wav-dir wav
 ```
 

@@ -8,7 +8,9 @@
 
 struct Options {
     // ALSA
-    std::string card    = "Digiface";   // name, index, or a full "hw:x" string
+    // The ALSA id snd-usb-audio gives the Digiface is built from its serial
+    // number, not its product name - see options.cpp.
+    std::string card    = "USB24306452"; // name, index, or a full "hw:x" string
     unsigned    period  = 256;          // frames (5.3ms)
     unsigned    periods = 3;            // periods per buffer
 

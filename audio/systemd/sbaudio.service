@@ -25,7 +25,7 @@ SupplementaryGroups=audio
 WorkingDirectory=/home/sidell/game
 
 ExecStart=/usr/local/bin/sbaudio \
-    --card Digiface \
+    --card USB24306452 \
     --period 256 --periods 3 \
     --broker localhost:1883 \
     --mqtt-user sbgame --mqtt-pass-file /etc/sbaudio/mqtt.pass \

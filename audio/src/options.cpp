@@ -8,11 +8,16 @@
 
 std::string Options::device() const
 {
-    // "hw:Digiface" by name is what audio.md 4 asks for - hw: and not plughw:,
+    // The card by name is what audio.md 4 asks for - hw: and not plughw:,
     // so the driver's native S32_LE and 34-channel layout are used and nothing
     // inserts a conversion. A card index or a complete device string is
     // accepted too, because a bench session often has the index to hand and
     // USB enumeration order is why this is an option at all.
+    //
+    // The name is the ALSA card id, which is not "Digiface": snd-usb-audio
+    // builds it from the device's serial number, so this unit is USB24306452
+    // (/proc/asound/cards, 2026-09-18). It is stable across replugs and
+    // reboots, unlike the index. Another Digiface would have another id.
     if (card.find(':') != std::string::npos) return card;
     return "hw:" + card;
 }
@@ -22,7 +27,7 @@ static void usage(const char* p)
     std::fprintf(stderr,
 "Usage: %s [options]\n"
 "\n"
-"  --card NAME            ALSA card name, index or device (default Digiface)\n"
+"  --card NAME            ALSA card name, index or device (default USB24306452)\n"
 "  --period N             frames per period (256)\n"
 "  --periods N            periods per buffer (3)\n"
 "  --broker HOST[:PORT]   MQTT broker (localhost:1883)\n"
