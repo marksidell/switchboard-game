@@ -1,0 +1,61 @@
+# sbaudio - the 551 switchboard simulator's audio program.
+#
+# Install per audio/README.md. Every level in ExecStart is a bench setting
+# (audio.md 14, 15): the defaults in the program are the figures station 8
+# gives, and what the bench says goes here rather than into the source.
+#
+#   sudo cp audio/systemd/sbaudio.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now sbaudio
+#   journalctl -u sbaudio -f
+
+[Unit]
+Description=551 switchboard simulator audio program
+Documentation=file:///home/sidell/game/audio/README.md
+# The broker is not a hard dependency: audio.md 13.1 starts the stream before
+# MQTT on purpose, because the pilots and the operator tone are part of the
+# switchboard's electrical environment and nothing about them needs a broker.
+After=sound.target mosquitto.service
+Wants=mosquitto.service
+
+[Service]
+Type=exec
+User=sidell
+SupplementaryGroups=audio
+WorkingDirectory=/home/sidell/game
+
+ExecStart=/usr/local/bin/sbaudio \
+    --card Digiface \
+    --period 256 --periods 3 \
+    --broker localhost:1883 \
+    --mqtt-user sbgame --mqtt-pass-file /etc/sbaudio/mqtt.pass \
+    --wav-dir /home/sidell/game/wav
+
+# audio.md 13.2: there is no attempt to run without audio. An unrecoverable
+# stream failure exits non-zero, systemd brings the program back, and the
+# birth/LWT sequence tells the game what happened.
+Restart=on-failure
+RestartSec=2
+
+# SCHED_FIFO and mlockall, without which the program logs and continues at the
+# cost of xruns (audio.md 14). These are what limits.conf or rtkit would
+# otherwise have to provide.
+LimitRTPRIO=95
+LimitMEMLOCK=infinity
+
+# stdout is the --dump CSV and is empty in service use; stderr is the log.
+StandardOutput=null
+StandardError=journal
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=full
+ProtectControlGroups=true
+ProtectKernelTunables=true
+RestrictRealtime=false
+# The sound devices have to stay reachable through the hardening above.
+DeviceAllow=char-alsa rw
+
+[Install]
+WantedBy=multi-user.target

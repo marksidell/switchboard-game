@@ -1,0 +1,50 @@
+# sbaudio - the 551 switchboard simulator's audio program.
+# Specified by ~/s/game/audio.md; see README.md beside this file.
+#
+#   cmake -S audio -B audio/build -DCMAKE_BUILD_TYPE=Release
+#   cmake --build audio/build
+#   ctest --test-dir audio/build --output-on-failure
+
+cmake_minimum_required(VERSION 3.16)
+project(sbaudio LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
+endif()
+
+# CLAUDE.md: -Wall -Wextra clean.
+add_compile_options(-Wall -Wextra)
+
+find_package(PkgConfig REQUIRED)
+find_package(Threads REQUIRED)
+pkg_check_modules(ALSA     REQUIRED IMPORTED_TARGET alsa)
+pkg_check_modules(FFTW3F   REQUIRED IMPORTED_TARGET fftw3f)
+pkg_check_modules(SNDFILE  REQUIRED IMPORTED_TARGET sndfile)
+pkg_check_modules(MOSQ     REQUIRED IMPORTED_TARGET libmosquitto)
+
+# Everything but main.cpp and net.cpp, so the test can link the same objects
+# the program runs rather than a second copy of them.
+add_library(sbaudio_core STATIC
+  src/util.cpp
+  src/options.cpp
+  src/dsp.cpp
+  src/alsa.cpp
+  src/wav.cpp
+  src/engine.cpp
+  src/detector.cpp
+)
+target_link_libraries(sbaudio_core PUBLIC
+  PkgConfig::ALSA PkgConfig::FFTW3F PkgConfig::SNDFILE Threads::Threads)
+
+add_executable(sbaudio src/main.cpp src/net.cpp)
+target_link_libraries(sbaudio PRIVATE sbaudio_core PkgConfig::MOSQ)
+
+enable_testing()
+add_executable(sbaudio_test test/test_sbaudio.cpp)
+target_link_libraries(sbaudio_test PRIVATE sbaudio_core)
+add_test(NAME sbaudio_test COMMAND sbaudio_test)
+
+install(TARGETS sbaudio RUNTIME DESTINATION bin)
