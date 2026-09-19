@@ -77,6 +77,12 @@ file, not into the source. `LimitRTPRIO` and `LimitMEMLOCK` are there so `SCHED_
 and `mlockall` succeed; without them the program logs and continues, at the cost of
 xruns.
 
+The unit also gives the program a state directory, `/var/lib/sbaudio`, and points
+`SBAUDIO_WISDOM` at it, so FFTW's plan cache survives restarts. Without it the cache
+would default to `~/.cache`, which the unit's `ProtectHome=read-only` makes unwritable,
+and every start would pay the slow plan. The log says which happened: `plan from
+wisdom`, `wisdom saved`, or `could not save wisdom`.
+
 The wav directory does not exist yet — no content is authored. Create
 `/home/sidell/game/wav` before the first `play/set`, or every one of them will publish
 `missing`.

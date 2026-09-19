@@ -85,7 +85,7 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         const char* nx = (i + 1 < argc) ? argv[i + 1] : nullptr;
 
         if (a == "--help" || a == "-h")     { usage(argv[0]); exit_now = true; return true; }
-        if (a == "--version")               { std::printf("sbaudio 3 (audio.md Rev 3)\n");
+        if (a == "--version")               { std::printf("sbaudio 4 (audio.md Rev 4)\n");
                                               exit_now = true; return true; }
 
         if (a == "--no-realtime")           { o.no_rt = true; continue; }

@@ -26,8 +26,11 @@ Detector::~Detector()
 
 // wisdom_path()                                                      [startup]
 //   Where FFTW's saved planning results live: $SBAUDIO_WISDOM if set, else
-//   ~/.cache/sbaudio-wisdom, else nowhere (a service with no HOME simply
-//   plans afresh each start, which takes well under a second).
+//   ~/.cache/sbaudio-wisdom, else nowhere (plan afresh each start). Under
+//   systemd the unit sets $SBAUDIO_WISDOM to /var/lib/sbaudio/wisdom: the unit
+//   makes /home read-only, so the home-directory default could never be
+//   written there, and the cache belongs to the service rather than to
+//   whichever user it runs as.
 static std::string wisdom_path()
 {
     if (const char* e = std::getenv("SBAUDIO_WISDOM")) return e;
@@ -44,11 +47,27 @@ bool Detector::prepare()
     if (!in_ || !out_) { log_line("fftw: allocation failed"); return false; }
     pw_.assign(FFT_N / 2 + 1, 0.0);
 
+    // Import, plan, and save only if the plan was not already in the cache.
+    // Both FFTW calls return 0 on failure; a failed save is logged, because
+    // otherwise it is invisible - every start quietly pays the slow plan and
+    // nothing says why.
     const std::string wp = wisdom_path();
-    if (!wp.empty()) fftwf_import_wisdom_from_filename(wp.c_str());
+    const bool had = !wp.empty() && fftwf_import_wisdom_from_filename(wp.c_str()) != 0;
+    const double t0 = monotonic_s();
     plan_ = fftwf_plan_dft_r2c_1d(FFT_N, in_, out_, FFTW_MEASURE);
     if (!plan_) { log_line("fftw: plan failed"); return false; }
-    if (!wp.empty()) fftwf_export_wisdom_to_filename(wp.c_str());
+    const double plan_ms = 1000.0 * (monotonic_s() - t0);
+    if (had) {
+        log_line("fftw: plan from wisdom at %s (%.0f ms)", wp.c_str(), plan_ms);
+    } else if (wp.empty()) {
+        log_line("fftw: planned in %.0f ms; no wisdom path (no $SBAUDIO_WISDOM or "
+                 "$HOME), so every start will plan afresh", plan_ms);
+    } else if (fftwf_export_wisdom_to_filename(wp.c_str())) {
+        log_line("fftw: planned in %.0f ms, wisdom saved to %s", plan_ms, wp.c_str());
+    } else {
+        log_line("fftw: planned in %.0f ms, but could not save wisdom to %s - "
+                 "every start will plan afresh", plan_ms, wp.c_str());
+    }
 
     if (sh_.opt.hann) {
         // Station 8.2's fallback, for a rig whose two clock domains are not

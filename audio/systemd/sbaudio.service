@@ -43,6 +43,12 @@ RestartSec=2
 LimitRTPRIO=95
 LimitMEMLOCK=infinity
 
+# FFTW's plan cache (audio.md 14). ProtectHome=read-only below makes the
+# program's ~/.cache default unwritable, so the cache is a service fact
+# instead: systemd creates /var/lib/sbaudio, owned by User=, before start.
+StateDirectory=sbaudio
+Environment=SBAUDIO_WISDOM=/var/lib/sbaudio/wisdom
+
 # stdout is the --dump CSV and is empty in service use; stderr is the log.
 StandardOutput=null
 StandardError=journal
