@@ -361,17 +361,16 @@ uint8_t trunkQueuedCount() {
   return n;
 }
 
-void trunkPublishAll() {
-  for (uint8_t i = 0; i < N_TRUNKS; ++i) {
-    const CircuitMap& c = row(i);
-    if (!circuitLive(c)) continue;
-    TrunkState& s = tr[i];
-    const bool seized = (s.phase == Phase::Seized);
-    s.seize_pub = seized ? 1 : 0;
-    s.ring_pub  = s.cadence_on ? 1 : 0;
-    s.fault_pub = s.fault;
-    netPublishState(c, "seize", seized ? "on" : "off");
-    netPublishState(c, "ring",  s.cadence_on ? "on" : "off");
-    netPublishState(c, "fault", s.fault);
-  }
+void trunkPublishOne(uint8_t i) {
+  if (i >= N_TRUNKS) return;
+  const CircuitMap& c = row(i);
+  if (!circuitLive(c)) return;
+  TrunkState& s = tr[i];
+  const bool seized = (s.phase == Phase::Seized);
+  s.seize_pub = seized ? 1 : 0;
+  s.ring_pub  = s.cadence_on ? 1 : 0;
+  s.fault_pub = s.fault;
+  netPublishState(c, "seize", seized ? "on" : "off");
+  netPublishState(c, "ring",  s.cadence_on ? "on" : "off");
+  netPublishState(c, "fault", s.fault);
 }

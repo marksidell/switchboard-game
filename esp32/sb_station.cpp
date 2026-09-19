@@ -100,14 +100,13 @@ void stationReleaseAll() {
   }
 }
 
-void stationPublishAll() {
-  for (uint8_t i = 0; i < N_STATIONS; ++i) {
-    const CircuitMap& c = circuits[i];
-    if (!circuitLive(c)) continue;          // state the firmware cannot know
-    StationState& s = st[i];
-    s.ring_pub = s.ring ? 1 : 0;
-    s.hook_pub = s.hook ? 1 : 0;
-    netPublishState(c, "ring", s.ring ? "on" : "off");
-    netPublishState(c, "hook", s.hook ? "on" : "off");
-  }
+void stationPublishOne(uint8_t i) {
+  if (i >= N_STATIONS) return;
+  const CircuitMap& c = circuits[i];
+  if (!circuitLive(c)) return;              // state the firmware cannot know
+  StationState& s = st[i];
+  s.ring_pub = s.ring ? 1 : 0;
+  s.hook_pub = s.hook ? 1 : 0;
+  netPublishState(c, "ring", s.ring ? "on" : "off");
+  netPublishState(c, "hook", s.hook ? "on" : "off");
 }

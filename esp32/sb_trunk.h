@@ -31,8 +31,10 @@ void trunkReleaseAll();
  * which must never happen while ring is applied (esp32.md 6.2, 8.5). */
 void trunkInhibitRing();
 
-/* Republish seize, ring and fault for every live trunk. */
-void trunkPublishAll();
+/* Republish seize, ring and fault for trunk row i (0-7, trunk i+1), ignoring
+ * change detection; nothing if the trunk board is absent. Three QoS 1
+ * publishes - one circuit per poll tick, as for stationPublishOne(). */
+void trunkPublishOne(uint8_t i);
 
 /* How many trunks are ringing, and how many are queued behind the cap. For the
  * console banner: the cap is invisible from the MQTT side, because a queued

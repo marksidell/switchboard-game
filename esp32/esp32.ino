@@ -421,6 +421,33 @@ static void serviceEnable() {
  * first half second after a reset - which is exactly when nothing is attached
  * to read it. peak is recomputed here rather than cached; it is 250 iterations
  * and this is not a hot path. */
+/* ---- The spread state republish (esp32.md 9.2) --------------------------
+ * A full republish is 70 retained QoS 1 messages, and with this client each
+ * QoS 1 publish blocks until its PUBACK arrives. Sent as one burst it would
+ * hold the 200Hz loop for 100-300ms - longer than a ringing station's 100ms
+ * quiet rule (7.1) and longer than a dial pulse (8.2) - so a ringing station
+ * would flicker off/on every 30s and a digit under way would be spoiled or
+ * split. Instead every full republish walks the channel table one circuit per
+ * poll tick: each tick pays for two or three round trips, and all 31 circuits
+ * are refreshed in 31 ticks, about 155ms.
+ *
+ * requestRepublish() (re)starts the walk from row 0; republishStep() does one
+ * row and is called once per poll tick. A request that arrives mid-walk
+ * restarts it, so every circuit is published after the latest request. While
+ * the connection is down the walk pauses; the reconnect restarts it anyway.
+ * ------------------------------------------------------------------------- */
+static int16_t republish_row = -1;       // next circuits[] row; -1 = idle
+
+static void requestRepublish() { republish_row = 0; }
+
+static void republishStep() {
+  if (republish_row < 0 || !netConnected()) return;
+  const uint8_t r = (uint8_t)republish_row;
+  if (r < N_STATIONS) stationPublishOne(r);
+  else                trunkPublishOne((uint8_t)(r - N_STATIONS));
+  republish_row = (r + 1 < N_CIRCUITS) ? (int16_t)(r + 1) : -1;
+}
+
 /* ---- Loop timing (esp32.md 1.7 code consequence (a)) --------------------
  * The 200Hz poll is only as good as the loop that runs it. Anything that holds
  * loop() - a burst of QoS 1 publishes each waiting for its PUBACK, a blocking
@@ -563,8 +590,7 @@ void setup() {
     delay(10);
   }
   if (netConnected()) {
-    stationPublishAll();
-    trunkPublishAll();
+    requestRepublish();                // spread over the first 31 poll ticks
     netPublishI2cScan(expanders_all_present);
     (void)netTakeJustConnected();      // the birth sequence has just been run
   } else {
@@ -652,10 +678,7 @@ static void releaseAllRelays(const char* why) {
    * which is what ctl/status going to `offline` is for. On the game-heartbeat
    * path the broker is healthy, and a host that recovers must not read a
    * retained hook=on for a relay this just dropped. */
-  if (netConnected()) {
-    stationPublishAll();
-    trunkPublishAll();
-  }
+  if (netConnected()) requestRepublish();
 }
 
 static void serviceFailsafes(uint32_t now) {
@@ -688,8 +711,7 @@ static void serviceFailsafes(uint32_t now) {
     trunkReleaseAll();
 
     if (netConnected()) {
-      stationPublishAll();
-      trunkPublishAll();
+      requestRepublish();
       netPublishI2cScan(ok);
     }
   }
@@ -710,8 +732,7 @@ void loop() {
   if (netConnected() &&
       (reconnected || sync_asked || (now - last_republish_ms >= STATE_REPUBLISH_MS))) {
     last_republish_ms = now;
-    stationPublishAll();
-    trunkPublishAll();
+    requestRepublish();              // spread, one circuit per poll tick (9.2)
     if (reconnected) netPublishI2cScan(expanders_all_present);
   }
 
@@ -733,6 +754,8 @@ void loop() {
     netHeartbeat(now);
 
     serviceFailsafes(now);
+
+    republishStep();                 // at most one circuit's state per tick
   }
 
   serviceEnable();
