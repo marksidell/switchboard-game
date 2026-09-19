@@ -421,6 +421,26 @@ static void serviceEnable() {
  * first half second after a reset - which is exactly when nothing is attached
  * to read it. peak is recomputed here rather than cached; it is 250 iterations
  * and this is not a hot path. */
+/* ---- Loop timing (esp32.md 1.7 code consequence (a)) --------------------
+ * The 200Hz poll is only as good as the loop that runs it. Anything that holds
+ * loop() - a burst of QoS 1 publishes each waiting for its PUBACK, a blocking
+ * reconnect - stretches the gap between poll ticks, and every threshold in
+ * esp32.md 7 and 8 is measured in those ticks. Two figures, both maxima since
+ * the banner last printed them:
+ *
+ *   loop_max_us     the longest single pass through loop(), start to end
+ *   poll_gap_max_ms the longest interval between consecutive poll ticks;
+ *                   5 when nothing is holding the loop
+ *
+ * The second is the one that matters to the debounce: a ringing station's
+ * 100ms quiet rule (7.1) fires on a gap of 100ms, and a dial break or make
+ * interval (8.2) has the gap added to it. Printed and zeroed by printBanner(),
+ * so pressing a key, waiting, and pressing it again measures the interval
+ * between the two presses. */
+static uint32_t loop_max_us      = 0;
+static uint32_t poll_gap_max_ms  = 0;
+static uint32_t timing_since_ms  = 0;
+
 static void printBanner() {
   uint32_t peak = 0;
   for (uint32_t k = 0; k < SINE_STEPS; ++k) {
@@ -478,6 +498,18 @@ static void printBanner() {
   Serial.printf("  trunks       %u ringing, %u queued (cap %u)\n",
                 (unsigned)trunkRingingCount(), (unsigned)trunkQueuedCount(),
                 (unsigned)MAX_TRUNKS_RINGING);
+
+  /* Maxima since the last banner, then zeroed, so two keypresses a minute
+   * apart bracket at least one 30s republish. */
+  const uint32_t now = millis();
+  Serial.printf("  loop timing  longest pass %lu us, longest poll gap %lu ms "
+                "(nominal %lu), over the last %lu s\n",
+                (unsigned long)loop_max_us, (unsigned long)poll_gap_max_ms,
+                (unsigned long)POLL_PERIOD_MS,
+                (unsigned long)((now - timing_since_ms) / 1000));
+  loop_max_us     = 0;
+  poll_gap_max_ms = 0;
+  timing_since_ms = now;
 }
 
 void setup() {
@@ -607,6 +639,7 @@ static bool     game_was_up       = false;
 static uint32_t last_poll_ms      = 0;
 static uint32_t last_republish_ms = 0;
 
+
 static void releaseAllRelays(const char* why) {
   Serial.printf("FAILSAFE: releasing all relays - %s\n", why);
   stationReleaseAll();
@@ -664,6 +697,7 @@ static void serviceFailsafes(uint32_t now) {
 
 void loop() {
   const uint32_t now = millis();
+  const uint32_t pass_start_us = micros();
 
   netService(now);            // keepalive ping and inbound commands
 
@@ -684,6 +718,8 @@ void loop() {
   /* ---- the 200Hz sample stream (6.3) --------------------------------
    * Everything in 7 and 8 runs from here. Nothing samples independently. */
   if (now - last_poll_ms >= POLL_PERIOD_MS) {
+    const uint32_t gap = now - last_poll_ms;
+    if (last_poll_ms != 0 && gap > poll_gap_max_ms) poll_gap_max_ms = gap;
     last_poll_ms = now;
 
     expanderPollInputs();
@@ -700,6 +736,9 @@ void loop() {
   }
 
   serviceEnable();
+
+  const uint32_t pass_us = micros() - pass_start_us;
+  if (pass_us > loop_max_us) loop_max_us = pass_us;
 
   if (Serial.available()) {
     while (Serial.available()) Serial.read();
