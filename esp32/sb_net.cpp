@@ -94,6 +94,18 @@ void netHeartbeat(uint32_t now_ms) {
 
 /* ---- incoming ----------------------------------------------------------- */
 
+/* esp32.md 9.4: a command payload is exactly "on" or "off". Anything else is
+ * logged and dropped - not read as "off", which the first firmware did, making
+ * a malformed command a silent relay release. Returns false for a payload to
+ * drop; `on` is set only when it returns true. */
+static bool parseOnOff(const char* topic, const char* p, bool& on) {
+  if (strcmp(p, "on") == 0)  { on = true;  return true; }
+  if (strcmp(p, "off") == 0) { on = false; return true; }
+  Serial.printf("mqtt: %s payload \"%s\" is neither on nor off - dropped\n",
+                topic, p);
+  return false;
+}
+
 /* mqtt.md 6 is the whole of the inbound surface: two per-circuit commands and
  * two ctl topics. Parsed rather than dispatched through a table because there
  * are only two shapes and the circuit number has to come out of the middle. */
@@ -103,15 +115,16 @@ static void onMessage(String& topic, String& payload) {
 
   unsigned n = 0;
   char     leaf[24];
+  bool     on = false;
 
   if (sscanf(t, "sbgame/station/%u/%23s", &n, leaf) == 2 &&
       strcmp(leaf, "hook/set") == 0) {
-    stationSetHook((uint8_t)n, strcmp(p, "on") == 0);
+    if (parseOnOff(t, p, on)) stationSetHook((uint8_t)n, on);
     return;
   }
   if (sscanf(t, "sbgame/trunk/%u/%23s", &n, leaf) == 2 &&
       strcmp(leaf, "ring/set") == 0) {
-    trunkSetRing((uint8_t)n, strcmp(p, "on") == 0);
+    if (parseOnOff(t, p, on)) trunkSetRing((uint8_t)n, on);
     return;
   }
   if (strcmp(t, "sbgame/ctl/game_heartbeat") == 0) {

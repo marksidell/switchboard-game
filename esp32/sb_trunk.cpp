@@ -43,6 +43,11 @@ struct TrunkState {
 
   const char* fault;
 
+  /* What `seize` reports: the loop as last classified. Set on entering SEIZED,
+   * cleared on entering IDLE, and deliberately untouched on entering
+   * RING_ON_TRUNK, so it is not simply phase == Seized (esp32.md 8.3, Rev 7). */
+  bool        seize_on;
+
   int8_t      seize_pub;    // -1 never published, 0 off, 1 on
   int8_t      ring_pub;
   const char* fault_pub;
@@ -98,6 +103,7 @@ static void enterIdle(uint8_t i, uint32_t now) {
   s.in_digit      = false;
   s.digit_spoiled = false;
   s.cadence_since = now;
+  s.seize_on      = false;
   publishBoolIfChanged(row(i), "seize", false, s.seize_pub);
 }
 
@@ -112,6 +118,7 @@ static void enterSeized(uint8_t i, uint32_t now) {
   s.in_digit       = false;
   s.digit_spoiled  = false;
   s.cadence_since  = now;
+  s.seize_on       = true;
   setFault(i, FAULT_NONE);
   publishBoolIfChanged(row(i), "seize", true, s.seize_pub);
 }
@@ -236,8 +243,12 @@ void trunkPoll(uint32_t now) {
           if (s.phase != Phase::RingOnTrunk) {
             Serial.printf("trunk %u: ring applied from the switchboard\n",
                           (unsigned)c.number);
-            if (s.phase == Phase::Seized)
-              publishBoolIfChanged(c, "seize", false, s.seize_pub);
+            /* `seize` is left as it was (esp32.md 8.3, Rev 7). Entered from
+             * SEIZED it stays "on": publishing "off" here would look to the
+             * game like a release and tear the call down for an operator's
+             * slip. `fault` = "ring_on_trunk" is the report. When the pattern
+             * stops with the loop still closed, enterSeized() finds seize
+             * already "on" and publishes nothing. */
             s.phase         = Phase::RingOnTrunk;
             s.pulses        = 0;
             s.in_digit      = false;
@@ -324,14 +335,32 @@ void trunkSetRing(uint8_t n, bool on) {
     return;
   }
 
-  if (s.phase == Phase::Seized) {
-    Serial.printf("ring/set: trunk %u is seized, not ringing it\n", (unsigned)n);
-    return;
+  /* esp32.md 8.3, Rev 7: "on" is acted on in IDLE only. In RINGING it is a
+   * no-op. In SEIZED and RING_ON_TRUNK it is dropped with a log line and not
+   * held for later - a ring that started seconds after the command, once the
+   * operator had finished with the trunk, is not what the game meant. Nothing
+   * is published, so the `ring` echo stays "off", which is how the game
+   * learns it was not acted on; it re-issues if it still wants the ring. */
+  switch (s.phase) {
+    case Phase::Ringing:
+      return;
+    case Phase::Seized:
+    case Phase::RingOnTrunk:
+      Serial.printf("ring/set: trunk %u is %s - dropped, not ringing it\n",
+                    (unsigned)n,
+                    s.phase == Phase::Seized ? "seized" : "being rung from the switchboard");
+      return;
+    case Phase::Idle:
+      break;
   }
+
+  /* IDLE: ring now, or queue behind the concurrent-ring cap (8.5). A queued
+   * request was accepted here and is only waiting for the generator, which is
+   * why it survives where a dropped one does not. */
   s.ring_requested = true;
-  if (s.phase == Phase::Idle && ringingCount() < MAX_TRUNKS_RINGING) {
+  if (ringingCount() < MAX_TRUNKS_RINGING) {
     enterRinging(i, now);
-  } else if (s.phase == Phase::Idle) {
+  } else {
     Serial.printf("ring/set: trunk %u queued - %u already ringing\n",
                   (unsigned)n, (unsigned)ringingCount());
   }
@@ -366,7 +395,7 @@ void trunkPublishOne(uint8_t i) {
   const CircuitMap& c = row(i);
   if (!circuitLive(c)) return;
   TrunkState& s = tr[i];
-  const bool seized = (s.phase == Phase::Seized);
+  const bool seized = s.seize_on;        // not phase == Seized: see seize_on
   s.seize_pub = seized ? 1 : 0;
   s.ring_pub  = s.cadence_on ? 1 : 0;
   s.fault_pub = s.fault;
