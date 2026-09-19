@@ -24,9 +24,7 @@ static constexpr uint8_t REG_OLATB  = 0x15;
 
 /* A single NAK can be noise on a daisy-chained bus with 2.2k pull-ups and six
  * feet of 6P6C cord. Three consecutive failures on the same device is a fault;
- * one is a glitch to log and retry. The threshold is a judgement, not a figure
- * from the documents - esp32.md 10 says "NAK or read-back mismatch" without
- * saying how many. */
+ * one is a glitch to log and retry. esp32.md 6.2 and 10 both give the three. */
 static constexpr uint8_t BUS_FAULT_THRESHOLD = 3;
 
 static uint8_t consecutive_errors[N_EXPANDERS];

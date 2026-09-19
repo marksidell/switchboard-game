@@ -1,36 +1,21 @@
 /* =============================================================================
- * 551 Switchboard Simulator - Ring Generator PWM
+ * 551 Switchboard Simulator - ESP32 controller firmware
  *
- * Target : Olimex ESP32-POE-ISO   (Arduino IDE board: "OLIMEX ESP32-PoE-ISO")
- * Implements: ring_generator.docx Rev 48, sections 5, 6, 8.3, 9.4, 12, 12.5,
- * 12.6. T1 is specified as an Antek AS-0522 toroid as of Rev 48; the OSD Black
- * 70V is retired. The Hammond 1182G22/1182J22 named in earlier notes were
- * candidates only and were never fitted.
+ * Target : Olimex ESP32-POE-ISO   (arduino-cli FQBN esp32:esp32:esp32-poe-iso)
+ * Implements esp32.md Rev 7, the specification for everything in this folder.
+ * The firmware has three jobs: ring waveform generation, I2C master to the
+ * station and trunk MCP23017 expanders, and MQTT client to the host - and with
+ * them the relay failsafes of esp32.md 10 and dial pulse detection on the
+ * trunks. This file keeps the waveform, setup() and loop(); the rest is in the
+ * sb_*.{h,cpp} files beside it. The channel table in sb_table.cpp is the
+ * spine - 23 stations and 8 trunks are rows, not code.
  *
- * Also implements esp32.md Rev 2: the I2C master, expander polling, station
- * and trunk logic, dial pulse detection and the MQTT client. Those live in the
- * sb_*.{h,cpp} files beside this one; this file keeps the waveform, setup() and
- * loop(). The channel table in sb_table.cpp is the spine - 24 stations and 8
- * trunks are rows, not code.
+ * References. "esp32.md N" and "mqtt.md N" are those documents. A bare
+ * "Section N" or "section N" in this file is ring_generator.md (generator
+ * Rev 60), which owns the bridge, the 74HCT04 and the waveform arithmetic and
+ * which esp32.md 3 and 5 defer to. "Rev NN" beside a generator fact is the
+ * generator revision that settled it.
  *
- * BENCH STATE, 2026-09-17, and expected to be short-lived. Three things on the
- * board differ from the documents, and each of them gates testing:
- *
- *   No transformer is fitted at all. The Antek is on order. Nothing that
- *   depends on T1 can be measured yet - in particular the esp32.md 5.3
- *   start-phase capture, which is only meaningful with the toroid in circuit.
- *
- *   The 74HCT02 is still fitted rather than the 74HCT04 of generator Rev 48
- *   section 5, so the duty tables below are complemented rather than in the
- *   direct form. See the note above buildDutyTables().
- *
- *   No station or trunk board exists, so no MCP23017 answers the scan. The
- *   arming gate of esp32.md 4.2 step 8 would therefore refuse every boot;
- *   BENCH_ALLOW_MISSING_EXPANDERS in sb_config.h bypasses it, loudly, until a
- *   board is fitted.
- *
- * Update or delete this block as the parts arrive; it describes a bench, not
- * a design.
  * Requires ESP32 Arduino core 3.x. The 2.x LEDC path was removed once the
  * hardware had only ever run on 3.x - see the note above pwmBegin().
  *
@@ -54,16 +39,12 @@
  * it, configuration and live state together, including the tick counter that
  * says whether the step timer is really dispatching.
  *
- * WHAT THIS SKETCH DOES
+ * THE WAVEFORM
  *   Generates the 20.000 Hz sine on a 40 kHz carrier that drives the two
- *   IR2104 half-bridges through the 74HCT02, and sequences SD around it.
- *   The generator runs while GPIO4 is held LOW.
- *
- * WHAT IT DOES NOT DO
- *   No ETH.begin(), no I2C, no MCP23017 scan, no MQTT. Section 12.4 puts
- *   Ethernet and the expander scan ahead of arming the bridge; the gate for
- *   that is slavesPresent() below, stubbed to true. Ring cadence is not here
- *   either - the trunk board's ring relays do cadence, this board free-runs.
+ *   IR2104 half-bridges through the 74HCT04, and sequences SD around it. The
+ *   generator runs while GPIO4 is held LOW and the arming gate of esp32.md 4.2
+ *   step 8 has passed; it free-runs, and ring cadence is done by the trunk
+ *   board's relays (esp32.md 8.4), not here.
  *
  * POLARITY (section 5.1/5.2)
  *   IN1 = GPIO32,  IN2 = GPIO33,  SD = GPIO14.  All non-inverting.
@@ -289,11 +270,9 @@ static void parkOutputs() {
   digitalWrite(PIN_SYNC, LOW);     // sync idles low whenever the generator is stopped
 }
 
-/* ---- Section 4.5 gate ----------------------------------------------------
- * "Do not arm the H-bridge if a required slave is absent." Replace this with
- * the real scan result when the I2C layer lands.
- * ------------------------------------------------------------------------- */
-/* esp32.md 4.2 step 8. Set by the boot scan and by every I2C recovery. The
+/* ---- The arming gate (esp32.md 4.2 step 8) -------------------------------
+ * "Do not arm the H-bridge if a required expander is absent." Set by the boot
+ * scan and by every I2C recovery. The
  * bridge is not armed while a configured expander is missing: the generator
  * would be feeding a ring bus whose relays the firmware cannot see or release. */
 static bool expanders_all_present = false;
@@ -350,7 +329,7 @@ static constexpr uint32_t START_STEP = SINE_STEPS / 4;   // 62 of 250. Exact:
 static bool startWaveform() {
   if (running) return true;
   if (!slavesPresent()) {
-    Serial.println("ARM REFUSED: required I2C slave absent (section 4.5)");
+    Serial.println("ARM REFUSED: a configured expander is absent (esp32.md 4.2 step 8)");
     return false;
   }
 
@@ -600,9 +579,9 @@ void setup() {
   /* ---- 4.2 step 8: the arming gate ----------------------------------- */
   if (!expanders_all_present) {
     if (BENCH_ALLOW_MISSING_EXPANDERS) {
-      Serial.println("BENCH OVERRIDE: a configured expander is absent, but "
-                     "BENCH_ALLOW_MISSING_EXPANDERS is set, so the bridge will "
-                     "still arm. Clear it in sb_config.h once a board is fitted.");
+      Serial.println("BENCH OVERRIDE: a configured expander is absent, but this "
+                     "is a bench build (BENCH_ALLOW_MISSING_EXPANDERS=1), so the "
+                     "bridge will still arm. Build without it once a board is fitted.");
     } else {
       Serial.println("ARM INHIBITED: a configured expander is absent (4.2 step 8)");
     }

@@ -4,8 +4,8 @@
 
 #include "sb_table.h"
 
-/* Expander 2 (0x22) carries stations 17-24 and is absent from the two-board
- * build. 0x24-0x27 are reserved for optional second expanders that are not
+/* Expander 2 (0x22) carries stations 17-23 and, on its bit 7, the operator
+ * tap. 0x24-0x27 are reserved for optional second expanders that are not
  * fitted (esp32.md 6.1) and so have no rows. */
 const ExpanderMap expanders[N_EXPANDERS] = {
   { 0x20, "station board 1 (st 1-8)",   0 },
@@ -48,17 +48,11 @@ const CircuitMap circuits[N_CIRCUITS] = {
   { Kind::Station,  21,   2,   4 },
   { Kind::Station,  22,   2,   5 },
   { Kind::Station,  23,   2,   6 },
-  /* 0x22 bit 7 is the operator tap strip, not a station: no relay is fitted and
-   * no ring detector reading there means anything. It has no row, so nothing
-   * polls it, nothing publishes it and no command can reach it - which is what
-   * esp32.md 6.1 means by leaving the output mapping alone rather than
-   * special-casing the bit. The shadow leaves it 0 for the life of the run.
-   *
-   * Discrepancy worth knowing about: esp32.md 6.1 places the tap on station
-   * board *1* Port B bit 7. The hardware as built has it on the last board, and
-   * a station count of 23 only works that way round - board 1 bit 7 would leave
-   * stations 1-7 and 9-24. Built to the hardware; the document wants a
-   * correction. */
+  /* 0x22 bit 7 is the operator tap strip, not a station: no relay or ring
+   * detector is fitted (esp32.md 6.1, station 7.9.7). It has no row, so
+   * nothing polls it, nothing publishes it and no command can reach it -
+   * esp32.md 6.1 adopts this as its statement of "leave the mapping alone".
+   * The shadow leaves the bit 0 for the life of the run. */
   { Kind::Trunk,     1,   3,   0 },
   { Kind::Trunk,     2,   3,   1 },
   { Kind::Trunk,     3,   3,   2 },
@@ -80,12 +74,12 @@ bool expanderConfigured(uint8_t exp_index) {
 
 const CircuitMap* stationCircuit(uint8_t n) {
   if (n < 1 || n > N_STATIONS) return nullptr;
-  return &circuits[n - 1];                          // stations occupy rows 0..23
+  return &circuits[n - 1];                          // stations occupy rows 0..22
 }
 
 const CircuitMap* trunkCircuit(uint8_t n) {
   if (n < 1 || n > N_TRUNKS) return nullptr;
-  return &circuits[N_STATIONS + n - 1];             // trunks occupy rows 24..31
+  return &circuits[N_STATIONS + n - 1];             // trunks occupy rows 23..30
 }
 
 bool circuitLive(const CircuitMap& c) {

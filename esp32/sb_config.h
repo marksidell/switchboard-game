@@ -21,31 +21,34 @@
  * ------------------------------------------------------------------------- */
 static constexpr uint8_t STATION_BOARDS_FITTED = 3;
 
-/* ---- BENCH OVERRIDE, 2026-09-17 -----------------------------------------
+/* ---- Bench override ------------------------------------------------------
  * esp32.md 4.2 step 8 says not to arm the H-bridge when a configured expander
- * is absent. No station or trunk board exists yet, so on the present breadboard
- * that gate would refuse every time and the ring generator - which does work,
- * and is still being characterised - would never run.
+ * is absent. A breadboard with no station or trunk board would refuse every
+ * boot, and the ring generator could never be characterised on it.
  *
- * With this true the scan result is still reported honestly on ctl/i2c and in
- * the console banner; only the gate is bypassed, and loudly. Set it false the
- * moment the first expander is on the bus, and delete it when the boards are
- * built. It is the one place in this firmware that knowingly departs from the
- * specification.
+ * Off unless the build turns it on (esp32.md 1.7), so a fresh checkout built
+ * the ordinary way is safe. The bench build adds it on the command line:
+ *
+ *   arduino-cli compile --fqbn esp32:esp32:esp32-poe-iso \
+ *     --build-property "compiler.cpp.extra_flags=-DBENCH_ALLOW_MISSING_EXPANDERS=1" esp32
+ *
+ * With it on, the scan result is still reported honestly on ctl/i2c and in the
+ * console banner; only the gate is bypassed, and loudly. It is the one place
+ * this firmware knowingly departs from the specification, and it is a build
+ * option rather than a source edit so that departure cannot be committed by
+ * accident.
  * ------------------------------------------------------------------------- */
-static constexpr bool BENCH_ALLOW_MISSING_EXPANDERS = true;
+#ifndef BENCH_ALLOW_MISSING_EXPANDERS
+#define BENCH_ALLOW_MISSING_EXPANDERS 0
+#endif
 
 static constexpr uint8_t STATIONS_PER_BOARD = 8;
 
 /* Twenty-three stations, not twenty-four. The last position on the last station
- * board - 0x22 Port B bit 7 - is the operator tap strip and has no relay
- * fitted, so there is no station 24. Three boards give 24 positions and one of
- * them is not a station.
- *
- * mqtt.md 3 still describes station/<n> as n = 1-24; 24 is simply a number no
- * topic is ever published on. See the note in sb_table.cpp: esp32.md 6.1 puts
- * the tap on station board *1* rather than the last one, which is the opposite
- * of the hardware as built. */
+ * board - 0x22, strip 8, bit 7 - is the operator tap and has no relay or ring
+ * detector fitted, so there is no station 24 (esp32.md 6.1; mqtt.md 3 numbers
+ * stations 1-23). Three boards give 24 positions and one of them is not a
+ * station. */
 static constexpr uint8_t N_STATIONS = 23;
 static constexpr uint8_t N_TRUNKS   = 8;
 

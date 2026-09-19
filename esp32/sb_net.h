@@ -55,6 +55,6 @@ void netPublishEvent(const CircuitMap& c, const char* leaf, const char* payload)
 
 void netPublishCtl(const char* leaf, const char* payload, bool retained, int qos);
 
-/* The boot scan result. mqtt.md 11 records that no topic carries this yet and
- * suggests sbgame/ctl/i2c; that is what this publishes. */
+/* The expander scan result on sbgame/ctl/i2c (mqtt.md 4): "ok", or "missing:"
+ * and the absent addresses. Published at connect, and after every rescan. */
 void netPublishI2cScan(bool all_present);
