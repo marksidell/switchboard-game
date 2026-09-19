@@ -120,15 +120,23 @@ struct Shared {
     Spsc<Result,  512> res_audio;   // audio  -> MQTT
     Spsc<Result,  512> res_ana;     // analysis -> MQTT
 
-    // ---- the snapshot hand-off, audio -> analysis
+    // ---- the snapshot hand-off, audio -> analysis (audio.md 6.1)
     //
     // The audio thread fills snap[0], then snap[1], then snap[0] ... one per
-    // hop. After filling one it stores its index in snap_ready. The analysis
-    // thread takes that index (setting snap_ready back to -1), sets
-    // snap_busy[i] while it works on it, and clears snap_busy[i] when done.
-    // Before overwriting a buffer the audio thread checks its snap_busy flag;
-    // if the analysis thread is somehow still on it, that hop is skipped and
-    // counted in hops_lost rather than overwritten under the reader.
+    // hop. snap_ready is a one-slot mailbox holding the index of a filled
+    // block, or -1. Each side owns one edge of the busy flag:
+    //
+    //   audio thread, each hop: if the block due to be filled is busy, skip
+    //     the hop (count it in hops_lost) and try the same block next hop.
+    //     Otherwise fill it, SET its busy flag, and exchange its index into
+    //     the mailbox. If the exchange hands back an older index, that block
+    //     was never collected: clear its busy flag and count it lost.
+    //
+    //   analysis thread: exchange the mailbox to -1. If it held an index,
+    //     transform that block and CLEAR its busy flag when done.
+    //
+    // A block is busy from the moment it is posted until it is either
+    // transformed or reclaimed, and only its owner of the moment touches it.
     Snapshot          snap[2];
     std::atomic<bool> snap_busy[2] { { false }, { false } };
     std::atomic<int>  snap_ready { -1 };   // index of a filled snapshot, or -1
@@ -136,8 +144,19 @@ struct Shared {
     // ---- lifetime and signalling
     std::atomic<bool> running        { true };   // thread lifetime
     std::atomic<bool> quit           { false };  // SIGTERM/SIGINT, or a lost stream
-    std::atomic<bool> force_publish  { false };   // republish detector state
     std::atomic<bool> audio_failed   { false };   // stream lost unrecoverably
+
+    // ---- the full detector publish that must precede the birth message
+    // (audio.md 12). The MQTT thread increments publish_req to ask for one;
+    // the analysis thread notices the new number at the start of a hop,
+    // publishes every peer, op and optone that hop regardless of the two-hop
+    // rule, and when the hop's results are all queued stores that number in
+    // publish_done. The MQTT thread publishes "online" once publish_done has
+    // caught up with the request it made. Numbers rather than a flag, so a
+    // pass requested for an earlier connection can never be mistaken for the
+    // current one.
+    std::atomic<unsigned> publish_req  { 0 };
+    std::atomic<unsigned> publish_done { 0 };
 
     // ---- counters for the log. Producers add; net.cpp's report_counters()
     // reads and zeroes them every ten seconds and logs any that are non-zero.

@@ -74,6 +74,7 @@ private:
     void publish(const char* topic, const char* value, bool retain = true);
     void publish_result(const Result& r);
     void publish_initial();
+    void publish_birth_when_ready(double now);
     void drain_results(bool publishing);
     void check_heartbeat(double now);
     void report_counters(double now);
@@ -87,6 +88,10 @@ private:
     double            next_try_  = 0.0;      // earliest time to (re)connect
     double            backoff_   = 1.0;      // seconds; doubles to 30 on failure
     double            last_count_report_ = 0.0;
+    bool              birth_pending_ = false;  // state published, online not yet
+    unsigned          birth_req_     = 0;      // the publish_req we are waiting on
+    double            birth_since_   = 0.0;    // when we started waiting
+    bool              birth_warned_  = false;
 
     // The state the game does not own, shadowed so a reconnect can republish it
     // truthfully rather than assert the startup defaults (audio.md 12).

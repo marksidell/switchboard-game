@@ -163,8 +163,9 @@ void Net::on_disconnect(int rc)
     // broker must not leave ringback on a trunk any more than a crashed game.
     Command c; c.verb = Verb::StopGame;
     send(c);
-    game_lost_ = false;
-    beat_seen_ = false;
+    game_lost_     = false;
+    beat_seen_     = false;
+    birth_pending_ = false;         // the next connect starts its own
 }
 
 // ---------------------------------------------------------------- inbound
@@ -411,8 +412,9 @@ void Net::publish_result(const Result& r)
 // publish_initial()                                                     [mqtt]
 //   On every (re)connect: every circuit's play, listen (and tone, for
 //   trunks) empty; monitor and all 34 test channels as they actually are;
-//   ask the detector to republish peer/op/optone; then "online" - last, so a
-//   subscriber that sees online already has everything else.
+//   then ask the analysis thread for a full peer/op/optone publish. "online"
+//   is not published here: publish_birth_when_ready() does it once that pass
+//   is done, so a subscriber that sees online already has everything else.
 void Net::publish_initial()
 {
     // audio.md 12: published before the birth message, so that a subscriber
@@ -433,11 +435,42 @@ void Net::publish_initial()
         publish(topic, test_state_[ch] ? "on" : "off");
     }
 
-    // peer, op and optone follow from the analysis thread on the next hop.
-    sh_.force_publish.store(true);
+    // peer, op and optone come from the analysis thread's next hop, and only
+    // when that pass is done does run() publish "online" (audio.md 12).
+    birth_req_     = sh_.publish_req.fetch_add(1, std::memory_order_acq_rel) + 1;
+    birth_pending_ = true;
+    birth_since_   = monotonic_s();
+    birth_warned_  = false;
+}
 
+// publish_birth_when_ready()                                             [mqtt]
+//   Called every pass of run() while a birth is pending. Once the analysis
+//   thread reports the forced pass done, drains the result queues one last
+//   time - the pass's results were queued before it reported, so this
+//   collects any the ordinary drain missed - and only then publishes
+//   "online". If no pass arrives within 2 s the audio stream is not
+//   producing hops; that is logged once, and online is still withheld,
+//   because saying it would claim detector state the program does not have.
+void Net::publish_birth_when_ready(double now)
+{
+    if (!birth_pending_ || !connected_) return;
+
+    if (sh_.publish_done.load(std::memory_order_acquire) != birth_req_) {
+        if (!birth_warned_ && now - birth_since_ > 2.0) {
+            log_line("mqtt: no detector pass in %.0fs - holding audio_status "
+                     "until one arrives", now - birth_since_);
+            birth_warned_ = true;
+        }
+        return;
+    }
+
+    drain_results(true);
+    char topic[64];
     std::snprintf(topic, sizeof topic, "%sctl/audio_status", PREFIX);
     publish(topic, "online");
+    birth_pending_ = false;
+    log_line("mqtt: online (detector pass %.0f ms after the state publish)",
+             1000.0 * (now - birth_since_));
 }
 
 // drain_results()                                                       [mqtt]
@@ -497,8 +530,10 @@ void Net::report_counters(double now)
 
 // run()                                                                 [mqtt]
 //   One pass every ~20 ms: try to connect if due; mosquitto_loop() (network
-//   I/O and callbacks, waiting up to 20 ms for traffic); publish results;
-//   check the heartbeat; report counters; notice a dead audio stream.
+//   I/O and callbacks, waiting up to 20 ms for traffic - or, with no
+//   connection, a plain 20 ms sleep); publish results; publish "online" if a
+//   connect is waiting on it; check the heartbeat; report counters; notice a
+//   dead audio stream.
 void Net::run()
 {
     while (!sh_.quit.load(std::memory_order_relaxed)) {
@@ -530,8 +565,18 @@ void Net::run()
             on_disconnect(rc);
             next_try_ = monotonic_s() + backoff_;
         }
+        if (rc != MOSQ_ERR_SUCCESS) {
+            // With no connection mosquitto_loop() returns at once rather than
+            // waiting in select(), so without this the loop would run flat out
+            // between reconnect attempts - a core pegged for up to 30s at a
+            // time (audio.md 3, Rev 3 code consequence 1). While connecting
+            // or connected it returns SUCCESS and has already waited.
+            struct timespec ts = { 0, 20 * 1000 * 1000 };
+            nanosleep(&ts, nullptr);
+        }
 
         drain_results(connected_);
+        publish_birth_when_ready(now);
         check_heartbeat(now);
         report_counters(now);
 

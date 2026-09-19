@@ -187,6 +187,7 @@ void Detector::analyse(int cap_index)
         // board. Losing it means the fault is in this circuit's own transmit
         // path, transformer or cabling.
         std::snprintf(value, sizeof value, "deaf");
+        amb_prev_[slot] = false;        // so a return to ambiguous logs at once
     } else {
         int heard[chan::N_SLOTS], n = 0;
         for (int s = 1; s <= chan::N_SLOTS; ++s) {
@@ -199,10 +200,18 @@ void Detector::analyse(int cap_index)
             chan::circuit_id(heard[0], value, sizeof value);
         } else {
             std::snprintf(value, sizeof value, "ambiguous");
-            // Log the full list with levels. That alone usually identifies
-            // which of the three causes it is (station 8.7): a threshold
-            // problem shows several weak pilots, crosstalk one strong and one
-            // weak, a cord fault two strong.
+        }
+
+        // Log the full list with levels. That alone usually identifies which
+        // of the three causes it is (station 8.7): a threshold problem shows
+        // several weak pilots, crosstalk one strong and one weak, a cord fault
+        // two strong. Logged when the circuit becomes ambiguous and then at
+        // most once a second - every hop would be 23 lines a second for as
+        // long as the condition lasts (audio.md Rev 3).
+        const bool   amb = n > 1;
+        const double now = monotonic_s();
+        if (amb && (!amb_prev_[slot] || now - amb_logged_[slot] >= 1.0)) {
+            amb_logged_[slot] = now;
             char line[256];
             int  k = std::snprintf(line, sizeof line, "detector: slot %d ambiguous, heard", slot);
             for (int i = 0; i < n && k < (int)sizeof line - 32; ++i) {
@@ -213,6 +222,7 @@ void Detector::analyse(int cap_index)
             }
             log_line("%s (own %.1fdB)", line, own_db);
         }
+        amb_prev_[slot] = amb;
     }
     confirm(peer_[slot], Topic::Peer, slot, value, !peer_[slot].seen);
 }
@@ -245,14 +255,16 @@ void Detector::dump_row(uint64_t hop)
 // process_snapshot()                                                [analysis]
 //   For each capture channel: copy (and window) its 4096 samples into in_,
 //   run the FFT, turn the output into powers in pw_, then analyse(). If the
-//   MQTT thread has asked for a republish (after a reconnect), clears every
-//   Confirm's `seen` first so this hop publishes everything.
+//   MQTT thread has asked for a full publish (on every connect), clears every
+//   Confirm's `seen` first so this hop publishes everything, and reports the
+//   pass done at the end so the MQTT thread can publish "online".
 void Detector::process_snapshot(int w)
 {
-    const bool force = sh_.force_publish.exchange(false);
+    const unsigned req   = sh_.publish_req.load(std::memory_order_acquire);
+    const bool     force = req != publish_served_;
     if (force) {
-        // After a reconnect the broker has nothing; publish what we hold rather
-        // than wait for the next change.
+        // After a (re)connect the broker has nothing; publish what we hold
+        // rather than wait for the next change.
         for (int s = 1; s <= chan::N_SLOTS; ++s) { peer_[s].seen = false; op_[s].seen = false; }
         optone_.seen = false;
     }
@@ -272,16 +284,24 @@ void Detector::process_snapshot(int w)
         analyse(c);
         if (dump_slot_ == c + 1 && dump_hops_ > 0) dump_row(sh_.snap[w].hop);
     }
+
+    if (force) {
+        // Every result of the forced pass is in the queue by now; release
+        // ordering makes sure the MQTT thread sees them once it sees this.
+        publish_served_ = req;
+        sh_.publish_done.store(req, std::memory_order_release);
+    }
 }
 
 // run()                                                             [analysis]
 //   Polls Shared::snap_ready every 2 ms. When a snapshot is waiting, takes it,
-//   marks it busy so the audio thread will not overwrite it, processes it and
-//   releases it.
+//   processes it and releases it by clearing its busy flag. The audio thread
+//   set that flag before posting the block (audio.md 6.1); this thread only
+//   ever clears it.
 void Detector::run()
 {
     while (sh_.running.load(std::memory_order_relaxed)) {
-        const int w = sh_.snap_ready.exchange(-1, std::memory_order_acquire);
+        const int w = sh_.snap_ready.exchange(-1, std::memory_order_acq_rel);
         if (w < 0) {
             // The hop is 43ms; 2ms of latency added to it is nothing, and a
             // condition variable would be one more thing the audio thread has
@@ -290,7 +310,6 @@ void Detector::run()
             nanosleep(&ts, nullptr);
             continue;
         }
-        sh_.snap_busy[w].store(true, std::memory_order_release);
         process_snapshot(w);
         sh_.snap_busy[w].store(false, std::memory_order_release);
     }

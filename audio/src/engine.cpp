@@ -413,10 +413,10 @@ void Engine::process_capture()
 
 // hop_if_due()                                                         [audio]
 //   Every 2048 samples, copies the last 4096 samples of every capture channel
-//   out of ring_ into the next Shared::snap[] buffer, in time order, and tells
-//   the analysis thread it is there. The ring's oldest sample is at ring_w_,
-//   so each channel is two memcpy()s: ring_w_..end, then 0..ring_w_. See
-//   Shared in ipc.h for the hand-off protocol.
+//   out of ring_ into the next Shared::snap[] buffer, in time order, marks it
+//   busy and posts it to the analysis thread. The ring's oldest sample is at
+//   ring_w_, so each channel is two memcpy()s: ring_w_..end, then 0..ring_w_.
+//   See Shared in ipc.h for the hand-off protocol.
 void Engine::hop_if_due()
 {
     if (since_hop_ < FFT_HOP) return;
@@ -425,8 +425,9 @@ void Engine::hop_if_due()
     const int w = snap_next_;
     if (sh_.snap_busy[w].load(std::memory_order_acquire)) {
         // The analysis thread is still on the buffer this hop would overwrite.
-        // Drop the hop rather than corrupt it; a dropped hop costs 43ms of
-        // detector latency and nothing else.
+        // Drop the hop rather than corrupt it, and do not advance: the
+        // analysis thread is behind and must never be waited for. A dropped
+        // hop costs 43ms of detector latency and nothing else.
         sh_.hops_lost.fetch_add(1, std::memory_order_relaxed);
         return;
     }
@@ -440,7 +441,22 @@ void Engine::hop_if_due()
         std::memcpy(d + a, rg,           ring_w_ * sizeof(float));
     }
     sh_.snap[w].hop = ++hop_;
-    sh_.snap_ready.store(w, std::memory_order_release);
+
+    // audio.md 6.1: this thread sets busy and the analysis thread clears it,
+    // so there is no moment at which both believe the block is theirs. Busy
+    // goes up before the index is posted - the analysis thread can only reach
+    // the block through the mailbox, so by the time it can see the block it
+    // is already marked.
+    sh_.snap_busy[w].store(true, std::memory_order_release);
+    const int stale = sh_.snap_ready.exchange(w, std::memory_order_acq_rel);
+    if (stale >= 0) {
+        // The analysis thread never collected the previous hop, and now never
+        // will: the exchange that returned it to us is the same one that
+        // took it out of the mailbox, so nobody else holds it. Hand the block
+        // back and count the hop.
+        sh_.snap_busy[stale].store(false, std::memory_order_release);
+        sh_.hops_lost.fetch_add(1, std::memory_order_relaxed);
+    }
     snap_next_ ^= 1;
 }
 

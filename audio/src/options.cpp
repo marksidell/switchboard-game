@@ -21,7 +21,8 @@ std::string Options::device() const
     // The name is the ALSA card id, which is not "Digiface": snd-usb-audio
     // builds it from the device's serial number, so this unit is USB24306452
     // (/proc/asound/cards, 2026-09-18). It is stable across replugs and
-    // reboots, unlike the index. Another Digiface would have another id.
+    // reboots, unlike the index. Another Digiface would have another id, which
+    // is why --card has no default (audio.md 4).
     if (card.find(':') != std::string::npos) return card;
     return "hw:" + card;
 }
@@ -33,7 +34,7 @@ static void usage(const char* p)
     std::fprintf(stderr,
 "Usage: %s [options]\n"
 "\n"
-"  --card NAME            ALSA card name, index or device (default USB24306452)\n"
+"  --card ID              ALSA card id from /proc/asound/cards (required)\n"
 "  --period N             frames per period (256)\n"
 "  --periods N            periods per buffer (3)\n"
 "  --broker HOST[:PORT]   MQTT broker (localhost:1883)\n"
@@ -84,7 +85,7 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         const char* nx = (i + 1 < argc) ? argv[i + 1] : nullptr;
 
         if (a == "--help" || a == "-h")     { usage(argv[0]); exit_now = true; return true; }
-        if (a == "--version")               { std::printf("sbaudio 1 (audio.md Rev 1)\n");
+        if (a == "--version")               { std::printf("sbaudio 3 (audio.md Rev 3)\n");
                                               exit_now = true; return true; }
 
         if (a == "--no-realtime")           { o.no_rt = true; continue; }
@@ -141,6 +142,11 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         while (!o.pass.empty() && (o.pass.back() == '\r' || o.pass.back() == '\n')) o.pass.pop_back();
     }
 
+    if (o.card.empty()) {
+        std::fprintf(stderr, "--card is required: the card id from /proc/asound/cards "
+                             "(the Digiface here is USB24306452)\n");
+        return false;
+    }
     if (o.period < 16 || o.period > 8192) { std::fprintf(stderr, "--period out of range\n"); return false; }
     if (o.periods < 2 || o.periods > 32)  { std::fprintf(stderr, "--periods out of range\n"); return false; }
     if (o.tone_mod < 0.0 || o.tone_mod > 1.0) { std::fprintf(stderr, "--tone-mod must be 0..1\n"); return false; }

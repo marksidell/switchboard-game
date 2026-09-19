@@ -41,18 +41,11 @@ engine renders pilots with.
     --mqtt-user sbgame --mqtt-pass-file /etc/sbaudio/mqtt.pass --wav-dir wav
 ```
 
-`--help` lists every option. They are `audio.md` §14's list plus four:
-
-- `--mqtt-user`, `--mqtt-pass-file`, `--mqtt-pass` — the broker is not anonymous
-  (`mqtt.md` §9) and `audio.md` §14's list predates that being settled. Prefer the file:
-  a password in `ExecStart` is in every `ps` listing on the host.
-- `--window rect|hann` — station §8.2's fallback for a rig whose Digiface and A32 are
-  not locked to each other. `rect` is the specified configuration and the default; see
-  `docs/pilot-map.md`.
-- `--client-id` — one client, so a fixed id is right; a random one would leave an
-  orphaned session on every reconnect.
-- `--no-realtime` — skip `SCHED_FIFO` and `mlockall`, for bench runs as an ordinary
-  user.
+`--help` lists every option; they are `audio.md` §14's list exactly. `--card` is
+required and has no default: it is the id in the second column of `/proc/asound/cards`,
+which `snd-usb-audio` derives from the device's serial number — `USB24306452` for the
+Digiface on portland. Prefer `--mqtt-pass-file` to `--mqtt-pass`: a password in
+`ExecStart` is in every `ps` listing on the host.
 
 Without hardware, an ALSA loopback card is enough to exercise everything but the
 converters:

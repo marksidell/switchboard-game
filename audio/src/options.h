@@ -15,9 +15,11 @@
 // default. Levels are in dBFS (util.h) unless marked otherwise.
 struct Options {
     // ALSA
-    // The ALSA id snd-usb-audio gives the Digiface is built from its serial
-    // number, not its product name - see options.cpp.
-    std::string card    = "USB24306452"; // name, index, or a full "hw:x" string
+    // Required, no default (audio.md 4, 14, Rev 2): the ALSA card id from
+    // /proc/asound/cards, which snd-usb-audio builds from the device's serial
+    // number - this unit's is USB24306452 - so no document can predict it.
+    // The id in use lives in the systemd unit.
+    std::string card;                   // id, index, or a full "hw:x" string
     unsigned    period  = 256;          // frames (5.3ms)
     unsigned    periods = 3;            // periods per buffer
 
@@ -68,8 +70,9 @@ struct Options {
 
 // parse_options()                                                    [startup]
 //   Walks argv, filling `o` from its defaults. Reads the password file if one
-//   was given, then range-checks the values that would otherwise fail
-//   obscurely later (period size, modulation depth, filter edges).
+//   was given, then checks --card was given and range-checks the values that
+//   would otherwise fail obscurely later (period size, modulation depth,
+//   filter edges).
 //   Returns false, having printed why to stderr, if the arguments are
 //   unusable. `exit_now` is set for --help and --version, which return true:
 //   they succeeded, and the caller should simply exit 0.

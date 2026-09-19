@@ -88,6 +88,12 @@ private:
     Confirm peer_[chan::N_SLOTS + 1];
     Confirm op_[chan::N_SLOTS + 1];
     Confirm optone_;
+    unsigned publish_served_ = 0;     // last Shared::publish_req acted on
+
+    // ---- the "ambiguous" log line, per slot: whether the last hop was
+    // ambiguous, and when the pilot list was last logged (monotonic seconds).
+    bool   amb_prev_[chan::N_SLOTS + 1]   = { false };
+    double amb_logged_[chan::N_SLOTS + 1] = { 0.0 };
 
     // ---- analysis mode, set in prepare()
     int    guard_[4] = { 0, 0, 0, 0 };  // guard bin offsets from a pilot
