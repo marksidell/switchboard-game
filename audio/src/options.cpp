@@ -55,6 +55,8 @@ static void usage(const char* p)
 "                         stopband dB (3600 5600 70)\n"
 "  --vad-margin DB        speech threshold above floor (10)\n"
 "  --vad-floor DB         speech absolute threshold (-50)\n"
+"  --vad-hangover S       silence that ends speech (1.5)\n"
+"  --vad-max-speech S     longest speech waited out before timeout (30)\n"
 "  --dump CIRCUIT SECONDS spectrum dump to stdout, e.g. --dump station/5 10\n"
 "  --window rect|hann     detector window (rect; see docs/pilot-map.md)\n"
 "  --no-realtime          do not ask for SCHED_FIFO or lock memory\n"
@@ -85,7 +87,7 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         const char* nx = (i + 1 < argc) ? argv[i + 1] : nullptr;
 
         if (a == "--help" || a == "-h")     { usage(argv[0]); exit_now = true; return true; }
-        if (a == "--version")               { std::printf("sbaudio 4 (audio.md Rev 4)\n");
+        if (a == "--version")               { std::printf("sbaudio 6 (audio.md Rev 6)\n");
                                               exit_now = true; return true; }
 
         if (a == "--no-realtime")           { o.no_rt = true; continue; }
@@ -122,6 +124,8 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
                                             o.lp_att  = atof(argv[i + 3]); i += 3; }
         else if (a == "--vad-margin")     { o.vad_margin = atof(nx); ++i; }
         else if (a == "--vad-floor")      { o.vad_floor = atof(nx); ++i; }
+        else if (a == "--vad-hangover")   { o.vad_hangover = atof(nx); ++i; }
+        else if (a == "--vad-max-speech") { o.vad_max_speech = atof(nx); ++i; }
         else if (a == "--dump")           { if (!want(argc, i, 2, "--dump")) return false;
                                             o.dump_circuit  = argv[i + 1];
                                             o.dump_seconds  = atof(argv[i + 2]); i += 2; }
@@ -152,5 +156,11 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
     if (o.tone_mod < 0.0 || o.tone_mod > 1.0) { std::fprintf(stderr, "--tone-mod must be 0..1\n"); return false; }
     if (o.lp_stop <= o.lp_pass)           { std::fprintf(stderr, "--monitor-lp: stopband edge must exceed passband edge\n"); return false; }
     if (o.max_file <= 0.0)                { std::fprintf(stderr, "--max-file must be positive\n"); return false; }
+    // Both are counted in 10 ms frames, so anything under one frame would be
+    // zero frames - speech that ends the instant it starts.
+    if (o.vad_hangover < 0.01 || o.vad_hangover > 60.0) {
+        std::fprintf(stderr, "--vad-hangover must be 0.01-60 s\n"); return false; }
+    if (o.vad_max_speech < 0.01 || o.vad_max_speech > 3600.0) {
+        std::fprintf(stderr, "--vad-max-speech must be 0.01-3600 s\n"); return false; }
     return true;
 }

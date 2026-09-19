@@ -129,6 +129,7 @@ src/dsp.*          sine table, biquads, the elliptic design, the limiter
 src/alsa.*         the duplex stream, linked, and the sample conversion
 src/wav.*          loading and validating a prompt
 src/engine.*       the audio thread: mixer, tones, files, speech detector, monitor
+src/vad.*          the speech detector's decisions: floor, window, speech/silence/timeout
 src/detector.*     the analysis thread: FFT and station 8.7
 src/net.*          the MQTT thread: commands in, state out, the failsafes
 src/main.cpp       startup order (audio.md 13.1) and shutdown

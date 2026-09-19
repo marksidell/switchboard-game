@@ -51,8 +51,10 @@ struct Options {
     double lp_att     = 70.0;
 
     // Speech detector, audio.md 9.2
-    double vad_margin = 10.0;
-    double vad_floor  = -50.0;
+    double vad_margin     = 10.0;
+    double vad_floor      = -50.0;
+    double vad_hangover   = 1.5;        // s of quiet that ends speech (Rev 6)
+    double vad_max_speech = 30.0;       // s of speech waited out before timeout
 
     // Diagnostics
     std::string dump_circuit;           // "station/5" or "trunk/2"

@@ -39,10 +39,11 @@ static const ToneSpec TONES[] = {
 // The payload echoed on `tone` for each ToneKind; "" for Off clears the topic.
 static const char* TONE_NAME[] = { "", "dial", "ringback", "busy" };
 
-// Speech detection runs on 10ms frames (audio.md 9.2).
-static const int VAD_FRAME  = SAMPLE_RATE / 100;    // 480 samples
-static const int VAD_WIN    = 30;                   // frames in the decision window
-static const int VAD_NEEDED = 20;                   // of which this many above threshold
+// Speech detection runs on 10ms frames (audio.md 9.2); the decisions and their
+// constants are in vad.h.
+static const int VAD_FRAME = Listener::FRAME_SAMPLES;          // 480 samples
+static_assert(VAD_FRAME * Listener::FRAMES_PER_S == SAMPLE_RATE,
+              "a speech frame is 10 ms");
 
 // prepare()                                                          [startup]
 //   Sizes every buffer from what the driver granted, converts the level
@@ -86,6 +87,15 @@ bool Engine::prepare()
     const Biquad vlp = butter_lowpass (3400.0, SAMPLE_RATE);
     vad_hp_ = vhp;
     vad_lp_ = vlp;
+    vad_params_.margin_db         = sh_.opt.vad_margin;
+    vad_params_.abs_floor_db      = sh_.opt.vad_floor;
+    vad_params_.hangover_frames   =
+        (uint32_t)std::lround(sh_.opt.vad_hangover * Listener::FRAMES_PER_S);
+    vad_params_.max_speech_frames =
+        (uint32_t)std::lround(sh_.opt.vad_max_speech * Listener::FRAMES_PER_S);
+    log_line("speech: margin %.1f dB, floor %.1f dBFS, hangover %.2f s, "
+             "max speech %.1f s", sh_.opt.vad_margin, sh_.opt.vad_floor,
+             sh_.opt.vad_hangover, sh_.opt.vad_max_speech);
 
     // Monitor chain, station 8.8 through audio.md 10.1.
     mon_hp_ = butter_highpass(150.0, SAMPLE_RATE);
@@ -171,30 +181,12 @@ void Engine::stop_source(int slot, const char* echo)
 }
 
 // start_listen()                                                       [audio]
-//   Begins a listen: sets the timeout, clears the 30-frame window, and takes
-//   the noise floor as the 10th percentile of the last second of frame levels
-//   (the 10th-quietest of 100). nth_element() finds it without a full sort
-//   and without allocating. Publishes "listening".
+//   Begins (or restarts) a listen, allowing `seconds` for speech to start -
+//   Listener::start() takes the floor and clears the window - and publishes
+//   "listening".
 void Engine::start_listen(int slot, double seconds)
 {
-    Vad& v = vad_[slot];
-    v.active = true;
-    v.left   = (uint64_t)(seconds * SAMPLE_RATE);
-    v.win    = 0;
-    v.win_n  = 0;
-
-    // The floor is the 10th percentile of the frame levels over the second
-    // before the command arrived, which is why the history runs at all times.
-    float tmp[100];
-    const int n = v.hist_n;
-    if (n > 0) {
-        std::memcpy(tmp, v.hist, (size_t)n * sizeof(float));
-        const int k = n / 10;
-        std::nth_element(tmp, tmp + k, tmp + n);
-        v.floor_db = tmp[k];
-    } else {
-        v.floor_db = -120.0;
-    }
+    vad_[slot].lis.start(seconds);
     post(Topic::Listen, slot, "listening");
 }
 
@@ -202,7 +194,7 @@ void Engine::start_listen(int slot, double seconds)
 //   Ends a listen with no result, publishing echo ("" clears the topic).
 void Engine::cancel_listen(int slot, const char* echo)
 {
-    vad_[slot].active = false;
+    vad_[slot].lis.cancel();
     if (echo) post(Topic::Listen, slot, echo);
 }
 
@@ -289,7 +281,7 @@ void Engine::drain_commands()
             for (int s = 1; s <= chan::N_SLOTS; ++s) {
                 if (!chan::is_circuit_slot(s)) continue;
                 if (prog_[s].kind != Prog::Kind::None) stop_source(s, "");
-                if (vad_[s].active) cancel_listen(s, "");
+                if (vad_[s].lis.active()) cancel_listen(s, "");
             }
             break;
 
@@ -306,8 +298,8 @@ void Engine::drain_commands()
 //   Step 3 of the period. For each capture channel, in capf_:
 //     - append its samples to that channel's 4096-sample ring (all channels);
 //     - run the speech detector on it (circuits only, not the tap): filter,
-//       accumulate 10 ms frames, keep the one-second history, and if a listen
-//       is active decide speech / timeout;
+//       accumulate 10 ms frames, and hand each frame to the Listener, which
+//       keeps the history and reports speech, silence or timeout;
 //   then run the tap channel (24) through the monitor chain into mon_row_,
 //   advance the ring position, and take a snapshot if a hop is due.
 void Engine::process_capture()
@@ -346,47 +338,19 @@ void Engine::process_capture()
             v.acc  = 0.0;
             v.nacc = 0;
 
+            // A frame during which this channel had a programme source
+            // running is not valid (audio.md 9.3): the two-wire interface has
+            // no hybrid, so our own file returns on this receive at full
+            // strength. The Listener discards it and restarts its window.
             const bool valid = !v.src_seen;
             v.src_seen = false;
 
-            // audio.md 9.3: the two-wire interface has no hybrid, so everything
-            // this channel transmits returns on its own receive at full
-            // strength. Frames with a source running are discarded and the
-            // window restarts, which also covers the few milliseconds of echo
-            // that persist after the source stops. Such a frame is kept out of
-            // the floor history too, or the floor would follow our own file up.
-            if (!valid) { v.win = 0; v.win_n = 0; continue; }
-
-            v.hist[v.hist_w] = db;
-            v.hist_w = (v.hist_w + 1) % 100;
-            if (v.hist_n < 100) ++v.hist_n;
-
-            if (!v.active) continue;
-
-            // The floor may rise at no more than 1dB/s and never fall, so a
-            // slowly rising room does not trigger and a burst does not lower
-            // the bar.
-            float tmp[100];
-            std::memcpy(tmp, v.hist, (size_t)v.hist_n * sizeof(float));
-            const int k = v.hist_n / 10;
-            std::nth_element(tmp, tmp + k, tmp + v.hist_n);
-            const double cand = tmp[k];
-            if (cand > v.floor_db) v.floor_db = std::min(cand, v.floor_db + 0.01);
-
-            const double thr = std::max(v.floor_db + sh_.opt.vad_margin,
-                                        sh_.opt.vad_floor);
-            v.win = ((v.win << 1) | (db >= thr ? 1u : 0u)) & ((1u << VAD_WIN) - 1u);
-            if (v.win_n < VAD_WIN) ++v.win_n;
-
-            if (v.win_n >= VAD_WIN && __builtin_popcount(v.win) >= VAD_NEEDED) {
-                v.active = false;
-                post(Topic::Listen, slot, "speech");
+            switch (v.lis.frame(db, valid, vad_params_)) {
+            case Listener::Event::Speech:  post(Topic::Listen, slot, "speech");  break;
+            case Listener::Event::Silence: post(Topic::Listen, slot, "silence"); break;
+            case Listener::Event::Timeout: post(Topic::Listen, slot, "timeout"); break;
+            case Listener::Event::None:    break;
             }
-        }
-
-        if (v.active) {
-            if (v.left <= period_) { v.active = false; post(Topic::Listen, slot, "timeout"); }
-            else                   { v.left -= period_; }
         }
     }
 

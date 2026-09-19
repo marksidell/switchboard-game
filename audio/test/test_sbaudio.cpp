@@ -21,6 +21,7 @@
 #include "../src/dsp.h"
 #include "../src/ipc.h"
 #include "../src/util.h"
+#include "../src/vad.h"
 
 // Count of failed checks; main() returns non-zero if any failed.
 static int failures = 0;
@@ -260,12 +261,119 @@ static void test_pilot_map()
     check(integral, "every pilot is an integer number of cycles per block");
 }
 
+// ---------------------------------------------------------------- listener
+
+// A synthetic caller, one 10 ms frame at a time. Levels: the room at -70 dBFS,
+// so the threshold is the absolute -50 (floor + 10 = -60 is below it), and
+// speech at -30. Every expected frame number below is worked out from the
+// rules in audio.md 9.2, not read off the program.
+struct Script {
+    Listener  lis;
+    VadParams p;
+    int       t = 0;                    // frames since start() was called
+    int       speech = -1, silence = -1, timeout = -1, events = 0;
+
+    void run(float db, int n, bool valid = true)
+    {
+        for (int i = 0; i < n; ++i) {
+            const Listener::Event e = lis.frame(db, valid, p);
+            if (lis.active() || e != Listener::Event::None) ++t;
+            if (e == Listener::Event::None) continue;
+            ++events;
+            if (e == Listener::Event::Speech  && speech  < 0) speech  = t;
+            if (e == Listener::Event::Silence && silence < 0) silence = t;
+            if (e == Listener::Event::Timeout && timeout < 0) timeout = t;
+        }
+    }
+    void start(double s) { lis.start(s); t = 0; }
+};
+
+static const float ROOM = -70.0f, TALK = -30.0f;
+
+// test_listener()
+//   The state machine of audio.md 9.2 (Rev 6): start of speech, end of speech
+//   after the hangover, the two timeouts, discarded frames and cancel.
+static void test_listener()
+{
+    std::printf("speech detector (audio.md 9.2, Rev 6)\n");
+
+    {   // One sentence. Speech is declared on its 20th frame (20 of 30). Its
+        // end: 28 quiet frames bring the window to 2 of 30, which is quiet;
+        // 150 frames of that is the 1.5 s hangover. 50 + 150 + 28 + 149.
+        Script s; s.run(ROOM, 100); s.start(5.0);
+        s.run(ROOM, 50); s.run(TALK, 150); s.run(ROOM, 400);
+        check(s.speech == 70,  "one sentence: speech on its 20th frame");
+        check(s.silence == 377, "one sentence: silence 1.5 s after the window goes quiet");
+        check(s.events == 2 && s.timeout < 0, "one sentence: exactly two reports");
+        check(!s.lis.active(), "one sentence: the listen is over");
+    }
+    {   // A 0.8 s pause inside the sentence is shorter than the hangover.
+        Script s; s.run(ROOM, 100); s.start(5.0);
+        s.run(ROOM, 50); s.run(TALK, 100); s.run(ROOM, 80); s.run(TALK, 100);
+        const int end = s.t;
+        s.run(ROOM, 400);
+        check(s.silence == end + 177, "a pause inside a sentence does not end it");
+        check(s.events == 2, "one speech report for the whole sentence");
+    }
+    {   // A cough in the hangover: one frame above, the window stays at <= 2,
+        // the count runs on.
+        Script s; s.run(ROOM, 100); s.start(5.0);
+        s.run(ROOM, 50); s.run(TALK, 150);
+        const int end = s.t;
+        s.run(ROOM, 99); s.run(TALK, 1); s.run(ROOM, 300);
+        check(s.silence == end + 177, "a cough after the caller stops does not restart the count");
+    }
+    {   // A second sentence in the hangover: three frames above restarts it.
+        // The oldest of the three leaves the window 28 frames after the last.
+        Script s; s.run(ROOM, 100); s.start(5.0);
+        s.run(ROOM, 50); s.run(TALK, 150);
+        const int end = s.t;
+        s.run(ROOM, 99); s.run(TALK, 3); s.run(ROOM, 400);
+        check(s.silence == end + 102 + 177, "a second sentence restarts the hangover");
+    }
+    {   // Nobody speaks: the command's seconds, in frames.
+        Script s; s.run(ROOM, 100); s.start(2.0); s.run(ROOM, 400);
+        check(s.timeout == 200 && s.speech < 0, "no speech: timeout at the command's 2 s");
+    }
+    {   // Speech that never stops: declared once the window is full (30 valid
+        // frames), then 30 s from that frame.
+        Script s; s.run(ROOM, 100); s.start(5.0); s.run(TALK, 3100);
+        check(s.speech == 30, "speech from the first frame: declared when the window fills");
+        check(s.timeout == 30 + 3000 && s.silence < 0, "endless speech: timeout 30 s after it began");
+    }
+    {   // Our own file on the channel: discarded frames never count, and the
+        // window restarts when the file stops.
+        Script s; s.run(ROOM, 100); s.start(5.0);
+        s.run(TALK, 100, false);
+        check(s.speech < 0, "frames with a source running are not speech");
+        s.run(TALK, 100);
+        check(s.speech == 130, "speech after the source stops needs a fresh window");
+    }
+    {   // Discarded frames are still time the game is waiting.
+        Script s; s.run(ROOM, 100); s.start(1.0); s.run(TALK, 300, false);
+        check(s.timeout == 100, "discarded frames still run the start timeout");
+    }
+    {   // Cancel: nothing further is reported.
+        Script s; s.run(ROOM, 100); s.start(5.0); s.run(ROOM, 10);
+        s.lis.cancel(); s.run(TALK, 300);
+        check(s.events == 0 && !s.lis.active(), "a cancelled listen reports nothing");
+    }
+    {   // --vad-hangover reaches the rule: 0.5 s is 50 frames.
+        Script s; s.p.hangover_frames = 50; s.run(ROOM, 100); s.start(5.0);
+        s.run(ROOM, 50); s.run(TALK, 150);
+        const int end = s.t;
+        s.run(ROOM, 200);
+        check(s.silence == end + 28 + 49, "a shorter --vad-hangover ends speech sooner");
+    }
+}
+
 int main()
 {
     log_start();
     test_pilot_map();
     test_monitor_filter();
     test_detector();
+    test_listener();
     std::printf("\n%s\n", failures ? "FAILURES" : "all checks passed");
     return failures ? 1 : 0;
 }

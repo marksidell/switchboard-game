@@ -11,7 +11,8 @@
 //   read()             ALSA -> ibuf_           32 channels, interleaved ints
 //   convert            ibuf_ -> capf_          floats, one row per channel
 //   process_capture()  capf_ -> ring_          last 4096 samples per channel
-//                      capf_ -> vad_[]         speech detection, per circuit
+//                      capf_ -> vad_[]         speech detection, per circuit:
+//                                              frames -> Listener (vad.h)
 //                      capf_ row 24 -> mon_row_  the loudspeaker feed
 //                      hop_if_due()            every 2048: ring_ -> Snapshot
 //   drain_commands()   cmdq -> prog_[], vad_[], test_on_[], monitor gain
@@ -30,6 +31,7 @@
 #include "alsa.h"
 #include "dsp.h"
 #include "ipc.h"
+#include "vad.h"
 
 class Engine {
 public:
@@ -75,22 +77,14 @@ private:
     //
     // Signal path, per sample:  capture -> hp -> lp -> square -> acc
     // Every 480 samples (a 10 ms "frame") acc becomes one level in dBFS, which
-    // goes into hist[] and, while listening, is compared to the threshold; the
-    // yes/no answer is shifted into win.
+    // goes to the Listener (vad.h). The Listener keeps the history and makes
+    // every decision; this struct is only the signal processing in front of it.
     struct Vad {
         BiquadState hp, lp;                 // 300-3400Hz band-pass
         double      acc      = 0.0;         // sum of squares in this frame
         int         nacc     = 0;           // samples in acc so far, 0-479
-        float       hist[100] = { 0 };      // one second of frame levels, dBFS
-        int         hist_n   = 0;           // how many of hist[] are filled
-        int         hist_w   = 0;           // next hist[] slot to write (ring)
-        bool        active   = false;       // a listen is in progress
         bool        src_seen = false;       // a source ran during this frame
-        double      floor_db = -120.0;      // noise floor while listening
-        uint32_t    win      = 0;           // last 30 frames, one bit each;
-                                            // bit 0 newest, 1 = above threshold
-        int         win_n    = 0;           // frames in win so far, up to 30
-        uint64_t    left     = 0;           // samples until timeout
+        Listener    lis;                    // history, floor, window, phases
     };
 
     // Per-period steps of run(). Each is described where it is defined.
@@ -134,12 +128,14 @@ private:
     uint32_t test_ph_ = 0, test_inc_ = 0;   // 1 kHz test tone, Q32
     std::vector<float> test_row_;           // one period of 1kHz, shared
 
-    Biquad vad_hp_, vad_lp_;                // 300-3400Hz, shared coefficients
+    Biquad    vad_hp_, vad_lp_;             // 300-3400Hz, shared coefficients
+    VadParams vad_params_;                  // from the options, set in prepare()
 
     // ---- per-channel state, indexed by slot 1-32 or playback channel 1-34;
     // element 0 unused (channels.h)
     Prog prog_[chan::N_SLOTS + 1];
-    Vad  vad_[chan::N_SLOTS + 1];
+    Vad  vad_[chan::N_SLOTS + 1];           // Listener holds 400 bytes of history;
+                                            // 33 of them, allocated with Engine
     bool test_on_[chan::N_PLAY_CH + 1] = { false };
 
     // ---- monitor (audio.md 10): tap capture -> mon_hp_ -> mon_lp_[0..3]
