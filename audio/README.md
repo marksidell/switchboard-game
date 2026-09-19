@@ -104,12 +104,13 @@ switchboard and a terminal:
 
 ## Reading the code
 
-Start with four comments, in this order:
+Start with five comments, in this order:
 
 1. `src/ipc.h` — a picture of the three threads and what passes between them.
 2. `src/engine.h` — one 5.3 ms audio period, step by step.
-3. `src/detector.h` — the pilot detector in one paragraph.
-4. `src/net.h` — the path of a command in and a result out.
+3. `src/vad.h` — a listen's three phases and what each publishes on `listen`.
+4. `src/detector.h` — the pilot detector in one paragraph.
+5. `src/net.h` — the path of a command in and a result out.
 
 Every function has a header comment. The bracketed tag on each names the thread it
 runs on: `[startup]`, `[audio]`, `[analysis]`, `[mqtt]` or `[any]`. That tag answers
