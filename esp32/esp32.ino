@@ -100,7 +100,8 @@ static_assert(CARRIER_FREQ_HZ == 20UL * CARRIER_CYCLES_PER_STEP * SINE_STEPS,
 static constexpr uint32_t STEP_PERIOD_US =
     (1000000UL * CARRIER_CYCLES_PER_STEP) / CARRIER_FREQ_HZ;   // 200
 
-// 2^bits is the LEDC "always high" duty. Pin HIGH = channel inactive.
+// 2^bits is the LEDC "always high" duty. Through the 74HCT04's two gates a
+// pin HIGH is IN HIGH, the high side of that leg on (esp32.md 3).
 static constexpr uint32_t DUTY_MAX = 1UL << LEDC_RESOLUTION_BITS;  // 1024
 
 /* ---- Section 9.4: output amplitude trim ----------------------------------
@@ -149,19 +150,17 @@ static constexpr uint32_t ENBL_DEBOUNCE_MS = 20;
  * drive is worse than no code. The #error below makes a downgrade a build
  * failure rather than a silent fallback.
  *
- * One thing the 2.x path did that this one cannot: it set duty to DUTY_MAX
- * before attaching the pin, so the pin never presented a LOW. In 3.x the
- * attach and the first duty write are separate calls, so between them both
- * PWM pins sit at duty 0.
+ * In 3.x the attach and the first duty write are separate calls, so between
+ * them both PWM pins sit at duty 0. Under the 74HCT04 that is the park state
+ * itself - both pins LOW, IN1 = IN2 = LOW, both low sides, the primary shorted
+ * to ground - so the window is harmless by construction, and SD is driven LOW
+ * by setup() before it opens in any case. parkOutputs() is still called
+ * immediately after; it writes the same zeros.
  *
- * That window used to matter and no longer does. Doc Rev 40 removed the gate
- * cross-coupling, so both PWM pins LOW is now IN1 = IN2 = HIGH: Q1 and Q2, both
- * high sides, both ends of the primary at the rail, no path to ground. A zero
- * vector. Before Rev 40 the same window was IN1 high with IN2 low - Q1 and Q4,
- * the full rail across the primary as DC - and was survivable only because SD
- * is already driven LOW by setup(). parkOutputs() is still called immediately
- * after, but it is now tidiness rather than the thing standing between the
- * attach and a DC short.
+ * History, so an older board is legible (generator 12.3): under the 74HCT02
+ * the pins were active LOW, so this same window was IN1 high with IN2 low -
+ * Q1 and Q4, the full rail across the primary as DC - and the 2.x path set
+ * duty to full scale before attaching the pin to avoid ever presenting a LOW.
  * ------------------------------------------------------------------------- */
 
 #if ESP_ARDUINO_VERSION_MAJOR < 3
@@ -179,29 +178,24 @@ static bool pwmBegin() {
 }
 
 /* ---- Duty tables ---------------------------------------------------------
- * Precomputed register values, already complemented. One leg modulates while
- * the other is parked HIGH, so the differential across T1 is +/-24V peak and
- * 48 Vpp at G_AMPLITUDE = 1.0 - the figure section 9.1 works from. At the 0.90
- * actually in use it is +/-21.6V peak, 43 Vpp. Rev 48 targets 70-80V RMS out of
- * the Antek's 230V winding; the exact ratio waits on measurement.
+ * Precomputed register values in the direct form of esp32.md 3: the 74HCT04
+ * routes every signal through two of its gates - 1-2 for PWM A, 3-4 for PWM B,
+ * 5-6 for SD - so each path is non-inverting end to end, duty is written as
+ * is, and the parked leg is 0. One leg modulates at duty d while the other is
+ * parked at 0, its low side on, tied to ground. The differential across T1 is
+ * then +/-24V peak and 48 Vpp at G_AMPLITUDE = 1.0 - the figure section 9.1
+ * works from. At the 0.90 actually in use it is +/-21.6V peak, 43 Vpp. Rev 48
+ * targets 70-80V RMS out of the Antek's 230V winding; the exact ratio waits on
+ * measurement.
  *
- * TEMPORARY, 2026-09-04, and it is the firmware's only departure from Rev 48.
- * Section 5 specifies a 74HCT04 hex inverter with every signal routed through
- * two of its gates - 1-2 for PWM A, 3-4 for PWM B, 5-6 for SD - so each path
- * inverts twice and is therefore non-inverting end to end. Against that part the
- * tables want the direct Rev 44 form: duty = d on the active leg, 0 on the
- * parked leg.
- *
- * That part is not fitted. The board still carries the 74HCT02, whose single
- * gate per PWM path inverts, so the tables are complemented here to suit the
- * board as it physically exists. The Rev 44 form was flashed once, briefly, on
- * 2026-09-04 and both legs appeared to switch on the same half-cycle.
- *
- * When the 74HCT04 goes in: duty = d on the active leg, 0 on the parked leg,
- * park at 0, un-complement the peak calculation in printBanner(), and drop the
- * two digitalWrite HIGHs on the PWM pins in setup(). Note that SD was already
- * a double-inverted, non-inverting path on the 74HCT02 (gates 3+4) and does not
- * change.
+ * The first firmware complemented these tables, because the board then still
+ * carried the 74HCT02, whose single gate per PWM path inverts. esp32.md Rev 7
+ * moves them to this form. Do not run this build on a board that still has
+ * the 74HCT02: through one inverting gate every leg is inverted - the parked
+ * leg sits on its high side instead of its low - and the output is not the
+ * waveform section 12.2 specifies. This form was flashed on the 74HCT02 board
+ * once, briefly, on 2026-09-04, and both legs appeared to switch on the same
+ * half-cycle.
  *
  * Phase is sampled at the centre of each step rather than the edge. It costs
  * nothing and avoids a step of exactly zero duty at each zero crossing.
@@ -221,11 +215,11 @@ static void buildDutyTables(float g) {
     if (d > (long)DUTY_MAX)       d = (long)DUTY_MAX;
 
     if (s >= 0.0f) {                                   // left leg switches
-      duty_a[k] = (uint16_t)((long)DUTY_MAX - d);
-      duty_b[k] = (uint16_t)DUTY_MAX;                  // right leg tied to GND
+      duty_a[k] = (uint16_t)d;
+      duty_b[k] = 0;                                   // right leg tied to GND
     } else {                                           // right leg switches
-      duty_a[k] = (uint16_t)DUTY_MAX;                  // left leg tied to GND
-      duty_b[k] = (uint16_t)((long)DUTY_MAX - d);
+      duty_a[k] = 0;                                   // left leg tied to GND
+      duty_b[k] = (uint16_t)d;
     }
   }
 }
@@ -265,8 +259,8 @@ static void stepCallback(void*) {
 }
 
 static void parkOutputs() {
-  pwmWrite(PIN_PWM_A, DUTY_MAX);   // both pins HIGH
-  pwmWrite(PIN_PWM_B, DUTY_MAX);   // both IR2104 IN pins LOW
+  pwmWrite(PIN_PWM_A, 0);          // both pins LOW, both IR2104 IN pins LOW:
+  pwmWrite(PIN_PWM_B, 0);          // both low sides, primary at ground (esp32.md 3)
   digitalWrite(PIN_SYNC, LOW);     // sync idles low whenever the generator is stopped
 }
 
@@ -450,8 +444,8 @@ static uint32_t timing_since_ms  = 0;
 static void printBanner() {
   uint32_t peak = 0;
   for (uint32_t k = 0; k < SINE_STEPS; ++k) {
-    const uint32_t da = DUTY_MAX - duty_a[k];   // tables are complemented
-    const uint32_t db = DUTY_MAX - duty_b[k];
+    const uint32_t da = duty_a[k];              // direct form, esp32.md 3
+    const uint32_t db = duty_b[k];
     if (da > peak) peak = da;
     if (db > peak) peak = db;
   }
@@ -525,9 +519,11 @@ void setup() {
   pinMode(PIN_SD, OUTPUT);
   digitalWrite(PIN_SD, LOW);
 
-  // Park the PWM pins HIGH before the LEDC peripheral takes them.
-  pinMode(PIN_PWM_A, OUTPUT); digitalWrite(PIN_PWM_A, HIGH);
-  pinMode(PIN_PWM_B, OUTPUT); digitalWrite(PIN_PWM_B, HIGH);
+  // Hold the PWM pins LOW - the park state (esp32.md 3) - until the LEDC
+  // peripheral takes them. R_PWMA_PD and R_PWMB_PD already pull them there
+  // through boot; this makes it driven rather than merely pulled.
+  pinMode(PIN_PWM_A, OUTPUT); digitalWrite(PIN_PWM_A, LOW);
+  pinMode(PIN_PWM_B, OUTPUT); digitalWrite(PIN_PWM_B, LOW);
 
   // Expander /RESET idles HIGH (section 4.7). The 1 ms assert and the scan
   // belong with the I2C code; this only stops the line floating.
