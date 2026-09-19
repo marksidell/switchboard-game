@@ -19,11 +19,11 @@
  * Requires ESP32 Arduino core 3.x. The 2.x LEDC path was removed once the
  * hardware had only ever run on 3.x - see the note above pwmBegin().
  *
- * File is esp32.ino in a folder named esp32/ - the Arduino build requires the
- * sketch folder and the .ino to carry the same name. Named for the controller
- * rather than for the ring generator, because ring generation is one of the
- * three jobs esp32.md 1 gives this firmware and naming it after that one
- * misled. Was ring.ino, and ring_generator_pwm.ino before that.
+ * File is control.ino in a folder named control/ - the Arduino build requires
+ * the sketch folder and the .ino to carry the same name. Named, like audio/,
+ * for the domain it owns - the system's control I/O - rather than for one of
+ * its three jobs or for the part it runs on. Was esp32.ino, and ring.ino and
+ * ring_generator_pwm.ino before that, while it was only the ring generator.
  *
  * The board DOES restart by itself after an upload - no reset press needed.
  * Verified 2026-09-04: flashed with arduino-cli, which ends with "Hard

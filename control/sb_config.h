@@ -30,7 +30,7 @@ static constexpr uint8_t STATION_BOARDS_FITTED = 3;
  * the ordinary way is safe. The bench build adds it on the command line:
  *
  *   arduino-cli compile --fqbn esp32:esp32:esp32-poe-iso \
- *     --build-property "compiler.cpp.extra_flags=-DBENCH_ALLOW_MISSING_EXPANDERS=1" esp32
+ *     --build-property "compiler.cpp.extra_flags=-DBENCH_ALLOW_MISSING_EXPANDERS=1" control
  *
  * With it on, the scan result is still reported honestly on ctl/i2c and in the
  * console banner; only the gate is bypassed, and loudly. It is the one place
@@ -53,7 +53,7 @@ static constexpr uint8_t N_STATIONS = 23;
 static constexpr uint8_t N_TRUNKS   = 8;
 
 /* ---- Pins (esp32.md 3; generator 3.1/3.2 is the authority) ---------------
- * PIN_PWM_A/B, PIN_SD, PIN_ENBL and PIN_SYNC are declared in esp32.ino, which
+ * PIN_PWM_A/B, PIN_SD, PIN_ENBL and PIN_SYNC are declared in control.ino, which
  * owns the waveform. The I2C pins and /RESET are here because the expander
  * driver is a separate translation unit and needs them.
  * ------------------------------------------------------------------------- */

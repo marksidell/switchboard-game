@@ -29,6 +29,6 @@ void stationReleaseAll();
 /* Republish `ring` and `hook` for station row i (0-22, station i+1), ignoring
  * change detection; nothing if its expander is absent. Two QoS 1 publishes,
  * each blocking until its PUBACK, so it is called for one circuit per poll tick
- * by the spread republish in esp32.ino and never in a loop over every station
+ * by the spread republish in control.ino and never in a loop over every station
  * (esp32.md 9.2). */
 void stationPublishOne(uint8_t i);
