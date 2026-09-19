@@ -1,3 +1,5 @@
+// wav.cpp - loading and validating a prompt file. See wav.h.
+
 #include "wav.h"
 
 #include <sndfile.h>
@@ -8,6 +10,7 @@
 #include "dsp.h"
 #include "util.h"
 
+// load_result_text()                                                     [mqtt]
 const char* load_result_text(LoadResult r)
 {
     switch (r) {
@@ -25,6 +28,8 @@ const char* load_result_text(LoadResult r)
 // mqtt.md 7: the base name only - no directory, no extension, no separator. A
 // payload containing '/' or '..' is rejected rather than sanitised, because a
 // game that sends one has a bug and the log should say so.
+// name_ok()                                                              [mqtt]
+//   True if `b` is acceptable as a base filename.
 static bool name_ok(const std::string& b)
 {
     if (b.empty() || b.size() > 31)           return false;
@@ -35,6 +40,10 @@ static bool name_ok(const std::string& b)
     return true;
 }
 
+// load_wav()                                                             [mqtt]
+//   See wav.h. In order: check the name, open with libsndfile (which reads the
+//   header), refuse on rate / channels / length before reading any audio,
+//   read every sample as float, then measure the high-frequency content.
 LoadResult load_wav(const std::string& dir, const std::string& base,
                     double max_seconds, AudioBuffer*& out, double& hf_db)
 {

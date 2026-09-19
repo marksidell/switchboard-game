@@ -1,3 +1,6 @@
+// detector.cpp - the analysis thread: FFT and station 8.7. See detector.h
+// for the detector in one paragraph and the data structures.
+
 #include "detector.h"
 
 #include <algorithm>
@@ -13,6 +16,7 @@ using chan::FFT_N;
 // docs/pilot-map.md is the table; this is the one place the program reads it.
 // Nothing here recomputes the mapping - channels.h holds it.
 
+// ~Detector()                                                        [startup]
 Detector::~Detector()
 {
     if (plan_) fftwf_destroy_plan(plan_);
@@ -20,6 +24,10 @@ Detector::~Detector()
     if (out_)  fftwf_free(out_);
 }
 
+// wisdom_path()                                                      [startup]
+//   Where FFTW's saved planning results live: $SBAUDIO_WISDOM if set, else
+//   ~/.cache/sbaudio-wisdom, else nowhere (a service with no HOME simply
+//   plans afresh each start, which takes well under a second).
 static std::string wisdom_path()
 {
     if (const char* e = std::getenv("SBAUDIO_WISDOM")) return e;
@@ -27,6 +35,8 @@ static std::string wisdom_path()
     return "";
 }
 
+// prepare()                                                          [startup]
+//   See detector.h.
 bool Detector::prepare()
 {
     in_  = fftwf_alloc_real(FFT_N);
@@ -85,6 +95,10 @@ bool Detector::prepare()
     return true;
 }
 
+// bin_power()                                                       [analysis]
+//   Power at bin b in the block in hand: |X[b]|^2 in rectangular mode, or the
+//   sum over b-1..b+1 in Hann mode, where a tone's energy spreads over three
+//   bins.
 double Detector::bin_power(int b) const
 {
     double p = 0.0;
@@ -92,8 +106,12 @@ double Detector::bin_power(int b) const
     return p;
 }
 
-// dB of one bin above the median of its guard bins, station 8.7. Powers rather
-// than magnitudes, so the factor is 10 and not 20.
+// bin_db()                                                          [analysis]
+//   dB of one bin above the median of its guard bins, station 8.7. Powers
+//   rather than magnitudes, so the factor is 10 and not 20. The median of
+//   four is the mean of the middle two after sorting, which ignores one
+//   unusually loud or quiet guard bin. This number compared against
+//   MARGIN_DB is the whole detection decision.
 double Detector::bin_db(int b) const
 {
     double g[4];
@@ -104,6 +122,9 @@ double Detector::bin_db(int b) const
     return 10.0 * std::log10(bin_power(b) / floor);
 }
 
+// confirm()                                                         [analysis]
+//   Feeds this hop's value for one topic into its Confirm, and posts a Result
+//   if the rule below says it should be published. `first` forces a publish.
 void Detector::confirm(Confirm& c, Topic t, int idx, const char* value, bool first)
 {
     // audio.md 6.2: published on change only, and only after the same result
@@ -133,6 +154,10 @@ void Detector::confirm(Confirm& c, Topic t, int idx, const char* value, bool fir
     if (!sh_.res_ana.push(r)) sh_.res_dropped.fetch_add(1, std::memory_order_relaxed);
 }
 
+// analyse()                                                         [analysis]
+//   Runs identify_peer() (station 8.7) on one capture channel, whose power
+//   spectrum is already in pw_, and feeds the results to confirm(). The tap's
+//   channel gets only the optone check; slot 24 is otherwise skipped.
 void Detector::analyse(int cap_index)
 {
     const int slot = cap_index + 1;
@@ -192,6 +217,11 @@ void Detector::analyse(int cap_index)
     confirm(peer_[slot], Topic::Peer, slot, value, !peer_[slot].seen);
 }
 
+// dump_row()                                                        [analysis]
+//   --dump: writes one CSV line to stdout for the dumped circuit - the hop
+//   number, its time in seconds, then every comb bin's and bin 768's level in
+//   dB above its guard floor - with a header line first. Stops after the
+//   requested number of hops.
 void Detector::dump_row(uint64_t hop)
 {
     if (!dump_header_) {
@@ -212,6 +242,11 @@ void Detector::dump_row(uint64_t hop)
     }
 }
 
+// process_snapshot()                                                [analysis]
+//   For each capture channel: copy (and window) its 4096 samples into in_,
+//   run the FFT, turn the output into powers in pw_, then analyse(). If the
+//   MQTT thread has asked for a republish (after a reconnect), clears every
+//   Confirm's `seen` first so this hop publishes everything.
 void Detector::process_snapshot(int w)
 {
     const bool force = sh_.force_publish.exchange(false);
@@ -239,6 +274,10 @@ void Detector::process_snapshot(int w)
     }
 }
 
+// run()                                                             [analysis]
+//   Polls Shared::snap_ready every 2 ms. When a snapshot is waiting, takes it,
+//   marks it busy so the audio thread will not overwrite it, processes it and
+//   releases it.
 void Detector::run()
 {
     while (sh_.running.load(std::memory_order_relaxed)) {

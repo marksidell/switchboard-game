@@ -22,14 +22,19 @@
 #include "../src/ipc.h"
 #include "../src/util.h"
 
+// Count of failed checks; main() returns non-zero if any failed.
 static int failures = 0;
 
+// check()
+//   Prints one result line and counts a failure.
 static void check(bool ok, const char* what)
 {
     std::printf("  %-58s %s\n", what, ok ? "ok" : "FAIL");
     if (!ok) ++failures;
 }
 
+// check_near()
+//   As check(), for a number that must be within tol of want; prints both.
 static void check_near(double got, double want, double tol, const char* what)
 {
     const bool ok = std::fabs(got - want) <= tol;
@@ -40,6 +45,9 @@ static void check_near(double got, double want, double tol, const char* what)
 
 // ---------------------------------------------------------------- filters
 
+// test_monitor_filter()
+//   Designs the monitor low-pass exactly as the engine does and checks its
+//   response at the frequencies that matter; also the Butterworth sections.
 static void test_monitor_filter()
 {
     std::printf("monitor low-pass (station 8.8: 3.6k pass, 5.6k stop, 70 dB)\n");
@@ -112,6 +120,10 @@ static void add_pilot(float* blk, const SineTable& t, int bin, double db)
         blk[n] += a * t.at((uint32_t)bin * n);
 }
 
+// add_noise()
+//   Adds white noise at `db` (rms, referenced to a full-scale sine) to a
+//   4096-sample block, from a simple seeded generator so every run is the
+//   same.
 static void add_noise(float* blk, double db, unsigned seed)
 {
     const double a = db_to_lin(db) * std::sqrt(3.0) * M_SQRT1_2;
@@ -123,6 +135,10 @@ static void add_noise(float* blk, double db, unsigned seed)
     }
 }
 
+// test_detector()
+//   Builds one synthetic snapshot - a handful of circuits in known states,
+//   everything else silent - runs one hop of the real Detector on it, and
+//   checks what it would publish.
 static void test_detector()
 {
     std::printf("detector (station 8.7, one hop against a synthetic block)\n");
@@ -217,6 +233,8 @@ static void test_detector()
 
 // ---------------------------------------------------------------- pilot map
 
+// test_pilot_map()
+//   channels.h against docs/pilot-map.md.
 static void test_pilot_map()
 {
     std::printf("pilot map (docs/pilot-map.md)\n");

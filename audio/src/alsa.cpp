@@ -1,3 +1,5 @@
+// alsa.cpp - opening, starting and recovering the duplex stream. See alsa.h.
+
 #include "alsa.h"
 
 #include <vector>
@@ -5,6 +7,15 @@
 #include "channels.h"
 #include "util.h"
 
+// configure()                                                        [startup]
+//   Opens one direction of `dev` and negotiates its hardware parameters:
+//   interleaved S32_LE at 48 kHz with no resampling, all the channels the
+//   device has (the Digiface's counts are fixed), and the nearest period and
+//   buffer size the driver allows to what was asked for. Then the software
+//   parameters: never start on its own - start() starts both together.
+//   On success, reports what was granted through got_ch / got_period /
+//   got_buffer. On failure, logs why and returns false; the handle, if
+//   opened, is left for close() to release.
 static bool configure(snd_pcm_t*& pcm, const char* dev, snd_pcm_stream_t dir,
                       unsigned want_ch, unsigned want_period, unsigned periods,
                       unsigned& got_ch, snd_pcm_uframes_t& got_period,
@@ -83,6 +94,10 @@ static bool configure(snd_pcm_t*& pcm, const char* dev, snd_pcm_stream_t dir,
     return true;
 }
 
+// AlsaStream::open()                                                 [startup]
+//   configure() for each direction, then checks the two agree on period and
+//   buffer - the audio loop reads one period and writes one period, so they
+//   must be the same size - and links them.
 bool AlsaStream::open(const Options& o)
 {
     const std::string dev = o.device();
@@ -127,12 +142,18 @@ bool AlsaStream::open(const Options& o)
     return true;
 }
 
+// AlsaStream::close()                                                [startup]
 void AlsaStream::close()
 {
     if (play_) { snd_pcm_close(play_); play_ = nullptr; }
     if (cap_)  { snd_pcm_close(cap_);  cap_  = nullptr; }
 }
 
+// AlsaStream::start()                                                  [audio]
+//   prepare() resets each direction to a stopped, empty state. The playback
+//   buffer is then filled with all but one period of silence, and the pair
+//   started; because they are linked, starting playback starts capture too
+//   (the second start is for the unlinked fallback).
 bool AlsaStream::start()
 {
     int err;
@@ -162,6 +183,10 @@ bool AlsaStream::start()
     return true;
 }
 
+// AlsaStream::recover()                                                [audio]
+//   Drops whatever is queued in both directions and starts afresh. Logging
+//   from the audio thread is normally forbidden; an xrun is the exception,
+//   because the stream has already stopped and the deadline already missed.
 bool AlsaStream::recover(int err)
 {
     // audio.md 4: log it with the uptime, recover both handles, count it, and

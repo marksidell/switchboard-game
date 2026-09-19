@@ -7,6 +7,16 @@
 // Startup order is audio.md 13.1, and the order matters: the pilots and the
 // operator tone are part of the switchboard's electrical environment and
 // nothing about them depends on the broker, so the stream starts first.
+//
+// Where to start reading: ipc.h has the picture of how the three threads talk;
+// engine.h walks through one audio period; detector.h states the detector in
+// a paragraph; net.h traces a message in and a result out. Every function
+// comment names, in brackets, the thread it runs on:
+//   [startup]   main(), before the other threads exist
+//   [audio]     the real-time audio thread - no blocking, ever
+//   [analysis]  the FFT/detector thread
+//   [mqtt]      this thread, once main() hands over to Net::run()
+//   [any]       pure functions, safe anywhere
 
 #include <cerrno>
 #include <csignal>
@@ -24,13 +34,21 @@
 #include "options.h"
 #include "util.h"
 
+// The one Shared object, for the signal handler to reach.
 static Shared* g_shared = nullptr;
 
+// on_signal()                                                 [signal handler]
+//   SIGINT or SIGTERM: sets Shared::quit, which makes Net::run() return and
+//   main() shut down in order. Setting an atomic flag is all a signal handler
+//   may safely do.
 static void on_signal(int)
 {
     if (g_shared) g_shared->quit.store(true);
 }
 
+// ask_for_realtime()                                                 [startup]
+//   Puts thread t (the audio thread) in SCHED_FIFO at priority 70: it then
+//   runs ahead of every ordinary process whenever it is ready.
 static void ask_for_realtime(pthread_t t)
 {
     // audio.md 14: the program logs and continues if these fail, at the cost of
@@ -46,6 +64,13 @@ static void ask_for_realtime(pthread_t t)
         log_line("rt: audio thread at SCHED_FIFO 70");
 }
 
+// main()                                                             [startup]
+//   Parse options; open the ALSA stream; prepare the engine, detector and
+//   MQTT client (all allocation happens here); lock memory; start the
+//   stream, the audio thread and the analysis thread; then become the MQTT
+//   thread until told to quit; then shut down in reverse. Exit status is 0
+//   for a clean stop, 1 if the audio stream failed or startup did, 2 for bad
+//   arguments.
 int main(int argc, char** argv)
 {
     log_start();

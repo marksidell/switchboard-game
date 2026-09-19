@@ -4,6 +4,28 @@
 // Result: audio thread and analysis thread -> MQTT thread, one topic key and
 // one value. Nothing else is shared except a handful of atomics and the hop
 // snapshot, all of which live in Shared below.
+//
+// The whole program's data flow, in one picture:
+//
+//                       Command (cmdq)
+//      +-------------+ -------------------> +--------------+
+//      | MQTT thread |                      | audio thread |  <-> ALSA
+//      |   net.cpp   | <------------------- |  engine.cpp  |
+//      +-------------+   Result (res_audio) +--------------+
+//             ^                                    |
+//             |                                    | Snapshot (snap[0/1]),
+//             | Result (res_ana)                   | every 2048 samples
+//             |                             +--------------+
+//             +---------------------------- |   analysis   |
+//                                           | detector.cpp |
+//                                           +--------------+
+//
+// A command arrives over MQTT; the MQTT thread turns it into a Command and
+// pushes it to the audio thread; the audio thread acts on it at the start of
+// its next period and pushes back a Result saying what the state now is; the
+// MQTT thread publishes that. Meanwhile the audio thread hands a copy of the
+// recent capture to the analysis thread every 2048 samples, and the analysis
+// thread pushes a Result whenever a circuit's peer or op changes.
 #pragma once
 
 #include <atomic>
@@ -14,17 +36,22 @@
 #include "options.h"
 #include "spsc.h"
 
-// A loaded file. The MQTT thread allocates it, the audio thread plays it, and
-// when the audio thread stops playing it - end of file, stop, or replacement -
-// it hands the pointer back on the result queue for the MQTT thread to free.
-// No reference counting, no atomics beyond the queues (audio.md 3).
+// AudioBuffer - a loaded file. The MQTT thread allocates it, the audio thread
+// plays it, and when the audio thread stops playing it - end of file, stop, or
+// replacement - it hands the pointer back on the result queue for the MQTT
+// thread to free. No reference counting, no atomics beyond the queues
+// (audio.md 3). At any moment exactly one thread owns a given buffer, and
+// ownership moves only by passing the pointer through a queue.
 struct AudioBuffer {
-    std::vector<float> samples;
-    char               name[32] = { 0 };
+    std::vector<float> samples;         // mono, 48 kHz, -1.0..+1.0
+    char               name[32] = { 0 };// base filename, for the log
 };
 
+// The three trunk tones, and Off. Carried as a float in Command::arg.
 enum class ToneKind : uint8_t { Off = 0, Dial, Ringback, Busy };
 
+// What a Command asks the audio thread to do. The comment on each says which
+// Command fields it uses.
 enum class Verb : uint8_t {
     Play,        // slot, buf (nullptr = stop)
     Tone,        // slot, arg = ToneKind
@@ -35,12 +62,15 @@ enum class Verb : uint8_t {
     Quit
 };
 
+// Command - one instruction, MQTT thread -> audio thread. Plain data, copied
+// by value through the queue; the only pointer is buf, whose ownership passes
+// with it.
 struct Command {
     Verb         verb = Verb::Quit;
     int16_t      idx  = 0;          // circuit slot 1-32, or playback channel 1-34
-    bool         on   = false;
-    float        arg  = 0.0f;
-    AudioBuffer* buf  = nullptr;
+    bool         on   = false;      // Monitor: on or muted. Test: on or off.
+    float        arg  = 0.0f;       // Tone: ToneKind. Listen: seconds. Monitor: dB.
+    AudioBuffer* buf  = nullptr;    // Play: the file, now owned by the audio thread
     char         name[32] = { 0 };  // filename, for the echo on `play`
 };
 
@@ -58,6 +88,10 @@ enum class Topic : uint8_t {
     FreeBuf     // not a topic: a buffer the audio thread has finished with
 };
 
+// Result - one piece of news for the MQTT thread: "topic <topic> for slot or
+// channel <idx> is now <value>". Topic + idx become a topic string in
+// net.cpp's topic_for(); value is published as is, and an empty value clears
+// the retained topic. A FreeBuf result carries only buf.
 struct Result {
     Topic        topic = Topic::FreeBuf;
     int16_t      idx   = 0;
@@ -65,35 +99,55 @@ struct Result {
     AudioBuffer* buf   = nullptr;
 };
 
-// One hop's worth of capture, handed to the analysis thread. Two of them, so
-// the audio thread can fill one while the other is being transformed.
+// Snapshot - one hop's worth of capture, handed to the analysis thread: the
+// most recent 4096 samples of every capture channel, oldest first, one channel
+// after another (channel c starts at data[c * 4096]). Two of them, so the
+// audio thread can fill one while the other is being transformed.
 struct Snapshot {
     std::vector<float> data;        // N_CAP_CH * FFT_N, channel-major
-    uint64_t           hop = 0;
+    uint64_t           hop = 0;     // hop number, 1 upward; for the --dump CSV
 };
 
+// Shared - everything the three threads hold in common. One instance, created
+// in main() and passed by reference to each thread's object. Apart from `opt`
+// (read-only after startup) and the snapshots (handed over by the protocol
+// below), every member is either a lock-free queue or an atomic.
 struct Shared {
-    Options opt;
+    Options opt;                    // the command line; read-only once running
 
+    // ---- the queues
     Spsc<Command, 256> cmdq;        // MQTT   -> audio
     Spsc<Result,  512> res_audio;   // audio  -> MQTT
     Spsc<Result,  512> res_ana;     // analysis -> MQTT
 
+    // ---- the snapshot hand-off, audio -> analysis
+    //
+    // The audio thread fills snap[0], then snap[1], then snap[0] ... one per
+    // hop. After filling one it stores its index in snap_ready. The analysis
+    // thread takes that index (setting snap_ready back to -1), sets
+    // snap_busy[i] while it works on it, and clears snap_busy[i] when done.
+    // Before overwriting a buffer the audio thread checks its snap_busy flag;
+    // if the analysis thread is somehow still on it, that hop is skipped and
+    // counted in hops_lost rather than overwritten under the reader.
     Snapshot          snap[2];
     std::atomic<bool> snap_busy[2] { { false }, { false } };
-    std::atomic<int>  snap_ready { -1 };
+    std::atomic<int>  snap_ready { -1 };   // index of a filled snapshot, or -1
 
+    // ---- lifetime and signalling
     std::atomic<bool> running        { true };   // thread lifetime
     std::atomic<bool> quit           { false };  // SIGTERM/SIGINT, or a lost stream
     std::atomic<bool> force_publish  { false };   // republish detector state
     std::atomic<bool> audio_failed   { false };   // stream lost unrecoverably
 
+    // ---- counters for the log. Producers add; net.cpp's report_counters()
+    // reads and zeroes them every ten seconds and logs any that are non-zero.
     std::atomic<unsigned> xruns        { 0 };
     std::atomic<unsigned> hops_lost    { 0 };
     std::atomic<unsigned> clips        { 0 };
     std::atomic<unsigned> limiter_hits { 0 };
     std::atomic<unsigned> res_dropped  { 0 };
 
+    // What the driver actually granted, copied from AlsaStream at startup.
     int ncap  = chan::N_CAP_CH;
     int nplay = chan::N_PLAY_CH;
 };

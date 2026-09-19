@@ -1,3 +1,5 @@
+// options.cpp - the command line. See options.h for the Options struct.
+
 #include "options.h"
 
 #include <cctype>
@@ -6,6 +8,8 @@
 #include <cstring>
 #include <fstream>
 
+// Options::device()                                                     [any]
+//   Turns the --card value into an ALSA device string. See options.h.
 std::string Options::device() const
 {
     // The card by name is what audio.md 4 asks for - hw: and not plughw:,
@@ -22,6 +26,8 @@ std::string Options::device() const
     return "hw:" + card;
 }
 
+// usage()                                                            [startup]
+//   Prints the option list to stderr. `p` is argv[0], for the first line.
 static void usage(const char* p)
 {
     std::fprintf(stderr,
@@ -54,6 +60,10 @@ static void usage(const char* p)
 "  --version, --help\n", p);
 }
 
+// want()                                                             [startup]
+//   Checks that the option at argv[i] is followed by at least n more
+//   arguments. Prints "--x needs n arguments" and returns false if not, so the
+//   caller never reads past the end of argv.
 static bool want(int argc, int i, int n, const char* what)
 {
     if (i + n < argc) return true;
@@ -61,6 +71,10 @@ static bool want(int argc, int i, int n, const char* what)
     return false;
 }
 
+// parse_options()                                                    [startup]
+//   See options.h. One pass over argv: each recognised option consumes its
+//   own arguments by advancing i; anything unrecognised is an error rather
+//   than being ignored, so a typo in the unit file fails loudly at start.
 bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
 {
     exit_now = false;

@@ -1,3 +1,9 @@
+// engine.cpp - the audio thread. engine.h has the per-period walk-through and
+// the data structures; each function below says which step it is.
+//
+// Every function in this file runs on the audio thread, except prepare(),
+// which runs once at startup before the thread exists.
+
 #include "engine.h"
 
 #include <algorithm>
@@ -14,6 +20,10 @@ using chan::SAMPLE_RATE;
 // dial-tone waveform interrupted at 60 IPM, which is how the period offices
 // made it - one tone source, one interrupter - and a listener tells the two
 // apart by the cadence alone.
+//
+// ToneSpec - one row of the tone table: carrier and modulation frequency, and
+// the cadence as "on for on_samples out of every period_samples". TONES[] is
+// indexed by ToneKind, so TONES[Ringback] is ringback.
 struct ToneSpec {
     double carrier_hz, mod_hz;
     unsigned on_samples, period_samples;   // period 0 = continuous
@@ -26,6 +36,7 @@ static const ToneSpec TONES[] = {
     { 600.0, 120.0, SAMPLE_RATE / 2,    SAMPLE_RATE }         // Busy 0.5s/0.5s
 };
 
+// The payload echoed on `tone` for each ToneKind; "" for Off clears the topic.
 static const char* TONE_NAME[] = { "", "dial", "ringback", "busy" };
 
 // Speech detection runs on 10ms frames (audio.md 9.2).
@@ -33,6 +44,12 @@ static const int VAD_FRAME  = SAMPLE_RATE / 100;    // 480 samples
 static const int VAD_WIN    = 30;                   // frames in the decision window
 static const int VAD_NEEDED = 20;                   // of which this many above threshold
 
+// prepare()                                                          [startup]
+//   Sizes every buffer from what the driver granted, converts the level
+//   options from dBFS to amplitudes, designs the three filters (speech
+//   band-pass, monitor high-pass, monitor elliptic low-pass), logs the
+//   realised monitor response, and sets the monitor's starting gain. Returns
+//   false only if the elliptic design fails.
 bool Engine::prepare()
 {
     period_ = st_.period();
@@ -102,6 +119,10 @@ bool Engine::prepare()
 
 // ---------------------------------------------------------------- results
 
+// post()                                                               [audio]
+//   Queues a Result for the MQTT thread: "topic t for slot/channel idx is now
+//   value". This is how every state change the audio thread makes reaches the
+//   broker. If the queue is full the result is dropped and counted.
 void Engine::post(Topic t, int idx, const char* value)
 {
     Result r;
@@ -114,6 +135,9 @@ void Engine::post(Topic t, int idx, const char* value)
     if (!sh_.res_audio.push(r)) sh_.res_dropped.fetch_add(1, std::memory_order_relaxed);
 }
 
+// post_free()                                                          [audio]
+//   Hands a finished file buffer back to the MQTT thread, which deletes it.
+//   The audio thread never frees memory itself.
 void Engine::post_free(AudioBuffer* b)
 {
     if (!b) return;
@@ -125,6 +149,12 @@ void Engine::post_free(AudioBuffer* b)
 
 // ---------------------------------------------------------------- commands
 
+// stop_source()                                                        [audio]
+//   Stops whatever programme source the circuit has - file or tone - and
+//   leaves it with just its pilot. A file's buffer goes back for freeing. If
+//   echo is non-null it is published on the topic of the source that stopped
+//   ("" to clear it); callers that are about to publish something else pass
+//   nullptr.
 void Engine::stop_source(int slot, const char* echo)
 {
     Prog& p = prog_[slot];
@@ -140,6 +170,11 @@ void Engine::stop_source(int slot, const char* echo)
     p.tone = ToneKind::Off;
 }
 
+// start_listen()                                                       [audio]
+//   Begins a listen: sets the timeout, clears the 30-frame window, and takes
+//   the noise floor as the 10th percentile of the last second of frame levels
+//   (the 10th-quietest of 100). nth_element() finds it without a full sort
+//   and without allocating. Publishes "listening".
 void Engine::start_listen(int slot, double seconds)
 {
     Vad& v = vad_[slot];
@@ -163,12 +198,20 @@ void Engine::start_listen(int slot, double seconds)
     post(Topic::Listen, slot, "listening");
 }
 
+// cancel_listen()                                                      [audio]
+//   Ends a listen with no result, publishing echo ("" clears the topic).
 void Engine::cancel_listen(int slot, const char* echo)
 {
     vad_[slot].active = false;
     if (echo) post(Topic::Listen, slot, echo);
 }
 
+// drain_commands()                                                     [audio]
+//   Step 4 of the period. Pops every Command waiting in the queue and acts on
+//   it, so all commands received during the last period take effect in this
+//   one. Each case updates the per-channel state that render() reads, then
+//   posts the state topic's new value - the "echo" by which the game learns
+//   the command took effect.
 void Engine::drain_commands()
 {
     Command c;
@@ -259,6 +302,14 @@ void Engine::drain_commands()
 
 // ---------------------------------------------------------------- capture
 
+// process_capture()                                                    [audio]
+//   Step 3 of the period. For each capture channel, in capf_:
+//     - append its samples to that channel's 4096-sample ring (all channels);
+//     - run the speech detector on it (circuits only, not the tap): filter,
+//       accumulate 10 ms frames, keep the one-second history, and if a listen
+//       is active decide speech / timeout;
+//   then run the tap channel (24) through the monitor chain into mon_row_,
+//   advance the ring position, and take a snapshot if a hop is due.
 void Engine::process_capture()
 {
     const int ncirc = (int)std::min<unsigned>(ncap_, chan::N_CAP_CH);
@@ -360,6 +411,12 @@ void Engine::process_capture()
     hop_if_due();
 }
 
+// hop_if_due()                                                         [audio]
+//   Every 2048 samples, copies the last 4096 samples of every capture channel
+//   out of ring_ into the next Shared::snap[] buffer, in time order, and tells
+//   the analysis thread it is there. The ring's oldest sample is at ring_w_,
+//   so each channel is two memcpy()s: ring_w_..end, then 0..ring_w_. See
+//   Shared in ipc.h for the hand-off protocol.
 void Engine::hop_if_due()
 {
     if (since_hop_ < FFT_HOP) return;
@@ -389,6 +446,19 @@ void Engine::hop_if_due()
 
 // ---------------------------------------------------------------- render
 
+// render()                                                             [audio]
+//   Step 5 of the period: builds one period of playback in obuf_, channel by
+//   channel. Each playback channel gets exactly one of:
+//     - the 1 kHz test tone, if test_on_[ch] - it replaces everything;
+//     - the monitor feed, for channels 33 and 34;
+//     - the operator tone, for the tap (24);
+//     - its pilot, plus its programme source if it has one (every circuit).
+//   A file that runs out during this period is stopped here, which is what
+//   publishes `play` going empty. Finally advances the shared pilot counter.
+//
+//   obuf_ is interleaved, so channel ch's sample i is obuf_[i * nplay + ch-1]:
+//   `out` points at the channel's first sample and `stride` steps between
+//   frames.
 void Engine::render()
 {
     // One shared 1kHz row: every channel under test carries the same tone, so
@@ -492,6 +562,11 @@ void Engine::render()
 
 // ---------------------------------------------------------------- the loop
 
+// run()                                                                [audio]
+//   The loop in engine.h's walk-through, until told to stop. An xrun on
+//   either direction is recovered and counted; a failure to recover sets
+//   audio_failed and returns, and the MQTT thread then exits the program.
+//   Once a second, clip and limiter counts are handed to Shared for the log.
 void Engine::run()
 {
     double last_report = monotonic_s();

@@ -1,3 +1,7 @@
+// net.cpp - the MQTT thread. See net.h for how a message flows through it.
+// Every function here runs on the MQTT thread (which is main()'s thread),
+// except prepare(), which runs at startup.
+
 #include "net.h"
 
 #include <algorithm>
@@ -11,11 +15,18 @@
 
 static const char* PREFIX = "sbgame/";
 
+// The one Net object, for the libmosquitto callbacks to find. Set in
+// prepare().
 static Net* g_net = nullptr;
 
-// mqtt.md 3: a circuit id prefixed with "sbgame/" is that circuit's topic root,
-// which is the whole reason the id format is what it is. Built in one place so
-// the publisher and the subscriber never drift apart.
+// topic_for()                                                           [mqtt]
+//   The full topic string for a Result's (topic, idx): (Peer, 26) is
+//   "sbgame/trunk/2/peer", (Test, 33) is "sbgame/audio/test/33". Returns
+//   false for FreeBuf and for a slot with no circuit.
+//
+//   mqtt.md 3: a circuit id prefixed with "sbgame/" is that circuit's topic
+//   root, which is the whole reason the id format is what it is. Built in one
+//   place so the publisher and the subscriber never drift apart.
 static bool topic_for(Topic t, int idx, char* out, size_t n)
 {
     char id[24];
@@ -42,12 +53,16 @@ static bool topic_for(Topic t, int idx, char* out, size_t n)
     return false;
 }
 
+// ~Net()                                                             [startup]
 Net::~Net()
 {
     if (m_) { mosquitto_destroy(m_); m_ = nullptr; }
     mosquitto_lib_cleanup();
 }
 
+// prepare()                                                          [startup]
+//   See net.h. Also sets monitor_state_ to what the monitor will start as,
+//   so the first publish_initial() reports it correctly.
 bool Net::prepare()
 {
     g_net = this;
@@ -86,6 +101,10 @@ bool Net::prepare()
 
 void Net::cb_connect(struct mosquitto*, void*, int rc)    { if (g_net) g_net->on_connect(rc); }
 void Net::cb_disconnect(struct mosquitto*, void*, int rc) { if (g_net) g_net->on_disconnect(rc); }
+// cb_message()                                                          [mqtt]
+//   Copies the payload into a NUL-terminated buffer - MQTT payloads are bytes
+//   with a length, not C strings - truncating anything over 63 bytes, which
+//   no valid command approaches.
 void Net::cb_message(struct mosquitto*, void*, const struct mosquitto_message* msg)
 {
     if (!g_net || !msg) return;
@@ -96,6 +115,10 @@ void Net::cb_message(struct mosquitto*, void*, const struct mosquitto_message* m
     g_net->on_message(msg->topic, payload);
 }
 
+// on_connect()                                                          [mqtt]
+//   The broker has answered our CONNECT. rc 0 is success: subscribe to the
+//   eight command patterns and publish the full initial state followed by
+//   "online". Anything else is a refusal (usually credentials): back off.
 void Net::on_connect(int rc)
 {
     if (rc != 0) {
@@ -126,6 +149,10 @@ void Net::on_connect(int rc)
     publish_initial();
 }
 
+// on_disconnect()                                                       [mqtt]
+//   The connection is gone, deliberately or not. Stops every file, tone and
+//   listen - the broker-loss failsafe - and forgets the game heartbeat, since
+//   it cannot be seen until reconnected.
 void Net::on_disconnect(int rc)
 {
     if (!connected_) return;
@@ -142,6 +169,10 @@ void Net::on_disconnect(int rc)
 
 // ---------------------------------------------------------------- inbound
 
+// send()                                                                [mqtt]
+//   Pushes a Command to the audio thread. If the queue is full - 255
+//   commands unprocessed, which would mean the audio thread has stopped -
+//   logs it and frees any file buffer the command carried.
 void Net::send(const Command& c)
 {
     if (!sh_.cmdq.push(c)) {
@@ -150,6 +181,10 @@ void Net::send(const Command& c)
     }
 }
 
+// handle_play()                                                         [mqtt]
+//   play/set. "stop" (or empty) sends a stop. Anything else is a base
+//   filename: load it here, on this thread, and send the loaded buffer - or,
+//   if it will not load, send a stop that echoes "missing".
 void Net::handle_play(int slot, const char* circuit, const char* payload)
 {
     Command c;
@@ -187,6 +222,8 @@ void Net::handle_play(int slot, const char* circuit, const char* payload)
     send(c);
 }
 
+// handle_tone()                                                         [mqtt]
+//   tone/set, trunks only: the payload name to a ToneKind, then a Command.
 void Net::handle_tone(int slot, const char* circuit, const char* payload)
 {
     ToneKind k;
@@ -204,6 +241,8 @@ void Net::handle_tone(int slot, const char* circuit, const char* payload)
     send(c);
 }
 
+// handle_listen()                                                       [mqtt]
+//   listen/set: the payload is a timeout in seconds, capped at 300; 0 cancels.
 void Net::handle_listen(int slot, const char* circuit, const char* payload)
 {
     char* end = nullptr;
@@ -222,6 +261,8 @@ void Net::handle_listen(int slot, const char* circuit, const char* payload)
     send(c);
 }
 
+// handle_monitor()                                                      [mqtt]
+//   monitor/set: "off", or a gain in dB clamped to -60..+20.
 void Net::handle_monitor(const char* payload)
 {
     Command c;
@@ -246,6 +287,8 @@ void Net::handle_monitor(const char* payload)
     send(c);
 }
 
+// handle_test()                                                         [mqtt]
+//   audio/test/<ch>/set: "on" or "off" for playback channel ch.
 void Net::handle_test(int ch, const char* payload)
 {
     const bool on = std::strcmp(payload, "on") == 0;
@@ -261,6 +304,11 @@ void Net::handle_test(int ch, const char* payload)
     send(c);
 }
 
+// on_message()                                                          [mqtt]
+//   Every inbound message. Works out which command it is from the topic,
+//   range-checks the station/trunk/channel number, and dispatches to a
+//   handle_xxx(). The game heartbeat is handled inline: it just records the
+//   time. Anything unrecognised is logged and dropped.
 void Net::on_message(const char* topic, const char* payload)
 {
     int n = 0;
@@ -319,6 +367,9 @@ void Net::on_message(const char* topic, const char* payload)
 
 // ---------------------------------------------------------------- outbound
 
+// publish()                                                             [mqtt]
+//   Publishes one value, QoS 1, retained by default. Does nothing while
+//   disconnected.
 void Net::publish(const char* topic, const char* value, bool retain)
 {
     if (!connected_) return;
@@ -329,6 +380,9 @@ void Net::publish(const char* topic, const char* value, bool retain)
     mosquitto_publish(m_, nullptr, topic, len, len ? (const void*)value : nullptr, 1, retain);
 }
 
+// publish_result()                                                      [mqtt]
+//   Publishes a Result, and keeps the shadow copies of monitor and test state
+//   up to date, and logs detector changes.
 void Net::publish_result(const Result& r)
 {
     char topic[64];
@@ -354,6 +408,11 @@ void Net::publish_result(const Result& r)
     }
 }
 
+// publish_initial()                                                     [mqtt]
+//   On every (re)connect: every circuit's play, listen (and tone, for
+//   trunks) empty; monitor and all 34 test channels as they actually are;
+//   ask the detector to republish peer/op/optone; then "online" - last, so a
+//   subscriber that sees online already has everything else.
 void Net::publish_initial()
 {
     // audio.md 12: published before the birth message, so that a subscriber
@@ -381,6 +440,10 @@ void Net::publish_initial()
     publish(topic, "online");
 }
 
+// drain_results()                                                       [mqtt]
+//   Empties both result queues. Buffers handed back are freed; everything
+//   else is published if `publishing`, or discarded if not (while
+//   disconnected).
 void Net::drain_results(bool publishing)
 {
     Result r;
@@ -395,6 +458,9 @@ void Net::drain_results(bool publishing)
     }
 }
 
+// check_heartbeat()                                                     [mqtt]
+//   If the game has been heard from and has now been silent for more than
+//   2 s, applies the failsafe once: stop every file, tone and listen.
 void Net::check_heartbeat(double now)
 {
     // mqtt.md 8.2 and audio.md 13.2: two consecutive missed beats. The failure
@@ -409,6 +475,9 @@ void Net::check_heartbeat(double now)
     send(c);
 }
 
+// report_counters()                                                     [mqtt]
+//   Every ten seconds, reads and zeroes the counters in Shared and logs one
+//   line if any of them is non-zero. Silence in the log means all is well.
 void Net::report_counters(double now)
 {
     if (now - last_count_report_ < 10.0) return;
@@ -426,6 +495,10 @@ void Net::report_counters(double now)
 
 // ---------------------------------------------------------------- loop
 
+// run()                                                                 [mqtt]
+//   One pass every ~20 ms: try to connect if due; mosquitto_loop() (network
+//   I/O and callbacks, waiting up to 20 ms for traffic); publish results;
+//   check the heartbeat; report counters; notice a dead audio stream.
 void Net::run()
 {
     while (!sh_.quit.load(std::memory_order_relaxed)) {
@@ -469,6 +542,10 @@ void Net::run()
     }
 }
 
+// shutdown()                                                            [mqtt]
+//   Tells the audio thread to stop everything, gives it 50 ms, publishes the
+//   cleared state itself regardless, publishes "offline", and disconnects
+//   cleanly so the broker does not also fire the will.
 void Net::shutdown()
 {
     // audio.md 13.1: stop every programme source and the test tones, clear

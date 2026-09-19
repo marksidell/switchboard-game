@@ -103,6 +103,21 @@ switchboard and a terminal:
    not locked to each other, which must be fixed at the hardware — or `--window hann`
    adopted, which is the documented fallback and costs sensitivity.
 
+## Reading the code
+
+Start with four comments, in this order:
+
+1. `src/ipc.h` — a picture of the three threads and what passes between them.
+2. `src/engine.h` — one 5.3 ms audio period, step by step.
+3. `src/detector.h` — the pilot detector in one paragraph.
+4. `src/net.h` — the path of a command in and a result out.
+
+Every function has a header comment. The bracketed tag on each names the thread it
+runs on: `[startup]`, `[audio]`, `[analysis]`, `[mqtt]` or `[any]`. That tag answers
+most "can this block?" and "does this need a lock?" questions before you have to
+ask them. Almost every array is indexed by slot, 1–32, with element 0 unused;
+`src/channels.h` explains why.
+
 ## Files
 
 ```

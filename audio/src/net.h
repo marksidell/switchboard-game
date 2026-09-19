@@ -5,6 +5,20 @@
 // the file first and passes the audio thread a pointer it may not free until
 // the audio thread has handed it back. Drains the result queues and publishes.
 // Publishes the birth message, holds the LWT, and watches game_heartbeat.
+//
+// This thread is the main thread: main() calls Net::run() once the audio and
+// analysis threads are going, and it returns only at shutdown.
+//
+// libmosquitto is used in its simplest mode: the program calls
+// mosquitto_loop() itself, every 20 ms, and libmosquitto calls back into
+// cb_connect / cb_disconnect / cb_message from inside that call - so every
+// callback runs on this same thread and nothing here needs a lock.
+//
+// Inbound, a message goes:
+//   cb_message -> on_message (parse the topic) -> handle_xxx (check the
+//   payload, load a file if it is play/set) -> send (push a Command)
+// Outbound, a Result goes:
+//   drain_results -> publish_result (topic_for builds the topic) -> publish
 #pragma once
 
 #include <mosquitto.h>
@@ -15,14 +29,33 @@
 
 class Net {
 public:
+    // Net()                                                          [startup]
     explicit Net(Shared& sh) : sh_(sh) {}
+
+    // ~Net()                                                         [startup]
+    //   Destroys the libmosquitto client.
     ~Net();
 
+    // prepare()                                                      [startup]
+    //   Creates the client, sets credentials, callbacks and the last will.
+    //   Does not connect - run() does, so a missing broker never delays the
+    //   audio starting.
     bool prepare();
-    void run();          // returns when Shared::running goes false
-    void shutdown();     // audio.md 13.1: stop everything, say offline, cleanly
+
+    // run()                                                             [mqtt]
+    //   The main loop: connect or reconnect with backoff, service the
+    //   network, publish results, watch the game heartbeat, log counters.
+    //   Returns when Shared::quit is set (a signal, or a lost audio stream).
+    void run();
+
+    // shutdown()                                                        [mqtt]
+    //   audio.md 13.1: stop everything, say offline, cleanly.
+    void shutdown();
 
 private:
+    // cb_connect / cb_disconnect / cb_message                           [mqtt]
+    //   libmosquitto wants plain functions; these forward to the one Net
+    //   object's on_connect / on_disconnect / on_message.
     static void cb_connect(struct mosquitto*, void*, int rc);
     static void cb_disconnect(struct mosquitto*, void*, int rc);
     static void cb_message(struct mosquitto*, void*, const struct mosquitto_message*);
@@ -46,13 +79,13 @@ private:
     void report_counters(double now);
 
     Shared&           sh_;
-    struct mosquitto* m_         = nullptr;
-    bool              connected_ = false;
-    bool              beat_seen_ = false;
-    bool              game_lost_ = false;
-    double            last_beat_ = 0.0;
-    double            next_try_  = 0.0;
-    double            backoff_   = 1.0;
+    struct mosquitto* m_         = nullptr;  // the libmosquitto client
+    bool              connected_ = false;    // CONNACK received, not since lost
+    bool              beat_seen_ = false;    // a game heartbeat has ever arrived
+    bool              game_lost_ = false;    // heartbeat lost; failsafe applied
+    double            last_beat_ = 0.0;      // monotonic time of the last beat
+    double            next_try_  = 0.0;      // earliest time to (re)connect
+    double            backoff_   = 1.0;      // seconds; doubles to 30 on failure
     double            last_count_report_ = 0.0;
 
     // The state the game does not own, shadowed so a reconnect can republish it

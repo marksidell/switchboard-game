@@ -2,10 +2,17 @@
 // are few enough options that a systemd unit's ExecStart line holds them, and
 // one place is better than two. Every level station 8 gives as a figure is an
 // option here and defaults to that figure.
+//
+// Options is filled once by parse_options() in main(), copied into Shared (see
+// ipc.h), and from then on only read - by every thread, without locking, which
+// is safe precisely because nothing writes it after startup.
 #pragma once
 
 #include <string>
 
+// Options - every setting the program has, with its default. One field per
+// command-line option; the comment on each gives the document that sets its
+// default. Levels are in dBFS (util.h) unless marked otherwise.
 struct Options {
     // ALSA
     // The ALSA id snd-usb-audio gives the Digiface is built from its serial
@@ -52,9 +59,18 @@ struct Options {
                                         // in detector.cpp
     bool        no_rt = false;          // skip SCHED_FIFO/mlockall (bench)
 
-    std::string device() const;         // ALSA device string from card
+    // device()                                                    [any]
+    //   The ALSA device string to open, built from `card`: "USB24306452"
+    //   becomes "hw:USB24306452", "1" becomes "hw:1", and anything already
+    //   containing a colon is used as given.
+    std::string device() const;
 };
 
-// Returns false and prints to stderr if the arguments are unusable. `exit_now`
-// is set for --help and --version, which are a success.
+// parse_options()                                                    [startup]
+//   Walks argv, filling `o` from its defaults. Reads the password file if one
+//   was given, then range-checks the values that would otherwise fail
+//   obscurely later (period size, modulation depth, filter edges).
+//   Returns false, having printed why to stderr, if the arguments are
+//   unusable. `exit_now` is set for --help and --version, which return true:
+//   they succeeded, and the caller should simply exit 0.
 bool parse_options(int argc, char** argv, Options& o, bool& exit_now);
