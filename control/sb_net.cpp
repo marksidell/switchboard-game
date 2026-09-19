@@ -94,7 +94,7 @@ void netHeartbeat(uint32_t now_ms) {
 
 /* ---- incoming ----------------------------------------------------------- */
 
-/* esp32.md 9.4: a command payload is exactly "on" or "off". Anything else is
+/* control.md 9.4: a command payload is exactly "on" or "off". Anything else is
  * logged and dropped - not read as "off", which the first firmware did, making
  * a malformed command a silent relay release. Returns false for a payload to
  * drop; `on` is set only when it returns true. */
@@ -142,11 +142,11 @@ static void onMessage(String& topic, String& payload) {
 /* ---- connection --------------------------------------------------------- */
 
 void netInit() {
-  /* esp32.md 4.2 step 3. The no-argument form resolves to the Olimex PHY
+  /* control.md 4.2 step 3. The no-argument form resolves to the Olimex PHY
    * parameters through the esp32-poe-iso variant header: LAN8720 at address 0,
    * MDC 23, MDIO 18, power 12, clock on GPIO17. That last one holds only while
    * PSRAM is disabled - with PSRAM on, the variant moves the clock to GPIO0 and
-   * I2C SCL off GPIO16, which would collide with esp32.md 3's pin map. Leave
+   * I2C SCL off GPIO16, which would collide with control.md 3's pin map. Leave
    * PSRAM off for this board. */
   ETH.begin();
 
@@ -163,7 +163,7 @@ void netInit() {
   mqtt.setWill(status_topic, "offline", /*retained=*/true, /*qos=*/1);
 }
 
-/* esp32.md 9.1: publish the birth message, subscribe, then publish every state
+/* control.md 9.1: publish the birth message, subscribe, then publish every state
  * topic once. A clean session forgets subscriptions, so every reconnect repeats
  * all of it. The state publish is left to the caller, which owns the circuits. */
 static void onConnected() {

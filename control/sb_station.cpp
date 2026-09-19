@@ -69,7 +69,7 @@ void stationPoll(uint32_t now_ms) {
 
     /* Ring on this switchboard is applied by the operator holding a key, so the
      * train is continuous while ring is present and does not follow a cadence
-     * (esp32.md 7.1). Quiet for 100ms therefore means released, not a gap. */
+     * (control.md 7.1). Quiet for 100ms therefore means released, not a gap. */
     if (s.ring && (now_ms - s.last_trans_ms) >= RING_RELEASE_QUIET_MS) {
       s.ring   = false;
       s.filled = 0;

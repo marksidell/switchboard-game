@@ -6,7 +6,7 @@
 
 /* Expander 2 (0x22) carries stations 17-23 and, on its bit 7, the operator
  * tap. 0x24-0x27 are reserved for optional second expanders that are not
- * fitted (esp32.md 6.1) and so have no rows. */
+ * fitted (control.md 6.1) and so have no rows. */
 const ExpanderMap expanders[N_EXPANDERS] = {
   { 0x20, "station board 1 (st 1-8)",   0 },
   { 0x21, "station board 2 (st 9-16)",  1 },
@@ -20,7 +20,7 @@ const ExpanderMap expanders[N_EXPANDERS] = {
  * board is a one-constant change.
  *
  * Station n lives on board (n-1)/8 at bit (n-1)%8; trunk n on 0x23 at bit n-1.
- * Written out rather than computed so the table can be read against esp32.md
+ * Written out rather than computed so the table can be read against control.md
  * 6.1 line by line, and so a future board that breaks the pattern - a spare
  * expander, a circuit moved to a different bit - is a one-row edit. */
 const CircuitMap circuits[N_CIRCUITS] = {
@@ -49,9 +49,9 @@ const CircuitMap circuits[N_CIRCUITS] = {
   { Kind::Station,  22,   2,   5 },
   { Kind::Station,  23,   2,   6 },
   /* 0x22 bit 7 is the operator tap strip, not a station: no relay or ring
-   * detector is fitted (esp32.md 6.1, station 7.9.7). It has no row, so
+   * detector is fitted (control.md 6.1, station 7.9.7). It has no row, so
    * nothing polls it, nothing publishes it and no command can reach it -
-   * esp32.md 6.1 adopts this as its statement of "leave the mapping alone".
+   * control.md 6.1 adopts this as its statement of "leave the mapping alone".
    * The shadow leaves the bit 0 for the life of the run. */
   { Kind::Trunk,     1,   3,   0 },
   { Kind::Trunk,     2,   3,   1 },

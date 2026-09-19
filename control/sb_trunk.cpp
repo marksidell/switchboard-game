@@ -6,7 +6,7 @@
 #include "sb_net.h"
 
 /* A ring pattern is declared on two consecutive break-to-break gaps of 60ms or
- * less, not one. esp32.md 8.1 specifies the 60ms threshold and the two signals
+ * less, not one. control.md 8.1 specifies the 60ms threshold and the two signals
  * it separates - 50ms for 20Hz ring against 67-125ms for an 8-15 pps dial - but
  * a single interval measured at 5ms granularity sits only one sample clear of a
  * fast dial. Two consecutive gaps costs 50ms of latency on a fault report and
@@ -45,7 +45,7 @@ struct TrunkState {
 
   /* What `seize` reports: the loop as last classified. Set on entering SEIZED,
    * cleared on entering IDLE, and deliberately untouched on entering
-   * RING_ON_TRUNK, so it is not simply phase == Seized (esp32.md 8.3, Rev 7). */
+   * RING_ON_TRUNK, so it is not simply phase == Seized (control.md 8.3, Rev 7). */
   bool        seize_on;
 
   int8_t      seize_pub;    // -1 never published, 0 off, 1 on
@@ -87,7 +87,7 @@ static uint8_t ringingCount() {
 }
 
 /* Energise or release this trunk's ring relay and echo the actual state, so a
- * monitoring UI sees the cadence (esp32.md 8.4). */
+ * monitoring UI sees the cadence (control.md 8.4). */
 static void driveRing(uint8_t i, bool on) {
   TrunkState& s = tr[i];
   s.cadence_on = on;
@@ -110,7 +110,7 @@ static void enterIdle(uint8_t i, uint32_t now) {
 static void enterSeized(uint8_t i, uint32_t now) {
   TrunkState& s = tr[i];
   /* A seizure cancels any ring on this trunk: the switchboard has taken the
-   * line outward and the incoming call is moot (esp32.md 8.3). */
+   * line outward and the incoming call is moot (control.md 8.3). */
   driveRing(i, false);
   s.ring_requested = false;
   s.phase          = Phase::Seized;
@@ -131,7 +131,7 @@ static void enterRinging(uint8_t i, uint32_t now) {
   driveRing(i, true);           // gets its full cadence
 }
 
-/* ---- the digit counter (esp32.md 8.2) ----------------------------------- */
+/* ---- the digit counter (control.md 8.2) ----------------------------------- */
 
 static void completeDigit(uint8_t i) {
   TrunkState& s = tr[i];
@@ -229,7 +229,7 @@ void trunkPoll(uint32_t now) {
 
       if (!raw) {
         /* Asserted -> released: this edge is a break. The break-to-break
-         * interval is what separates ring from a dial (esp32.md 8.1). */
+         * interval is what separates ring from a dial (control.md 8.1). */
         if (s.have_break && (now - s.last_break_ms) <= RING_BREAK_GAP_MS) {
           if (s.short_gaps < 255) s.short_gaps++;
         } else {
@@ -243,7 +243,7 @@ void trunkPoll(uint32_t now) {
           if (s.phase != Phase::RingOnTrunk) {
             Serial.printf("trunk %u: ring applied from the switchboard\n",
                           (unsigned)c.number);
-            /* `seize` is left as it was (esp32.md 8.3, Rev 7). Entered from
+            /* `seize` is left as it was (control.md 8.3, Rev 7). Entered from
              * SEIZED it stays "on": publishing "off" here would look to the
              * game like a release and tear the call down for an operator's
              * slip. `fault` = "ring_on_trunk" is the report. When the pattern
@@ -291,7 +291,7 @@ void trunkPoll(uint32_t now) {
 
       case Phase::Seized:
         if (!raw && dwell >= RELEASE_OPEN_MS) {
-          /* A digit in progress is abandoned, not published (esp32.md 8.1). */
+          /* A digit in progress is abandoned, not published (control.md 8.1). */
           s.pulses        = 0;
           s.in_digit      = false;
           s.digit_spoiled = false;
@@ -304,7 +304,7 @@ void trunkPoll(uint32_t now) {
     }
   }
 
-  /* ---- the concurrent-ring cap (esp32.md 8.5) -------------------------
+  /* ---- the concurrent-ring cap (control.md 8.5) -------------------------
    * Queued requests are started lowest trunk first, so the order is
    * deterministic and a low-numbered trunk cannot be starved by a busy one. */
   for (uint8_t i = 0; i < N_TRUNKS && ringingCount() < MAX_TRUNKS_RINGING; ++i) {
@@ -335,7 +335,7 @@ void trunkSetRing(uint8_t n, bool on) {
     return;
   }
 
-  /* esp32.md 8.3, Rev 7: "on" is acted on in IDLE only. In RINGING it is a
+  /* control.md 8.3, Rev 7: "on" is acted on in IDLE only. In RINGING it is a
    * no-op. In SEIZED and RING_ON_TRUNK it is dropped with a log line and not
    * held for later - a ring that started seconds after the command, once the
    * operator had finished with the trunk, is not what the game meant. Nothing

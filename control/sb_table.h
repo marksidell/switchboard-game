@@ -6,9 +6,9 @@
  * them is identical, so they are described by a table rather than by code: one
  * row per circuit, 31 rows, and every loop in the firmware walks the table.
  * Fitting or removing a station board is a change to STATION_BOARDS_FITTED and
- * nothing else. The operator tap bit has no row (esp32.md 6.1).
+ * nothing else. The operator tap bit has no row (control.md 6.1).
  *
- * esp32.md 6.1 for the port assignments:
+ * control.md 6.1 for the port assignments:
  *   Station board  Port A = RING_DET_1..8   Port B = OFFHOOK_1..8
  *   Trunk board    Port A = SEIZE_1..8      Port B = RING_EN_1..8
  *
@@ -46,7 +46,7 @@ extern const CircuitMap  circuits[N_CIRCUITS];
 
 /* An expander is *configured* if this build expects it to exist at all, which
  * for a station board means the board is fitted. Distinct from *present*, which
- * means it answered the scan. esp32.md 4.2 step 5. */
+ * means it answered the scan. control.md 4.2 step 5. */
 bool expanderConfigured(uint8_t exp_index);
 
 /* ---- Mutable state, one row per expander -------------------------------- */
@@ -66,7 +66,7 @@ const CircuitMap* stationCircuit(uint8_t n);   // n = 1-23, nullptr if out of ra
 const CircuitMap* trunkCircuit(uint8_t n);     // n = 1-8
 
 /* True when this circuit's expander answered the scan. Commands for a circuit
- * whose expander is absent are logged and dropped (esp32.md 9.4), and state is
+ * whose expander is absent are logged and dropped (control.md 9.4), and state is
  * not published for one whose value the firmware cannot know. */
 bool circuitLive(const CircuitMap& c);
 

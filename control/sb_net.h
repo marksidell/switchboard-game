@@ -1,9 +1,9 @@
 /* =============================================================================
  * sb_net.h - Ethernet and the MQTT client
  *
- * esp32.md 9 and mqtt.md. This module owns the connection, the subscriptions
+ * control.md 9 and mqtt.md. This module owns the connection, the subscriptions
  * and the publishing primitives. It does not own policy: the failsafe table of
- * esp32.md 10 lives in the main loop, which is the only place that can see all
+ * control.md 10 lives in the main loop, which is the only place that can see all
  * of the conditions at once. So this module reports facts - connected, just
  * connected, sync asked for, game heartbeat alive - and the loop decides.
  *
@@ -31,7 +31,7 @@ void netService(uint32_t now_ms);
 bool netConnected();
 
 /* True exactly once after each successful connect, so the caller can run the
- * birth sequence of esp32.md 9.1. */
+ * birth sequence of control.md 9.1. */
 bool netTakeJustConnected();
 
 /* True exactly once per received ctl/sync. */
@@ -42,7 +42,7 @@ bool netTakeSyncRequest();
  * which is correct: relays boot released and must stay that way. */
 bool netGameAlive(uint32_t now_ms);
 
-/* esp32.md 9.3: publish uptime every second FROM THE MAIN LOOP, after the I2C
+/* control.md 9.3: publish uptime every second FROM THE MAIN LOOP, after the I2C
  * poll, so that it proves the loop that drives relays is running and not merely
  * that the network stack is. */
 void netHeartbeat(uint32_t now_ms);

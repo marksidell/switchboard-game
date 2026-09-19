@@ -2,18 +2,18 @@
  * 551 Switchboard Simulator - ESP32 controller firmware
  *
  * Target : Olimex ESP32-POE-ISO   (arduino-cli FQBN esp32:esp32:esp32-poe-iso)
- * Implements esp32.md Rev 7, the specification for everything in this folder.
+ * Implements control.md Rev 9, the specification for everything in this folder.
  * The firmware has three jobs: ring waveform generation, I2C master to the
  * station and trunk MCP23017 expanders, and MQTT client to the host - and with
- * them the relay failsafes of esp32.md 10 and dial pulse detection on the
+ * them the relay failsafes of control.md 10 and dial pulse detection on the
  * trunks. This file keeps the waveform, setup() and loop(); the rest is in the
  * sb_*.{h,cpp} files beside it. The channel table in sb_table.cpp is the
  * spine - 23 stations and 8 trunks are rows, not code.
  *
- * References. "esp32.md N" and "mqtt.md N" are those documents. A bare
+ * References. "control.md N" and "mqtt.md N" are those documents. A bare
  * "Section N" or "section N" in this file is ring_generator.md (generator
  * Rev 60), which owns the bridge, the 74HCT04 and the waveform arithmetic and
- * which esp32.md 3 and 5 defer to. "Rev NN" beside a generator fact is the
+ * which control.md 3 and 5 defer to. "Rev NN" beside a generator fact is the
  * generator revision that settled it.
  *
  * Requires ESP32 Arduino core 3.x. The 2.x LEDC path was removed once the
@@ -42,9 +42,9 @@
  * THE WAVEFORM
  *   Generates the 20.000 Hz sine on a 40 kHz carrier that drives the two
  *   IR2104 half-bridges through the 74HCT04, and sequences SD around it. The
- *   generator runs while GPIO4 is held LOW and the arming gate of esp32.md 4.2
+ *   generator runs while GPIO4 is held LOW and the arming gate of control.md 4.2
  *   step 8 has passed; it free-runs, and ring cadence is done by the trunk
- *   board's relays (esp32.md 8.4), not here.
+ *   board's relays (control.md 8.4), not here.
  *
  * POLARITY (section 5.1/5.2)
  *   IN1 = GPIO32,  IN2 = GPIO33,  SD = GPIO14.  All non-inverting.
@@ -101,7 +101,7 @@ static constexpr uint32_t STEP_PERIOD_US =
     (1000000UL * CARRIER_CYCLES_PER_STEP) / CARRIER_FREQ_HZ;   // 200
 
 // 2^bits is the LEDC "always high" duty. Through the 74HCT04's two gates a
-// pin HIGH is IN HIGH, the high side of that leg on (esp32.md 3).
+// pin HIGH is IN HIGH, the high side of that leg on (control.md 3).
 static constexpr uint32_t DUTY_MAX = 1UL << LEDC_RESOLUTION_BITS;  // 1024
 
 /* ---- Section 9.4: output amplitude trim ----------------------------------
@@ -178,7 +178,7 @@ static bool pwmBegin() {
 }
 
 /* ---- Duty tables ---------------------------------------------------------
- * Precomputed register values in the direct form of esp32.md 3: the 74HCT04
+ * Precomputed register values in the direct form of control.md 3: the 74HCT04
  * routes every signal through two of its gates - 1-2 for PWM A, 3-4 for PWM B,
  * 5-6 for SD - so each path is non-inverting end to end, duty is written as
  * is, and the parked leg is 0. One leg modulates at duty d while the other is
@@ -189,7 +189,7 @@ static bool pwmBegin() {
  * measurement.
  *
  * The first firmware complemented these tables, because the board then still
- * carried the 74HCT02, whose single gate per PWM path inverts. esp32.md Rev 7
+ * carried the 74HCT02, whose single gate per PWM path inverts. control.md Rev 7
  * moves them to this form. Do not run this build on a board that still has
  * the 74HCT02: through one inverting gate every leg is inverted - the parked
  * leg sits on its high side instead of its low - and the output is not the
@@ -260,11 +260,11 @@ static void stepCallback(void*) {
 
 static void parkOutputs() {
   pwmWrite(PIN_PWM_A, 0);          // both pins LOW, both IR2104 IN pins LOW:
-  pwmWrite(PIN_PWM_B, 0);          // both low sides, primary at ground (esp32.md 3)
+  pwmWrite(PIN_PWM_B, 0);          // both low sides, primary at ground (control.md 3)
   digitalWrite(PIN_SYNC, LOW);     // sync idles low whenever the generator is stopped
 }
 
-/* ---- The arming gate (esp32.md 4.2 step 8) -------------------------------
+/* ---- The arming gate (control.md 4.2 step 8) -------------------------------
  * "Do not arm the H-bridge if a required expander is absent." Set by the boot
  * scan and by every I2C recovery. The
  * bridge is not armed while a configured expander is missing: the generator
@@ -323,7 +323,7 @@ static constexpr uint32_t START_STEP = SINE_STEPS / 4;   // 62 of 250. Exact:
 static bool startWaveform() {
   if (running) return true;
   if (!slavesPresent()) {
-    Serial.println("ARM REFUSED: a configured expander is absent (esp32.md 4.2 step 8)");
+    Serial.println("ARM REFUSED: a configured expander is absent (control.md 4.2 step 8)");
     return false;
   }
 
@@ -394,7 +394,7 @@ static void serviceEnable() {
  * first half second after a reset - which is exactly when nothing is attached
  * to read it. peak is recomputed here rather than cached; it is 250 iterations
  * and this is not a hot path. */
-/* ---- The spread state republish (esp32.md 9.2) --------------------------
+/* ---- The spread state republish (control.md 9.2) --------------------------
  * A full republish is 70 retained QoS 1 messages, and with this client each
  * QoS 1 publish blocks until its PUBACK arrives. Sent as one burst it would
  * hold the 200Hz loop for 100-300ms - longer than a ringing station's 100ms
@@ -421,11 +421,11 @@ static void republishStep() {
   republish_row = (r + 1 < N_CIRCUITS) ? (int16_t)(r + 1) : -1;
 }
 
-/* ---- Loop timing (esp32.md 1.7 code consequence (a)) --------------------
+/* ---- Loop timing (control.md 1.7 code consequence (a)) --------------------
  * The 200Hz poll is only as good as the loop that runs it. Anything that holds
  * loop() - a burst of QoS 1 publishes each waiting for its PUBACK, a blocking
  * reconnect - stretches the gap between poll ticks, and every threshold in
- * esp32.md 7 and 8 is measured in those ticks. Two figures, both maxima since
+ * control.md 7 and 8 is measured in those ticks. Two figures, both maxima since
  * the banner last printed them:
  *
  *   loop_max_us     the longest single pass through loop(), start to end
@@ -444,7 +444,7 @@ static uint32_t timing_since_ms  = 0;
 static void printBanner() {
   uint32_t peak = 0;
   for (uint32_t k = 0; k < SINE_STEPS; ++k) {
-    const uint32_t da = duty_a[k];              // direct form, esp32.md 3
+    const uint32_t da = duty_a[k];              // direct form, control.md 3
     const uint32_t db = duty_b[k];
     if (da > peak) peak = da;
     if (db > peak) peak = db;
@@ -519,7 +519,7 @@ void setup() {
   pinMode(PIN_SD, OUTPUT);
   digitalWrite(PIN_SD, LOW);
 
-  // Hold the PWM pins LOW - the park state (esp32.md 3) - until the LEDC
+  // Hold the PWM pins LOW - the park state (control.md 3) - until the LEDC
   // peripheral takes them. R_PWMA_PD and R_PWMB_PD already pull them there
   // through boot; this makes it driven rather than merely pulled.
   pinMode(PIN_PWM_A, OUTPUT); digitalWrite(PIN_PWM_A, LOW);
@@ -621,7 +621,7 @@ void setup() {
  * the live state together. A once-a-second heartbeat lived here while the
  * board was first being brought up; it had served its purpose and only made
  * captured logs harder to read. */
-/* ---- The failsafe table (esp32.md 10) ------------------------------------
+/* ---- The failsafe table (control.md 10) ------------------------------------
  * Every relay is released on any of these, independently and without reference
  * to the host. They are gathered here rather than pushed into the modules that
  * own the relays because this is the only place that sees all of the conditions
