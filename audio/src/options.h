@@ -9,6 +9,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 // Options - every setting the program has, with its default. One field per
 // command-line option; the comment on each gives the document that sets its
@@ -46,6 +47,11 @@ struct Options {
     // Monitor
     bool   monitor_on = false;          // default off, audio.md 10.2
     double monitor_db = 0.0;
+    // --monitor-ch: the playback channels the monitor is written to
+    // (audio.md 10.1, 14). Document channel numbers from {24, 33, 34}; 24 is
+    // the A32 output wired to the amplifier, and 33,34 is the Digiface
+    // fallback that Rev 1 to Rev 6 used. Never empty.
+    std::vector<int> monitor_ch { 24 };
     double lp_pass    = 3600.0;         // station 8.8
     double lp_stop    = 5600.0;
     double lp_att     = 70.0;

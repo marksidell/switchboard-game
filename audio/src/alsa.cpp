@@ -134,8 +134,9 @@ bool AlsaStream::open(const Options& o)
              (unsigned long)buffer_);
 
     if (nplay_ < chan::N_PLAY_CH)
-        log_line("alsa: WARNING only %u playback channels; the monitor pair is "
-                 "33/34 and will not be reached", nplay_);
+        log_line("alsa: WARNING only %u playback channels of %d; the Digiface "
+                 "fallback monitor output (33, 34) cannot be reached", nplay_,
+                 chan::N_PLAY_CH);
     if (ncap_ < chan::N_CAP_CH)
         log_line("alsa: WARNING only %u capture channels; circuits above that "
                  "cannot be detected", ncap_);

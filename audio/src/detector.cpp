@@ -176,13 +176,13 @@ void Detector::confirm(Confirm& c, Topic t, int idx, const char* value, bool fir
 // analyse()                                                         [analysis]
 //   Runs identify_peer() (station 8.7) on one capture channel, whose power
 //   spectrum is already in pw_, and feeds the results to confirm(). The tap's
-//   channel gets only the optone check; slot 24 is otherwise skipped.
+//   channel gets only the optone check; slots 23 and 24 are otherwise skipped.
 void Detector::analyse(int cap_index)
 {
     const int slot = cap_index + 1;
     const double margin = sh_.opt.margin_db;
 
-    if (slot == chan::TAP_SLOT) {
+    if (slot == chan::TAP_CH) {
         // audio.md 6.3: the tap's receive channel is not a detector input. The
         // one thing read from it is bin 768, the tap's own tone returning,
         // which is the health check on the tap's transmit path. A dead tap
@@ -208,14 +208,18 @@ void Detector::analyse(int cap_index)
         std::snprintf(value, sizeof value, "deaf");
         amb_prev_[slot] = false;        // so a return to ambiguous logs at once
     } else {
+        // Every comb slot is searched, including 23 and 24, which nothing
+        // generates (audio.md 2). A pilot there cannot be a topology, so it
+        // is reported as ambiguous rather than hidden: it means crosstalk,
+        // a mis-wired strip, or a margin low enough to be reading noise.
         int heard[chan::N_SLOTS], n = 0;
         for (int s = 1; s <= chan::N_SLOTS; ++s) {
-            if (s == slot || !chan::is_circuit_slot(s)) continue;   // slot 24 has no pilot
+            if (s == slot) continue;               // own pilot: the deaf check above
             if (bin_db(chan::pilot_bin(s)) >= margin) heard[n++] = s;
         }
         if (n == 0) {
             value[0] = '\0';                       // idle: an empty retained payload
-        } else if (n == 1) {
+        } else if (n == 1 && chan::is_circuit_slot(heard[0])) {
             chan::circuit_id(heard[0], value, sizeof value);
         } else {
             std::snprintf(value, sizeof value, "ambiguous");
@@ -227,7 +231,7 @@ void Detector::analyse(int cap_index)
         // two strong. Logged when the circuit becomes ambiguous and then at
         // most once a second - every hop would be 23 lines a second for as
         // long as the condition lasts (audio.md Rev 3).
-        const bool   amb = n > 1;
+        const bool   amb = (n > 1) || (n == 1 && !chan::is_circuit_slot(heard[0]));
         const double now = monotonic_s();
         if (amb && (!amb_prev_[slot] || now - amb_logged_[slot] >= 1.0)) {
             amb_logged_[slot] = now;
@@ -236,6 +240,9 @@ void Detector::analyse(int cap_index)
             for (int i = 0; i < n && k < (int)sizeof line - 32; ++i) {
                 char id[24];
                 chan::circuit_id(heard[i], id, sizeof id);
+                // A slot with no circuit has no id; name the slot itself, so
+                // the line says which bin was heard.
+                if (!id[0]) std::snprintf(id, sizeof id, "slot/%d", heard[i]);
                 k += std::snprintf(line + k, sizeof line - k, " %s %.1fdB",
                                    id, bin_db(chan::pilot_bin(heard[i])));
             }
@@ -292,6 +299,11 @@ void Detector::process_snapshot(int w)
     const int    ncap = std::min(sh_.ncap, (int)chan::N_CAP_CH);
 
     for (int c = 0; c < ncap; ++c) {
+        // audio.md 2, Rev 7: thirty circuits and the tap are transformed;
+        // capture channel 24 has no receive path fitted and is read by
+        // nothing, so the audio thread does not even snapshot it.
+        if (!chan::is_read_channel(c + 1)) continue;
+
         const float* src = base + (size_t)c * FFT_N;
         if (spread_) for (int i = 0; i < FFT_N; ++i) in_[i] = src[i] * win_[i];
         else         std::memcpy(in_, src, FFT_N * sizeof(float));

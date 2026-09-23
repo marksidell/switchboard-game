@@ -2,6 +2,8 @@
 
 #include "options.h"
 
+#include "channels.h"
+
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
@@ -51,6 +53,8 @@ static void usage(const char* p)
 "  --test-db DB           test tone level (-20)\n"
 "  --margin-db DB         detector MARGIN_DB (20)\n"
 "  --monitor DB           start with the monitor on at this gain (off)\n"
+"  --monitor-ch LIST      playback channels for the monitor, comma-separated,\n"
+"                         from 24, 33, 34 (24); 33,34 is the Digiface fallback\n"
 "  --monitor-lp HZ HZ DB  monitor low-pass passband edge, stopband edge,\n"
 "                         stopband dB (3600 5600 70)\n"
 "  --vad-margin DB        speech threshold above floor (10)\n"
@@ -67,6 +71,50 @@ static void usage(const char* p)
 //   Checks that the option at argv[i] is followed by at least n more
 //   arguments. Prints "--x needs n arguments" and returns false if not, so the
 //   caller never reads past the end of argv.
+// parse_monitor_ch()                                                 [startup]
+//   "24", "33,34", "24,33" -> the channels, in the order given. Refuses
+//   rather than clamps (audio.md 14): an empty list, a repeat, anything that
+//   is not a number, and any channel outside {24, 33, 34} - a circuit or the
+//   tap would displace a pilot or the operator tone, which is never what was
+//   meant. Returns false having said which channel was wrong and why.
+static bool parse_monitor_ch(const char* s, std::vector<int>& out)
+{
+    out.clear();
+    const std::string str = s;
+    size_t i = 0;
+    while (i <= str.size()) {
+        const size_t c = str.find(',', i);
+        const std::string tok = str.substr(i, (c == std::string::npos ? str.size() : c) - i);
+        if (tok.empty()) {
+            std::fprintf(stderr, "--monitor-ch: empty channel in \"%s\"\n", s);
+            return false;
+        }
+        char* end = nullptr;
+        const long ch = std::strtol(tok.c_str(), &end, 10);
+        if (!end || *end != '\0') {
+            std::fprintf(stderr, "--monitor-ch: \"%s\" is not a channel number\n", tok.c_str());
+            return false;
+        }
+        if (!chan::can_carry_monitor((int)ch)) {
+            std::fprintf(stderr, "--monitor-ch: channel %ld is not one of 24, 33, 34 "
+                                 "(24 is the A32 output to the amplifier; 33 and 34 are "
+                                 "the Digiface pair)\n", ch);
+            return false;
+        }
+        for (int have : out) {
+            if (have == (int)ch) {
+                std::fprintf(stderr, "--monitor-ch: channel %ld given twice\n", ch);
+                return false;
+            }
+        }
+        out.push_back((int)ch);
+        if (c == std::string::npos) break;
+        i = c + 1;
+    }
+    if (out.empty()) { std::fprintf(stderr, "--monitor-ch: no channels given\n"); return false; }
+    return true;
+}
+
 static bool want(int argc, int i, int n, const char* what)
 {
     if (i + n < argc) return true;
@@ -87,7 +135,7 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         const char* nx = (i + 1 < argc) ? argv[i + 1] : nullptr;
 
         if (a == "--help" || a == "-h")     { usage(argv[0]); exit_now = true; return true; }
-        if (a == "--version")               { std::printf("sbaudio 6 (audio.md Rev 6)\n");
+        if (a == "--version")               { std::printf("sbaudio 7 (audio.md Rev 7)\n");
                                               exit_now = true; return true; }
 
         if (a == "--no-realtime")           { o.no_rt = true; continue; }
@@ -118,6 +166,8 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         else if (a == "--test-db")        { o.test_db = atof(nx); ++i; }
         else if (a == "--margin-db")      { o.margin_db = atof(nx); ++i; }
         else if (a == "--monitor")        { o.monitor_on = true; o.monitor_db = atof(nx); ++i; }
+        else if (a == "--monitor-ch")     { if (!parse_monitor_ch(nx, o.monitor_ch)) return false;
+                                            ++i; }
         else if (a == "--monitor-lp")     { if (!want(argc, i, 3, "--monitor-lp")) return false;
                                             o.lp_pass = atof(argv[i + 1]);
                                             o.lp_stop = atof(argv[i + 2]);

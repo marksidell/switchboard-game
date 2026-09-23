@@ -47,6 +47,14 @@ which `snd-usb-audio` derives from the device's serial number — `USB24306452` 
 Digiface on portland. Prefer `--mqtt-pass-file` to `--mqtt-pass`: a password in
 `ExecStart` is in every `ps` listing on the host.
 
+The channel map is `audio.md` §2 and `docs/pilot-map.md`: stations on document channels
+1–22, the operator tap on 23, the audience monitor out of 24 — the A32 output wired to
+the loudspeaker amplifier — and trunks on 25–32. `--monitor-ch 33,34` sends the monitor
+to the Digiface's own analog pair instead, which is what Rev 1 to Rev 6 did and is the
+fallback if the A32 output proves unsuitable; those channels are silent otherwise.
+Capture channel 24 is read by nothing. The map in use is printed at startup, beside the
+negotiated ALSA parameters, so a wiring check can be made from the journal.
+
 Without hardware, an ALSA loopback card is enough to exercise everything but the
 converters:
 
@@ -93,7 +101,8 @@ The wav directory does not exist yet — no content is authored. Create
 document's figure and not a measurement. The first two steps need nothing but the
 switchboard and a terminal:
 
-1. `mosquitto_sub -v -t 'sbgame/#'` with no game program. Every circuit should show
+1. `mosquitto_sub -v -t 'sbgame/#'` with no game program. Every circuit — stations
+   1–22, trunks 1–8, and nothing under `station/23` or `station/24` — should show
    `peer` empty, `op` off, `optone` ok and `audio_status` online within a second. A
    `deaf` is a wiring fault on that circuit's own strip or D-Sub channel.
 2. `sbaudio --dump station/5 10 > clock.csv` with nothing patched. Station 5's own pilot

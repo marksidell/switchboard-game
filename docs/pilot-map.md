@@ -33,9 +33,10 @@ the programme carries it as `--window hann`.
 ## The table
 
 Document channel, A32 channel and slot number are all the same number (station §8.6);
-the ALSA frame index is one less. Slot 24 is the operator tap strip, which has no
-pilot of its own — it transmits the operator tone at bin 768 instead — so bin 696 is
-never generated and never matches (station §7.9.6, `audio.md` §2).
+the ALSA frame index is one less. Slots 23 and 24 have no pilot (station Rev 3.40,
+`audio.md` Rev 7 §2): 23 is the operator tap, which transmits the operator tone at bin
+768 instead, and 24 is the A32 output feeding the audience loudspeaker, whose receive
+side is not fitted. Bins 688 and 696 are never generated and never match.
 
 | Slot | FFT bin | Frequency (Hz) | Circuit | A32 / doc channel | ALSA index |
 | ---: | ---: | ---: | --- | ---: | ---: |
@@ -61,8 +62,8 @@ never generated and never matches (station §7.9.6, `audio.md` §2).
 | 20 | 664 | 7781.25 | station 20 | 20 | 19 |
 | 21 | 672 | 7875.00 | station 21 | 21 | 20 |
 | 22 | 680 | 7968.75 | station 22 | 22 | 21 |
-| 23 | 688 | 8062.50 | station 23 | 23 | 22 |
-| 24 | 696 | 8156.25 | — operator tap, not generated | 24 | 23 |
+| 23 | 688 | 8062.50 | — operator tap, not generated | 23 | 22 |
+| 24 | 696 | 8156.25 | — audience monitor out, not generated | 24 | 23 |
 | 25 | 704 | 8250.00 | trunk 1 | 25 | 24 |
 | 26 | 712 | 8343.75 | trunk 2 | 26 | 25 |
 | 27 | 720 | 8437.50 | trunk 3 | 27 | 26 |
@@ -76,8 +77,8 @@ Outside the comb:
 
 | Purpose | FFT bin | Frequency (Hz) | Channel | Notes |
 | --- | ---: | ---: | ---: | --- |
-| Operator tone | 768 | 9000.00 | 24 (ALSA 23) | Transmitted on the tap strip's channel, station §8.3 and §8.8. Every circuit checks it alongside the comb; hearing it means the operator is bridged to that circuit. It is not a comb slot and never counts toward the zero-or-one rule. |
-| Audience monitor | — | — | 33, 34 (ALSA 32, 33) | Digiface analog out, station §8.8. Playback only; no pilot. |
+| Operator tone | 768 | 9000.00 | 23 (ALSA 22) | Transmitted on the tap strip's channel, station §8.3 and §8.8. Every circuit checks it alongside the comb; hearing it means the operator is bridged to that circuit. It is not a comb slot and never counts toward the zero-or-one rule. |
+| Audience monitor | — | — | 24 (ALSA 23), or 33, 34 | A32 output 24 to the loudspeaker amplifier (station §7.9.8). `--monitor-ch` may send it to the Digiface's analog pair, 33 and 34, instead — the route of `audio.md` Rev 1 to Rev 6, kept as the fallback. Playback only; no pilot. Channels not carrying it are silent. |
 
 Bins 776 and upward are reserved (station §8.3): the deferred per-cord tone extension
 of generator §15.6 would take them. If anything else wants a slot, take it from below
@@ -94,10 +95,23 @@ own slot        excluded from the peer search; its level is the "deaf" health ch
 `MARGIN_DB` is a bench setting (station §8.7, `audio.md` §15 step 6) and is the
 `--margin-db` option; 20 dB is the starting value and what this table records.
 
-## Station 24 and the count of stations
+## How many stations there are, and why it has changed twice
 
-`CLAUDE.md`'s system context says 24 stations. Station Rev 3.35, `mqtt.md` Rev 3 and
-`audio.md` Rev 1 all say 23: the last strip, station 24, is the operator tap (station
-§7.9.6) and has no relay, no ring detector and no pilot. The comb still has 32 slots
-and the formula is unchanged — slot 24 simply has no circuit behind it. There is no
-`sbgame/station/24/…` topic of any kind.
+Twenty-two, as of station Rev 3.40 and `audio.md` Rev 7 (2026-09-23). Station board 3
+carries eight strips; the last two are not stations:
+
+| Strip | A32 channel | What it is |
+| --- | --- | --- |
+| 1–6 | 17–22 | stations 17–22 |
+| 7 | 23 | operator tap — transmits the 9 kHz operator tone, receives the monitor source |
+| 8 | 24 | audience monitor — the output feeds the loudspeaker amplifier; nothing is fitted on the receive side |
+
+The comb still has 32 slots and the formula is unchanged; slots 23 and 24 simply have
+no circuit behind them, and `sbgame/station/23/…` and `…/24/…` are topics that never
+appear.
+
+It was 24 stations until station Rev 3.35, when the last strip became the operator tap,
+and 23 until Rev 3.40, when the tap moved down one strip to free channel 24 for the
+monitor. The monitor was on the Digiface's own analog output, playback 33 and 34, up to
+`audio.md` Rev 6; that route survives as `--monitor-ch 33,34`. Anything in this repo
+still saying 23 or 24 stations is stale.

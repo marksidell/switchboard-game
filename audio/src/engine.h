@@ -13,7 +13,7 @@
 //   process_capture()  capf_ -> ring_          last 4096 samples per channel
 //                      capf_ -> vad_[]         speech detection, per circuit:
 //                                              frames -> Listener (vad.h)
-//                      capf_ row 24 -> mon_row_  the loudspeaker feed
+//                      capf_ row 23 -> mon_row_  the loudspeaker feed
 //                      hop_if_due()            every 2048: ring_ -> Snapshot
 //   drain_commands()   cmdq -> prog_[], vad_[], test_on_[], monitor gain
 //   render()           pilots + prog_[] + test + mon_row_ -> obuf_
@@ -25,6 +25,7 @@
 // source that starts this period is first heard in this period's render.
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <vector>
 
@@ -49,6 +50,20 @@ public:
     //   stream failure that could not be recovered (which sets
     //   Shared::audio_failed).
     void run();
+
+    // ---- test hooks. sbaudio_test drives a render with no audio device, to
+    // check the channel map of audio.md 2: which playback channel carries the
+    // monitor, the operator tone, a pilot or silence. Nothing in the program
+    // calls these.
+    bool prepare_detached(unsigned period, unsigned nplay, unsigned ncap)
+    {
+        detached_ = true;
+        det_period_ = period; det_nplay_ = nplay; det_ncap_ = ncap;
+        return prepare();
+    }
+    void render_for_test()                       { render(); }
+    void set_monitor_row_for_test(float v)       { std::fill(mon_row_.begin(), mon_row_.end(), v); }
+    const std::vector<int32_t>& playback() const { return obuf_; }
 
     // monitor_ripple_db() / monitor_lowpass()                            [any]
     //   What prepare() designed, for the startup log and the unit test.
@@ -104,6 +119,11 @@ private:
     AlsaStream& st_;
     SineTable   tbl_;
 
+    // Set only by prepare_detached(), so prepare() can size its buffers
+    // without an open stream.
+    bool     detached_ = false;
+    unsigned det_period_ = 0, det_nplay_ = 0, det_ncap_ = 0;
+
     unsigned period_ = 0, nplay_ = 0, ncap_ = 0;    // from AlsaStream
 
     // ---- buffers, all sized once in prepare()
@@ -137,9 +157,11 @@ private:
     Vad  vad_[chan::N_SLOTS + 1];           // Listener holds 400 bytes of history;
                                             // 33 of them, allocated with Engine
     bool test_on_[chan::N_PLAY_CH + 1] = { false };
+    bool mon_out_[chan::N_PLAY_CH + 1] = { false };  // --monitor-ch, by channel
 
-    // ---- monitor (audio.md 10): tap capture -> mon_hp_ -> mon_lp_[0..3]
-    // -> gain -> lim_ -> mon_row_ -> playback 33 and 34
+    // ---- monitor (audio.md 10): capture 23 (the tap) -> mon_hp_ ->
+    // mon_lp_[0..3] -> gain -> lim_ -> mon_row_ -> the playback channels
+    // --monitor-ch names, 24 by default
     Biquad                   mon_hp_;       // 150 Hz high-pass
     std::vector<Biquad>      mon_lp_;       // elliptic low-pass, 4 sections
     BiquadState              mon_hp_s_;

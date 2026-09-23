@@ -53,9 +53,9 @@ static_assert(VAD_FRAME * Listener::FRAMES_PER_S == SAMPLE_RATE,
 //   false only if the elliptic design fails.
 bool Engine::prepare()
 {
-    period_ = st_.period();
-    nplay_  = st_.nplay();
-    ncap_   = st_.ncap();
+    period_ = detached_ ? det_period_ : st_.period();
+    nplay_  = detached_ ? det_nplay_  : st_.nplay();
+    ncap_   = detached_ ? det_ncap_   : st_.ncap();
 
     ibuf_.assign((size_t)period_ * ncap_,  0);
     obuf_.assign((size_t)period_ * nplay_, 0);
@@ -114,11 +114,28 @@ bool Engine::prepare()
         log_line("monitor: WARNING the lowest pilot at 6000 Hz is only %.1f dB "
                  "down; station 8.8 asks for %.0f", -at_6k, sh_.opt.lp_att);
 
+    for (int ch = 0; ch <= chan::N_PLAY_CH; ++ch) mon_out_[ch] = false;
+    for (int ch : sh_.opt.monitor_ch) mon_out_[ch] = true;
+
     // audio.md 10.2: the monitor is on at startup only if --monitor gives a
     // level. Started at its target rather than ramped to it - there is no
     // loudspeaker transient to avoid before the stream is running.
     mon_target_ = sh_.opt.monitor_on ? db_to_lin(sh_.opt.monitor_db) : 0.0;
     mon_gain_   = mon_target_;
+
+    // audio.md 2, and task 2 step 10: print the map actually in use, so a
+    // wiring check can be done from the journal alone.
+    {
+        char mon[32] = { 0 };
+        int  k = 0;
+        for (size_t i = 0; i < sh_.opt.monitor_ch.size() && k < (int)sizeof mon - 8; ++i)
+            k += std::snprintf(mon + k, sizeof mon - k, "%s%d",
+                               i ? "," : "", sh_.opt.monitor_ch[i]);
+        log_line("channel map: stations 1-%d, operator tap %d, monitor out %s, "
+                 "trunks 1-%d on %d-%d (document channels; ALSA index is one less)",
+                 chan::N_STATIONS, chan::TAP_CH, mon, chan::N_TRUNKS,
+                 chan::trunk_slot(1), chan::trunk_slot(chan::N_TRUNKS));
+    }
 
     log_line("levels: pilot %.1f dBFS, operator tone %.1f dBFS, trunk tone "
              "%.1f dBFS peak (mod %.2f), test tone %.1f dBFS",
@@ -300,13 +317,17 @@ void Engine::drain_commands()
 //     - run the speech detector on it (circuits only, not the tap): filter,
 //       accumulate 10 ms frames, and hand each frame to the Listener, which
 //       keeps the history and reports speech, silence or timeout;
-//   then run the tap channel (24) through the monitor chain into mon_row_,
+//   then run the tap channel (23) through the monitor chain into mon_row_,
 //   advance the ring position, and take a snapshot if a hop is due.
 void Engine::process_capture()
 {
     const int ncirc = (int)std::min<unsigned>(ncap_, chan::N_CAP_CH);
 
     for (int c = 0; c < ncirc; ++c) {
+        // Capture 24 is read by nothing, so it is not even kept: no ring, no
+        // snapshot, no speech detection (audio.md 2, Rev 7).
+        if (!chan::is_read_channel(c + 1)) continue;
+
         const float* src = &capf_[(size_t)c * period_];
         float*       rg  = &ring_[(size_t)c * FFT_N];
 
@@ -357,8 +378,8 @@ void Engine::process_capture()
     // Monitor: the tap's receive channel through the chain of audio.md 10.1.
     // Run unconditionally, muted or not, so that turning the monitor on is
     // instant and has no transient from a cold filter state.
-    if (ncap_ >= chan::TAP_SLOT) {
-        const float* tap = &capf_[(size_t)(chan::TAP_SLOT - 1) * period_];
+    if (ncap_ >= chan::TAP_CH) {
+        const float* tap = &capf_[(size_t)(chan::TAP_CH - 1) * period_];
         for (unsigned i = 0; i < period_; ++i) {
             double y = mon_hp_s_.run(mon_hp_, (double)tap[i]);
             for (size_t s = 0; s < mon_lp_.size(); ++s) y = mon_lp_s_[s].run(mon_lp_[s], y);
@@ -398,6 +419,7 @@ void Engine::hop_if_due()
 
     float* dst = sh_.snap[w].data.data();
     for (int c = 0; c < chan::N_CAP_CH; ++c) {
+        if (!chan::is_read_channel(c + 1)) continue;   // nothing reads capture 24
         const float* rg = &ring_[(size_t)c * FFT_N];
         float*       d  = dst + (size_t)c * FFT_N;
         const size_t a  = FFT_N - ring_w_;          // oldest run, from ring_w_
@@ -430,8 +452,10 @@ void Engine::hop_if_due()
 //   Step 5 of the period: builds one period of playback in obuf_, channel by
 //   channel. Each playback channel gets exactly one of:
 //     - the 1 kHz test tone, if test_on_[ch] - it replaces everything;
-//     - the monitor feed, for channels 33 and 34;
-//     - the operator tone, for the tap (24);
+//     - the monitor feed, for whatever channels --monitor-ch named (24 by
+//       default; 33 and 34 are the Digiface fallback);
+//     - the operator tone, for the tap (23);
+//     - silence, for a monitor-capable channel the monitor is not on;
 //     - its pilot, plus its programme source if it has one (every circuit).
 //   A file that runs out during this period is stopped here, which is what
 //   publishes `play` going empty. Finally advances the shared pilot counter.
@@ -465,7 +489,10 @@ void Engine::render()
             continue;
         }
 
-        if (ch == chan::MON_CH_A || ch == chan::MON_CH_B) {
+        // The monitor goes to whichever channels --monitor-ch named
+        // (audio.md 10.1): channel 24, the A32 output wired to the amplifier,
+        // by default; 33 and 34, the Digiface pair, as the fallback.
+        if (mon_out_[ch]) {
             for (unsigned i = 0; i < period_; ++i)
                 out[i * stride] = float_to_s32(mon_row_[i]);
             continue;
@@ -473,12 +500,20 @@ void Engine::render()
 
         const int slot = ch;
 
+        // Silence on everything the map gives nothing to: the monitor channel
+        // when the monitor is elsewhere, and the Digiface pair when it is not
+        // there. No pilot is generated for slots 23 and 24 (audio.md 2).
+        if (!chan::is_circuit_slot(slot) && slot != chan::TAP_CH) {
+            for (unsigned i = 0; i < period_; ++i) out[i * stride] = 0;
+            continue;
+        }
+
         // The fixed source: the operator tone on the tap, a comb pilot on every
-        // other circuit. Neither is a programme source and neither is ever
-        // displaced by one. table[(b * n) & 4095] is the whole oscillator.
-        const uint32_t b   = (slot == chan::TAP_SLOT)
+        // circuit. Neither is a programme source and neither is ever displaced
+        // by one. table[(b * n) & 4095] is the whole oscillator.
+        const uint32_t b   = (slot == chan::TAP_CH)
                              ? (uint32_t)chan::OP_BIN : (uint32_t)chan::pilot_bin(slot);
-        const float    amp = (slot == chan::TAP_SLOT) ? op_amp_ : pilot_amp_;
+        const float    amp = (slot == chan::TAP_CH) ? op_amp_ : pilot_amp_;
 
         uint32_t n = pilot_n_;
         for (unsigned i = 0; i < period_; ++i) {
@@ -487,7 +522,7 @@ void Engine::render()
         }
 
         Prog& p = prog_[slot];
-        if (p.kind == Prog::Kind::None || slot == chan::TAP_SLOT) continue;
+        if (p.kind == Prog::Kind::None || slot == chan::TAP_CH) continue;
 
         // Sum the programme source over the fixed one, in float, hard-clipped
         // at +-1.0 with a clip count in the log (audio.md 5.1).

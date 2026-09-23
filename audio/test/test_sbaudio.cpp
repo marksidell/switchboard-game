@@ -13,6 +13,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -22,6 +23,9 @@
 #include "../src/ipc.h"
 #include "../src/util.h"
 #include "../src/vad.h"
+#include "../src/alsa.h"
+#include "../src/engine.h"
+#include "../src/options.h"
 
 // Count of failed checks; main() returns non-zero if any failed.
 static int failures = 0;
@@ -184,7 +188,7 @@ static void test_detector()
     add_noise(s3, NOISE, 5);
 
     // The tap: its own tone returning on its own channel.
-    float* tap = d + (size_t)(chan::TAP_SLOT - 1) * chan::FFT_N;
+    float* tap = d + (size_t)(chan::TAP_CH - 1) * chan::FFT_N;
     add_pilot(tap, tbl, chan::OP_BIN, -18.0);
     add_noise(tap, NOISE, 6);
 
@@ -225,11 +229,17 @@ static void test_detector()
 
     // Slot 24 has no pilot and no circuit, so nothing may be published for it
     // and nothing may ever be reported as connected to it.
-    bool any24 = false;
+    bool any_noncircuit = false;
     for (const Result& x : all)
-        if ((x.topic == Topic::Peer || x.topic == Topic::Op) && x.idx == chan::TAP_SLOT)
-            any24 = true;
-    check(!any24, "the tap strip publishes no peer or op of its own");
+        if ((x.topic == Topic::Peer || x.topic == Topic::Op) &&
+            (x.idx == chan::TAP_CH || x.idx == chan::MONITOR_CH))
+            any_noncircuit = true;
+    check(!any_noncircuit,
+          "neither the tap nor the monitor publishes a peer or op of its own");
+    bool any_station_23 = false;
+    for (const Result& x : all)
+        if (x.idx > chan::N_STATIONS && x.idx < chan::trunk_slot(1)) any_station_23 = true;
+    check(!any_station_23, "nothing is published for a station above 22");
 }
 
 // ---------------------------------------------------------------- pilot map
@@ -244,9 +254,18 @@ static void test_pilot_map()
     check_near(chan::pilot_hz(1), 6000.00, 0.005, "slot 1 is 6000.00 Hz");
     check_near(chan::pilot_hz(32), 8906.25, 0.005, "slot 32 is 8906.25 Hz");
     check_near(chan::OP_BIN * chan::BIN_HZ, 9000.00, 0.005, "the operator tone is 9000.00 Hz");
-    check(chan::station_slot(23) == 23 && chan::trunk_slot(1) == 25,
-          "station 23 is slot 23 and trunk 1 is slot 25");
-    check(!chan::is_circuit_slot(chan::TAP_SLOT), "slot 24 is not a circuit");
+    check(chan::station_slot(22) == 22 && chan::trunk_slot(1) == 25,
+          "station 22 is slot 22 and trunk 1 is slot 25");
+    check(chan::N_STATIONS == 22, "there are 22 stations (audio.md 2, Rev 7)");
+    check(!chan::is_circuit_slot(chan::TAP_CH) &&
+          !chan::is_circuit_slot(chan::MONITOR_CH),
+          "slots 23 and 24 are the tap and the monitor, not circuits");
+    check(chan::TAP_CH == 23 && chan::MONITOR_CH == 24,
+          "the tap is channel 23 and the monitor channel 24");
+    check(chan::can_carry_monitor(24) && chan::can_carry_monitor(33) &&
+          chan::can_carry_monitor(34) && !chan::can_carry_monitor(23) &&
+          !chan::can_carry_monitor(1) && !chan::can_carry_monitor(25),
+          "only 24, 33 and 34 may carry the monitor");
 
     char id[24];
     chan::circuit_id(chan::trunk_slot(8), id, sizeof id);
@@ -367,6 +386,127 @@ static void test_listener()
     }
 }
 
+// ---------------------------------------------------------------- options
+
+// opts()
+//   Parses a command line, --card supplied since it is required, and says
+//   whether it was accepted. The parsed options come back in `o`.
+static bool opts(Options& o, std::vector<const char*> args)
+{
+    std::vector<char*> argv;
+    argv.push_back(const_cast<char*>("sbaudio"));
+    argv.push_back(const_cast<char*>("--card"));
+    argv.push_back(const_cast<char*>("Test"));
+    for (const char* a : args) argv.push_back(const_cast<char*>(a));
+    bool exit_now = false;
+    o = Options{};
+    return parse_options((int)argv.size(), argv.data(), o, exit_now);
+}
+
+// test_monitor_ch()
+//   audio.md 14: the monitor goes to channels from {24, 33, 34}, and anything
+//   else is a startup error rather than a clamp.
+static void test_monitor_ch()
+{
+    std::printf("--monitor-ch (audio.md 10.1, 14)\n");
+    Options o;
+
+    check(opts(o, {}) && o.monitor_ch == std::vector<int>{ 24 },
+          "the default is channel 24, the A32 output to the amplifier");
+    check(opts(o, { "--monitor-ch", "24" }) && o.monitor_ch == std::vector<int>{ 24 },
+          "24 accepted");
+    check(opts(o, { "--monitor-ch", "33,34" }) && o.monitor_ch == (std::vector<int>{ 33, 34 }),
+          "33,34 accepted - the Digiface fallback of Rev 1 to Rev 6");
+    check(opts(o, { "--monitor-ch", "24,33" }) && o.monitor_ch == (std::vector<int>{ 24, 33 }),
+          "24,33 accepted");
+
+    check(!opts(o, { "--monitor-ch", "23" }), "23 refused: it is the operator tap");
+    check(!opts(o, { "--monitor-ch", "1" }),  "1 refused: it is a station");
+    check(!opts(o, { "--monitor-ch", "25" }), "25 refused: it is a trunk");
+    check(!opts(o, { "--monitor-ch", "" }),   "an empty list is refused");
+    check(!opts(o, { "--monitor-ch", "24,24" }), "a repeat is refused");
+    check(!opts(o, { "--monitor-ch", "24," }), "a trailing comma is refused");
+    check(!opts(o, { "--monitor-ch", "twentyfour" }), "a non-number is refused");
+    check(!opts(o, { "--monitor-ch", "35" }), "35 refused: there is no such channel");
+}
+
+// ---------------------------------------------------------------- render
+
+// render_once()
+//   Builds an Engine with no audio device, renders one period with a known
+//   value standing in for the monitor chain's output, and returns the whole
+//   interleaved period. Document channel ch, frame f, is at
+//   [f * N_PLAY_CH + ch - 1].
+static std::vector<int32_t> render_once(const Options& o, float monitor_value)
+{
+    auto sh = std::make_unique<Shared>();   // atomics: not assignable, and large
+    sh->opt = o;
+    AlsaStream st;                          // never opened
+    Engine eng(*sh, st);
+    if (!eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH)) return {};
+    eng.set_monitor_row_for_test(monitor_value);
+    eng.render_for_test();
+    return eng.playback();
+}
+
+// Does document channel `ch` carry `want` in every frame of the period?
+static bool all_frames(const std::vector<int32_t>& buf, int ch, int32_t want)
+{
+    const int n = (int)buf.size() / chan::N_PLAY_CH;
+    for (int f = 0; f < n; ++f)
+        if (buf[(size_t)f * chan::N_PLAY_CH + ch - 1] != want) return false;
+    return n > 0;
+}
+
+// Does it carry anything at all - any frame not zero?
+static bool any_signal(const std::vector<int32_t>& buf, int ch)
+{
+    const int n = (int)buf.size() / chan::N_PLAY_CH;
+    for (int f = 0; f < n; ++f)
+        if (buf[(size_t)f * chan::N_PLAY_CH + ch - 1] != 0) return true;
+    return false;
+}
+
+// test_render_map()
+//   audio.md 2, Rev 7: which playback channel carries what. The monitor row is
+//   set to a value nothing else produces, so the channel carrying it is
+//   unmistakable.
+static void test_render_map()
+{
+    std::printf("playback channel map (audio.md 2, Rev 7)\n");
+    const float MON = 0.5f;
+    const int32_t mon_s32 = float_to_s32(MON);
+
+    Options o;
+    check(opts(o, {}), "default options parse");
+    std::vector<int32_t> f = render_once(o, MON);
+    check(f.size() == 256u * chan::N_PLAY_CH, "a period renders without a device");
+
+    check(all_frames(f, chan::MONITOR_CH, mon_s32),
+          "by default the monitor is on document channel 24 (ALSA index 23)");
+    check(all_frames(f, chan::DIGIFACE_CH_A, 0) && all_frames(f, chan::DIGIFACE_CH_B, 0),
+          "and the Digiface pair (indices 32, 33) is silent");
+    check(any_signal(f, chan::TAP_CH) && !all_frames(f, chan::TAP_CH, mon_s32),
+          "channel 23 carries the operator tone");
+
+    bool pilots = true, clean = true;
+    for (int s = 1; s <= chan::N_SLOTS; ++s) {
+        if (!chan::is_circuit_slot(s)) continue;
+        if (!any_signal(f, s))                   pilots = false;
+        if (all_frames(f, s, mon_s32))           clean = false;
+    }
+    check(pilots, "every circuit channel carries its pilot");
+    check(clean, "no circuit channel carries the monitor");
+
+    check(opts(o, { "--monitor-ch", "33,34" }), "--monitor-ch 33,34 parses");
+    f = render_once(o, MON);
+    check(all_frames(f, chan::DIGIFACE_CH_A, mon_s32) &&
+          all_frames(f, chan::DIGIFACE_CH_B, mon_s32),
+          "--monitor-ch 33,34 moves the monitor to the Digiface pair");
+    check(all_frames(f, chan::MONITOR_CH, 0),
+          "and channel 24 then carries silence");
+}
+
 int main()
 {
     log_start();
@@ -374,6 +514,8 @@ int main()
     test_monitor_filter();
     test_detector();
     test_listener();
+    test_monitor_ch();
+    test_render_map();
     std::printf("\n%s\n", failures ? "FAILURES" : "all checks passed");
     return failures ? 1 : 0;
 }
