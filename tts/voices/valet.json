@@ -1,0 +1,16 @@
+{
+  "person": "valet",
+  "take": 3,
+  "seed": 1953,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: midwest. hotel valet.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Valet service. Do you want fast service?",
+  "sample_from": [
+    "nbn-valet.2",
+    "nbn-valet.4"
+  ],
+  "rate": 24000,
+  "seconds": 2.4,
+  "generate_seconds": 3.85,
+  "chosen_candidate": 3
+}

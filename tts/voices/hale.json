@@ -1,0 +1,16 @@
+{
+  "person": "hale",
+  "take": 2,
+  "seed": 1952,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: generic American, young and cheerful. Betty Hale, on her honeymoon, room 715.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Hello, operator? Could you get me Sunny Hill Pizza, please? Busy? Oh, bother. All right, I'll call back later.",
+  "sample_from": [
+    "hale-busy.1",
+    "hale-busy.2"
+  ],
+  "rate": 24000,
+  "seconds": 7.12,
+  "generate_seconds": 11.34,
+  "chosen_candidate": 2
+}

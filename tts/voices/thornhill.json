@@ -1,0 +1,16 @@
+{
+  "person": "thornhill",
+  "take": 2,
+  "seed": 1952,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: mid-Atlantic, suave. Roger Thornhill, a 1950s New York advertising man; smooth and quick, a little impatient.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Hello. Valet service, please. Valet? This is room 463. How quickly can you get a suit sponged and pressed?",
+  "sample_from": [
+    "nbn-valet.1",
+    "nbn-valet.3"
+  ],
+  "rate": 24000,
+  "seconds": 7.92,
+  "generate_seconds": 12.63,
+  "chosen_candidate": 2
+}

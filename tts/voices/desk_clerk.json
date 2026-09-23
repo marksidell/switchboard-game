@@ -1,0 +1,16 @@
+{
+  "person": "desk_clerk",
+  "take": 1,
+  "seed": 1951,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: generic American, young and polite. hotel front desk clerk.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Operator, room 100, please. Dr. Hollis, this is the front desk. A package just came for you from the hospital.",
+  "sample_from": [
+    "desk-hollis.1",
+    "desk-hollis.3"
+  ],
+  "rate": 24000,
+  "seconds": 6.32,
+  "generate_seconds": 10.06,
+  "chosen_candidate": 1
+}

@@ -1,0 +1,15 @@
+{
+  "person": "albright",
+  "take": 3,
+  "seed": 1953,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: refined American, older woman. Mrs. Edith Albright, well-to-do widow from Spokane, room 512.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Operator, I'd like the Harbor Florist, please. I'm afraid I don't have the number.",
+  "sample_from": [
+    "albright-florist.1"
+  ],
+  "rate": 24000,
+  "seconds": 5.76,
+  "generate_seconds": 9.18,
+  "chosen_candidate": 3
+}

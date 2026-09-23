@@ -1,0 +1,16 @@
+{
+  "person": "maitre_d",
+  "take": 3,
+  "seed": 1953,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: smooth, formal American. maitre d' at Canlis.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Good evening, Canlis. Let me see. I can offer you eight-thirty, Mr. Lindqvist, by the window.",
+  "sample_from": [
+    "lindqvist-canlis.2",
+    "lindqvist-canlis.4"
+  ],
+  "rate": 24000,
+  "seconds": 5.76,
+  "generate_seconds": 9.16,
+  "chosen_candidate": 3
+}

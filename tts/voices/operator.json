@@ -1,0 +1,16 @@
+{
+  "person": "operator",
+  "take": 2,
+  "seed": 1952,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: generic American. public telephone operator (for long distance calls).\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Long distance. And your name, please?",
+  "sample_from": [
+    "albright-portland.2",
+    "albright-portland.4"
+  ],
+  "rate": 24000,
+  "seconds": 3.92,
+  "generate_seconds": 6.44,
+  "chosen_candidate": 2
+}

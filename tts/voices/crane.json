@@ -1,0 +1,15 @@
+{
+  "person": "crane",
+  "take": 1,
+  "seed": 1951,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: generic American, precise. Miss Dorothy Crane, schoolteacher from Yakima, room 308.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Operator? Could you ring me at six-thirty tomorrow morning? I have an early bus.",
+  "sample_from": [
+    "crane-wakeup.1"
+  ],
+  "rate": 24000,
+  "seconds": 6.16,
+  "generate_seconds": 9.79,
+  "chosen_candidate": 1
+}

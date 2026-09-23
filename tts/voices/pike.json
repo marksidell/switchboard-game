@@ -1,0 +1,16 @@
+{
+  "person": "pike",
+  "take": 2,
+  "seed": 1952,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: Chicago, fast talking. Harold Pike, traveling vacuum cleaner salesman, room 214.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Room service, please. Yeah, this is Pike in 214. Two eggs over easy, bacon, toast, and a pot of coffee.",
+  "sample_from": [
+    "pike-breakfast.1",
+    "pike-breakfast.3"
+  ],
+  "rate": 24000,
+  "seconds": 7.92,
+  "generate_seconds": 12.61,
+  "chosen_candidate": 2
+}

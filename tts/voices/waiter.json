@@ -1,0 +1,16 @@
+{
+  "person": "waiter",
+  "take": 3,
+  "seed": 1953,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: generic American, older and patient. hotel room service order taker.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Room service. Two eggs over easy, bacon, toast, coffee. Anything else, sir?",
+  "sample_from": [
+    "pike-breakfast.2",
+    "pike-breakfast.4"
+  ],
+  "rate": 24000,
+  "seconds": 4.88,
+  "generate_seconds": 7.78,
+  "chosen_candidate": 3
+}

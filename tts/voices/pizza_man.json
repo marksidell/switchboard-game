@@ -1,0 +1,16 @@
+{
+  "person": "pizza_man",
+  "take": 3,
+  "seed": 1953,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: Italian American. counterman at Sunny Hill Pizza.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Sunny Hill Pizza. Hotel Ballard, 715. That's gonna be forty-five minutes, lady.",
+  "sample_from": [
+    "hale-pizza.2",
+    "hale-pizza.4"
+  ],
+  "rate": 24000,
+  "seconds": 7.04,
+  "generate_seconds": 11.33,
+  "chosen_candidate": 3
+}

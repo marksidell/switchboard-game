@@ -1,0 +1,16 @@
+{
+  "person": "dispatcher",
+  "take": 1,
+  "seed": 1951,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: generic American, brisk. dispatcher at Shilshole Cab.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Shilshole Cab. Name?",
+  "sample_from": [
+    "pike-taxi.2",
+    "pike-taxi.4"
+  ],
+  "rate": 24000,
+  "seconds": 1.76,
+  "generate_seconds": 2.87,
+  "chosen_candidate": 1
+}

@@ -1,0 +1,16 @@
+{
+  "person": "lindqvist",
+  "take": 3,
+  "seed": 1953,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: Pacific Northwest, slow and plain. Nils Lindqvist, owns fishing boats in Ballard, room 601.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Operator, ring Canlis for me, would you? This is Nils Lindqvist. I want a table for four tonight. Eight o'clock.",
+  "sample_from": [
+    "lindqvist-canlis.1",
+    "lindqvist-canlis.3"
+  ],
+  "rate": 24000,
+  "seconds": 8.08,
+  "generate_seconds": 12.9,
+  "chosen_candidate": 3
+}

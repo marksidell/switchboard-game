@@ -1,0 +1,20 @@
+# Which candidate to keep for each cast member (tts_task.md 5.4).
+# Written by tts/audition; tts/choose reads it.
+
+thornhill: 2
+operator: 2
+assassin: 2
+valet: 3
+pike: 2
+albright: 3
+hale: 2
+lindqvist: 3
+crane: 1
+hollis: 2
+desk_clerk: 1
+waiter: 3
+florist: 2
+pizza_man: 3
+dispatcher: 1
+maitre_d: 3
+reporter: 3

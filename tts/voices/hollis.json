@@ -1,0 +1,16 @@
+{
+  "person": "hollis",
+  "take": 2,
+  "seed": 1952,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: generic American, older, dry. Dr. Walter Hollis, visiting surgeon, room 100.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Hollis. Keep it behind the desk. I'll be down in five minutes.",
+  "sample_from": [
+    "desk-hollis.2",
+    "desk-hollis.4"
+  ],
+  "rate": 24000,
+  "seconds": 4.56,
+  "generate_seconds": 7.28,
+  "chosen_candidate": 2
+}

@@ -1,0 +1,16 @@
+{
+  "person": "florist",
+  "take": 2,
+  "seed": 1952,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: generic American, friendly. clerk at the Harbor Florist.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Harbor Florist. White roses, room 715. What should the card say?",
+  "sample_from": [
+    "albright-florist.2",
+    "albright-florist.4"
+  ],
+  "rate": 24000,
+  "seconds": 5.2,
+  "generate_seconds": 8.27,
+  "chosen_candidate": 2
+}

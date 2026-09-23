@@ -1,0 +1,16 @@
+{
+  "person": "assassin",
+  "take": 2,
+  "seed": 1952,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: sinister foreign. one of the assassins in North by Northwest.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Connect me with room 463. Mr. Kaplan, how good it is to find you in.",
+  "sample_from": [
+    "nbn-kaplan.1",
+    "nbn-kaplan.3"
+  ],
+  "rate": 24000,
+  "seconds": 6.16,
+  "generate_seconds": 9.83,
+  "chosen_candidate": 2
+}

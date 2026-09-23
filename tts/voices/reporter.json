@@ -1,0 +1,16 @@
+{
+  "person": "reporter",
+  "take": 3,
+  "seed": 1953,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: generic American, fast and nosy. Joe Barrett, reporter for the Seattle Times.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Room 214, please. Mr. Harold Pike. Mr. Pike, Joe Barrett, Seattle Times. Is it true you sold a vacuum cleaner to the mayor?",
+  "sample_from": [
+    "times-pike.1",
+    "times-pike.3"
+  ],
+  "rate": 24000,
+  "seconds": 9.52,
+  "generate_seconds": 15.23,
+  "chosen_candidate": 3
+}
