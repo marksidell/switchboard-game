@@ -18,3 +18,15 @@
 
 # The audio program's CMake build tree.
 /audio/build/
+
+# TTS pipeline. The venv and the generated audio are all reproducible; the
+# chosen reference voices in tts/voices/*.wav are not — they cost Mark's ears —
+# and are committed. tts_task.md section 8.
+/tts/.venv/
+/tts/voices/candidates/
+/tts/voices/preview/
+/tts/raw/
+/tts/jobs.json
+
+# Python bytecode.
+__pycache__/

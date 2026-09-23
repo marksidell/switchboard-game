@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+"""Promote the candidate voices Mark picked (tts_task.md 5.4).
+
+Reads tts/voices.yml — `<person>: <k>` — and copies that candidate, at its raw
+full-bandwidth rate, to tts/voices/<person>.wav with its .json beside it. The
+band-limited previews are for listening only; session 2 clones from the raw
+file, so that is what is promoted.
+
+Refuses if any cast member in the script has no choice, because a missing
+reference voice would not be noticed until session 2 tried to speak that
+character's lines.
+"""
+
+from __future__ import annotations
+
+import json
+import shutil
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from ruamel.yaml import YAML                                    # noqa: E402
+from tts.script import DEFAULT_SCRIPT, ScriptError, load        # noqa: E402
+
+CANDIDATES = Path("tts/voices/candidates")
+CHOSEN = Path("tts/voices")
+CHOICES = Path("tts/voices.yml")
+
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("--choices", type=Path, default=CHOICES)
+    p.add_argument("--candidates", type=Path, default=CANDIDATES)
+    p.add_argument("--out", type=Path, default=CHOSEN)
+    p.add_argument("--script", default=DEFAULT_SCRIPT)
+    args = p.parse_args(argv)
+
+    try:
+        script = load(args.script)
+    except ScriptError as e:
+        print(f"{e.path}: {len(e.failures)} problem(s)", file=sys.stderr)
+        for f in e.failures:
+            print(f"  {f}", file=sys.stderr)
+        return 1
+
+    if not args.choices.exists():
+        print(f"{args.choices} does not exist. It holds one line per cast member, "
+              f"`<person>: <k>`, naming the candidate to keep.", file=sys.stderr)
+        return 1
+    yaml = YAML(typ="safe")
+    yaml.allow_duplicate_keys = False
+    choices = yaml.load(args.choices.read_text(encoding="utf-8")) or {}
+
+    fail: list[str] = []
+    for person in script.cast:
+        if person not in choices:
+            fail.append(f"{person} has no choice in {args.choices}")
+    for person in choices:
+        if person not in script.cast:
+            fail.append(f"{person} is in {args.choices} but not in the script's cast")
+    if fail:
+        for f in fail:
+            print(f"  {f}", file=sys.stderr)
+        return 1
+
+    copied = 0
+    for person, k in choices.items():
+        src = args.candidates / f"{person}.{k}.wav"
+        meta = args.candidates / f"{person}.{k}.json"
+        if not src.exists():
+            print(f"  {src} does not exist", file=sys.stderr)
+            fail.append(person)
+            continue
+        args.out.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, args.out / f"{person}.wav")
+        if meta.exists():
+            # Record which candidate this was; 6.3 hashes the reference voice,
+            # but knowing the seed is what lets a voice be regenerated.
+            info = json.loads(meta.read_text(encoding="utf-8"))
+            info["chosen_candidate"] = k
+            (args.out / f"{person}.json").write_text(json.dumps(info, indent=2) + "\n",
+                                                     encoding="utf-8")
+        else:
+            print(f"  warning: {meta} is missing; session 2 needs its sample text",
+                  file=sys.stderr)
+        copied += 1
+
+    if fail:
+        return 1
+    print(f"{copied} reference voices in {args.out}/ — commit these")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

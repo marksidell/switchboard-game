@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Terminate every instance tagged project=sbgame-tts (tts_task.md 4.4).
+#
+# Deliberately not "the instance this run started": if a previous session died
+# badly, or two were started, this is what catches them. The key pair and the
+# security group are left alone — they cost nothing and 4.3 reuses them.
+set -euo pipefail
+cd "$(dirname "$0")"
+. ./common.sh
+
+ids=$(ids_of_ours "pending,running,stopping,stopped" || true)
+if [ -z "$ids" ]; then
+    printf 'nothing to terminate\n'
+    exec ./status
+fi
+
+printf 'terminating:\n'
+aws ec2 describe-instances --instance-ids $ids \
+    --query 'Reservations[].Instances[].[InstanceId,InstanceType,LaunchTime]' --output text \
+| while IFS=$'\t' read -r id type launched; do
+    printf '  %s  %s  ran %s\n' "$id" "$type" "$(elapsed_since "$launched")"
+done
+
+aws ec2 terminate-instances --instance-ids $ids \
+    --query 'TerminatingInstances[].[InstanceId,CurrentState.Name]' --output text
+
+printf 'waiting for them to reach terminated…\n'
+aws ec2 wait instance-terminated --instance-ids $ids
+printf 'done\n\n'
+exec ./status

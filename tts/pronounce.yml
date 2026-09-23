@@ -1,0 +1,31 @@
+# Whole-word substitutions applied only to the text sent to the model
+# (tts_task.md 6.2). The script's own text is never changed by this — what is
+# written in script.yml is what the scene says; this is only how it is spoken.
+#
+# Expected to grow once Mark has listened. A model that reads "463" as "four
+# hundred sixty-three" is not wrong, it is just not how an operator or a guest
+# says a room number.
+#
+# Keys are matched as whole words, longest first, so "284-1187" is taken before
+# "284" would be.
+
+# Room and station numbers, as a 1950s speaker says them.
+"100": one hundred
+"214": two fourteen
+"308": three oh eight
+"463": four sixty-three
+"512": five twelve
+"601": six oh one
+"715": seven fifteen
+"822": eight twenty-two
+
+# Telephone numbers, digit by digit with the exchange split off.
+"284-1187": two eight four, one one eight seven
+
+# Names the model is likely to mangle. Only the ones that are genuinely
+# ambiguous — Ballard, Seattle, Portland and Oregon it will already know.
+"Canlis": CAN-liss
+"Lindqvist": LIND-kwist
+"Shilshole": SHIL-shole
+"Seaver": SEE-ver
+"Nils": Nils

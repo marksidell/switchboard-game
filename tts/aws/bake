@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Bake the session image from a set-up instance, and clean up the one it
+# replaces (tts_task.md 4.4's discipline, extended to images).
+#
+# Called by `design --bake` with --from and --no-wait, and usable by hand after
+# `design --keep` when the environment on a live instance is worth keeping.
+set -euo pipefail
+cd "$(dirname "$0")"
+. ./common.sh
+
+INSTANCE_ID=""; WAIT=1
+while [ $# -gt 0 ]; do
+    case $1 in
+        --from)    INSTANCE_ID=$2; shift 2 ;;
+        --no-wait) WAIT=0; shift ;;
+        *) die "unknown option: $1" ;;
+    esac
+done
+
+if [ -z "$INSTANCE_ID" ]; then
+    ids=$(ids_of_ours running)
+    count=$(printf '%s\n' "$ids" | sed '/^$/d' | wc -l)
+    [ "$count" = 1 ] || die "expected exactly one running instance tagged $PROJECT_TAG, found $count"
+    INSTANCE_ID=$ids
+fi
+
+OLD=$(aws ec2 describe-images --owners self --filters "Name=tag:project,Values=$PROJECT_TAG" \
+      --query 'Images[].ImageId' --output text)
+
+# --no-reboot deliberately: the instance carries shutdown-behavior=terminate
+# and the default CreateImage reboots it. Nothing is mid-write but a pip tree
+# and a model cache, so crash-consistent is good enough, and losing the
+# instance in the middle of a session is not.
+NEW=$(aws ec2 create-image --instance-id "$INSTANCE_ID" --no-reboot \
+    --name "sbgame-tts-$(date +%Y%m%d-%H%M%S)" \
+    --description "Qwen3-TTS ready: qwen-tts, sox, model weights cached" \
+    --tag-specifications "ResourceType=image,Tags=[{Key=project,Value=$PROJECT_TAG}]" \
+                         "ResourceType=snapshot,Tags=[{Key=project,Value=$PROJECT_TAG}]" \
+    --query ImageId --output text)
+echo "  $NEW registering from $INSTANCE_ID"
+
+for img in $OLD; do
+    [ "$img" = "None" ] && continue
+    [ "$img" = "$NEW" ] && continue
+    snaps=$(aws ec2 describe-images --image-ids "$img" \
+            --query 'Images[].BlockDeviceMappings[].Ebs.SnapshotId' --output text)
+    aws ec2 deregister-image --image-id "$img" && echo "  deregistered previous image $img"
+    # A snapshot only becomes deletable once its image is deregistered.
+    for s in $snaps; do
+        aws ec2 delete-snapshot --snapshot-id "$s" && echo "  deleted snapshot $s"
+    done
+done
+
+if [ "$WAIT" = 1 ]; then
+    echo "  waiting for $NEW to become available…"
+    aws ec2 wait image-available --image-ids "$NEW"
+    exec ./status
+fi
+echo "  registering in the background; it does not delay this session"

@@ -1,0 +1,210 @@
+#!/usr/bin/env python3
+"""Audition the candidate voices and record Mark's choices (tts_task.md 5.4).
+
+Walks the cast in script order. For each person it prints who they are, plays
+the three candidates through the Digiface's headphone jack, and asks which one
+to keep. The answer goes straight into tts/voices.yml, so stopping half way
+loses nothing and running again picks up where it left off.
+
+Plays the band-limited previews by default, not the raw candidates: the
+telephone band is how the audience hears these, and a voice that is lovely at
+full bandwidth can disappear at 3.4kHz. --raw is there for comparison, not for
+choosing.
+
+Audio path, from docs/audio-io.md: the Digiface USB is ALSA card 1 with 34
+playback channels of S32_LE at 48kHz, and the headphone jack is the last pair,
+zero-based indices 32 and 33. So each clip is placed into a 34-channel frame
+with silence everywhere else and handed to aplay.
+"""
+
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+from pathlib import Path
+
+import numpy as np
+import soundfile as sf
+import soxr
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from tts.prompt import sample_text, voice_prompt          # noqa: E402
+from tts.script import DEFAULT_SCRIPT, ScriptError, load  # noqa: E402
+
+DEVICE = "hw:1"
+CHANNELS = 34            # the Digiface's playback count
+PHONES = (32, 33)        # zero-based, the headphone jack
+RATE = 48000
+
+PREVIEW = Path("tts/voices/preview")
+CANDIDATES = Path("tts/voices/candidates")
+CHOICES = Path("tts/voices.yml")
+TAKES = 3
+
+
+def play(path: Path, device: str, gain_db: float) -> None:
+    """Send one clip to the headphone pair, silence on every other channel."""
+    audio, rate = sf.read(str(path), always_2d=False, dtype="float64")
+    audio = np.asarray(audio)
+    if audio.ndim > 1:
+        audio = audio.mean(axis=1)
+    if rate != RATE:
+        audio = soxr.resample(audio, rate, RATE, quality="VHQ")
+    audio = audio * (10.0 ** (gain_db / 20.0))
+    np.clip(audio, -1.0, 1.0, out=audio)
+
+    frame = np.zeros((len(audio), CHANNELS), dtype=np.int32)
+    # S32_LE carrying 24 bits left-justified in the 32-bit word; full scale is
+    # the top of the int32 range and the device ignores the low byte.
+    samples = (audio * (2 ** 31 - 1)).astype(np.int32)
+    for ch in PHONES:
+        frame[:, ch] = samples
+
+    try:
+        subprocess.run(
+            ["aplay", "-D", device, "-t", "raw", "-f", "S32_LE",
+             "-r", str(RATE), "-c", str(CHANNELS), "-q", "-"],
+            input=frame.tobytes(), check=True)
+    except FileNotFoundError:
+        sys.exit("aplay not found: install alsa-utils")
+    except subprocess.CalledProcessError as e:
+        sys.exit(f"aplay failed ({e.returncode}). Is {device} free, and is the "
+                 f"Digiface connected? docs/audio-io.md has the device notes.")
+
+
+def read_choices(path: Path) -> dict[str, int]:
+    if not path.exists():
+        return {}
+    from ruamel.yaml import YAML
+    yaml = YAML(typ="safe")
+    yaml.allow_duplicate_keys = False
+    return {str(k): int(v) for k, v in (yaml.load(path.read_text(encoding="utf-8")) or {}).items()}
+
+
+def write_choices(path: Path, choices: dict[str, int], order: list[str]) -> None:
+    lines = ["# Which candidate to keep for each cast member (tts_task.md 5.4).",
+             "# Written by tts/audition; tts/choose reads it.", ""]
+    for person in order:
+        if person in choices:
+            lines.append(f"{person}: {choices[person]}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("--script", default=DEFAULT_SCRIPT)
+    p.add_argument("--from", dest="src", type=Path, default=PREVIEW,
+                   help=f"directory of clips to play (default {PREVIEW})")
+    p.add_argument("--raw", action="store_true",
+                   help=f"play {CANDIDATES} at full bandwidth instead of the previews")
+    p.add_argument("--choices", type=Path, default=CHOICES)
+    p.add_argument("--device", default=DEVICE)
+    p.add_argument("--gain", type=float, default=0.0, help="dB, applied on the way out")
+    p.add_argument("--only", default="", help="comma-separated cast keys")
+    p.add_argument("--all", action="store_true",
+                   help="include people already chosen, rather than resuming")
+    args = p.parse_args()
+
+    src = CANDIDATES if args.raw else args.src
+    try:
+        script = load(args.script)
+    except ScriptError as e:
+        print(f"{e.path}: {len(e.failures)} problem(s)", file=sys.stderr)
+        for f in e.failures:
+            print(f"  {f}", file=sys.stderr)
+        return 1
+
+    order = list(script.cast)
+    choices = read_choices(args.choices)
+    wanted = [w for w in args.only.split(",") if w] or order
+    unknown = [w for w in wanted if w not in script.cast]
+    if unknown:
+        print(f"not in the cast: {', '.join(unknown)}", file=sys.stderr)
+        return 1
+    queue = [w for w in wanted if args.all or args.only or w not in choices]
+
+    print(f"playing {src}/ through {args.device}, channels {PHONES[0]}/{PHONES[1]} "
+          f"(the headphone jack)")
+    if not args.raw:
+        print("these are the band-limited previews — 300-3400Hz, as the audience hears them")
+    if len(queue) < len(wanted):
+        print(f"{len(wanted) - len(queue)} already chosen; --all to revisit them")
+    print(f"{len(queue)} to audition\n")
+
+    i = 0
+    while i < len(queue):
+        person = queue[i]
+        entry = script.cast[person]
+        lines = script.first_lines(person)
+        text, _used = sample_text(script, person)
+
+        print("=" * 72)
+        print(f"{person}   ({i + 1} of {len(queue)}, {len(lines)} lines in the script)")
+        print(f"  {voice_prompt(person, entry).splitlines()[0]}")
+        print(f'  says: "{text}"')
+        if person in choices:
+            print(f"  currently chosen: {choices[person]}")
+        print()
+
+        available = [k for k in range(1, TAKES + 1) if (src / f"{person}.{k}.wav").exists()]
+        if not available:
+            print(f"  no clips for {person} in {src}/ — skipping")
+            i += 1
+            continue
+
+        def play_all() -> None:
+            for k in available:
+                print(f"  [{k}] …", end="", flush=True)
+                play(src / f"{person}.{k}.wav", args.device, args.gain)
+                print(" done")
+
+        play_all()
+
+        while True:
+            answer = input(f"\n  {person}: [1-{TAKES}] keep  [r] all again  "
+                           f"[p<n>] play one  [s] skip  [b] back  [q] quit > ").strip().lower()
+            if answer in {str(k) for k in available}:
+                choices[person] = int(answer)
+                write_choices(args.choices, choices, order)
+                print(f"  {person}: {answer}  (saved)")
+                i += 1
+                break
+            if answer == "r":
+                play_all()
+                continue
+            if answer.startswith("p") and answer[1:].isdigit() and int(answer[1:]) in available:
+                k = int(answer[1:])
+                print(f"  [{k}] …", end="", flush=True)
+                play(src / f"{person}.{k}.wav", args.device, args.gain)
+                print(" done")
+                continue
+            if answer == "s":
+                print(f"  {person}: skipped")
+                i += 1
+                break
+            if answer == "b":
+                i = max(0, i - 1)
+                break
+            if answer == "q":
+                write_choices(args.choices, choices, order)
+                missing = [c for c in script.cast if c not in choices]
+                print(f"\n{len(choices)} of {len(script.cast)} chosen, written to {args.choices}")
+                if missing:
+                    print(f"still to do: {', '.join(missing)}")
+                return 0
+            print(f"  '{answer}'? one of {'/'.join(str(k) for k in available)}, r, p<n>, s, b, q")
+
+    write_choices(args.choices, choices, order)
+    missing = [c for c in script.cast if c not in choices]
+    print(f"\n{len(choices)} of {len(script.cast)} chosen, written to {args.choices}")
+    if missing:
+        print(f"still to do: {', '.join(missing)}")
+    else:
+        print("all chosen — next is tts/choose, then tts/aws/generate")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

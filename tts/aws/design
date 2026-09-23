@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# Session 1 (tts_task.md 5): launch, design the voices, copy back, terminate.
+#
+# The teardown trap is the point of this script's shape. It fires on success,
+# on error and on Ctrl-C, and it terminates every instance tagged
+# project=sbgame-tts, not just the one this run believes it started (4.4).
+set -euo pipefail
+cd "$(dirname "$0")"
+. ./common.sh
+. ./session.sh
+
+# Only one session at a time. teardown terminates every instance tagged
+# project=sbgame-tts rather than just this run's, which is right — a session
+# that died badly must not leave a GPU behind — but it means two overlapping
+# runs kill each other's instance. That happened: a previous run's trap fired
+# seconds after a new run had launched, and the new instance went to
+# shutting-down before sshd was up.
+exec 9>"${TMPDIR:-/tmp}/sbgame-tts.lock"
+flock -n 9 || die "another sbgame-tts session is running (or its teardown has not finished). \
+Wait for it, or check tts/aws/status."
+
+SCRIPT_YML=${SCRIPT_YML:-$HOME/s/game/script.yml}
+REPO=$(cd ../.. && pwd)
+OUT=$REPO/tts/voices/candidates
+INSTANCE_TYPE=${INSTANCE_TYPE:-g6.xlarge}
+MODEL_ID=Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign
+ONLY=""; BAKE=0; KEEP=0; TAKES=3; REBAKE=0
+
+
+while [ $# -gt 0 ]; do
+    case $1 in
+        --only)  ONLY=$2; shift 2 ;;
+        --takes) TAKES=$2; shift 2 ;;
+        --type)  INSTANCE_TYPE=$2; shift 2 ;;
+        --bake)  BAKE=1; shift ;;
+        --rebake) BAKE=1; REBAKE=1; shift ;;   # stock image, run setup, bake over the top
+        --keep)  KEEP=1; shift ;;   # leave it up for re-takes; 4.4 layer 1 still armed
+        *) die "unknown option: $1" ;;
+    esac
+done
+
+export REBAKE
+
+[ -f "$KEY_FILE" ] || die "no private key at $KEY_FILE"
+[ -f "$SCRIPT_YML" ] || die "no script at $SCRIPT_YML"
+
+INSTANCE_ID=""; PUBLIC_IP=""
+STARTED=$(date +%s)
+
+teardown() {
+    local rc=$?
+    set +e
+    if [ "$KEEP" = 1 ] && [ -n "$INSTANCE_ID" ] && [ "$rc" = 0 ]; then
+        printf '\n--keep: leaving %s running. It self-terminates 2 hours after boot.\n' "$INSTANCE_ID"
+        printf '  ssh -i %s ubuntu@%s\n' "$KEY_FILE" "$PUBLIC_IP"
+        printf '  tts/aws/bake      to re-bake the image from it\n'
+        printf '  tts/aws/teardown  when finished\n'
+        exit $rc
+    fi
+    printf '\n=== teardown (exit %s, %s elapsed) ===\n' "$rc" "$(elapsed_since "@$STARTED")"
+    ./teardown
+    exit $rc
+}
+trap teardown EXIT INT TERM
+
+echo "=== image ==="
+pick_image
+echo "=== ssh rule for today's address ==="
+open_ssh_today
+echo "=== launch ==="
+launch_tagged sbgame-tts-design
+echo "=== the guard that cannot be dry-run before launch (4.4) ==="
+assert_can_terminate
+echo "=== waiting for it ==="
+wait_for_ssh
+
+echo "=== uploading ==="
+upload_tree "$REPO"
+rsync -az -e "$SSH" "$SCRIPT_YML" ubuntu@"$PUBLIC_IP":~/script.yml
+
+if [ "$FROM_BAKED" = 0 ]; then
+    echo "=== setup (first run on a stock image) ==="
+    run_setup
+    echo "=== pre-fetching the model so the image carries it ==="
+    $SSH ubuntu@"$PUBLIC_IP" "~/tts-venv/bin/python -c '
+import torch
+from qwen_tts import Qwen3TTSModel
+Qwen3TTSModel.from_pretrained(\"$MODEL_ID\", dtype=torch.bfloat16, device_map=\"cuda:0\")
+print(\"weights cached\")'"
+    rsync -az -e "$SSH" ubuntu@"$PUBLIC_IP":~/requirements.lock "$REPO/tts/remote/requirements.lock" \
+        && echo "  recorded tts/remote/requirements.lock"
+fi
+
+echo "=== designing voices ==="
+mkdir -p "$OUT"
+$SSH ubuntu@"$PUBLIC_IP" "~/tts-venv/bin/python ~/tts/remote/design_voices.py \
+    --script ~/script.yml --out ~/candidates --takes $TAKES ${ONLY:+--only $ONLY}"
+
+echo "=== copying back ==="
+rsync -az -e "$SSH" ubuntu@"$PUBLIC_IP":~/candidates/ "$OUT/"
+find "$OUT" -name '*.wav' | wc -l | xargs echo "  candidate wavs in tts/voices/candidates:"
+
+# Baked last, and only now. An earlier version baked straight after setup, and
+# so captured an environment that had passed a shallow check but could not
+# actually run a kernel — an image of a broken machine, which the next session
+# would have preferred over the stock one. The image is only worth keeping once
+# it has produced real audio.
+if [ "$BAKE" = 1 ] && [ "$FROM_BAKED" = 0 ]; then
+    echo "=== baking the image, now that it has done the work ==="
+    ./bake --from "$INSTANCE_ID" --no-wait
+fi

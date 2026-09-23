@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# List anything tagged project=sbgame-tts that still exists (tts_task.md 4.4).
+# Exits 1 if any instance is live, so it can be used as a check as well as read.
+set -euo pipefail
+cd "$(dirname "$0")"
+. ./common.sh
+
+printf 'region %s, profile %s\n\n' "$AWS_DEFAULT_REGION" "$AWS_PROFILE"
+
+rows=$(aws ec2 describe-instances \
+    --filters "Name=tag:project,Values=$PROJECT_TAG" \
+              "Name=instance-state-name,Values=$LIVE_STATES" \
+    --query 'Reservations[].Instances[].[InstanceId,InstanceType,State.Name,LaunchTime,PublicIpAddress]' \
+    --output text)
+
+if [ -z "$rows" ]; then
+    printf 'no instances tagged project=%s\n' "$PROJECT_TAG"
+else
+    printf '%-20s %-12s %-14s %-22s %-16s %s\n' INSTANCE TYPE STATE LAUNCHED ADDRESS RUNNING
+    while IFS=$'\t' read -r id type state launched ip; do
+        printf '%-20s %-12s %-14s %-22s %-16s %s\n' \
+               "$id" "$type" "$state" "$launched" "${ip:-—}" "$(elapsed_since "$launched")"
+    done <<< "$rows"
+fi
+
+printf '\nsupporting resources (kept between sessions, free):\n'
+aws ec2 describe-key-pairs --key-names "$KEY_NAME" \
+    --query 'KeyPairs[].[KeyName,KeyFingerprint]' --output text 2>/dev/null \
+    | sed 's/^/  key pair  /' || printf '  key pair  (none)\n'
+aws ec2 describe-security-groups --filters "Name=group-name,Values=$SG_NAME" \
+    --query 'SecurityGroups[].[GroupId,GroupName]' --output text 2>/dev/null \
+    | sed 's/^/  group     /' || printf '  group     (none)\n'
+
+# A baked image outlives the session, which is exactly why it belongs here:
+# an orphaned snapshot is quieter than a running instance and lasts longer.
+printf '\nbaked images and their snapshots:\n'
+imgs=$(aws ec2 describe-images --owners self --filters "Name=tag:project,Values=$PROJECT_TAG" \
+       --query 'Images[].[ImageId,Name,CreationDate]' --output text)
+if [ -z "$imgs" ]; then
+    printf '  none — the next session builds from the stock DLAMI\n'
+else
+    printf '%s\n' "$imgs" | sed 's/^/  image     /'
+fi
+snaps=$(aws ec2 describe-snapshots --owner-ids self --filters "Name=tag:project,Values=$PROJECT_TAG" \
+        --query 'Snapshots[].[SnapshotId,VolumeSize,StartTime]' --output text)
+if [ -n "$snaps" ]; then
+    printf '%s\n' "$snaps" | sed 's/^/  snapshot  /' | sed 's/$/ GiB/'
+fi
+
+[ -z "$rows" ]
