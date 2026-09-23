@@ -14,9 +14,18 @@ character's lines.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
+
+# Run under the project venv whatever interpreter started this. A shebang
+# cannot name a path relative to the repo, so `tts/choose` from a shell gets
+# the system python, which has none of the dependencies; re-exec once, and
+# only when not already inside a venv.
+_venv = Path(__file__).resolve().parent / ".venv" / "bin" / "python"
+if sys.prefix == sys.base_prefix and _venv.exists():
+    os.execv(str(_venv), [str(_venv), str(Path(__file__).resolve()), *sys.argv[1:]])
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
