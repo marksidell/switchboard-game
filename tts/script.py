@@ -31,9 +31,11 @@ MAX_NAME = 31
 FORBIDDEN_IN_NAME = ("/", "\\", "..")
 RESERVED_NAME = "stop"
 
-# Stations run 1..23. Slot 24 is the operator tap and is not a station
-# (CLAUDE.md, station 7.9.6).
-MIN_STATION, MAX_STATION = 1, 23
+# Stations run 1..22. Slots 23 and 24 are the operator tap and the audience
+# monitor output, and neither is a station (CLAUDE.md, station Rev 3.40,
+# audio.md Rev 7 2). tts_task.md 3.1 still says "within 1-23" and has not been
+# revised; monitor_channel_task.md 4 says to treat it as 1-22.
+MIN_STATION, MAX_STATION = 1, 22
 
 
 class ScriptError(Exception):
