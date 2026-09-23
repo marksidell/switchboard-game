@@ -62,12 +62,28 @@ launch_tagged() {
     [ -n "$subnets" ] || die "no subnets in $VPC_ID"
     types=$INSTANCE_TYPE
     [ "$INSTANCE_TYPE" = g6.xlarge ] && types="g6.xlarge g5.xlarge"
+
+    # Not every zone offers every GPU type — us-east-1e offers neither g6 nor
+    # g5, and asking anyway returns Unsupported rather than a capacity error.
+    # Ask which zones actually offer the type before walking the subnets.
+    offered_azs() {
+        aws ec2 describe-instance-type-offerings --location-type availability-zone \
+            --filters "Name=instance-type,Values=$1" \
+            --query 'InstanceTypeOfferings[].Location' --output text
+    }
     errfile=$(mktemp)
     INSTANCE_ID=""
     for t in $types; do
+        # --output text joins a list with TABS, so normalise before matching
+        # a space-padded needle against it.
+        azs=" $(offered_azs "$t" | tr '\t\n' '  ') "
         for s in $subnets; do
             az=$(aws ec2 describe-subnets --subnet-ids "$s" \
                  --query 'Subnets[0].AvailabilityZone' --output text)
+            case $azs in
+                *" $az "*) ;;
+                *) printf '  skipping %-12s in %s (not offered there)\n' "$t" "$az"; continue ;;
+            esac
             printf '  trying %-12s in %s … ' "$t" "$az"
             if INSTANCE_ID=$(aws ec2 run-instances \
                     --image-id "$AMI" --instance-type "$t" \
@@ -97,6 +113,9 @@ launch_tagged() {
             INSTANCE_ID=""
             if grep -q InsufficientInstanceCapacity "$errfile"; then
                 printf 'no capacity\n'; continue
+            fi
+            if grep -q '(Unsupported)' "$errfile"; then
+                printf 'not offered here\n'; continue
             fi
             printf 'failed\n'; cat "$errfile" >&2
             die "launch failed for a reason that is not capacity; not retrying"
