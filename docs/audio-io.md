@@ -104,6 +104,34 @@ from a wiring error.
 Contact cleaner fixed it and held across a day and a re-patch, so the fault was oxidation
 rather than worn contacts.
 
+**A differential pair on one end of a winding has a signature too, and it is the
+opposite one: nothing at all.** Measured 2026-09-19 on the first trunk board, channel 1
+through the ADA8200:
+
+```
+  circuit's own pilot back    −110 dBFS, which is the noise floor
+  a working circuit           −33 dBFS      (see the figures above)
+  a plain cable, same channel −28.6 dBFS    (measured the same afternoon)
+  worst over 75 s             −109 dBFS     — no intermittency, just nothing
+```
+
+The board had both legs of the receive pair tied together to one end of the transformer
+secondary and both legs of the transmit pair to the other. A balanced output then puts
+no difference across the winding and a balanced input reads none, so the pilot does not
+come back at all. Every wire has continuity, which is why a continuity check passes and
+the fault survives one.
+
+Tell it apart from a dead converter or an unplugged cable by the noise floor: a live
+input with nothing on it reads about −103 dBFS, and a capture path that is not running
+reads −150 or lower, or exact zeros. −110 dBFS with a −103 floor means the path is
+alive and carrying no signal.
+
+That leaves three causes for a circuit that returns nothing while every wire rings out.
+In the order they cost time to check: a short between pins 2 and 3 at a plug, both legs
+of one pair landing on the same end of the winding, and a solder bridge across the
+winding itself. Substituting a plain cable for the circuit separates the converter from
+everything beyond it in one measurement, and is worth doing first.
+
 ## The operator path
 
 Measured 2026-09-17 with channel 6 moved onto the operator tap and channel 7 on a trunk.
