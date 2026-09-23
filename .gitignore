@@ -23,10 +23,12 @@
 # chosen reference voices in tts/voices/*.wav are not — they cost Mark's ears —
 # and are committed. tts_task.md section 8.
 /tts/.venv/
+/engine/.venv/
 /tts/voices/candidates/
 /tts/voices/preview/
 /tts/raw/
 /tts/jobs.json
 
-# Python bytecode.
+# Python bytecode, and the metadata an editable install leaves behind.
 __pycache__/
+*.egg-info/

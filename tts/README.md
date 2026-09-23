@@ -36,6 +36,14 @@ tts/.venv/bin/python -m tts.process             # tts/raw -> wav/
 tts/aws/status                                  # nothing should be running
 ```
 
+`tts/audition` and `tts/choose` re-exec themselves under `tts/.venv`, so they can be
+run straight from the repo root with no prefix and from any directory. If either one
+fails with `ModuleNotFoundError`, step 0 has not been run: there is no venv for them to
+find, and they fall back to the system python. The modules invoked as `python -m tts.*`
+have no such trick and always need the interpreter named, as above. The two scripts in
+`tts/remote/` deliberately do not re-exec — on the instance the venv is `~/tts-venv`,
+not `tts/.venv`, and `aws/design` and `aws/generate` name that interpreter themselves.
+
 Listen to `tts/voices/preview/`, not `tts/voices/candidates/`. The candidates are
 full-bandwidth; the previews are through the telephone band, which is how the
 audience hears them and is the only fair basis for choosing.

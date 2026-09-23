@@ -1,0 +1,37 @@
+# The speech pipeline, packaged so the game engine can import its loader.
+#
+# tts/script.py is written to be imported by the engine (tts_task.md 3.1): it is
+# where duplicate-key rejection lives, and a second loader in sbgame/ would be a
+# second place for that to be got wrong.
+#
+# The DSP dependencies are an extra rather than a requirement, so the engine can
+# install the loader without 229MB of numpy and scipy it will never call:
+#
+#     pip install -e tts            loader only, needs ruamel
+#     pip install -e 'tts[audio]'   everything, for process.py and audition
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sbgame-tts"
+version = "0.1.0"
+description = "Speech generation for the 551 switchboard simulator"
+requires-python = ">=3.10"
+dependencies = [
+    "ruamel.yaml",    # script.py, pronounce.py: rejects duplicate keys, which PyYAML does not
+]
+
+[project.optional-dependencies]
+audio = [
+    "numpy",
+    "scipy",          # process.py: the elliptic low-pass and the biquads
+    "soundfile",
+    "soxr",           # high-quality resampling
+]
+
+[tool.setuptools]
+# This directory *is* the package, rather than containing it.
+packages = ["tts"]
+package-dir = { "tts" = "." }
