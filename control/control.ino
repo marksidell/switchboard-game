@@ -395,14 +395,14 @@ static void serviceEnable() {
  * to read it. peak is recomputed here rather than cached; it is 250 iterations
  * and this is not a hot path. */
 /* ---- The spread state republish (control.md 9.2) --------------------------
- * A full republish is 70 retained QoS 1 messages, and with this client each
+ * A full republish is 68 retained QoS 1 messages, and with this client each
  * QoS 1 publish blocks until its PUBACK arrives. Sent as one burst it would
  * hold the 200Hz loop for 100-300ms - longer than a ringing station's 100ms
  * quiet rule (7.1) and longer than a dial pulse (8.2) - so a ringing station
  * would flicker off/on every 30s and a digit under way would be spoiled or
  * split. Instead every full republish walks the channel table one circuit per
- * poll tick: each tick pays for two or three round trips, and all 31 circuits
- * are refreshed in 31 ticks, about 155ms.
+ * poll tick: each tick pays for two or three round trips, and all 30 circuits
+ * are refreshed in 30 ticks, about 150ms.
  *
  * requestRepublish() (re)starts the walk from row 0; republishStep() does one
  * row and is called once per poll tick. A request that arrives mid-walk

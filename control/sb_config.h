@@ -44,12 +44,12 @@ static constexpr uint8_t STATION_BOARDS_FITTED = 3;
 
 static constexpr uint8_t STATIONS_PER_BOARD = 8;
 
-/* Twenty-three stations, not twenty-four. The last position on the last station
- * board - 0x22, strip 8, bit 7 - is the operator tap and has no relay or ring
- * detector fitted, so there is no station 24 (control.md 6.1; mqtt.md 3 numbers
- * stations 1-23). Three boards give 24 positions and one of them is not a
- * station. */
-static constexpr uint8_t N_STATIONS = 23;
+/* Twenty-two stations. The last two positions on the last station board -
+ * 0x22, strips 7 and 8, bits 6 and 7 - are the operator tap and the audience
+ * monitor output, and neither has a relay or a ring detector fitted (station
+ * Rev 3.40, control.md 6.1; mqtt.md 9 numbers stations 1-22). Three boards give
+ * 24 positions and two of them are not stations. */
+static constexpr uint8_t N_STATIONS = 22;
 static constexpr uint8_t N_TRUNKS   = 8;
 
 /* ---- Pins (control.md 3; generator 3.1/3.2 is the authority) ---------------

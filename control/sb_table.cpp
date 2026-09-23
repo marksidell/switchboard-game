@@ -4,13 +4,14 @@
 
 #include "sb_table.h"
 
-/* Expander 2 (0x22) carries stations 17-23 and, on its bit 7, the operator
- * tap. 0x24-0x27 are reserved for optional second expanders that are not
- * fitted (control.md 6.1) and so have no rows. */
+/* Expander 2 (0x22) carries stations 17-22 on bits 0-5; bit 6 is the operator
+ * tap and bit 7 the audience monitor output, neither of which has a row.
+ * 0x24-0x27 are reserved for optional second expanders that are not fitted
+ * (control.md 6.1) and so have no rows. */
 const ExpanderMap expanders[N_EXPANDERS] = {
   { 0x20, "station board 1 (st 1-8)",   0 },
   { 0x21, "station board 2 (st 9-16)",  1 },
-  { 0x22, "station board 3 (st 17-23 + op tap)", 2 },
+  { 0x22, "station board 3 (st 17-22 + tap + monitor)", 2 },
   { 0x23, "trunk board (tr 1-8)",      -1 },
 };
 
@@ -47,12 +48,14 @@ const CircuitMap circuits[N_CIRCUITS] = {
   { Kind::Station,  20,   2,   3 },
   { Kind::Station,  21,   2,   4 },
   { Kind::Station,  22,   2,   5 },
-  { Kind::Station,  23,   2,   6 },
-  /* 0x22 bit 7 is the operator tap strip, not a station: no relay or ring
-   * detector is fitted (control.md 6.1, station 7.9.7). It has no row, so
-   * nothing polls it, nothing publishes it and no command can reach it -
-   * control.md 6.1 adopts this as its statement of "leave the mapping alone".
-   * The shadow leaves the bit 0 for the life of the run. */
+  /* 0x22 bits 6 and 7 are not stations and have no rows: bit 6 is the operator
+   * tap strip and bit 7 is the strip whose A32 output feeds the audience
+   * loudspeaker (station Rev 3.40, control.md 6.1). Neither has a relay or a
+   * ring detector fitted, so nothing polls them, nothing publishes them and no
+   * command can reach them - control.md 6.1 adopts this as its statement of
+   * "leave the mapping alone". The shadow leaves both bits 0 for the life of
+   * the run. The tap was bit 7 until Rev 3.40 moved it down one strip to free
+   * that channel for the monitor. */
   { Kind::Trunk,     1,   3,   0 },
   { Kind::Trunk,     2,   3,   1 },
   { Kind::Trunk,     3,   3,   2 },
