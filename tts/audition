@@ -35,7 +35,8 @@ from tts.script import DEFAULT_SCRIPT, ScriptError, load  # noqa: E402
 
 DEVICE = "hw:1"
 CHANNELS = 34            # the Digiface's playback count
-PHONES = (32, 33)        # zero-based, the headphone jack
+PHONES = (32, 33)        # zero-based, the headphone jack — one-based 33/34
+MAX_CIRCUIT = 32         # one-based; the circuits are 1..32, the jack is beyond them
 RATE = 48000
 
 PREVIEW = Path("tts/voices/preview")
@@ -44,8 +45,9 @@ CHOICES = Path("tts/voices.yml")
 TAKES = 3
 
 
-def play(path: Path, device: str, gain_db: float) -> None:
-    """Send one clip to the headphone pair, silence on every other channel."""
+def play(path: Path, device: str, gain_db: float,
+         channels: tuple[int, ...] = PHONES) -> None:
+    """Send one clip to the given zero-based channels, silence on the rest."""
     audio, rate = sf.read(str(path), always_2d=False, dtype="float64")
     audio = np.asarray(audio)
     if audio.ndim > 1:
@@ -59,7 +61,7 @@ def play(path: Path, device: str, gain_db: float) -> None:
     # S32_LE carrying 24 bits left-justified in the 32-bit word; full scale is
     # the top of the int32 range and the device ignores the low byte.
     samples = (audio * (2 ** 31 - 1)).astype(np.int32)
-    for ch in PHONES:
+    for ch in channels:
         frame[:, ch] = samples
 
     try:
@@ -101,11 +103,26 @@ def main() -> int:
                    help=f"play {CANDIDATES} at full bandwidth instead of the previews")
     p.add_argument("--choices", type=Path, default=CHOICES)
     p.add_argument("--device", default=DEVICE)
+    # docs/audio-io.md: the bench tools disagree on this deliberately, and
+    # tone_out takes one-based numbers. Match tone_out, and print both, so the
+    # pin in use is never in doubt.
+    p.add_argument("--channel", type=int, metavar="N",
+                   help=f"send to one circuit, 1..{MAX_CIRCUIT} one-based "
+                        f"(0..{MAX_CIRCUIT - 1} as the driver indexes it). "
+                        f"Default is the headphone jack, 33/34.")
     p.add_argument("--gain", type=float, default=0.0, help="dB, applied on the way out")
     p.add_argument("--only", default="", help="comma-separated cast keys")
     p.add_argument("--all", action="store_true",
                    help="include people already chosen, rather than resuming")
     args = p.parse_args()
+
+    if args.channel is None:
+        out_channels = PHONES
+    elif 1 <= args.channel <= MAX_CIRCUIT:
+        out_channels = (args.channel - 1,)
+    else:
+        print(f"--channel {args.channel} is outside 1..{MAX_CIRCUIT}", file=sys.stderr)
+        return 1
 
     src = CANDIDATES if args.raw else args.src
     try:
@@ -125,8 +142,10 @@ def main() -> int:
         return 1
     queue = [w for w in wanted if args.all or args.only or w not in choices]
 
-    print(f"playing {src}/ through {args.device}, channels {PHONES[0]}/{PHONES[1]} "
-          f"(the headphone jack)")
+    where = ("the headphone jack, channels 33/34 (0-based indices 32/33)"
+             if out_channels == PHONES else
+             f"channel {out_channels[0] + 1} (0-based index {out_channels[0]})")
+    print(f"playing {src}/ through {args.device}, {where}")
     if not args.raw:
         print("these are the band-limited previews — 300-3400Hz, as the audience hears them")
     if len(queue) < len(wanted):
@@ -141,8 +160,9 @@ def main() -> int:
         text, _used = sample_text(script, person)
 
         print("=" * 72)
-        print(f"{person}   ({i + 1} of {len(queue)}, {len(lines)} lines in the script)")
-        print(f"  {voice_prompt(person, entry).splitlines()[0]}")
+        print(f"{person} — {entry.get('description', '(no description)')}")
+        print(f"  {entry.get('sex', '?')}, {entry.get('accent', '?')}"
+              f"   ({i + 1} of {len(queue)}, {len(lines)} lines in the script)")
         print(f'  says: "{text}"')
         if person in choices:
             print(f"  currently chosen: {choices[person]}")
@@ -157,7 +177,7 @@ def main() -> int:
         def play_all() -> None:
             for k in available:
                 print(f"  [{k}] …", end="", flush=True)
-                play(src / f"{person}.{k}.wav", args.device, args.gain)
+                play(src / f"{person}.{k}.wav", args.device, args.gain, out_channels)
                 print(" done")
 
         play_all()
@@ -177,7 +197,7 @@ def main() -> int:
             if answer.startswith("p") and answer[1:].isdigit() and int(answer[1:]) in available:
                 k = int(answer[1:])
                 print(f"  [{k}] …", end="", flush=True)
-                play(src / f"{person}.{k}.wav", args.device, args.gain)
+                play(src / f"{person}.{k}.wav", args.device, args.gain, out_channels)
                 print(" done")
                 continue
             if answer == "s":
