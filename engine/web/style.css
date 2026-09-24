@@ -1,0 +1,141 @@
+/* 551 Switchboard Simulator — status page (game_control.md §7.1).
+ *
+ * For an iPad in landscape, 1024 CSS pixels or wider. Touch targets are 44px
+ * or larger, which is the only reason several of these have explicit heights.
+ *
+ * Staleness is grey, never blank (§7.2): the operator should see the last
+ * known value and that it may be old, rather than an empty box that reads as
+ * "nothing there".
+ */
+
+:root {
+  --bg: #16181c;  --panel: #21242b;  --line: #333842;
+  --ink: #e8eaf0;  --dim: #99a0ad;
+  --idle: #2b3038;  --busy: #4a5568;  --operator: #3b6ea5;
+  --connected: #2f855a;  --calling: #b7791f;  --ringing: #c05621;
+  --fault: #9b2c2c;  --ok: #38a169;  --danger: #c53030;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 15px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  display: flex; flex-direction: column;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+}
+body.offline { filter: grayscale(0.7) brightness(0.8); }
+.stale { opacity: 0.45; }
+
+/* ---- top bar ------------------------------------------------------------ */
+
+#top {
+  display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+  padding: 8px 12px; background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.group { display: flex; gap: 8px; align-items: center; }
+.lbl { color: var(--dim); font-size: 13px; }
+
+.lamp { width: 11px; height: 11px; border-radius: 50%; background: var(--busy); }
+.lamp.up { background: var(--ok); }
+.lamp.down { background: var(--danger); }
+
+button {
+  min-height: 44px; padding: 0 16px; border: 1px solid var(--line);
+  border-radius: 8px; background: #2c313a; color: var(--ink);
+  font-size: 15px; font-weight: 600;
+}
+button:disabled { opacity: 0.35; }
+button.big { min-width: 96px; }
+button.big.small { min-width: 44px; padding: 0 10px; font-weight: 400; }
+button.danger { border-color: #5c2020; }
+button.danger.armed { background: var(--danger); }
+button.seg { min-width: 44px; border-radius: 0; }
+button.seg:first-child { border-radius: 8px 0 0 8px; }
+button.seg:last-child { border-radius: 0 8px 8px 0; }
+button.seg.sel { background: var(--operator); }
+
+.stepper { display: flex; align-items: center; gap: 4px; }
+.stepper button { min-width: 44px; padding: 0; font-size: 20px; }
+.stepper span:not(.lbl) { min-width: 34px; text-align: center; font-variant-numeric: tabular-nums; }
+
+#tallies { gap: 12px; margin-left: auto; color: var(--dim); font-size: 13px; }
+#tallies b { color: var(--ink); font-size: 17px; margin-right: 3px;
+             font-variant-numeric: tabular-nums; }
+
+/* ---- layout ------------------------------------------------------------- */
+
+main { flex: 1; display: grid; grid-template-columns: 1fr 380px;
+       grid-template-rows: auto 1fr; gap: 12px; padding: 12px; min-height: 0; }
+#board-area { grid-column: 1; grid-row: 1; }
+#calls-area { grid-column: 1; grid-row: 2; min-height: 0; overflow: auto; }
+#health-area { grid-column: 2; grid-row: 1 / span 2; min-height: 0;
+               display: flex; flex-direction: column; }
+h2 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
+     letter-spacing: 0.08em; color: var(--dim); font-weight: 600; }
+
+/* ---- the board ---------------------------------------------------------- */
+
+#board { display: flex; flex-direction: column; gap: 6px; }
+.row { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; }
+.row.trunks { margin-top: 10px; }
+
+.tile {
+  position: relative; height: 62px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--idle);
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; overflow: hidden;
+}
+.tile .jn { position: absolute; top: 3px; left: 5px; font-size: 10px; color: var(--dim); }
+.tile .jl { font-size: 17px; font-weight: 700; line-height: 1.1; text-align: center;
+            padding: 0 4px; }
+.tile .far { font-size: 10px; color: var(--dim); margin-top: 2px; }
+/* A jack with no circuit keeps its outline, so the board keeps its shape. */
+.tile.empty { background: transparent; border-style: dashed; opacity: 0.5; }
+
+.s-busy { background: var(--busy); }
+.s-operator { background: var(--operator); }
+.s-connected { background: var(--connected); }
+.s-calling { background: var(--calling); }
+.s-fault { background: var(--fault); }
+.s-ringing { background: var(--ringing); animation: flash 1s steps(1) infinite; }
+@keyframes flash { 50% { background: var(--idle); } }
+
+/* ---- calls -------------------------------------------------------------- */
+
+#calls { width: 100%; border-collapse: collapse; font-size: 14px; }
+#calls th { text-align: left; font-size: 11px; text-transform: uppercase;
+            letter-spacing: 0.06em; color: var(--dim); font-weight: 600;
+            padding: 4px 8px; border-bottom: 1px solid var(--line); }
+#calls td { padding: 7px 8px; border-bottom: 1px solid var(--line);
+            font-variant-numeric: tabular-nums; }
+#calls .stage { text-transform: capitalize; }
+#calls .none td { color: var(--dim); text-align: center; }
+
+/* ---- health and log ------------------------------------------------------ */
+
+#health { background: var(--panel); border-radius: 8px; padding: 6px 10px;
+          margin-bottom: 10px; }
+#health div { display: flex; justify-content: space-between; padding: 2px 0;
+              font-size: 13px; }
+#health span { color: var(--dim); }
+#health b { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+#error { background: #40201f; border: 1px solid #6b2b2a; border-radius: 8px;
+         padding: 8px 10px; margin-bottom: 10px; font-size: 13px; }
+
+#log { flex: 1; min-height: 0; overflow: auto; margin: 0;
+       background: var(--panel); border-radius: 8px; padding: 8px 10px;
+       font: 12px/1.5 ui-monospace, "SF Mono", Menlo, monospace;
+       white-space: pre-wrap; color: var(--dim); }
+
+/* ---- the tile panel ------------------------------------------------------ */
+
+#panel { position: fixed; right: 16px; bottom: 16px; width: 300px; z-index: 10;
+         background: var(--panel); border: 1px solid var(--line);
+         border-radius: 10px; padding: 10px 12px;
+         box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
+#panel div { display: flex; justify-content: space-between; padding: 3px 0;
+             font-size: 13px; }
+#panel span { color: var(--dim); }

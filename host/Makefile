@@ -36,7 +36,7 @@ FILES := \
   etc/systemd/system/sbgame.service:root:root:644 \
   etc/sbgame/game.toml:root:root:644
 
-.PHONY: diff install passwd status check-clean sbgame-user sbgame-data sbgame-install
+.PHONY: diff install passwd status check-clean sbgame-user sbgame-data sbgame-install sbgame-web
 
 ## diff - what differs between this tree and the host
 diff:
@@ -137,6 +137,25 @@ sbgame-data:
 	@$(SUDO) rsync -a --delete $(REPO)/wav/ /srv/sbgame/wav/
 	@$(SUDO) chmod -R a+rX /srv/sbgame/script.yml /srv/sbgame/wav
 	@echo "script.yml and `ls /srv/sbgame/wav | wc -l` wavs installed"
+
+## sbgame-web - the status page into /srv/sbgame/web
+##
+## app.js carries the broker password, because the page is a browser and has
+## nowhere else to put it (mqtt.md 9: the access list is the protection, not
+## the password). It is substituted here rather than committed, so the
+## repository holds a placeholder and never the password itself.
+sbgame-web:
+	@test -r /etc/sbgame/mqtt-web.pass || { echo "no /etc/sbgame/mqtt-web.pass"; exit 1; }
+	@$(SUDO) install -d -m 755 /srv/sbgame/web
+	@$(SUDO) install -m 644 $(REPO)/engine/web/index.html $(REPO)/engine/web/style.css \
+	         $(REPO)/engine/web/mqtt.min.js /srv/sbgame/web/
+	@pw=$$($(SUDO) cat /etc/sbgame/mqtt-web.pass); \
+	 sed "s|PAGE_PASSWORD|$$pw|" $(REPO)/engine/web/app.js \
+	   | $(SUDO) tee /srv/sbgame/web/app.js >/dev/null
+	@$(SUDO) chmod 644 /srv/sbgame/web/app.js
+	@grep -q PAGE_PASSWORD /srv/sbgame/web/app.js && \
+	   { echo "the placeholder is still there"; exit 1; } || true
+	@echo "page installed:"; ls -l /srv/sbgame/web | tail -n +2 | sed 's/^/  /'
 
 ## status - what is running and what is served
 status:

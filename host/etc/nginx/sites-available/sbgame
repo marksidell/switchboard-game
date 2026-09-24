@@ -29,7 +29,12 @@ server {
 
     # The page's MQTT connection. Routed by path rather than by the Upgrade
     # header, because an `if` inside a location is documented as fragile.
-    location /mqtt {
+    #
+    # `location = /mqtt` is an exact match, deliberately. A prefix match would
+    # also catch /mqtt.min.js — the page's own copy of MQTT.js — and proxy it
+    # to Mosquitto, which is not a web server: 502, and a page that loads with
+    # its library missing.
+    location = /mqtt {
         proxy_pass http://127.0.0.1:9001;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;

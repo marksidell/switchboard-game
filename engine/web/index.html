@@ -1,0 +1,89 @@
+<!doctype html>
+<!--
+  551 Switchboard Simulator — status page (game_control.md §2, §7).
+
+  MQTT.js 5.10.1, the browser build from the npm package's dist/, vendored as
+  mqtt.min.js. Never loaded from a CDN: on the road the travel router may have
+  no internet, and the page would come up without its library (§2).
+
+  Served by nginx from /srv/sbgame/web; the MQTT socket is proxied to
+  Mosquitto on the path /mqtt (mqtt.md §9).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Switchboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header id="top">
+  <div class="group" id="conn">
+    <span class="lamp" id="lamp-broker"></span><span class="lbl">broker</span>
+    <span class="lamp" id="lamp-game"></span><span class="lbl">game</span>
+  </div>
+
+  <div class="group">
+    <button id="start" class="big">Start</button>
+    <button id="stop" class="big danger">Stop</button>
+  </div>
+
+  <div class="group" id="pace-group">
+    <button id="pace-manual" class="seg">Manual</button>
+    <button id="pace-auto" class="seg">Automatic</button>
+  </div>
+
+  <div class="group"><button id="next" class="big">Next Call</button></div>
+
+  <div class="group" id="steppers">
+    <div class="stepper"><span class="lbl">gap</span>
+      <button data-step="gap:-5">−</button><span id="v-gap">–</span><button data-step="gap:5">+</button></div>
+    <div class="stepper"><span class="lbl">ramp</span>
+      <button data-step="ramp:-1">−</button><span id="v-ramp">–</span><button data-step="ramp:1">+</button></div>
+    <div class="stepper"><span class="lbl">floor</span>
+      <button data-step="floor:-1">−</button><span id="v-floor">–</span><button data-step="floor:1">+</button></div>
+    <div class="stepper"><span class="lbl">now</span><span id="v-gapnow">–</span></div>
+    <div class="stepper"><span class="lbl">next in</span><span id="v-countdown">–</span></div>
+  </div>
+
+  <div class="group" id="tallies">
+    <span><b id="t-started">0</b> started</span>
+    <span><b id="t-handled">0</b> handled</span>
+    <span><b id="t-success">0</b> ok</span>
+    <span><b id="t-fail">0</b> fail</span>
+    <span><b id="t-pct">–</b></span>
+    <span><b id="t-prog">0</b> in progress</span>
+  </div>
+</header>
+
+<main>
+  <section id="board-area">
+    <div id="board"></div>
+  </section>
+
+  <section id="calls-area">
+    <h2>Calls</h2>
+    <table id="calls"><thead><tr>
+      <th>#</th><th>scene</th><th>from</th><th>to</th><th>trunk</th>
+      <th>stage</th><th>for</th><th>left</th>
+    </tr></thead><tbody></tbody></table>
+  </section>
+
+  <section id="health-area">
+    <h2>Health</h2>
+    <div id="health"></div>
+    <div id="error"></div>
+    <h2>Log</h2>
+    <pre id="log"></pre>
+  </section>
+</main>
+
+<div id="panel" hidden><div id="panel-body"></div></div>
+
+<script src="mqtt.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
