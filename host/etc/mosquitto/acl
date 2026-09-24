@@ -1,0 +1,13 @@
+# mqtt.md 9. A user with no line here can do nothing.
+user sbgame-control
+topic readwrite sbgame/#
+
+user sbgame-audio
+topic readwrite sbgame/#
+
+user sbgame-game
+topic readwrite sbgame/#
+
+user sbgame-web
+topic read sbgame/#
+topic write sbgame/game/+/set

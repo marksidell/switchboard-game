@@ -1,0 +1,7 @@
+#!/bin/sh
+# nginx terminates TLS for game.kr3am.org and reads the certificate straight
+# from /etc/letsencrypt/live, which only root can read and nginx's master
+# process is. A reload rereads it with no connection dropped, so the SIGHUP
+# question of mqtt.md 9.1 no longer arises: Mosquitto holds no certificate.
+set -e
+systemctl reload nginx
