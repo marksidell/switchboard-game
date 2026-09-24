@@ -46,6 +46,8 @@ static bool topic_for(Topic t, int idx, char* out, size_t n)
         return true;
     }
     case Topic::Monitor: std::snprintf(out, n, "%saudio/monitor", PREFIX); return true;
+    case Topic::MonitorSrc:
+        std::snprintf(out, n, "%saudio/monitor/source", PREFIX); return true;
     case Topic::OpTone:  std::snprintf(out, n, "%saudio/optone",  PREFIX); return true;
     case Topic::Test:    std::snprintf(out, n, "%saudio/test/%d", PREFIX, idx); return true;
     case Topic::FreeBuf: return false;
@@ -89,6 +91,13 @@ bool Net::prepare()
     char topic[64];
     std::snprintf(topic, sizeof topic, "%sctl/audio_status", PREFIX);
     mosquitto_will_set(m_, topic, 7, "offline", 1, true);
+
+    // audio.md 10.3, 12: monitor/source is published with the rest of the
+    // state before birth, and --monitor-src is what it says at start.
+    {
+        char b[24];
+        if (chan::monitor_source_name(sh_.opt.monitor_src, b, sizeof b)) monitor_source_ = b;
+    }
 
     monitor_state_ = sh_.opt.monitor_on ? "" : "off";
     if (sh_.opt.monitor_on) {
@@ -141,7 +150,8 @@ void Net::on_connect(int rc)
         "sbgame/station/+/play/set",   "sbgame/trunk/+/play/set",
         "sbgame/trunk/+/tone/set",
         "sbgame/station/+/listen/set", "sbgame/trunk/+/listen/set",
-        "sbgame/audio/monitor/set",    "sbgame/audio/test/+/set",
+        "sbgame/audio/monitor/set",    "sbgame/audio/monitor/source/set",
+        "sbgame/audio/test/+/set",
         "sbgame/ctl/game_heartbeat"
     };
     for (const char* s : subs) mosquitto_subscribe(m_, nullptr, s, 1);
@@ -288,6 +298,24 @@ void Net::handle_monitor(const char* payload)
     send(c);
 }
 
+// handle_monitor_source()                                               [mqtt]
+//   monitor/source/set: "tap", "station/1".."station/22", "trunk/1".."trunk/8"
+//   (audio.md 10.3). Anything else is logged and dropped, and the state topic
+//   is left alone - the game is not told its bad payload was accepted.
+void Net::handle_monitor_source(const char* payload)
+{
+    const int ch = chan::monitor_source_channel(payload);
+    if (ch == 0) {
+        log_line("mqtt: monitor/source/set %s - not a source, dropped", payload);
+        return;
+    }
+    Command c;
+    c.verb = Verb::MonitorSrc;
+    c.idx  = (int16_t)ch;
+    log_line("mqtt: monitor/source/set %s (capture channel %d)", payload, ch);
+    send(c);
+}
+
 // handle_test()                                                         [mqtt]
 //   audio/test/<ch>/set: "on" or "off" for playback channel ch.
 void Net::handle_test(int ch, const char* payload)
@@ -353,6 +381,9 @@ void Net::on_message(const char* topic, const char* payload)
     }
 
     if (std::strcmp(topic, "sbgame/audio/monitor/set") == 0) { handle_monitor(payload); return; }
+    if (std::strcmp(topic, "sbgame/audio/monitor/source/set") == 0) {
+        handle_monitor_source(payload); return;
+    }
 
     if (std::sscanf(topic, "sbgame/audio/test/%d/set", &n) == 1) {
         if (n < 1 || n > chan::N_PLAY_CH) {
@@ -391,7 +422,15 @@ void Net::publish_result(const Result& r)
     publish(topic, r.value);
 
     switch (r.topic) {
-    case Topic::Monitor: monitor_state_ = r.value; break;
+    case Topic::Monitor:    monitor_state_  = r.value; break;
+    case Topic::MonitorSrc:
+        // audio.md 11.2 lists monitor source changes as their own event. Logged
+        // here rather than on receipt because this is where the change actually
+        // happened - at the bottom of the ramp - and because the return to the
+        // tap on heartbeat loss (13.2) never passes through a command at all.
+        if (monitor_source_ != r.value) log_line("monitor: source is now %s", r.value);
+        monitor_source_ = r.value;
+        break;
     case Topic::Test:
         if (r.idx >= 1 && r.idx <= chan::N_PLAY_CH)
             test_state_[r.idx] = std::strcmp(r.value, "on") == 0;
@@ -430,6 +469,8 @@ void Net::publish_initial()
     }
     topic_for(Topic::Monitor, 0, topic, sizeof topic);
     publish(topic, monitor_state_.c_str());
+    topic_for(Topic::MonitorSrc, 0, topic, sizeof topic);
+    publish(topic, monitor_source_.c_str());
     for (int ch = 1; ch <= chan::N_PLAY_CH; ++ch) {
         topic_for(Topic::Test, ch, topic, sizeof topic);
         publish(topic, test_state_[ch] ? "on" : "off");
@@ -486,6 +527,12 @@ void Net::drain_results(bool publishing)
             // While disconnected the state is discarded rather than queued: the
             // game sources were stopped when the connection dropped, so the
             // empty play and tone published on reconnect are true (mqtt.md 8.4).
+            // One exception to that discard. audio.md 13.2 returns the monitor
+            // to the tap on broker loss, and 12 says the republish on reconnect
+            // carries the state as it is - so this topic's value is recorded
+            // even while disconnected, or reconnect would announce a source the
+            // program stopped using when the connection dropped.
+            if (!publishing && r.topic == Topic::MonitorSrc) monitor_source_ = r.value;
             if (publishing) publish_result(r);
         }
     }

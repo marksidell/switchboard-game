@@ -633,6 +633,73 @@ static void test_render_map()
           "and channel 24 then carries silence");
 }
 
+static void test_monitor_source()
+{
+    std::printf("monitor source mapping (audio.md 10.3)\n");
+
+    // The accepted set, and the channels it maps to. audio.md 10.3: the tap is
+    // 23, station n is n, trunk n is 24 + n.
+    check(chan::monitor_source_channel("tap") == chan::TAP_CH, "tap is channel 23");
+    check(chan::monitor_source_channel("station/1") == 1,  "station/1 is channel 1");
+    check(chan::monitor_source_channel("station/22") == 22, "station/22 is channel 22");
+    check(chan::monitor_source_channel("trunk/1") == 25, "trunk/1 is channel 25");
+    check(chan::monitor_source_channel("trunk/8") == 32, "trunk/8 is channel 32");
+
+    // The 0-based capture index the audio thread uses is the channel less one.
+    check(chan::monitor_source_channel("tap") - 1 == 22, "tap's capture index is 22");
+    check(chan::monitor_source_channel("trunk/3") - 1 == 26, "trunk/3's capture index is 26");
+
+    // Out of range at both ends, on both kinds.
+    check(chan::monitor_source_channel("station/0")  == 0, "station/0 is refused");
+    check(chan::monitor_source_channel("station/23") == 0, "station/23 is refused - 22 stations");
+    check(chan::monitor_source_channel("trunk/0")    == 0, "trunk/0 is refused");
+    check(chan::monitor_source_channel("trunk/9")    == 0, "trunk/9 is refused - 8 trunks");
+
+    // The tap and the monitor are not circuits and cannot be named as one.
+    check(chan::monitor_source_channel("station/24") == 0, "the monitor channel is not a station");
+
+    // Malformed payloads. strtol would have taken most of these.
+    const char* bad[] = { "", " ", "tap/", "Tap", "TAP", "station", "station/",
+                          "station/ 1", "station/1 ", "station/+1", "station/-1",
+                          "station/01x", "station/1.0", "trunk/1x", "trunks/1",
+                          "/station/1", "sbgame/station/1", "off", "0", "23" };
+    for (const char* b : bad) {
+        if (!b) continue;                       // gcc wants this proof for %s
+        char msg[96];
+        std::snprintf(msg, sizeof msg, "\"%s\" is refused", b);
+        check(chan::monitor_source_channel(b) == 0, msg);
+    }
+    check(chan::monitor_source_channel(nullptr) == 0, "a null payload is refused");
+
+    // "station/01" is digits only and in range; accepting it is harmless and
+    // is what the digit loop does. Recorded so the behaviour is deliberate.
+    check(chan::monitor_source_channel("station/01") == 1, "\"station/01\" is taken as station 1");
+
+    // The inverse, which is what the echo carries.
+    char n[24];
+    check(chan::monitor_source_name(chan::TAP_CH, n, sizeof n) && std::strcmp(n, "tap") == 0,
+          "channel 23 echoes as tap");
+    check(chan::monitor_source_name(5, n, sizeof n) && std::strcmp(n, "station/5") == 0,
+          "channel 5 echoes as station/5");
+    check(chan::monitor_source_name(27, n, sizeof n) && std::strcmp(n, "trunk/3") == 0,
+          "channel 27 echoes as trunk/3");
+    check(!chan::monitor_source_name(chan::MONITOR_CH, n, sizeof n),
+          "channel 24 has no source name");
+
+    // Round trip: every accepted source names itself back.
+    const char* good[] = { "tap", "station/1", "station/11", "station/22",
+                           "trunk/1", "trunk/5", "trunk/8" };
+    for (const char* g : good) {
+        if (!g) continue;                       // as above
+        const int ch = chan::monitor_source_channel(g);
+        char back[24];
+        char msg[96];
+        std::snprintf(msg, sizeof msg, "%s round trips", g);
+        check(ch != 0 && chan::monitor_source_name(ch, back, sizeof back) &&
+              std::strcmp(back, g) == 0, msg);
+    }
+}
+
 int main()
 {
     log_start();
@@ -643,6 +710,7 @@ int main()
     test_hf_meter();
     test_monitor_ch();
     test_render_map();
+    test_monitor_source();
     std::printf("\n%s\n", failures ? "FAILURES" : "all checks passed");
     return failures ? 1 : 0;
 }

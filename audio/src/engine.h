@@ -104,6 +104,12 @@ private:
 
     // Per-period steps of run(). Each is described where it is defined.
     void drain_commands();
+
+    // monitor_target() - the gain the ramp should head for: the commanded gain
+    // with the tap trim added while the source is the tap, or 0 when muted.
+    double monitor_target(int src_ch) const;
+    void   monitor_ramp_to(double target);
+    void   monitor_switch_to(int ch);       // at the bottom of the ramp
     void process_capture();
     void render();
     void hop_if_due();
@@ -168,6 +174,14 @@ private:
     std::vector<BiquadState> mon_lp_s_;
     Limiter                  lim_;
     double  mon_ripple_db_ = 0.0;
+    // audio.md 10.3. The commanded gain is kept apart from the ramp's target
+    // because a source switch ramps to silence and back, and has to know what
+    // to come back to - which is the commanded gain plus the tap trim, if the
+    // new source is the tap.
+    int     mon_src_ch_ = chan::TAP_CH;     // capture channel feeding the chain
+    int     mon_pend_ch_ = 0;               // switch waiting for the ramp's bottom
+    double  mon_cmd_db_ = 0.0;              // what monitor/set last commanded
+    bool    mon_on_ = false;
     double  mon_gain_ = 0.0;                // current gain, linear; 0 = muted
     double  mon_target_ = 0.0;              // where the ramp is heading
     double  mon_step_ = 0.0;                // gain change per sample while ramping

@@ -120,7 +120,10 @@ bool Engine::prepare()
     // audio.md 10.2: the monitor is on at startup only if --monitor gives a
     // level. Started at its target rather than ramped to it - there is no
     // loudspeaker transient to avoid before the stream is running.
-    mon_target_ = sh_.opt.monitor_on ? db_to_lin(sh_.opt.monitor_db) : 0.0;
+    mon_src_ch_ = sh_.opt.monitor_src;          // audio.md 10.3, --monitor-src
+    mon_on_     = sh_.opt.monitor_on;
+    mon_cmd_db_ = sh_.opt.monitor_db;
+    mon_target_ = monitor_target(mon_src_ch_);
     mon_gain_   = mon_target_;
 
     // audio.md 2, and task 2 step 10: print the map actually in use, so a
@@ -145,6 +148,43 @@ bool Engine::prepare()
 }
 
 // ---------------------------------------------------------------- results
+
+// monitor_target()                                                     [audio]
+//   audio.md 10.2, 10.3. The gain the ramp heads for: the commanded gain, plus
+//   --monitor-tap-trim while the source is the tap, or silence when muted. The
+//   trim is not part of the commanded gain and is not echoed on `monitor`,
+//   which carries what monitor/set asked for.
+double Engine::monitor_target(int src_ch) const
+{
+    if (!mon_on_) return 0.0;
+    const double db = mon_cmd_db_ +
+                      (src_ch == chan::TAP_CH ? sh_.opt.monitor_tap_trim_db : 0.0);
+    return db_to_lin(db);
+}
+
+// monitor_ramp_to()                                                    [audio]
+//   Starts a 20ms ramp from wherever the gain is now. A ramp already running is
+//   taken over from where it has reached, which is what audio.md 10.3 asks for
+//   when a second source/set arrives mid-ramp.
+void Engine::monitor_ramp_to(double target)
+{
+    mon_target_ = target;
+    mon_ramp_   = (int)(0.020 * SAMPLE_RATE);
+    mon_step_   = (mon_target_ - mon_gain_) / (double)mon_ramp_;
+}
+
+// monitor_switch_to()                                                  [audio]
+//   The bottom of the ramp: change the input and echo. The filter state is
+//   carried across rather than cleared - the step from one input to the other
+//   happens at zero gain and has rung out before the ramp up is audible
+//   (audio.md 10.3).
+void Engine::monitor_switch_to(int ch)
+{
+    mon_src_ch_  = ch;
+    mon_pend_ch_ = 0;
+    char name[24];
+    if (chan::monitor_source_name(ch, name, sizeof name)) post(Topic::MonitorSrc, 0, name);
+}
 
 // post()                                                               [audio]
 //   Queues a Result for the MQTT thread: "topic t for slot/channel idx is now
@@ -269,17 +309,41 @@ void Engine::drain_commands()
             break;
 
         case Verb::Monitor: {
-            const double t = c.on ? db_to_lin(c.arg) : 0.0;
             // 20ms ramp so a level step does not click; "off" is a mute, ramped
             // the same way, and the filter keeps running so turning the monitor
             // on is instant and has no transient from a cold filter state.
-            mon_target_ = t;
-            mon_ramp_   = (int)(0.020 * SAMPLE_RATE);
-            mon_step_   = (mon_target_ - mon_gain_) / (double)mon_ramp_;
+            mon_on_     = c.on;
+            mon_cmd_db_ = c.arg;
+            // A source switch is mid-flight: stay headed for silence, and let
+            // the switch ramp back up to this new gain when it lands.
+            if (!mon_pend_ch_) monitor_ramp_to(monitor_target(mon_src_ch_));
             char buf[32];
             if (c.on) format_db(c.arg, buf, sizeof buf);
             else      std::snprintf(buf, sizeof buf, "off");
             post(Topic::Monitor, 0, buf);
+            break;
+        }
+
+        case Verb::MonitorSrc: {
+            // audio.md 10.3. Already there: echo and do nothing else.
+            if (c.idx == mon_src_ch_ && !mon_pend_ch_) {
+                char name[24];
+                if (chan::monitor_source_name(c.idx, name, sizeof name))
+                    post(Topic::MonitorSrc, 0, name);
+                break;
+            }
+            // Muted: the input changes at once, with no ramp, and is echoed.
+            // There is nothing to click, and the filter keeps running either way.
+            if (!mon_on_) {
+                monitor_switch_to(c.idx);
+                mon_target_ = monitor_target(mon_src_ch_);   // still 0 while muted
+                break;
+            }
+            // Otherwise ramp to silence and change at the bottom. A second
+            // source/set during a ramp replaces the pending channel and takes
+            // the ramp over from wherever it has reached.
+            mon_pend_ch_ = c.idx;
+            monitor_ramp_to(0.0);
             break;
         }
 
@@ -299,6 +363,19 @@ void Engine::drain_commands()
                 if (!chan::is_circuit_slot(s)) continue;
                 if (prog_[s].kind != Prog::Kind::None) stop_source(s, "");
                 if (vad_[s].lis.active()) cancel_listen(s, "");
+            }
+            // The monitor keeps running, but its source returns to the tap
+            // under the 10.3 ramp: the calls a circuit source was following
+            // have been torn down, and the tap is the one source that is not
+            // about a call (audio.md 13.2, Rev 8).
+            if (mon_src_ch_ != chan::TAP_CH || mon_pend_ch_) {
+                if (!mon_on_) {
+                    monitor_switch_to(chan::TAP_CH);
+                    mon_target_ = monitor_target(mon_src_ch_);
+                } else {
+                    mon_pend_ch_ = chan::TAP_CH;
+                    monitor_ramp_to(0.0);
+                }
             }
             break;
 
@@ -375,17 +452,39 @@ void Engine::process_capture()
         }
     }
 
-    // Monitor: the tap's receive channel through the chain of audio.md 10.1.
+    // Monitor: the source's receive channel through the chain of audio.md 10.1,
+    // which is the tap unless monitor/source/set has named a circuit (10.3).
     // Run unconditionally, muted or not, so that turning the monitor on is
     // instant and has no transient from a cold filter state.
-    if (ncap_ >= chan::TAP_CH) {
-        const float* tap = &capf_[(size_t)(chan::TAP_CH - 1) * period_];
+    if ((int)ncap_ >= mon_src_ch_) {
+        const float* src = &capf_[(size_t)(mon_src_ch_ - 1) * period_];
         for (unsigned i = 0; i < period_; ++i) {
-            double y = mon_hp_s_.run(mon_hp_, (double)tap[i]);
+            double y = mon_hp_s_.run(mon_hp_, (double)src[i]);
             for (size_t s = 0; s < mon_lp_.size(); ++s) y = mon_lp_s_[s].run(mon_lp_[s], y);
             if (mon_ramp_ > 0) { mon_gain_ += mon_step_; --mon_ramp_; }
             else               { mon_gain_ = mon_target_; }
             mon_row_[i] = (float)lim_.run(y * mon_gain_);
+
+            // The bottom of a source ramp, mid-period: change the input, echo,
+            // and ramp back up to the commanded gain for the new source
+            // (audio.md 10.3). Done here rather than at a period boundary so
+            // the silence is the 20ms the specification asks for and not 20ms
+            // plus whatever is left of this period.
+            // mon_ramp_ reaching 0 is the test, not the gain reaching 0: the
+            // last ramp step lands on the target by accumulation and can sit a
+            // float's breadth either side of it. A pending channel is only ever
+            // set together with a ramp to silence, so ramp == 0 means arrived.
+            if (mon_pend_ch_ && mon_ramp_ == 0) {
+                mon_gain_ = 0.0;
+                const int want = mon_pend_ch_;
+                if ((int)ncap_ >= want) {
+                    monitor_switch_to(want);
+                    src = &capf_[(size_t)(mon_src_ch_ - 1) * period_];
+                } else {
+                    mon_pend_ch_ = 0;       // not captured; stay where we are
+                }
+                monitor_ramp_to(monitor_target(mon_src_ch_));
+            }
         }
     } else {
         std::fill(mon_row_.begin(), mon_row_.end(), 0.0f);

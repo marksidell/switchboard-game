@@ -55,6 +55,9 @@ static void usage(const char* p)
 "  --monitor DB           start with the monitor on at this gain (off)\n"
 "  --monitor-ch LIST      playback channels for the monitor, comma-separated,\n"
 "                         from 24, 33, 34 (24); 33,34 is the Digiface fallback\n"
+"  --monitor-src SRC      monitor source at startup: tap, station/1-22,\n"
+"                         trunk/1-8 (tap)\n"
+"  --monitor-tap-trim DB  gain added only while the source is the tap (0)\n"
 "  --monitor-lp HZ HZ DB  monitor low-pass passband edge, stopband edge,\n"
 "                         stopband dB (3600 5600 70)\n"
 "  --vad-margin DB        speech threshold above floor (10)\n"
@@ -135,7 +138,7 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         const char* nx = (i + 1 < argc) ? argv[i + 1] : nullptr;
 
         if (a == "--help" || a == "-h")     { usage(argv[0]); exit_now = true; return true; }
-        if (a == "--version")               { std::printf("sbaudio 7 (audio.md Rev 7)\n");
+        if (a == "--version")               { std::printf("sbaudio 8 (audio.md Rev 8)\n");
                                               exit_now = true; return true; }
 
         if (a == "--no-realtime")           { o.no_rt = true; continue; }
@@ -168,6 +171,14 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         else if (a == "--monitor")        { o.monitor_on = true; o.monitor_db = atof(nx); ++i; }
         else if (a == "--monitor-ch")     { if (!parse_monitor_ch(nx, o.monitor_ch)) return false;
                                             ++i; }
+        else if (a == "--monitor-src")    { o.monitor_src = chan::monitor_source_channel(nx); ++i;
+                                            if (o.monitor_src == 0) {
+                                                std::fprintf(stderr, "--monitor-src: \"%s\" is not a source; "
+                                                             "expected tap, station/1-%d or trunk/1-%d\n",
+                                                             nx, chan::N_STATIONS, chan::N_TRUNKS);
+                                                return false;
+                                            } }
+        else if (a == "--monitor-tap-trim"){ o.monitor_tap_trim_db = atof(nx); ++i; }
         else if (a == "--monitor-lp")     { if (!want(argc, i, 3, "--monitor-lp")) return false;
                                             o.lp_pass = atof(argv[i + 1]);
                                             o.lp_stop = atof(argv[i + 2]);

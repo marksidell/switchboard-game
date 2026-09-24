@@ -68,6 +68,7 @@ private:
     void handle_tone(int slot, const char* circuit, const char* payload);
     void handle_listen(int slot, const char* circuit, const char* payload);
     void handle_monitor(const char* payload);
+    void handle_monitor_source(const char* payload);
     void handle_test(int ch, const char* payload);
 
     void send(const Command& c);
@@ -96,5 +97,6 @@ private:
     // The state the game does not own, shadowed so a reconnect can republish it
     // truthfully rather than assert the startup defaults (audio.md 12).
     std::string monitor_state_ = "off";
+    std::string monitor_source_ = "tap";       // audio.md 10.3, echoed retained
     bool        test_state_[chan::N_PLAY_CH + 1] = { false };
 };

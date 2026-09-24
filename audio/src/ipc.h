@@ -57,6 +57,7 @@ enum class Verb : uint8_t {
     Tone,        // slot, arg = ToneKind
     Listen,      // slot, arg = timeout in seconds, 0 = cancel
     Monitor,     // arg = gain dB, on = false for mute
+    MonitorSrc,  // idx = capture channel of the new source (audio.md 10.3)
     Test,        // ch 1-34, on
     StopGame,    // stop every file and tone, cancel every listen (audio.md 13.2)
     Quit
@@ -67,7 +68,8 @@ enum class Verb : uint8_t {
 // with it.
 struct Command {
     Verb         verb = Verb::Quit;
-    int16_t      idx  = 0;          // circuit slot 1-32, or playback channel 1-34
+    int16_t      idx  = 0;          // circuit slot 1-32, playback channel 1-34,
+                                    // or MonitorSrc's capture channel
     bool         on   = false;      // Monitor: on or muted. Test: on or off.
     float        arg  = 0.0f;       // Tone: ToneKind. Listen: seconds. Monitor: dB.
     AudioBuffer* buf  = nullptr;    // Play: the file, now owned by the audio thread
@@ -81,6 +83,7 @@ enum class Topic : uint8_t {
     Tone,       // idx = slot
     Listen,     // idx = slot
     Monitor,
+    MonitorSrc,
     Test,       // idx = playback channel 1-34
     Peer,       // idx = slot
     Op,         // idx = slot

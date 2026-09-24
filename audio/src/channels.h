@@ -122,6 +122,49 @@ inline bool is_read_channel(int ch)
     return is_circuit_slot(ch) || ch == TAP_CH;
 }
 
+// monitor_source_channel()                                              [any]
+//   audio.md 10.3: the monitor's source names a capture channel. "tap" is 23,
+//   "station/n" is n and "trunk/n" is 24 + n - which is to say the circuit's
+//   own slot, since a circuit's slot and its capture channel are the same
+//   number. Returns 0 for anything else, which is what makes this the one
+//   place the accepted set is defined: --monitor-src and monitor/source/set
+//   both validate through it, so the option and the topic cannot drift apart.
+inline int monitor_source_channel(const char* s)
+{
+    if (!s) return 0;
+    if (std::strcmp(s, "tap") == 0) return TAP_CH;
+
+    const char* rest = nullptr;
+    int lo = 0, hi = 0, base = 0;
+    if (std::strncmp(s, "station/", 8) == 0) { rest = s + 8;  lo = 1; hi = N_STATIONS; base = 0; }
+    else if (std::strncmp(s, "trunk/", 6) == 0) { rest = s + 6; lo = 1; hi = N_TRUNKS; base = TRUNK_SLOT0; }
+    else return 0;
+
+    // Digits only, and at least one: strtol would take " 3", "3x" and "+3".
+    if (!*rest) return 0;
+    int n = 0;
+    for (const char* c = rest; *c; ++c) {
+        if (*c < '0' || *c > '9') return 0;
+        n = n * 10 + (*c - '0');
+        if (n > N_SLOTS) return 0;              // cannot become valid; stop early
+    }
+    if (n < lo || n > hi) return 0;
+    return base + n;
+}
+
+// monitor_source_name()                                                  [any]
+//   The inverse, for the echo on monitor/source and for the log. Writes "tap",
+//   "station/n" or "trunk/n" and returns false if ch is not a source.
+inline bool monitor_source_name(int ch, char* out, size_t n)
+{
+    if (ch == TAP_CH)          { std::snprintf(out, n, "tap"); return true; }
+    if (!is_circuit_slot(ch))  { return false; }
+    const Circuit c = slot_circuit(ch);
+    if (c.kind == Kind::Station) { std::snprintf(out, n, "station/%d", c.n); return true; }
+    if (c.kind == Kind::Trunk)   { std::snprintf(out, n, "trunk/%d", c.n);   return true; }
+    return false;
+}
+
 // can_carry_monitor()                                                    [any]
 //   The playback channels --monitor-ch may name (audio.md 10.1, 14): the A32
 //   output wired to the amplifier, and the Digiface's own analog pair as the

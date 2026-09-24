@@ -52,6 +52,12 @@ struct Options {
     // the A32 output wired to the amplifier, and 33,34 is the Digiface
     // fallback that Rev 1 to Rev 6 used. Never empty.
     std::vector<int> monitor_ch { 24 };
+    // audio.md 10.3, 14. The source at startup, as a capture channel; tap by
+    // default so a bench run with no game behaves as Rev 7 did. The trim is
+    // added to the gain only while the source is the tap, because the tap
+    // arrives about 15dB below the operator's line (station 7.9.3).
+    int    monitor_src = 23;            // chan::TAP_CH
+    double monitor_tap_trim_db = 0.0;
     double lp_pass    = 3600.0;         // station 8.8
     double lp_stop    = 5600.0;
     double lp_att     = 70.0;
