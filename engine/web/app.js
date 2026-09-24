@@ -355,5 +355,17 @@ function secs(v) {
   return n >= 60 ? `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}` : `${n}s`;
 }
 
+// The page is installable and opens from the Home Screen without Safari's
+// bars (game_control.md 7.3). The worker also opens it from cache, which
+// matters when the iPad has been asleep and the board is wanted at once.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch((e) => {
+      // Not fatal: without it the page is an ordinary page.
+      console.warn('service worker not registered:', e);
+    });
+  });
+}
+
 connect();
 render();

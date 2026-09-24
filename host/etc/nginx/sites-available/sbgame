@@ -45,6 +45,24 @@ server {
         proxy_send_timeout 3600s;
     }
 
+    # A service worker is only allowed to control pages at or below its own
+    # path, and a cached one is the one thing that can outlive a deploy: the
+    # browser re-fetches it, and a stale copy keeps serving the old shell.
+    location = /sw.js {
+        add_header Cache-Control "no-cache";
+        try_files $uri =404;
+    }
+
+    # .webmanifest is not in nginx's mime.types, so it needs a type of its own.
+    # NOT a `types { }` block here: that REPLACES the inherited map outright
+    # rather than adding to it, and every other file — html, css, js, png —
+    # then goes out as application/octet-stream. The page does not render and
+    # the service worker is refused, because a worker must be served with a
+    # JavaScript type.
+    location = /manifest.webmanifest {
+        default_type application/manifest+json;
+    }
+
     location / {
         try_files $uri $uri/ =404;
     }

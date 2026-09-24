@@ -147,8 +147,11 @@ sbgame-data:
 sbgame-web:
 	@test -r /etc/sbgame/mqtt-web.pass || { echo "no /etc/sbgame/mqtt-web.pass"; exit 1; }
 	@$(SUDO) install -d -m 755 /srv/sbgame/web
+	@$(SUDO) install -d -m 755 /srv/sbgame/web/icons
 	@$(SUDO) install -m 644 $(REPO)/engine/web/index.html $(REPO)/engine/web/style.css \
-	         $(REPO)/engine/web/mqtt.min.js /srv/sbgame/web/
+	         $(REPO)/engine/web/mqtt.min.js $(REPO)/engine/web/sw.js \
+	         $(REPO)/engine/web/manifest.webmanifest /srv/sbgame/web/
+	@$(SUDO) install -m 644 $(REPO)/engine/web/icons/*.png /srv/sbgame/web/icons/
 	@pw=$$($(SUDO) cat /etc/sbgame/mqtt-web.pass); \
 	 sed "s|PAGE_PASSWORD|$$pw|" $(REPO)/engine/web/app.js \
 	   | $(SUDO) tee /srv/sbgame/web/app.js >/dev/null

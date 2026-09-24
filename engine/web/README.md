@@ -34,3 +34,32 @@ and a page that loads with its library missing.
 `/set` and changes nothing on screen; the display moves when the game
 program's state topic moves. There is deliberately no local model of the game
 here — only a map of retained topic values and a render that reads it.
+
+## Installed as an app
+
+`manifest.webmanifest` and `sw.js` make it installable: Add to Home Screen on
+the iPad and it opens without Safari's bars, landscape, on the dark background
+(game_control.md §7.3). iOS reads the `apple-*` tags rather than the manifest
+for that, so both are in `index.html` and have to agree.
+
+The service worker is not really about being offline. The page is served from
+the same host the game program runs on, so if nginx is unreachable the game is
+too. It is there to make the page installable, to open it from cache when the
+iPad has been asleep, and to survive nginx restarting or the host being
+mid-reboot. Stale-while-revalidate: the cached copy is served at once and a
+fresh one fetched behind it, so a deploy is picked up on the next load.
+
+Two things in the nginx site exist only for this, and both are easy to get
+wrong:
+
+- **`location = /sw.js` sets `Cache-Control: no-cache`.** A cached service
+  worker is the one file that can outlive a deploy indefinitely, because the
+  browser re-fetches it and a stale copy keeps serving the old shell.
+- **The manifest's type comes from a `location`, not a `types { }` block.**
+  A `types` block inside a server *replaces* the inherited MIME map rather
+  than adding to it. With one there, every other file goes out as
+  `application/octet-stream`: the page does not render, and the worker is
+  refused outright, because a worker must be served with a JavaScript type.
+
+`icons/` is drawn by a script rather than by hand: a grid of jacks with two
+joined by a cord and one calling, which is the board in miniature.
