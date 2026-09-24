@@ -172,13 +172,15 @@ function renderBoard() {
       const far = peer && peer !== 'ambiguous' && peer !== 'deaf' ? labelOf(peer) : '';
       // A jack with no circuit keeps its outline so the board keeps its shape.
       const label = kind === 'trunk' ? '' : (jackLabel(kind, n) || '');
-      tile.className = `tile s-${state}` +
-        (circuit ? '' : ' empty') +
-        ((espStale() || audioStale()) ? ' stale' : '');
-      tile.innerHTML =
-        `<span class="jn">${n}</span>` +
-        (label ? `<span class="jl">${esc(label)}</span>` : '') +
-        (far ? `<span class="far">${esc(far)}</span>` : '');
+      const cls = `tile s-${state}` + (circuit ? '' : ' empty') +
+                  ((espStale() || audioStale()) ? ' stale' : '');
+      const html = `<span class="jn">${n}</span>` +
+                   (label ? `<span class="jl">${esc(label)}</span>` : '') +
+                   (far ? `<span class="far">${esc(far)}</span>` : '');
+      // Rewriting an unchanged tile restarts the ringing animation and throws
+      // away any selection, twice a second.
+      if (tile.className !== cls) tile.className = cls;
+      if (tile.dataset.html !== html) { tile.innerHTML = html; tile.dataset.html = html; }
     }
   }
 }
@@ -335,7 +337,11 @@ function render() {
   e.textContent = err;
   e.hidden = !err;
   const log = document.getElementById('log');
-  log.textContent = get('game/log');
+  // Only when it has actually changed. render() runs twice a second, and
+  // rewriting textContent destroys any selection the user is making — which
+  // is why dragging over the log appeared to clear it the moment you let go.
+  const text = get('game/log');
+  if (log.textContent !== text) log.textContent = text;
   log.classList.toggle('stale', gameStale());
   document.body.classList.toggle('offline', !brokerUp);
 }

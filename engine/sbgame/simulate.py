@@ -1,0 +1,332 @@
+"""A stand-in for the controller, the audio program and — optionally — the
+operator, so the game can be played before the boards exist.
+
+The PCBs have not arrived. Without them the game program starts, deals a call,
+and stops at once: every scene wait fails with `Offline` because neither
+`ctl/status` nor `ctl/audio_status` is online, and game_control.md §3 says
+losing a client stops the game. That is correct, and it makes the page
+untestable. This fills both roles on the real broker.
+
+    sbgame-sim                  hardware only; you are the operator
+    sbgame-sim --operator       it answers and connects the calls as well
+
+What it pretends to be:
+
+  **the controller** — `ctl/status` online and a heartbeat every second, and
+  the hook, ring and peer echoes for every `/set` it is sent (control.md §8).
+  **the audio program** — `ctl/audio_status` online, and `play`, `listen`,
+  `tone` and the monitor source echoed as audio.md describes, with each file
+  taking as long as the wav really is.
+
+What it is not. It does not model dial pulse timing, ring cadence, seizure
+debounce or anything electrical; it is not a substitute for the bench. It
+exists so the page and the game program can be exercised, and so a scene can
+be watched end to end.
+
+The operator, with --operator, uses only what the page shows it — the call
+slots and the board map — plus script.yml for the line names, because the
+slots carry line names and the board carries circuits and nothing publishes
+the mapping between them.
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import logging
+import random
+import sys
+import time
+import wave
+from pathlib import Path
+
+import aiomqtt
+
+from .config import Config
+from .script_data import build
+
+log = logging.getLogger("sim")
+PREFIX = "sbgame/"
+
+N_STATIONS, N_TRUNKS = 22, 8
+
+
+class Sim:
+    def __init__(self, cfg: Config, gs, operator: bool, delay: float) -> None:
+        self.cfg = cfg
+        self.gs = gs
+        self.operator = operator
+        self.delay = delay              # how long "the operator" takes to act
+        self.c: aiomqtt.Client | None = None
+        self.v: dict[str, str] = {}     # what we have published, by topic tail
+        self.busy: set[str] = set()     # slots this operator is already acting on
+        self.wav = cfg.resolved("wav_dir")
+        # line name -> circuit id, which nothing on MQTT carries.
+        self.circuit_of: dict[str, str] = {}
+        for name, e in gs.script.stations.items():
+            self.circuit_of[name] = f"station/{e['number']}"
+
+    # ---- publishing ------------------------------------------------------
+
+    async def pub(self, key: str, value: str, retain: bool = True) -> None:
+        if self.c is None:
+            return
+        self.v[key] = value
+        await self.c.publish(PREFIX + key, value, qos=1, retain=retain)
+
+    def get(self, key: str) -> str:
+        return self.v.get(key, "")
+
+    async def birth(self) -> None:
+        """Come up as both clients would (mqtt.md §8.4)."""
+        for n in range(1, N_STATIONS + 1):
+            for f in ("hook", "ring", "peer", "op", "play", "listen"):
+                await self.pub(f"station/{n}/{f}", "")
+        for n in range(1, N_TRUNKS + 1):
+            for f in ("seize", "ring", "peer", "op", "play", "listen", "tone", "fault"):
+                await self.pub(f"trunk/{n}/{f}", "")
+        await self.pub("ctl/i2c", "ok")
+        await self.pub("audio/optone", "off")
+        await self.pub("audio/monitor", "off")
+        await self.pub("audio/monitor/source", "tap")
+        await self.pub("ctl/status", "online")
+        await self.pub("ctl/audio_status", "online")
+        log.info("controller and audio program are up")
+
+    async def heartbeat(self) -> None:
+        while True:
+            await self.pub("ctl/esp_heartbeat", f"{time.time():.0f}", retain=False)
+            await asyncio.sleep(1.0)
+
+    # ---- the hardware's echoes ------------------------------------------
+
+    def _seconds(self, name: str) -> float:
+        try:
+            with wave.open(str(self.wav / f"{name}.wav"), "rb") as w:
+                return w.getnframes() / float(w.getframerate())
+        except OSError:
+            return 0.0
+
+    async def on_set(self, base: str, payload: str) -> None:
+        """One `/set`, echoed as the real client would echo it."""
+        leaf = base.rsplit("/", 1)[-1]
+
+        if leaf in ("hook", "ring", "seize"):
+            await self.pub(base, payload)
+            if leaf == "hook" and payload == "off":
+                await self._drop_peer(base.rsplit("/", 1)[0])
+            return
+
+        if leaf == "play":
+            if payload in ("", "stop"):
+                await self.pub(base, "")
+                return
+            secs = self._seconds(payload)
+            if secs <= 0:
+                await self.pub(base, "missing")
+                log.warning("no wav for %s", payload)
+                return
+            await self.pub(base, payload)
+            asyncio.create_task(self._finish_play(base, payload, secs))
+            return
+
+        if leaf == "listen":
+            if payload in ("", "0"):
+                await self.pub(base, "")
+                return
+            asyncio.create_task(self._do_listen(base, float(payload)))
+            return
+
+        if leaf == "tone":
+            await self.pub(base, "" if payload == "off" else payload)
+            return
+
+        if base == "audio/monitor/source":
+            await self.pub(base, payload)
+            log.info("monitor source -> %s", payload)
+            return
+
+        if base == "audio/monitor":
+            await self.pub(base, payload)
+            return
+
+    async def _finish_play(self, key: str, name: str, secs: float) -> None:
+        await asyncio.sleep(secs)
+        if self.get(key) == name:           # not replaced or stopped meanwhile
+            await self.pub(key, "")
+
+    async def _do_listen(self, key: str, within: float) -> None:
+        """The operator speaks, then stops (audio.md §9)."""
+        await self.pub(key, "listening")
+        if self.operator:
+            await asyncio.sleep(min(self.delay, within))
+            await self.pub(key, "speech")
+            await asyncio.sleep(1.2)        # she says her piece
+            await self.pub(key, "silence")
+        else:
+            # Waiting for a real person at the board: time out if nobody speaks.
+            await asyncio.sleep(within)
+            if self.get(key) == "listening":
+                await self.pub(key, "timeout")
+
+    async def _drop_peer(self, circuit: str) -> None:
+        peer = self.get(f"{circuit}/peer")
+        if peer:
+            await self.pub(f"{circuit}/peer", "")
+            await self.pub(f"{peer}/peer", "")
+
+    async def _connect(self, a: str, b: str) -> None:
+        """A cord joins two circuits: both ends see it (control.md §8)."""
+        await self.pub(f"{a}/peer", b)
+        await self.pub(f"{b}/peer", a)
+
+    # ---- the operator, with --operator ----------------------------------
+
+    async def work_the_board(self) -> None:
+        """Answer and connect each call, using what the page shows."""
+        while True:
+            await asyncio.sleep(0.2)
+            if not self.operator:
+                continue
+            for slot in range(1, 9):
+                if self.get(f"game/call/{slot}/scene") and slot not in self.busy:
+                    self.busy.add(slot)
+                    asyncio.create_task(self._handle(slot))
+
+    async def _handle(self, slot: int) -> None:
+        g = lambda f: self.get(f"game/call/{slot}/{f}")
+        try:
+            scene_id = g("scene")
+            scene = self.gs.scenes.get(scene_id)
+            if scene is None:
+                return
+            caller = (self.circuit_of.get(scene.from_line) or g("trunk")
+                      or await self._wait_for(lambda: g("trunk"), 10))
+            if not caller:
+                return
+
+            # Answer: throw the listening key on the calling line.
+            await self._wait_for(lambda: g("stage") == "signalling", 20)
+            await asyncio.sleep(self.delay)
+            await self.pub(f"{caller}/op", "on")
+
+            # The request plays; then route it.
+            await self._wait_for(lambda: g("stage") in ("routing", "operator", ""), 60)
+            if g("stage") in ("", "operator"):
+                return                      # a call to the operator needs no cord
+
+            await asyncio.sleep(self.delay)
+            if scene.to_station is not None:
+                called = f"station/{scene.to_station}"
+                await self.pub(f"{called}/ring", "on")
+                # The game takes it off-hook when it answers; then the cord is up.
+                await self._wait_for(lambda: self.get(f"{called}/hook") == "on", 30)
+                await self.pub(f"{called}/ring", "off")
+                await self._connect(caller, called)
+            else:
+                trunk = await self._free_trunk()
+                if trunk is None:
+                    return
+                await self.pub(f"trunk/{trunk}/seize", "on")
+                await self._connect(caller, f"trunk/{trunk}")
+                await self._wait_for(
+                    lambda: self.get(f"trunk/{trunk}/tone") == "dial", 20)
+                for d in "".join(c for c in scene.dial if c.isdigit()):
+                    await asyncio.sleep(0.12)
+                    await self.pub(f"trunk/{trunk}/digit", d, retain=False)
+        except Exception:
+            log.exception("operator on slot %d", slot)
+        finally:
+            # Wait for the slot to empty before offering to work it again.
+            await self._wait_for(lambda: not self.get(f"game/call/{slot}/scene"), 600)
+            self.busy.discard(slot)
+
+    async def _free_trunk(self) -> int | None:
+        for n in range(1, N_TRUNKS + 1):
+            if not self.get(f"trunk/{n}/seize") and not self.get(f"trunk/{n}/ring"):
+                return n
+        return None
+
+    async def _wait_for(self, pred, timeout: float):
+        end = time.monotonic() + timeout
+        while time.monotonic() < end:
+            v = pred()
+            if v:
+                return v
+            await asyncio.sleep(0.1)
+        return None
+
+    # ---- the connection --------------------------------------------------
+
+    async def run(self) -> None:
+        will = aiomqtt.Will(PREFIX + "ctl/status", "offline", qos=1, retain=True)
+        while True:
+            try:
+                async with aiomqtt.Client(
+                        hostname=self.cfg.broker_host, port=self.cfg.broker_port,
+                        username=self.cfg.username,
+                        password=self.cfg.resolved("password_file").read_text().strip(),
+                        identifier="sbgame-sim", clean_session=True,
+                        keepalive=10, will=will) as c:
+                    self.c = c
+                    log.info("connected to %s:%d as %s", self.cfg.broker_host,
+                             self.cfg.broker_port, self.cfg.username)
+                    await self.birth()
+                    await c.subscribe(PREFIX + "#", qos=1)
+                    async with asyncio.TaskGroup() as tg:
+                        tg.create_task(self.heartbeat())
+                        tg.create_task(self.work_the_board())
+                        tg.create_task(self._dispatch(c))
+            except* Exception as eg:
+                log.warning("mqtt: %s; retrying", eg.exceptions[0])
+                self.c = None
+                await asyncio.sleep(2)
+
+    async def _dispatch(self, c: aiomqtt.Client) -> None:
+        async for m in c.messages:
+            topic = str(m.topic)
+            if not topic.startswith(PREFIX):
+                continue
+            key = topic[len(PREFIX):]
+            payload = m.payload.decode()
+            if key.endswith("/set"):
+                await self.on_set(key[:-4], payload)
+            elif key.startswith("game/"):
+                self.v[key] = payload          # the operator reads the slots
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("-c", "--config", type=Path)
+    p.add_argument("--operator", action="store_true",
+                   help="answer and connect the calls too, so a game runs by itself")
+    p.add_argument("--delay", type=float, default=1.5,
+                   help="how long the operator takes to act, seconds (1.5)")
+    # It stands in for the controller and the audio program, so it connects as
+    # one of them, not as the game. sbgame-control's password is compiled into
+    # the firmware and is not on the host; sbgame-audio's is, and the access
+    # list gives both the same rights (mqtt.md 9).
+    p.add_argument("--user", default="sbgame-audio")
+    p.add_argument("--pass-file", default="/etc/sbgame/mqtt-audio.pass")
+    p.add_argument("-v", "--verbose", action="store_true")
+    args = p.parse_args(argv)
+
+    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
+                        format="%(asctime)s %(name)-4s %(message)s",
+                        datefmt="%H:%M:%S", stream=sys.stdout)
+    cfg = Config.load(args.config)
+    cfg.username = args.user
+    cfg.password_file = args.pass_file
+    gs = build(cfg.resolved("script"), cfg.resolved("wav_dir"))
+    sim = Sim(cfg, gs, args.operator, args.delay)
+    print(f"simulating the controller and the audio program"
+          f"{' and the operator' if args.operator else ''}; ^C to stop")
+    try:
+        asyncio.run(sim.run())
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

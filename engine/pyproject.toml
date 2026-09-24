@@ -19,6 +19,9 @@ dependencies = [
 
 [project.scripts]
 sbgame = "sbgame.main:main"
+# The stand-in for the controller, the audio program and the operator,
+# for use until the boards arrive.
+sbgame-sim = "sbgame.simulate:main"
 
 [tool.setuptools]
 packages = ["sbgame"]
