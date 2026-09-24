@@ -1,0 +1,58 @@
+#!/bin/sh
+# Stand in for the controller and the audio program, so the game can be played
+# before the boards arrive.
+#
+#   ./run-sim              hardware only — you work the board from the page
+#   ./run-sim -o           it answers and connects the calls too
+#   ./run-sim -o -d 0.3    the same, but a quick operator
+#
+# Ctrl-C to stop. It is a tool, not a service: nothing restarts it, and both
+# of its identities go offline the moment it exits, however it exits.
+#
+# What it is not: no dial pulse timing, no ring cadence, no seizure debounce,
+# nothing electrical. It exists so the page and the game program can be
+# exercised. See engine/README.md.
+set -eu
+
+SIM=/opt/sbgame/venv/bin/sbgame-sim
+DEV=./engine/.venv/bin/sbgame-sim
+
+# The installed copy if there is one, else the checkout's, so this works
+# before `make -C host sbgame-install` has ever been run.
+if   [ -x "$SIM" ]; then BIN=$SIM
+elif [ -x "$DEV" ]; then BIN=$DEV
+else
+    echo "no sbgame-sim: run 'make -C host sbgame-install', or" >&2
+    echo "'engine/.venv/bin/pip install -e engine' for a checkout" >&2
+    exit 1
+fi
+
+OPERATOR=""
+DELAY=""
+while getopts "od:h" opt; do
+    case $opt in
+        o) OPERATOR="--operator" ;;
+        d) DELAY="--delay $OPTARG" ;;
+        h) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *) echo "try -h" >&2; exit 2 ;;
+    esac
+done
+
+# The one thing that will not be obvious if it is missing.
+if [ ! -r /etc/sbgame/mqtt-audio.pass ]; then
+    echo "cannot read /etc/sbgame/mqtt-audio.pass." >&2
+    echo "It is 640 and owned by a group you need to be in." >&2
+    exit 1
+fi
+
+if ! systemctl is-active --quiet mosquitto; then
+    echo "mosquitto is not running; the simulator will sit retrying." >&2
+fi
+
+if ! systemctl is-active --quiet sbgame; then
+    echo "note: the game program is not running, so there is nothing to play." >&2
+    echo "      sudo systemctl start sbgame" >&2
+fi
+
+# Unbuffered, so its log appears as it happens rather than in blocks.
+exec env PYTHONUNBUFFERED=1 "$BIN" $OPERATOR $DELAY

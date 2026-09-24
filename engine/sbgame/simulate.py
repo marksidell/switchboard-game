@@ -53,12 +53,22 @@ N_STATIONS, N_TRUNKS = 22, 8
 
 
 class Sim:
-    def __init__(self, cfg: Config, gs, operator: bool, delay: float) -> None:
+    def __init__(self, cfg: Config, gs, operator: bool, delay: float,
+                 control: tuple[str, str] = ("", ""),
+                 audio: tuple[str, str] = ("", "")) -> None:
+        self.control_user, self.control_pass = control
+        self.audio_user, self.audio_pass = audio
         self.cfg = cfg
         self.gs = gs
         self.operator = operator
         self.delay = delay              # how long "the operator" takes to act
-        self.c: aiomqtt.Client | None = None
+        # Two connections, not one. A will carries a single topic, so one
+        # client pretending to be two leaves the second one's status retained
+        # as "online" after the simulator dies — the game then believes the
+        # audio program is still there. Each identity gets its own client, its
+        # own will, and publishes the topics it actually owns.
+        self.cc: aiomqtt.Client | None = None   # the controller
+        self.ac: aiomqtt.Client | None = None   # the audio program
         self.v: dict[str, str] = {}     # what we have published, by topic tail
         self.busy: set[str] = set()     # slots this operator is already acting on
         # Trunks this operator has committed to. Chosen synchronously, because
@@ -74,11 +84,26 @@ class Sim:
 
     # ---- publishing ------------------------------------------------------
 
+    # Which client owns which topic. The controller has the relays, the hook
+    # and seizure detectors and the ring generator; the audio program has
+    # playback, listening, the trunk tones and the monitor (mqtt.md 5, 6).
+    AUDIO_LEAVES = ("play", "listen", "tone", "peer", "op")
+    AUDIO_KEYS = ("ctl/audio_status", "audio/optone", "audio/monitor",
+                  "audio/monitor/source")
+
+    def _client_for(self, key: str) -> aiomqtt.Client | None:
+        if key in self.AUDIO_KEYS or key.startswith("audio/"):
+            return self.ac
+        if key.rsplit("/", 1)[-1] in self.AUDIO_LEAVES:
+            return self.ac
+        return self.cc
+
     async def pub(self, key: str, value: str, retain: bool = True) -> None:
-        if self.c is None:
+        c = self._client_for(key)
+        if c is None:
             return
         self.v[key] = value
-        await self.c.publish(PREFIX + key, value, qos=1, retain=retain)
+        await c.publish(PREFIX + key, value, qos=1, retain=retain)
 
     def get(self, key: str) -> str:
         return self.v.get(key, "")
@@ -312,28 +337,35 @@ class Sim:
     # ---- the connection --------------------------------------------------
 
     async def run(self) -> None:
-        will = aiomqtt.Will(PREFIX + "ctl/status", "offline", qos=1, retain=True)
+        """Both identities, each with its own will, for as long as it lives."""
         while True:
             try:
                 async with aiomqtt.Client(
-                        hostname=self.cfg.broker_host, port=self.cfg.broker_port,
-                        username=self.cfg.username,
-                        password=self.cfg.resolved("password_file").read_text().strip(),
-                        identifier="sbgame-sim", clean_session=True,
-                        keepalive=10, will=will) as c:
-                    self.c = c
-                    log.info("connected to %s:%d as %s", self.cfg.broker_host,
-                             self.cfg.broker_port, self.cfg.username)
+                        **self._args("sbgame-sim-control", self.control_user,
+                                     self.control_pass, "ctl/status")) as cc, \
+                           aiomqtt.Client(
+                        **self._args("sbgame-sim-audio", self.audio_user,
+                                     self.audio_pass, "ctl/audio_status")) as ac:
+                    self.cc, self.ac = cc, ac
+                    log.info("controller as %s, audio program as %s",
+                             self.control_user, self.audio_user)
                     await self.birth()
-                    await c.subscribe(PREFIX + "#", qos=1)
+                    await cc.subscribe(PREFIX + "#", qos=1)
                     async with asyncio.TaskGroup() as tg:
                         tg.create_task(self.heartbeat())
                         tg.create_task(self.work_the_board())
-                        tg.create_task(self._dispatch(c))
+                        tg.create_task(self._dispatch(cc))
             except* Exception as eg:
                 log.warning("mqtt: %s; retrying", eg.exceptions[0])
-                self.c = None
+                self.cc = self.ac = None
                 await asyncio.sleep(2)
+
+    def _args(self, ident: str, user: str, password: str, will_topic: str) -> dict:
+        return dict(hostname=self.cfg.broker_host, port=self.cfg.broker_port,
+                    username=user, password=password, identifier=ident,
+                    clean_session=True, keepalive=10,
+                    will=aiomqtt.Will(PREFIX + will_topic, "offline",
+                                      qos=1, retain=True))
 
     async def _dispatch(self, c: aiomqtt.Client) -> None:
         async for m in c.messages:
@@ -370,6 +402,8 @@ def main(argv: list[str] | None = None) -> int:
     # list gives both the same rights (mqtt.md 9).
     p.add_argument("--user", default="sbgame-audio")
     p.add_argument("--pass-file", default="/etc/sbgame/mqtt-audio.pass")
+    p.add_argument("--secrets", default="~/game/control/secrets.h",
+                   help="the firmware's credentials, for the controller identity")
     p.add_argument("-v", "--verbose", action="store_true")
     args = p.parse_args(argv)
 
@@ -379,10 +413,30 @@ def main(argv: list[str] | None = None) -> int:
     cfg = Config.load(args.config if args.config.exists() else None)
     if not args.config.exists():
         log.warning("%s not found; using the built-in defaults", args.config)
-    cfg.username = args.user
-    cfg.password_file = args.pass_file
+
+    audio_pw = Path(args.pass_file).expanduser().read_text().strip()
+
+    # The controller's own password is compiled into the firmware, in
+    # control/secrets.h, which is gitignored and readable here. Use it when it
+    # is there, so the simulator connects as the controller really does;
+    # otherwise fall back to the audio identity, which the access list gives
+    # the same rights (mqtt.md 9).
+    control_user, control_pw = args.user, audio_pw
+    secrets = Path(args.secrets).expanduser()
+    if secrets.is_file():
+        import re
+        text = secrets.read_text()
+        u = re.search(r'MQTT_USERNAME\s+"([^"]*)"', text)
+        w = re.search(r'MQTT_PASSWORD\s+"([^"]*)"', text)
+        if u and w:
+            control_user, control_pw = u.group(1), w.group(1)
+    else:
+        log.info("%s not found; the controller will connect as %s",
+                 secrets, args.user)
+
     gs = build(cfg.resolved("script"), cfg.resolved("wav_dir"))
-    sim = Sim(cfg, gs, args.operator, args.delay)
+    sim = Sim(cfg, gs, args.operator, args.delay,
+              control=(control_user, control_pw), audio=(args.user, audio_pw))
     print(f"simulating the controller and the audio program"
           f"{' and the operator' if args.operator else ''}; ^C to stop")
     try:
