@@ -37,6 +37,12 @@ RESERVED_NAME = "stop"
 # revised; monitor_channel_task.md 4 says to treat it as 1-22.
 MIN_STATION, MAX_STATION = 1, 22
 
+# The switchboard's own jacks, which are not the game's circuits: 30 station
+# jacks and 10 trunk jacks (game_control.md 6.3). Which circuit is cabled to
+# which jack is Mark's choice and changes when he recables, so it lives in
+# script.yml rather than here.
+MIN_JACK, MAX_JACK = 1, 30
+
 
 class ScriptError(Exception):
     """Validation failed. `failures` lists every problem found, in order."""
@@ -166,17 +172,43 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
 
     # --- station and outside numbering --------------------------------------
     seen_station: dict[int, str] = {}
+    seen_jack: dict[int, str] = {}
     for name, entry in stations.items():
-        number = (entry or {}).get("number")
+        entry = entry or {}
+        number = entry.get("number")
         if not isinstance(number, int) or isinstance(number, bool):
             bad(f"stations.{name}.number", f"not an integer: {number!r}")
-            continue
-        if not MIN_STATION <= number <= MAX_STATION:
-            bad(f"stations.{name}.number", f"{number} outside {MIN_STATION}-{MAX_STATION}")
-        if number in seen_station:
-            bad(f"stations.{name}.number", f"{number} already used by {seen_station[number]}")
         else:
-            seen_station[number] = name
+            if not MIN_STATION <= number <= MAX_STATION:
+                bad(f"stations.{name}.number", f"{number} outside {MIN_STATION}-{MAX_STATION}")
+            if number in seen_station:
+                bad(f"stations.{name}.number", f"{number} already used by {seen_station[number]}")
+            else:
+                seen_station[number] = name
+
+        # game_control.md 6.3: which switchboard jack this circuit is cabled
+        # to, and what the board says at that jack. The game program refuses
+        # to start without them — the page builds the board from these alone,
+        # and a missing one is a tile that cannot be drawn.
+        jack = entry.get("switchboard")
+        if jack is None:
+            bad(f"stations.{name}", "no switchboard: (game_control.md 6.3)")
+        elif not isinstance(jack, int) or isinstance(jack, bool):
+            bad(f"stations.{name}.switchboard", f"not an integer: {jack!r}")
+        else:
+            if not MIN_JACK <= jack <= MAX_JACK:
+                bad(f"stations.{name}.switchboard", f"{jack} outside {MIN_JACK}-{MAX_JACK}")
+            if jack in seen_jack:
+                bad(f"stations.{name}.switchboard",
+                    f"jack {jack} already used by {seen_jack[jack]}")
+            else:
+                seen_jack[jack] = name
+
+        label = entry.get("label")
+        if label is None:
+            bad(f"stations.{name}", "no label: (game_control.md 6.3)")
+        elif not isinstance(label, str) or not label.strip():
+            bad(f"stations.{name}.label", f"empty or not text: {label!r}")
 
     seen_outside: dict[str, str] = {}
     for name, entry in outside.items():
