@@ -149,13 +149,19 @@ sbgame-web:
 	@$(SUDO) install -d -m 755 /srv/sbgame/web
 	@$(SUDO) install -d -m 755 /srv/sbgame/web/icons
 	@$(SUDO) install -m 644 $(REPO)/engine/web/index.html $(REPO)/engine/web/style.css \
-	         $(REPO)/engine/web/mqtt.min.js $(REPO)/engine/web/sw.js \
+	         $(REPO)/engine/web/mqtt.min.js \
 	         $(REPO)/engine/web/manifest.webmanifest /srv/sbgame/web/
 	@$(SUDO) install -m 644 $(REPO)/engine/web/icons/*.png /srv/sbgame/web/icons/
 	@pw=$$($(SUDO) cat /etc/sbgame/mqtt-web.pass); \
 	 sed "s|PAGE_PASSWORD|$$pw|" $(REPO)/engine/web/app.js \
 	   | $(SUDO) tee /srv/sbgame/web/app.js >/dev/null
 	@$(SUDO) chmod 644 /srv/sbgame/web/app.js
+	@build=$$(cat $(REPO)/engine/web/index.html $(REPO)/engine/web/app.js \
+	                $(REPO)/engine/web/style.css | md5sum | cut -c1-10); \
+	 sed "s|BUILD_ID|$$build|" $(REPO)/engine/web/sw.js \
+	   | $(SUDO) tee /srv/sbgame/web/sw.js >/dev/null; \
+	 echo "  build $$build"
+	@$(SUDO) chmod 644 /srv/sbgame/web/sw.js
 	@grep -q PAGE_PASSWORD /srv/sbgame/web/app.js && \
 	   { echo "the placeholder is still there"; exit 1; } || true
 	@echo "page installed:"; ls -l /srv/sbgame/web | tail -n +2 | sed 's/^/  /'

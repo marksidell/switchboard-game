@@ -23,7 +23,12 @@
  */
 'use strict';
 
-const VERSION = 'sbgame-v1';
+// Stamped at install with a hash of the shell (`make -C host sbgame-web`).
+// A new build means a new cache name, so activate drops the old one and the
+// first load after a deploy is fresh rather than stale-then-fresh. Without
+// this, every change needs two reloads to appear, which during development
+// looks exactly like the change not working.
+const VERSION = 'sbgame-BUILD_ID';
 const SHELL = [
   '/',
   '/index.html',

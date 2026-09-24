@@ -137,10 +137,21 @@ h2 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
 
 /* ---- the tile panel ------------------------------------------------------ */
 
-#panel { position: fixed; right: 16px; bottom: 16px; width: 300px; z-index: 10;
+/* Placed next to the tile that was tapped, by app.js, and clamped to the
+   viewport. Fixed, so it is positioned against the window rather than a
+   scrolled parent. */
+#panel { position: fixed; width: 260px; z-index: 10;
          background: var(--panel); border: 1px solid var(--line);
-         border-radius: 10px; padding: 10px 12px;
+         border-radius: 10px; padding: 8px 12px;
          box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
-#panel div { display: flex; justify-content: space-between; padding: 3px 0;
-             font-size: 13px; }
-#panel span { color: var(--dim); }
+#panel h3 { margin: 0 0 6px; font-size: 13px; color: var(--ink);
+            border-bottom: 1px solid var(--line); padding-bottom: 5px; }
+
+/* The direct children only. `#panel div` also matches #panel-body, which
+   would make the wrapper a flex row and lay every field out side by side —
+   which is exactly what it did. */
+#panel-body > div { display: flex; justify-content: space-between; gap: 12px;
+                    padding: 2px 0; font-size: 13px; }
+#panel-body > div > span { color: var(--dim); }
+#panel-body > div > b { font-weight: 600; text-align: right;
+                        overflow-wrap: anywhere; }

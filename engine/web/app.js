@@ -24,6 +24,7 @@ let brokerUp = false;
 let hostOffset = 0;                 // host clock minus ours, seconds
 let lastGameBeat = 0, lastEspBeat = 0;   // our clock, for staleness
 let stopArmed = 0;                  // Stop needs a second tap within 3 s
+let panelOpen = null;               // "station/7" while its panel is up
 let nextEnabledAt = 0;              // Next Call re-enables after 3 s regardless
 
 const get = (k) => S[k] || '';
@@ -153,7 +154,11 @@ function renderBoard() {
     el.dataset.built = '1';
     el.addEventListener('click', (e) => {
       const t = e.target.closest('.tile');
-      if (t) showPanel(t.dataset.kind, +t.dataset.n);
+      if (!t) return;
+      const which = `${t.dataset.kind}/${t.dataset.n}`;
+      // The same jack again closes it, so one finger opens and shuts a tile.
+      if (panelOpen === which) closePanel();
+      else showPanel(t.dataset.kind, +t.dataset.n);
     });
   }
 
@@ -178,7 +183,13 @@ function renderBoard() {
   }
 }
 
+function closePanel() {
+  document.getElementById('panel').hidden = true;
+  panelOpen = null;
+}
+
 function showPanel(kind, n) {
+  panelOpen = `${kind}/${n}`;
   const circuit = jackCircuit(kind, n);
   const p = document.getElementById('panel');
   const rows = [['jack', `${kind} ${n}`], ['circuit', circuit || '—'],
@@ -193,12 +204,31 @@ function showPanel(kind, n) {
     rows.push(['in call', using ? get(`game/call/${using}/number`) : '—']);
   }
   document.getElementById('panel-body').innerHTML =
+    `<h3>${esc(kind === 'trunk' ? `Trunk ${n}` : (jackLabel(kind, n) || `Jack ${n}`))}</h3>` +
     rows.map(([k, v]) => `<div><span>${esc(k)}</span><b>${esc(String(v))}</b></div>`).join('');
   p.hidden = false;
+
+  // Next to the tile that was tapped, not parked in a corner: at this size the
+  // board fills the screen and a panel in the corner is nowhere near the jack
+  // it describes. Clamped so it never runs off an edge.
+  const tile = document.getElementById(`j-${kind}-${n}`);
+  const r = tile.getBoundingClientRect();
+  const pr = p.getBoundingClientRect();
+  const pad = 8;
+  let left = r.left + r.width / 2 - pr.width / 2;
+  let top = r.bottom + pad;
+  if (top + pr.height > window.innerHeight - pad) top = r.top - pr.height - pad;
+  if (top < pad) top = pad;
+  p.style.left = `${Math.max(pad, Math.min(left, window.innerWidth - pr.width - pad))}px`;
+  p.style.top = `${top}px`;
 }
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('.tile') && !e.target.closest('#panel'))
-    document.getElementById('panel').hidden = true;
+  if (!e.target.closest('.tile') && !e.target.closest('#panel')) closePanel();
+});
+// Escape, for the desktop browser Mark is using to look at this. There is no
+// keyboard on the iPad, so it costs nothing there.
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && panelOpen) closePanel();
 });
 
 // ---- calls, health, log ----------------------------------------------------
@@ -291,6 +321,11 @@ function renderTop() {
 }
 
 function render() {
+  // Keep an open panel's values live: it reads the same topics as the board.
+  if (panelOpen) {
+    const [kind, n] = panelOpen.split('/');
+    showPanel(kind, +n);
+  }
   renderTop();
   renderBoard();
   renderCalls();
