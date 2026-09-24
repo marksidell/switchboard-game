@@ -175,23 +175,22 @@ static cplx asne(cplx w, double k)
     return std::asin(w) * (2.0 / M_PI);
 }
 
-// elliptic_lowpass()                                                 [startup]
-//   See dsp.h, and the six steps at the top of this section; the comments
-//   below mark where each happens.
-std::vector<Biquad> elliptic_lowpass(int order, double fpass, double fstop,
-                                     double stop_db, double fs, double& ripple_db)
+// One section of the normalised analog prototype: a zero pair on the frequency
+// axis at +-j*wz, and a conjugate pole pair, with the passband edge at 1.
+struct ProtoSection {
+    double wz;        // zero frequency, normalised
+    cplx   p;         // pole, left half plane
+};
+
+// elliptic_prototype()                                               [startup]
+//   Steps 2 to 5 of the design at the top of this section, shared by the
+//   low-pass and the high-pass: everything except the frequency
+//   denormalisation and the bilinear transform. `k` is the selectivity, always
+//   less than 1: passband edge over stopband edge for a low-pass, and the
+//   reciprocal of that for a high-pass.
+static std::vector<ProtoSection> elliptic_prototype(int order, double k,
+                                                    double stop_db, double& ripple_db)
 {
-    std::vector<Biquad> secs;
-    if (order < 2 || (order % 2) != 0) return secs;     // even orders only
-
-    // Step 1. Prewarp both edges, so the bilinear transform lands them where they were
-    // asked for rather than where tan() moves them.
-    const double c  = 2.0 * fs;
-    const double Wp = c * std::tan(M_PI * fpass / fs);
-    const double Ws = c * std::tan(M_PI * fstop / fs);
-
-    // Step 2.
-    const double k  = Wp / Ws;                          // selectivity
     const std::vector<double> vk = landen(k);
 
     // Step 3. Degree equation, N*K'(k)/K(k) = K'(k1)/K(k1), solved for k1 through the
@@ -213,28 +212,91 @@ std::vector<Biquad> elliptic_lowpass(int order, double fpass, double fstop,
     // normalised units cde() works in; it comes out real.
     const cplx v0 = -cplx(0.0, 1.0) * asne(cplx(0.0, 1.0 / ep), k1) / (double)order;
 
+    std::vector<ProtoSection> out;
     const int L = order / 2;
     for (int i = 1; i <= L; ++i) {
         const double ui = (2.0 * i - 1.0) / (double)order;
 
         const double zeta = cde(ui, vk);
-        const double Oz   = 1.0 / (k * zeta);           // zero, normalised to Wp
         cplx p = cplx(0.0, 1.0) * cde(cplx(ui, 0.0) - cplx(0.0, 1.0) * v0, vk);
 
         // The pole set is symmetric about the imaginary axis; keep the stable
         // half whichever way the branch of asne() came out.
         if (p.real() > 0.0) p = cplx(-p.real(), p.imag());
 
+        out.push_back({ 1.0 / (k * zeta), p });         // zero at 1/(k*zeta)
+    }
+    return out;
+}
+
+// elliptic_lowpass()                                                 [startup]
+//   See dsp.h, and the six steps at the top of this section.
+std::vector<Biquad> elliptic_lowpass(int order, double fpass, double fstop,
+                                     double stop_db, double fs, double& ripple_db)
+{
+    std::vector<Biquad> secs;
+    if (order < 2 || (order % 2) != 0 || fstop <= fpass) return secs;
+
+    // Step 1. Prewarp both edges, so the bilinear transform lands them where
+    // they were asked for rather than where tan() moves them.
+    const double c  = 2.0 * fs;
+    const double Wp = c * std::tan(M_PI * fpass / fs);
+    const double Ws = c * std::tan(M_PI * fstop / fs);
+
+    const std::vector<ProtoSection> proto =
+        elliptic_prototype(order, Wp / Ws, stop_db, ripple_db);
+
+    for (const ProtoSection& ps : proto) {
         // Analog section, denormalised to rad/s and scaled to unity at DC:
-        //   H(s) = (s^2 + (Oz*Wp)^2) / (s^2 - 2 Re(p) Wp s + |p|^2 Wp^2)
-        const double wz = Oz * Wp;
+        //   H(s) = (s^2 + (wz*Wp)^2) / (s^2 - 2 Re(p) Wp s + |p|^2 Wp^2)
+        const double wz = ps.wz * Wp;
         const double b2s = 1.0, b1s = 0.0, b0s = wz * wz;
         const double a2s = 1.0;
-        const double a1s = -2.0 * p.real() * Wp;
-        const double a0s = std::norm(p) * Wp * Wp;
+        const double a1s = -2.0 * ps.p.real() * Wp;
+        const double a0s = std::norm(ps.p) * Wp * Wp;
         const double g   = a0s / b0s;                   // unity at DC
 
         // Step 6. Bilinear transform, s -> c (1 - z^-1) / (1 + z^-1).
+        const double cc = c * c;
+        secs.push_back(normalise(g * (b2s * cc + b1s * c + b0s),
+                                 g * 2.0 * (b0s - b2s * cc),
+                                 g * (b2s * cc - b1s * c + b0s),
+                                 a2s * cc + a1s * c + a0s,
+                                 2.0 * (a0s - a2s * cc),
+                                 a2s * cc - a1s * c + a0s));
+    }
+    return secs;
+}
+
+// elliptic_highpass()                                                [startup]
+//   The same prototype with the low-pass-to-high-pass substitution s -> Wp/s
+//   applied before the bilinear transform. That maps the prototype's passband
+//   edge to Wp and its stopband edge to Wp * k, so the selectivity handed to
+//   the prototype is the stopband edge over the passband edge - the reciprocal
+//   of the low-pass case. Per section the substitution turns
+//   (s^2 + wz^2) / (s^2 - 2 Re(p) s + |p|^2) into
+//   (wz^2 s^2 + Wp^2) / (|p|^2 s^2 - 2 Re(p) Wp s + Wp^2), and the gain is
+//   normalised as w -> infinity rather than at DC.
+std::vector<Biquad> elliptic_highpass(int order, double fpass, double fstop,
+                                      double stop_db, double fs, double& ripple_db)
+{
+    std::vector<Biquad> secs;
+    if (order < 2 || (order % 2) != 0 || fstop >= fpass) return secs;
+
+    const double c  = 2.0 * fs;
+    const double Wp = c * std::tan(M_PI * fpass / fs);
+    const double Ws = c * std::tan(M_PI * fstop / fs);
+
+    const std::vector<ProtoSection> proto =
+        elliptic_prototype(order, Ws / Wp, stop_db, ripple_db);
+
+    for (const ProtoSection& ps : proto) {
+        const double b2s = ps.wz * ps.wz, b1s = 0.0, b0s = Wp * Wp;
+        const double a2s = std::norm(ps.p);
+        const double a1s = -2.0 * ps.p.real() * Wp;
+        const double a0s = Wp * Wp;
+        const double g   = a2s / b2s;                   // unity as w -> infinity
+
         const double cc = c * c;
         secs.push_back(normalise(g * (b2s * cc + b1s * c + b0s),
                                  g * 2.0 * (b0s - b2s * cc),

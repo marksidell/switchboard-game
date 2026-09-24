@@ -29,7 +29,8 @@ ctest --test-dir audio/build --output-on-failure
 ```
 
 `sbaudio_test` needs no hardware and no broker. It checks the pilot map against
-`docs/pilot-map.md`, the monitor low-pass against station §8.8's 70 dB at 6000 Hz —
+`docs/pilot-map.md`, the monitor low-pass against station §8.8's 70 dB at 6000 Hz and
+the content check's high-pass against the telephone band it has to ignore —
 which `audio.md` §10.1 asks for by name, because the lowest pilot sits exactly there —
 and the detector against a synthetic block built with the same wavetable expression the
 engine renders pilots with.

@@ -89,13 +89,36 @@ LoadResult load_wav(const std::string& dir, const std::string& base,
     // filter in the audio thread is paid on every period forever to fix a
     // content error that is fixed once offline.
     //
-    // Measured with a fourth-order high-pass rather than a transform: the
-    // question is only whether there is anything up there at all.
-    const Biquad hp = butter_highpass(5500.0, chan::SAMPLE_RATE);
-    BiquadState s1, s2;
+    // Measured with a filter rather than a transform: the question is only
+    // whether there is anything up there at all, and a filter answers it in
+    // one pass with no buffer.
+    //
+    // The filter has to be a steep one, which the first version was not. Two
+    // cascaded Butterworth biquads at 5.5kHz are only 18.7dB down at 3400Hz at
+    // this sample rate, so they measure the top of the telephone band - the
+    // wanted signal - almost as loudly as what is above the corner. On
+    // correctly band-limited speech that read -71.6dBFS for a dull voice and
+    // -45.7dBFS for a bright one against a -60dBFS threshold: a 25.9dB spread
+    // that tracked the voice rather than the file, and tripped 46 of the 71
+    // delivered lines while a transform put them all near -146dBFS. An
+    // elliptic high-pass, 80dB down at 4kHz and flat from 5.5kHz, reads those
+    // same two files 0.9dB apart. The reading is then a property of the file,
+    // which is what the threshold is for.
+    static const int    HF_ORDER   = 8;
+    static const double HF_PASS_HZ = 5500.0;      // audio.md 5.3's corner
+    static const double HF_STOP_HZ = 4000.0;      // above the telephone band
+    static const double HF_STOP_DB = 80.0;
+    double ripple_db = 0.0;
+    const std::vector<Biquad> hp = elliptic_highpass(HF_ORDER, HF_PASS_HZ, HF_STOP_HZ,
+                                                     HF_STOP_DB, chan::SAMPLE_RATE,
+                                                     ripple_db);
+    if (hp.empty()) { delete b; return LoadResult::Unreadable; }
+
+    std::vector<BiquadState> st(hp.size());
     double acc = 0.0;
     for (float v : b->samples) {
-        const double y = s2.run(hp, s1.run(hp, (double)v));
+        double y = (double)v;
+        for (size_t i = 0; i < hp.size(); ++i) y = st[i].run(hp[i], y);
         acc += y * y;
     }
     if (!b->samples.empty()) {

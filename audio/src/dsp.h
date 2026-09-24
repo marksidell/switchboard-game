@@ -138,6 +138,15 @@ Biquad butter_highpass(double fc, double fs);
 std::vector<Biquad> elliptic_lowpass(int order, double fpass, double fstop,
                                      double stop_db, double fs, double& ripple_db);
 
+// elliptic_highpass()                                                [startup]
+//   The same design mirrored: passes above `fpass`, at least `stop_db` down at
+//   and below `fstop`, with fstop < fpass. Used for the content check of
+//   audio.md 5.3 and 7.2, which asks how much of a delivered file sits above
+//   5.5kHz - a question a gentle filter cannot answer, because the telephone
+//   band it must ignore ends only 2kHz below the corner.
+std::vector<Biquad> elliptic_highpass(int order, double fpass, double fstop,
+                                      double stop_db, double fs, double& ripple_db);
+
 // cascade_mag_db()                                                       [any]
 //   Magnitude response of a cascade at one frequency, in dB: 0 is unity, -70
 //   is 70 dB down. Evaluates H(z) on the unit circle directly rather than

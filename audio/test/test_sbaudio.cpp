@@ -280,6 +280,132 @@ static void test_pilot_map()
     check(integral, "every pilot is an integer number of cycles per block");
 }
 
+// ---------------------------------------------------------------- hf meter
+
+// measure()
+//   Runs a signal through a cascade and returns its level in dBFS referenced
+//   to a full-scale sine, exactly as wav.cpp's content check does.
+static double measure(const std::vector<double>& x, const std::vector<Biquad>& f)
+{
+    std::vector<BiquadState> st(f.size());
+    double acc = 0.0;
+    for (double v : x) {
+        for (size_t i = 0; i < f.size(); ++i) v = st[i].run(f[i], v);
+        acc += v * v;
+    }
+    return x.empty() ? -200.0 : lin_to_db(std::sqrt(acc / x.size()) * M_SQRT2);
+}
+
+// band_limited_noise()
+//   Two seconds of noise through the telephone band, 300-3400Hz, with nothing
+//   above it - a stand-in for a correctly authored prompt. `tilt` applies two
+//   one-pole low-passes at 100Hz first, giving a spectrum falling at about
+//   12dB/octave across the band: the difference between a dull voice and a
+//   bright one. Normalised to -20dBFS RMS, the level process.py delivers at.
+static std::vector<double> band_limited_noise(bool tilt)
+{
+    const double fs = chan::SAMPLE_RATE;
+    std::vector<double> x((size_t)(2.0 * fs));
+    unsigned s = 12345;
+    for (double& v : x) { s = s * 1103515245u + 12345u; v = ((s >> 16) & 0x7fff) / 16383.5 - 1.0; }
+
+    if (tilt) {
+        const double a = std::exp(-2.0 * M_PI * 100.0 / fs);
+        double z1 = 0.0, z2 = 0.0;
+        for (double& v : x) { z1 = (1 - a) * v + a * z1; z2 = (1 - a) * z1 + a * z2; v = z2; }
+    }
+
+    // Band-limited the way tts/process.py does it, which is what makes this a
+    // stand-in for a delivered file: a 300Hz high-pass and the same elliptic
+    // low-pass, 3400Hz passband edge, 4500Hz stopband edge, 70dB. A gentler
+    // low-pass would leave real energy above 5.5kHz, and the meter would be
+    // right to report it.
+    double lp_ripple = 0.0;
+    std::vector<Biquad> band = elliptic_lowpass(8, 3400.0, 4500.0, 70.0, fs, lp_ripple);
+    band.push_back(butter_highpass(300.0, fs));
+    std::vector<BiquadState> st(band.size());
+    for (double& v : x)
+        for (size_t i = 0; i < band.size(); ++i) v = st[i].run(band[i], v);
+
+    double acc = 0.0;
+    for (double v : x) acc += v * v;
+    const double rms = std::sqrt(acc / x.size());
+    const double want = db_to_lin(-20.0) / M_SQRT2;
+    for (double& v : x) v *= want / rms;
+    return x;
+}
+
+// test_hf_meter()
+//   audio.md 5.3 and 7.2: the content check that asks how much of a delivered
+//   file sits above 5.5kHz. The filter has to ignore the telephone band, whose
+//   top is only 2kHz below the corner, or it measures the voice instead.
+static void test_hf_meter()
+{
+    std::printf("content check high-pass (audio.md 5.3, 7.2)\n");
+    const double fs = chan::SAMPLE_RATE;
+
+    double ripple = 0.0;
+    const std::vector<Biquad> hp = elliptic_highpass(8, 5500.0, 4000.0, 80.0, fs, ripple);
+    check(hp.size() == 4, "eighth order is four second-order sections");
+
+    const double TOL = 0.2;      // the equiripple peaks sit on the requirement
+    bool stop_ok = true;
+    for (double f : { 300.0, 1000.0, 2000.0, 2600.0, 3000.0, 3400.0, 4000.0 })
+        if (cascade_mag_db(hp, f, fs) > -80.0 + TOL) stop_ok = false;
+    check(stop_ok, "at least 80 dB down from 300 Hz to 4 kHz - the whole telephone band");
+
+    bool pass_ok = true;
+    for (double f : { 5500.0, 6000.0, 7000.0, 9000.0, 12000.0, 20000.0 })
+        if (std::fabs(cascade_mag_db(hp, f, fs)) > 0.5) pass_ok = false;
+    check(pass_ok, "flat from 5.5 kHz to Nyquist, where the answer is wanted");
+
+    // The property the change is for: two correctly band-limited files that
+    // differ only in brightness must read the same, because neither has
+    // anything above the corner.
+    const std::vector<double> dull = band_limited_noise(true);
+    const std::vector<double> bright = band_limited_noise(false);
+    const double new_dull = measure(dull, hp), new_bright = measure(bright, hp);
+
+    const Biquad b = butter_highpass(5500.0, fs);
+    const std::vector<Biquad> old { b, b };
+    const double old_dull = measure(dull, old), old_bright = measure(bright, old);
+
+    std::printf("    dull voice: old %6.1f dBFS, new %6.1f;  bright: old %6.1f, new %6.1f\n",
+                old_dull, new_dull, old_bright, new_bright);
+    check(new_dull < -80.0 && new_bright < -80.0,
+          "a band-limited file reads at least 20 dB below the -60 dBFS threshold");
+    check(old_bright > -60.0,
+          "where the old meter tripped on the same file if the voice was bright");
+
+    // The clearest case, and the one that shows what the old meter was really
+    // measuring: a full-scale 1kHz sine has nothing above the corner at all.
+    // The old meter read it 1dB from the threshold; the new one puts it out of
+    // sight, because 1kHz is 99dB down rather than 61dB down.
+    // Faded in and out over 20ms at each end. A tone that starts at full scale
+    // on the first sample is a step, and a step has energy at every frequency
+    // - the meter would be right to report it, and every delivered file begins
+    // and ends in silence anyway (process.py keeps 150ms of it).
+    std::vector<double> sine(chan::SAMPLE_RATE);
+    const size_t fade = chan::SAMPLE_RATE / 50;
+    for (size_t i = 0; i < sine.size(); ++i) {
+        double g = 1.0;
+        if (i < fade)                     g = 0.5 - 0.5 * std::cos(M_PI * i / fade);
+        if (i >= sine.size() - fade)      g = 0.5 - 0.5 * std::cos(M_PI * (sine.size() - 1 - i) / fade);
+        sine[i] = g * std::sin(2.0 * M_PI * 1000.0 * (double)i / chan::SAMPLE_RATE);
+    }
+    const double old_sine = measure(sine, old), new_sine = measure(sine, hp);
+    std::printf("    full-scale 1 kHz sine: old %6.1f dBFS, new %6.1f\n", old_sine, new_sine);
+    check(old_sine > -61.0, "the old meter read a 1 kHz sine within a dB of tripping");
+    check(new_sine < -90.0, "the new one reads it 30 dB clear of the threshold");
+
+    // And it still finds what it is for.
+    std::vector<double> noisy = bright;
+    unsigned s = 999;
+    for (double& v : noisy) { s = s * 1103515245u + 12345u;
+        v += 0.02 * std::sin(2.0 * M_PI * 7000.0 * (&v - noisy.data()) / fs); }
+    check(measure(noisy, hp) > -60.0, "a 7 kHz tone at -34 dBFS still trips it");
+}
+
 // ---------------------------------------------------------------- listener
 
 // A synthetic caller, one 10 ms frame at a time. Levels: the room at -70 dBFS,
@@ -514,6 +640,7 @@ int main()
     test_monitor_filter();
     test_detector();
     test_listener();
+    test_hf_meter();
     test_monitor_ch();
     test_render_map();
     std::printf("\n%s\n", failures ? "FAILURES" : "all checks passed");
