@@ -1,0 +1,23 @@
+# sbgame — the 551 switchboard game engine.
+#
+# Converted from setup.py, which this replaces. Same information, stated rather
+# than executed.
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sbgame"
+version = "0.1.0"
+description = "551 switchboard simulator game engine"
+requires-python = ">=3.10"
+dependencies = [
+	'aiomqtt',
+]
+
+[project.scripts]
+sbgame = "sbgame.main:main"
+
+[tool.setuptools]
+packages = ["sbgame"]

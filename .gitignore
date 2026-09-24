@@ -32,3 +32,4 @@
 # Python bytecode, and the metadata an editable install leaves behind.
 __pycache__/
 *.egg-info/
+/engine/sbgame.egg-info/
