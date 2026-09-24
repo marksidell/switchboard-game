@@ -215,6 +215,15 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
     if (o.period < 16 || o.period > 8192) { std::fprintf(stderr, "--period out of range\n"); return false; }
     if (o.periods < 2 || o.periods > 32)  { std::fprintf(stderr, "--periods out of range\n"); return false; }
     if (o.tone_mod < 0.0 || o.tone_mod > 1.0) { std::fprintf(stderr, "--tone-mod must be 0..1\n"); return false; }
+    // audio.md Rev 9: the trim is limited, but the commanded gain plus the trim
+    // is deliberately not - clamping the sum would cap the tap at a lower
+    // commanded gain than a circuit, which is the mismatch the trim exists to
+    // remove. The -3dBFS limiter is what protects the output.
+    if (o.monitor_tap_trim_db < -30.0 || o.monitor_tap_trim_db > 30.0) {
+        std::fprintf(stderr, "--monitor-tap-trim: %g dB is outside -30 to +30\n",
+                     o.monitor_tap_trim_db);
+        return false;
+    }
     if (o.lp_stop <= o.lp_pass)           { std::fprintf(stderr, "--monitor-lp: stopband edge must exceed passband edge\n"); return false; }
     if (o.max_file <= 0.0)                { std::fprintf(stderr, "--max-file must be positive\n"); return false; }
     // Both are counted in 10 ms frames, so anything under one frame would be

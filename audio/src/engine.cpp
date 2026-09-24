@@ -120,6 +120,17 @@ bool Engine::prepare()
     // audio.md 10.2: the monitor is on at startup only if --monitor gives a
     // level. Started at its target rather than ramped to it - there is no
     // loudspeaker transient to avoid before the stream is running.
+    // audio.md Rev 9 1.9: a source the device does not capture is refused at
+    // startup, as --monitor-ch already refuses an output channel it cannot
+    // reach. Echoing a live line while the loudspeaker gets silence would look
+    // like a quiet caller with nothing pointing at the fault.
+    if (sh_.opt.monitor_src > (int)ncap_) {
+        char name[24];
+        chan::monitor_source_name(sh_.opt.monitor_src, name, sizeof name);
+        log_line("--monitor-src %s is capture channel %d, but the device granted "
+                 "only %u capture channels", name, sh_.opt.monitor_src, ncap_);
+        return false;
+    }
     mon_src_ch_ = sh_.opt.monitor_src;          // audio.md 10.3, --monitor-src
     mon_on_     = sh_.opt.monitor_on;
     mon_cmd_db_ = sh_.opt.monitor_db;

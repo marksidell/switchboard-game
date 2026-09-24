@@ -686,6 +686,23 @@ static void test_monitor_source()
     check(!chan::monitor_source_name(chan::MONITOR_CH, n, sizeof n),
           "channel 24 has no source name");
 
+    // audio.md Rev 9 1.9: a source beyond what the device captures is refused
+    // at startup rather than echoed against silence. Testable without hardware
+    // because prepare_detached() takes the capture count.
+    {
+        auto refuses = [](int src, unsigned ncap) {
+            auto sh = std::make_unique<Shared>();
+            sh->opt.monitor_src = src;
+            AlsaStream st;                      // never opened
+            Engine eng(*sh, st);
+            return !eng.prepare_detached(256, chan::N_PLAY_CH, ncap);
+        };
+        check(refuses(32, 24),  "trunk/8 is refused when the device grants 24 capture channels");
+        check(refuses(25, 24),  "trunk/1 is refused when the device grants 24");
+        check(!refuses(23, 24), "the tap is accepted when the device grants 24");
+        check(!refuses(32, 32), "trunk/8 is accepted when the device grants 32");
+    }
+
     // Round trip: every accepted source names itself back.
     const char* good[] = { "tap", "station/1", "station/11", "station/22",
                            "trunk/1", "trunk/5", "trunk/8" };
