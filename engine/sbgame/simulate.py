@@ -60,6 +60,11 @@ class Sim:
         self.c: aiomqtt.Client | None = None
         self.v: dict[str, str] = {}     # what we have published, by topic tail
         self.busy: set[str] = set()     # slots this operator is already acting on
+        # Trunks this operator has committed to. Chosen synchronously, because
+        # `seize` does not become true until the echo comes back and two
+        # overlapping calls would otherwise pick the same trunk and dial each
+        # other's numbers into it.
+        self.taken: set[int] = set()
         self.wav = cfg.resolved("wav_dir")
         # line name -> circuit id, which nothing on MQTT carries.
         self.circuit_of: dict[str, str] = {}
@@ -224,8 +229,9 @@ class Sim:
                 await self.pub(f"{called}/ring", "off")
                 await self._connect(caller, called)
             else:
-                trunk = await self._free_trunk()
+                trunk = self._free_trunk_now()
                 if trunk is None:
+                    log.warning("no free trunk for slot %d", slot)
                     return
                 await self.pub(f"trunk/{trunk}/seize", "on")
                 await self._connect(caller, f"trunk/{trunk}")
@@ -237,13 +243,59 @@ class Sim:
         except Exception:
             log.exception("operator on slot %d", slot)
         finally:
-            # Wait for the slot to empty before offering to work it again.
+            # Wait for the call to end, then put the board back as an operator
+            # would: pull the cords and restore the listening key.
             await self._wait_for(lambda: not self.get(f"game/call/{slot}/scene"), 600)
+            await self._restore()
             self.busy.discard(slot)
 
-    async def _free_trunk(self) -> int | None:
+    async def _restore(self) -> None:
+        """Clear what the operator did, once her call has ended.
+
+        `op` and `seize` are the operator's own actions, reported by the
+        controller; the game never sets them and cannot clear them. Without
+        this every line she ever answered stays lit as "operator on" for the
+        rest of the session, which is exactly what it did.
+        """
+        for n in range(1, N_STATIONS + 1):
+            c = f"station/{n}"
+            if self.get(f"{c}/op") and not self._in_a_call(c):
+                await self.pub(f"{c}/op", "")
         for n in range(1, N_TRUNKS + 1):
+            c = f"trunk/{n}"
+            if self._in_a_call(c):
+                continue
+            if self.get(f"{c}/op"):
+                await self.pub(f"{c}/op", "")
+            if self.get(f"{c}/seize"):
+                await self.pub(f"{c}/seize", "")      # she releases the trunk
+                await self._drop_peer(c)
+            self.taken.discard(n)
+            if self.get(f"{c}/tone"):
+                await self.pub(f"{c}/tone", "")
+
+    def _in_a_call(self, circuit: str) -> bool:
+        """Is this circuit still carrying one of the open calls?"""
+        for slot in range(1, 9):
+            if not self.get(f"game/call/{slot}/scene"):
+                continue
+            if self.get(f"game/call/{slot}/trunk") == circuit:
+                return True
+            scene = self.gs.scenes.get(self.get(f"game/call/{slot}/scene"))
+            if scene is None:
+                continue
+            for line in (scene.from_line, scene.to_line):
+                if line and self.circuit_of.get(line) == circuit:
+                    return True
+        return False
+
+    def _free_trunk_now(self) -> int | None:
+        """Pick a trunk and commit to it in the same breath, no await between."""
+        for n in range(1, N_TRUNKS + 1):
+            if n in self.taken:
+                continue
             if not self.get(f"trunk/{n}/seize") and not self.get(f"trunk/{n}/ring"):
+                self.taken.add(n)
                 return n
         return None
 
@@ -292,7 +344,12 @@ class Sim:
             if key.endswith("/set"):
                 await self.on_set(key[:-4], payload)
             elif key.startswith("game/"):
+                was = self.v.get(key)
                 self.v[key] = payload          # the operator reads the slots
+                # Stop tears every call down at once (game_control.md 3). The
+                # operator's own keys and cords are hers to put back.
+                if key == "game/run" and was == "on" and payload == "off":
+                    asyncio.create_task(self._restore())
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -202,6 +202,20 @@ async def main() -> int:
         check(decks >= 1, f"{decks} deck orders recorded")
         db.close()
 
+        print("\n== the simulator hands out each trunk once (no broker needed)")
+        from sbgame.config import Config as C
+        from sbgame.simulate import Sim
+        gs = build(C().resolved("script"), "../wav")
+        sim = Sim(C(), gs, operator=True, delay=0)
+        # Two overlapping calls used to pick the same trunk, because `seize`
+        # is not true until the echo returns. Chosen synchronously now.
+        picks = [sim._free_trunk_now() for _ in range(8)]
+        check(len(set(picks)) == 8 and None not in picks,
+              f"eight distinct trunks: {picks}")
+        check(sim._free_trunk_now() is None, "a ninth request gets nothing")
+        sim.taken.discard(3)
+        check(sim._free_trunk_now() == 3, "a released trunk comes back")
+
     print("\n" + ("FAILURES" if failures else "the game passed"))
     return 1 if failures else 0
 

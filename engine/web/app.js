@@ -337,11 +337,18 @@ function render() {
   e.textContent = err;
   e.hidden = !err;
   const log = document.getElementById('log');
-  // Only when it has actually changed. render() runs twice a second, and
-  // rewriting textContent destroys any selection the user is making — which
-  // is why dragging over the log appeared to clear it the moment you let go.
-  const text = get('game/log');
-  if (log.textContent !== text) log.textContent = text;
+  // game_control.md 6.2 publishes the log newest first. It reads better the
+  // other way round — down the page, like a terminal — so it is reversed
+  // here rather than at the source: anything else subscribing to game/log
+  // still gets the order the specification gives.
+  const text = get('game/log').split('\n').reverse().join('\n');
+  if (log.textContent !== text) {
+    // Follow the newest line, unless the reader has scrolled up to look at
+    // something — then leave them where they are.
+    const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 24;
+    log.textContent = text;
+    if (atBottom) log.scrollTop = log.scrollHeight;
+  }
   log.classList.toggle('stale', gameStale());
   document.body.classList.toggle('offline', !brokerUp);
 }
