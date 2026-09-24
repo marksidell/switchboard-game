@@ -1,0 +1,72 @@
+# The game program
+
+`game_control.md` is the specification; `mqtt.md` owns the topics. Runs on
+portland as a systemd service, as the user `sbgame`.
+
+```text
+sbgame/board.py        the switchboard and the audio program, from MQTT
+sbgame/link.py         the connection: reconnect, will and birth, heartbeat
+sbgame/scenes.py       say/hear and the scene helpers
+sbgame/flows.py        the five call shapes
+sbgame/script_data.py  script.yml resolved into scenes, wavs and the jack map
+sbgame/deck.py         which scene comes next (4.4)
+sbgame/pacing.py       manual and automatic, and the ramp (4.1-4.3)
+sbgame/calls.py        the eight slots, the stages, the tallies (5, 6.1)
+sbgame/gamelog.py      the page's log (6.2)
+sbgame/session.py      the SQLite record
+sbgame/game.py         start, stop, dealing, page commands (3-8)
+sbgame/main.py         the entry point
+sbgame/simulate.py     a stand-in for the hardware, until the boards arrive
+web/                   the status page (2, 7)
+```
+
+## Running it
+
+```sh
+sudo systemctl status sbgame          # it is a service
+sudo journalctl -u sbgame -f
+/opt/sbgame/venv/bin/sbgame --check   # validate script.yml and exit
+```
+
+After editing `script.yml` or regenerating `wav/`, the daemon needs both
+re-installed and a restart — it runs against copies under `/srv/sbgame`,
+because it cannot traverse `/home/sidell`:
+
+```sh
+make -C host sbgame-data && sudo systemctl restart sbgame
+```
+
+## Without the boards
+
+The PCBs have not arrived. With no controller and no audio program the game
+starts, deals a call and stops at once — every scene wait fails while a client
+it needs is down, and `game_control.md` §3 stops the game when one goes. That
+is correct, and it makes the page untestable, so there is a stand-in:
+
+```sh
+make -C host sim              # hardware only; you work the board
+make -C host sim OPERATOR=1   # it answers and connects the calls too
+```
+
+It reads `/etc/sbgame/game.toml`, the same file the daemon uses, and connects
+as `sbgame-audio` — the controller's password is compiled into the firmware
+and is not on the host, and the access list gives the two the same rights.
+Foreground, Ctrl-C to stop; it is a tool, not a service.
+
+**It is not the bench.** No dial pulse timing, no ring cadence, no seizure
+debounce, nothing electrical. It exists so the page and the game program can
+be exercised, and so a scene can be watched end to end.
+
+## Tests
+
+```sh
+cd engine && PYTHONPATH=.:tests ./.venv/bin/python tests/test_flows.py
+```
+
+`test_sim.py` is the delivered harness. `test_flows.py` covers every scene
+shape and every failure reason. `test_game.py` drives whole games against the
+real `script.yml`. `test_web.py` parses the page's JavaScript with gjs and
+checks the service worker's cache list — a 404 in that list poisons the cache.
+
+None of it has met hardware. When the boards arrive, expect the simulator to
+have been wrong about something.

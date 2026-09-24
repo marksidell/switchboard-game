@@ -47,6 +47,7 @@ from .script_data import build
 
 log = logging.getLogger("sim")
 PREFIX = "sbgame/"
+SITE_CONFIG = "/etc/sbgame/game.toml"
 
 N_STATIONS, N_TRUNKS = 22, 8
 
@@ -354,7 +355,11 @@ class Sim:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("-c", "--config", type=Path)
+    # The daemon's own configuration has everything this needs — broker,
+    # script, wavs — and is world-readable, so there is no second file to keep
+    # in step. Only the identity differs, and that is below.
+    p.add_argument("-c", "--config", type=Path, default=Path(SITE_CONFIG),
+                   help=f"TOML configuration ({SITE_CONFIG} if it exists)")
     p.add_argument("--operator", action="store_true",
                    help="answer and connect the calls too, so a game runs by itself")
     p.add_argument("--delay", type=float, default=1.5,
@@ -371,7 +376,9 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(asctime)s %(name)-4s %(message)s",
                         datefmt="%H:%M:%S", stream=sys.stdout)
-    cfg = Config.load(args.config)
+    cfg = Config.load(args.config if args.config.exists() else None)
+    if not args.config.exists():
+        log.warning("%s not found; using the built-in defaults", args.config)
     cfg.username = args.user
     cfg.password_file = args.pass_file
     gs = build(cfg.resolved("script"), cfg.resolved("wav_dir"))

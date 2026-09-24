@@ -36,7 +36,7 @@ FILES := \
   etc/systemd/system/sbgame.service:root:root:644 \
   etc/sbgame/game.toml:root:root:644
 
-.PHONY: diff install passwd status check-clean sbgame-user sbgame-data sbgame-install sbgame-web
+.PHONY: diff install passwd status check-clean sbgame-user sbgame-data sbgame-install sbgame-web sim
 
 ## diff - what differs between this tree and the host
 diff:
@@ -165,6 +165,21 @@ sbgame-web:
 	@grep -q PAGE_PASSWORD /srv/sbgame/web/app.js && \
 	   { echo "the placeholder is still there"; exit 1; } || true
 	@echo "page installed:"; ls -l /srv/sbgame/web | tail -n +2 | sed 's/^/  /'
+
+## sim - stand in for the controller, the audio program and the operator
+##
+## Until the boards arrive the game program starts, deals a call and stops at
+## once: every scene wait fails while ctl/status and ctl/audio_status are down
+## (game_control.md 3). This plays both parts on the real broker so the page
+## can be used. Foreground, ^C to stop; it is a tool, not a service.
+##
+##   make -C host sim              hardware only; you are the operator
+##   make -C host sim OPERATOR=1   it answers and connects the calls too
+OPERATOR ?=
+sim:
+	@test -r /etc/sbgame/mqtt-audio.pass || { \
+	  echo "cannot read /etc/sbgame/mqtt-audio.pass — are you in its group?"; exit 1; }
+	/opt/sbgame/venv/bin/sbgame-sim $(if $(OPERATOR),--operator,)
 
 ## status - what is running and what is served
 status:
