@@ -1,0 +1,45 @@
+# The game program's configuration (game_control.md §4.3, §5).
+#
+# Everything here has a default in sbgame/config.py; a setting left out keeps
+# it. The two kinds are different in kind, not just in value:
+#
+#   the pacing values are *starting* values. The page owns them once the
+#   program is running, and a restart returns to what is written here.
+#
+#   the timeouts the page never sees. They are play-testing numbers — Mark
+#   moves them once he has run games, which is why they are here and not
+#   constants in the code.
+
+broker_host = "localhost"
+broker_port = 1883
+username = "sbgame-game"
+# The password itself is in this file's neighbour, 640 and owned by the group
+# the daemon runs as, so it is never in a unit file or the process table.
+password_file = "/etc/sbgame/mqtt-game.pass"
+
+# Installed copies, not the originals: the daemon runs as sbgame and cannot
+# traverse /home/sidell, which is 0750. `make -C host sbgame-data` puts them
+# here. A change to script.yml therefore needs that and a restart, which
+# extends game_control.md 6.3's "takes effect when the game program restarts".
+script = "/srv/sbgame/script.yml"
+wav_dir = "/srv/sbgame/wav"
+
+# StateDirectory=sbgame in the unit makes this, owned by the service user.
+session_db = "/var/lib/sbgame/sessions.db"
+
+# Pacing at start-up (§4.3). manual until Mark has played a few games.
+pace = "manual"
+gap = 20.0
+ramp = 0.0
+floor = 5.0
+
+# Timeouts (§5). Starting values for play-testing.
+answer_timeout = 60.0    # the operator to answer a lamp
+connect_timeout = 90.0   # to connect, after the request has played
+speak_timeout = 30.0     # the operator to speak when a line is waiting
+
+# Not a preference: max_speech must match sbaudio's cap on one utterance
+# (audio.md §14), or our deadline fires before its does and a good line is
+# called a failure.
+max_speech = 20.0
+audio_margin = 3.0

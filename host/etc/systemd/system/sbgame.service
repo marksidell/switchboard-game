@@ -1,0 +1,46 @@
+[Unit]
+Description=551 Switchboard Simulator game program
+Documentation=file:///home/sidell/game/engine/README.md
+# The broker is the only thing it needs; it retries forever if the broker is
+# not up yet, so this is an ordering hint rather than a requirement.
+After=network-online.target mosquitto.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sbgame
+Group=sbgame
+ExecStart=/opt/sbgame/venv/bin/sbgame -c /etc/sbgame/game.toml
+
+# SIGTERM is what `systemctl stop` and `restart` send. The program catches it,
+# tears down any game in progress so the controller and the audio program are
+# left idle rather than holding a call, and publishes ctl/game_status offline
+# itself — a will only fires when a client vanishes (mqtt.md 8.4). Give it
+# room to do that before it is killed.
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+Restart=on-failure
+RestartSec=5
+
+# The session log is the only thing it writes. StateDirectory makes
+# /var/lib/sbgame, owned by the service user, and sets STATE_DIRECTORY.
+StateDirectory=sbgame
+
+# It needs the broker, its password file, and the script and wavs installed
+# under /srv/sbgame. Nothing under /home, so home is hidden outright: the
+# daemon runs as sbgame and cannot traverse /home/sidell, which is 0750.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryDenyWriteExecute=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

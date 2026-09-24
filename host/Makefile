@@ -32,9 +32,11 @@ FILES := \
   etc/mosquitto/conf.d/sbgame.conf:root:root:644 \
   etc/mosquitto/acl:root:mosquitto:640 \
   etc/nginx/sites-available/sbgame:root:root:644 \
-  etc/letsencrypt/renewal-hooks/deploy/nginx:root:root:755
+  etc/letsencrypt/renewal-hooks/deploy/nginx:root:root:755 \
+  etc/systemd/system/sbgame.service:root:root:644 \
+  etc/sbgame/game.toml:root:root:644
 
-.PHONY: diff install passwd status check-clean
+.PHONY: diff install passwd status check-clean sbgame-user sbgame-data sbgame-install
 
 ## diff - what differs between this tree and the host
 diff:
@@ -93,9 +95,52 @@ passwd:
 	$(SUDO) rm -f "$$t"; \
 	echo "users:"; $(SUDO) cut -d: -f1 /etc/mosquitto/passwd | sed 's/^/  /'
 
+## sbgame-user - the account the game program runs as
+##
+## A system account with no login and no home: it needs the broker, its
+## password file, script.yml and the wavs, and nothing else. The unit's
+## StateDirectory makes /var/lib/sbgame for the session log.
+sbgame-user:
+	@id -u sbgame >/dev/null 2>&1 || { \
+	  $(SUDO) useradd --system --no-create-home --shell /usr/sbin/nologin sbgame && \
+	  echo "created the sbgame user"; }
+	@id sbgame | sed 's/^/  /'
+	@echo "the game password file must be readable by it:"
+	@$(SUDO) chgrp sbgame /etc/sbgame/mqtt-game.pass 2>/dev/null && \
+	  $(SUDO) chmod 640 /etc/sbgame/mqtt-game.pass && \
+	  $(SUDO) ls -l /etc/sbgame/mqtt-game.pass | sed 's/^/  /' || \
+	  echo "  /etc/sbgame/mqtt-game.pass is not there yet"
+
+## sbgame-install - the game program into /opt/sbgame, as the unit expects
+##
+## Its own venv, not the developer's: the daemon runs as sbgame and must not
+## depend on anything under /home/sidell that ProtectHome could take away. The
+## engine and the shared script loader are installed from the checkout, so an
+## install is a `git pull` and this target.
+REPO := $(shell cd .. && pwd)
+sbgame-install: sbgame-user sbgame-data
+	@$(SUDO) install -d -m 755 -o root -g root /opt/sbgame
+	@test -x /opt/sbgame/venv/bin/python || $(SUDO) python3 -m venv /opt/sbgame/venv
+	@$(SUDO) /opt/sbgame/venv/bin/pip -q install --upgrade pip
+	@$(SUDO) /opt/sbgame/venv/bin/pip -q install "$(REPO)/engine" "$(REPO)/tts"
+	@$(SUDO) /opt/sbgame/venv/bin/sbgame --check -c /etc/sbgame/game.toml
+	@$(SUDO) systemctl daemon-reload
+	@echo "installed; `systemctl is-enabled sbgame 2>/dev/null || echo not enabled`"
+
+## sbgame-data - the script and the wavs where the daemon can read them
+##
+## The daemon cannot traverse /home/sidell (0750), so it runs against copies.
+## Re-run this after editing script.yml or regenerating wav/, then restart.
+sbgame-data:
+	@$(SUDO) install -d -m 755 /srv/sbgame
+	@$(SUDO) install -m 644 $(HOME)/s/game/script.yml /srv/sbgame/script.yml
+	@$(SUDO) rsync -a --delete $(REPO)/wav/ /srv/sbgame/wav/
+	@$(SUDO) chmod -R a+rX /srv/sbgame/script.yml /srv/sbgame/wav
+	@echo "script.yml and `ls /srv/sbgame/wav | wc -l` wavs installed"
+
 ## status - what is running and what is served
 status:
-	@for s in mosquitto nginx certbot.timer; do \
+	@for s in mosquitto nginx certbot.timer sbgame; do \
 	  printf '%-16s %s\n' "$$s" "$$(systemctl is-active $$s)"; \
 	done
 	@echo "listeners:"
