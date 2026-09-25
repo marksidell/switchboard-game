@@ -271,6 +271,13 @@ static void parkOutputs() {
  * would be feeding a ring bus whose relays the firmware cannot see or release. */
 static bool expanders_all_present = false;
 
+/* I2C recovery bookkeeping. `i2c_retries` is 0 when the bus is believed good,
+ * which makes the first attempt after a fault immediate - a connector wiggle
+ * that trips the error threshold and then settles is back within 5ms - and
+ * every attempt after that once a second. */
+static uint32_t last_i2c_retry_ms = 0;
+static uint16_t i2c_retries       = 0;
+
 static bool slavesPresent() {
   if (expanders_all_present) return true;
   return BENCH_ALLOW_MISSING_EXPANDERS;   // see sb_config.h; temporary
@@ -488,6 +495,11 @@ static void printBanner() {
   }
   Serial.printf("   (%u station board(s) fitted)\n",
                 (unsigned)STATION_BOARDS_FITTED);
+  /* Only when there is something to say. Silence here means the bus is whole,
+   * which is what it says the rest of the time the board is working. */
+  if (expanderBusFault())
+    Serial.printf("  i2c recovery retrying every %lu ms, %u attempts so far\n",
+                  (unsigned long)I2C_RETRY_MS, (unsigned)i2c_retries);
   Serial.printf("  arming gate  %s\n",
                 slavesPresent() ? "pass" : "INHIBITED - expander absent");
   Serial.printf("  mqtt         %s, broker %s:%u\n",
@@ -553,6 +565,12 @@ void setup() {
   stationInit();
   trunkInit();
   expanders_all_present = expanderScanAndConfigure();
+
+  /* The boot scan counts as the first recovery attempt, so a board that is
+   * absent from power-up is not rescanned again 5ms later in the first loop
+   * pass - the console would print the same block twice. The retry that
+   * matters is a second from now, and every second after that. */
+  if (!expanders_all_present) { i2c_retries = 1; last_i2c_retry_ms = millis(); }
 
   /* ---- 4.2 step 7: MQTT birth, subscribe, publish all state ----------
    * Given a bounded wait rather than blocked on: the generator must run
@@ -670,22 +688,47 @@ static void serviceFailsafes(uint32_t now) {
   mqtt_was_up = mqtt_up;
   game_was_up = game_up;
 
-  if (expanderBusFault()) {
+  /* ---- I2C recovery (control.md 10) --------------------------------------
+   * A station or trunk board that is unplugged, or whose cable is disturbed,
+   * shows up as consecutive errors on its expander; the third marks it absent
+   * and raises the fault. From that moment nothing polls it, so nothing on the
+   * bus can report on it again - the retry has to be timed from here, and the
+   * fault deliberately stays set until a scan finds every configured expander.
+   *
+   * So this is both halves: the board going away, and the board coming back.
+   * A board plugged back in is probed, /RESET, reconfigured from scratch and in
+   * service again within about a second, without a reboot. */
+  if (expanderBusFault() &&
+      (i2c_retries == 0 || now - last_i2c_retry_ms >= I2C_RETRY_MS)) {
+    const bool first = (i2c_retries == 0);
+    last_i2c_retry_ms = now;
+    if (i2c_retries < 0xFFFF) i2c_retries++;
+
     /* 6.2: inhibit ring before /RESET. A reset mid-cadence would release the
      * ring relay at an arbitrary point in the 20Hz waveform rather than at a
      * cadence boundary. */
     trunkInhibitRing();
     expanderFlushRelays();
 
-    const bool ok = expanderRecover();
+    /* Verbose on the first attempt only; the rest are one a second for as long
+     * as the board is out, and coming back is announced here instead. */
+    const bool ok = expanderRecover(!first);
+    if (ok && !first)
+      Serial.printf("I2C: every configured expander present again, after %u retries\n",
+                    (unsigned)i2c_retries);
+    const bool changed = first || (ok != expanders_all_present);
     expanders_all_present = ok;
+    if (ok) i2c_retries = 0;
 
     /* The reset dropped every relay in hardware, so the firmware's own idea of
-     * them has to come back to zero as well or the echoed state would be a lie. */
+     * them has to come back to zero as well or the echoed state would be a lie.
+     * Cheap, and unconditional: this path runs when things are already wrong. */
     stationReleaseAll();
     trunkReleaseAll();
 
-    if (netConnected()) {
+    /* Only when the answer changed. A board left out for ten minutes must not
+     * put six hundred republishes of every state topic through the broker. */
+    if (changed && netConnected()) {
       requestRepublish();
       netPublishI2cScan(ok);
     }

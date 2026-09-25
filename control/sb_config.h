@@ -113,3 +113,11 @@ static constexpr uint32_t EXP_RESET_HOLD_MS   = 2;   // "at least 1ms", chosen s
                                                      // the datasheet figure is an
                                                      // open item in control.md 11.
 static constexpr uint32_t EXP_RESET_SETTLE_MS = 5;
+
+/* How often a bus fault is retried (control.md 10). An absent expander is
+ * polled by nobody, so nothing on the bus can report it back: the retry is
+ * timed from the main loop instead. One a second, not one per 5ms tick - a
+ * recovery costs a 7ms /RESET pulse plus a probe of every configured address,
+ * which at 200Hz would be the whole loop budget. One second is also well
+ * inside a human's idea of "I plugged it back in and it came up". */
+static constexpr uint32_t I2C_RETRY_MS = 1000;

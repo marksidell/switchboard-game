@@ -124,7 +124,7 @@ static bool configureOne(uint8_t idx) {
   return ok;
 }
 
-bool expanderScanAndConfigure() {
+bool expanderScanAndConfigure(bool quiet) {
   bool all_present = true;
 
   for (uint8_t i = 0; i < N_EXPANDERS; ++i) {
@@ -137,23 +137,28 @@ bool expanderScanAndConfigure() {
     if (!expanderConfigured(i)) continue;       // board not fitted: not a fault
 
     if (!probe(expanders[i].addr)) {
-      Serial.printf("I2C: MISSING %s at 0x%02X\n",
-                    expanders[i].label, expanders[i].addr);
+      if (!quiet) Serial.printf("I2C: MISSING %s at 0x%02X\n",
+                                expanders[i].label, expanders[i].addr);
       all_present = false;
       continue;
     }
     if (!configureOne(i)) {
-      Serial.printf("I2C: %s at 0x%02X answered but would not configure\n",
-                    expanders[i].label, expanders[i].addr);
+      if (!quiet) Serial.printf("I2C: %s at 0x%02X answered but would not configure\n",
+                                expanders[i].label, expanders[i].addr);
       all_present = false;
       continue;
     }
     exp_state[i].present = true;
-    Serial.printf("I2C: %s at 0x%02X configured\n",
-                  expanders[i].label, expanders[i].addr);
+    if (!quiet) Serial.printf("I2C: %s at 0x%02X configured\n",
+                              expanders[i].label, expanders[i].addr);
   }
 
-  bus_fault = false;
+  /* Not an unconditional clear. A configured expander that did not answer is
+   * still a fault, and has to stay one: it is skipped by every poll from here
+   * on, so this is the last chance anything has to notice it. The caller's
+   * once-a-second retry is driven entirely by this flag staying set, and it is
+   * what lets a board that is plugged back in be configured and used again. */
+  bus_fault = !all_present;
   return all_present;
 }
 
@@ -222,10 +227,12 @@ void expanderReleaseAllRelays() {
 
 bool expanderBusFault() { return bus_fault; }
 
-bool expanderRecover() {
-  Serial.println("I2C: recovering - /RESET, rescan, reconfigure");
+bool expanderRecover(bool quiet) {
+  if (!quiet) Serial.println("I2C: recovering - /RESET, rescan, reconfigure");
   expanderResetPulse();
-  const bool ok = expanderScanAndConfigure();
-  if (!ok) Serial.println("I2C: recovery incomplete - an expander is still absent");
+  const bool ok = expanderScanAndConfigure(quiet);
+  if (!ok && !quiet)
+    Serial.println("I2C: recovery incomplete - an expander is still absent; "
+                   "retrying once a second");
   return ok;
 }

@@ -34,8 +34,10 @@ void expanderResetPulse();
 /* Scan the configured addresses and configure every device that answers.
  * Returns true only if every configured expander is present, which is the
  * arming gate of control.md 4.2 step 8. Logs each device that does not
- * respond. */
-bool expanderScanAndConfigure();
+ * respond, unless `quiet`, which the repeated retries of a board that is out
+ * use so that one unplugged cable does not fill the console at one block a
+ * second. */
+bool expanderScanAndConfigure(bool quiet = false);
 
 /* Read Port A of every present expander into exp_state[].inputs, IPOL having
  * already made 1 mean present. Returns false if any read failed. */
@@ -50,10 +52,16 @@ bool expanderFlushRelays();
  * having gone right. */
 void expanderReleaseAllRelays();
 
-/* True once consecutive bus errors have crossed the threshold. Cleared by a
- * successful recovery. */
+/* True once consecutive bus errors have crossed the threshold, and while any
+ * configured expander is absent. Cleared only by a scan in which every
+ * configured expander answered and configured.
+ *
+ * It stays set deliberately. A device marked absent is skipped by
+ * expanderPollInputs() and expanderFlushRelays(), so no further error can be
+ * counted against it and nothing on the bus would ever raise the fault a
+ * second time. Holding it is what makes the caller's retry happen at all. */
 bool expanderBusFault();
 
 /* The control.md 10 recovery: /RESET, rescan, reconfigure. The caller inhibits
- * ring first. Returns true if the bus came back. */
-bool expanderRecover();
+ * ring first, and rate-limits the retries. Returns true if the bus came back. */
+bool expanderRecover(bool quiet = false);
