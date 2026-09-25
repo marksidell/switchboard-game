@@ -179,7 +179,13 @@ function renderBoard() {
                   ((espStale() || audioStale()) ? ' stale' : '');
       const html = `<span class="jn">${n}</span>` +
                    (label ? `<span class="jl">${esc(label)}</span>` : '') +
-                   (far ? `<span class="far">${esc(far)}</span>` : '') +
+                   // Always present, even empty. It is the line that says who
+                   // the far end is, and it appears the moment a call
+                   // connects - as a flex item that came and went it shoved
+                   // the label up and down under a connecting tile. The
+                   // stylesheet holds its height open whether it has text or
+                   // not, so the label sits where it will stay.
+                   (circuit ? `<span class="far">${esc(far)}</span>` : '') +
                    // No circuit, no lamp: the board has no cap there either.
                    (circuit ? '<span class="cap"></span>' : '');
       // Rewriting an unchanged tile restarts the ringing animation and throws

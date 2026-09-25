@@ -103,7 +103,11 @@ h2 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
 .tile .jn { position: absolute; top: 3px; left: 5px; font-size: 10px; color: var(--dim); }
 .tile .jl { font-size: 17px; font-weight: 700; line-height: 1.1; text-align: center;
             padding: 0 4px; }
-.tile .far { font-size: 10px; color: var(--dim); margin-top: 2px; }
+/* min-height, because an empty one still has to hold the space open: see the
+   comment where it is written in app.js. Without it the label under a tile
+   jumps up the moment the call connects and back down when it clears. */
+.tile .far { font-size: 10px; color: var(--dim); margin-top: 2px;
+             min-height: 13px; }
 /* A jack with no circuit keeps its outline, so the board keeps its shape. */
 .tile.empty { background: transparent; border-style: dashed; opacity: 0.5; }
 
