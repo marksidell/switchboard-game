@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 12 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
+*Rev 13 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
 
 # 1. Overview
 
@@ -98,6 +98,10 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 
 — Bench record only. The §5.3 start-phase verification is made on the Antek, and §5.3 records it; §11 loses the item. No behaviour changes.
 
+## 1.13 Changes in Rev 13
+
+— Follows generator Rev 65. GPIO36 is the operator's Next Call button, an optoisolator pulling the pin low against the Olimex's own 10k pull-up; §3 lists it. What the firmware does with it — debounce, the press event and its MQTT topic — is not yet specified, and §11 carries it as an open item. No firmware consequence until it is.
+
 # 2. Platform and Build
 
 Olimex ESP32-POE-ISO. Arduino IDE: "ESP32-POE-ISO" under the Olimex ESP32 boards package; PlatformIO: `board = esp32-poe-iso`, `framework = arduino`. The firmware requires Arduino core 3.x and carries an `#error` against 2.x — the 2.x LEDC API path was removed rather than maintained. The reason it avoids the LEDC overflow interrupt (§5.2) is that the register struct names it would need move between IDF versions. MQTT client: MQTT 2.5.3, Joël Gähwiler (256dpi/arduino-mqtt) — §9.1.
@@ -115,6 +119,7 @@ The GPIO assignments and the reasons for them are generator §3.1 and §3.2, whi
   GPIO13  I²C SDA    Wire.begin(13, 16) — note the argument order.
   GPIO16  I²C SCL    100kHz.
   GPIO15  output     Waveform sync for the bench (§5.4). Strapping pin — leave as input until setup().
+  GPIO36  input      Next Call button, active LOW. Input only; pull-up is R37 on the Olimex, not internal.
 ```
 
 Both PWM pins are active HIGH as of generator Rev 44, so duty is written directly and the idle value is 0, which is LEDC's own power-on state: the peripheral comes up parked without the firmware doing anything. Under the earlier 74HCT02 the pins were active low, every duty was a complement, and parking at 0 put the full rail across the primary as DC; generator §12.3 keeps that history so an older board is legible.
@@ -393,6 +398,7 @@ What the firmware cannot do is make the ring bus safe: the generator runs whenev
 
 # 11. Open Items
 
+- The Next Call button on GPIO36 (Rev 13): debounce, the press event, its `mqtt.md` topic and the game program's handling of it, as an alternative to the page's `game/next/set`. Not yet written.
 - Nothing in §6 to §10 has yet run against a station or trunk board, because none is built. First bring-up with a board on the chain: scan result on ctl/i2c, IPOL sense, relay drive and echo, ring and seize debounce against the real detectors.
 - The concurrent-ring cap value waits on the ring-current measurements in trunk §7.6.
 - Dial pulse timing through the real 551 trunk cord circuit and dial has not been measured. Scope SEIZE_n while dialling a full digit and a 0 on a seized trunk, and confirm the break and make intervals land inside the §8.2 windows with margin; the cord circuit's retard coils will round the edges, and the current source's recovery (trunk §3.2.2) is calculated, not measured, into a real dial.

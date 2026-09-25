@@ -2,7 +2,7 @@
 
 **Ring Generator Circuit Design**
 
-*Rev 64 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C_OUT at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J10, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7*
+*Rev 65 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C_OUT at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J10, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7*
 
 # 1. Overview
 
@@ -315,6 +315,8 @@ Rev 15 exists because the gate-drive logic threshold in Rev 14 was checked again
 
 — Rev 64: bench record only. The start-phase verification is made, 2026-09-25, and recorded in control.md §5.3 (Rev 12); §12.6 says so. The first half-cycle at J8 matches the steady state, so the peak start does what §12.6 asks on the Antek. Nothing on this board changes.
 
+— Rev 65: GPIO36 is assigned to the operator's Next Call button (§3.2), and the Olimex board in hand is recorded as Rev K, checked against Olimex's published Rev K netlist and WROOM BOM (§3.1). The button is a physical alternative to the page's Next Call: a contact that drives an optoisolator's LED from this board's 12V rail, its output transistor pulling GPIO36 to ground. GPIO36 is input-only with no internal pull-up, and Rev K fits one — R37, 10k to 3.3V — so the opto output needs nothing else on the ESP32 side. The circuit is not yet drawn; it goes in with the next schematic change. Pin choice only; nothing else on this board changes.
+
 # 2. Signal Path
 
 ## 2.1 Ring Generator
@@ -362,6 +364,8 @@ The LAN8710A PHY uses the RMII interface and takes its 50MHz reference clock fro
   PHY power enable:       GPIO12  (on some Olimex revisions)
 ```
 
+The board in hand is Rev K (read from the board, 2026-09-25). Against Olimex's published Rev K netlist and WROOM BOM: GPIO12 is the PHY power enable on this revision; R42, a 10Ω link from GPIO33 to GPIO16 for the PSRAM variant, is not fitted on WROOM, so PWM B and I²C SCL are not joined; U8, which moves the Ethernet clock to GPIO0 on that variant, is not fitted either. What the spare pins carry on Rev K: GPIO34 is the on-board button BUT1 with a 10k pull-up (R48); GPIO35 is a 470k/470k battery-voltage divider (R7, R16); GPIO36 has a 10k pull-up (R37) and a Schottky from UEXT pin 4 (D4); GPIO39 is a 47k/100k divider from +5V (R4, R9); GPIO2 has a 2.2k pull-up (RM3), 220Ω to the unfitted micro-SD slot and a diode to the auto-program circuit (D2); GPIO0 is a strapping pin on the auto-program circuit. A later revision needs the same check.
+
 GPIO17 is the one that matters, and Rev 13 had it wrong twice over in the same section — listed as reserved, then assigned to I²C SCL two lines later. The LAN8710A on this board has no crystal of its own; it is clocked from the ESP32 on GPIO17. Taking that pin for anything else does not degrade Ethernet, it stops the PHY, and with it MQTT and the host link.
 
 I²C therefore moves to GPIO13 (SDA) and GPIO16 (SCL) — the pins Olimex itself brings out for I²C on this board's UEXT connector, which is the useful confirmation that both are free — and SD control moves to GPIO14. GPIO14 is not a strapping pin and R_SD_PD holds it low through boot, so the safe power-on state is unchanged.
@@ -381,6 +385,8 @@ Verify all four assignments against the Olimex schematic for the board revision 
 ```
 
 GPIO15 Output  Waveform sync, for scope and logic analyser triggering — §12.5. Assigned at Rev 42; brought out on J9 pin 3 at Rev 43.
+
+GPIO36 Input   Next Call button, active LOW — optoisolator output to ground, R37's 10k pull-up on the Olimex (Rev K). Olimex EXT2 pin 2. Assigned at Rev 65; circuit not yet drawn.
 
 GPIO15 was assigned to the operator tone injector at Rev 21, freed again at Rev 27, and taken at Rev 42 for the waveform sync output — see §15 for the first use and §12.5 for the present one. It was never listed above, which is worth noting because the argument in the old §15.1 for choosing it depended on this list being complete. Anything wanting a spare output should still verify against the Olimex schematic for the board revision in hand, and should remember that GPIO15 is a strapping pin that must be high at boot.
 
