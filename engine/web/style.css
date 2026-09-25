@@ -100,7 +100,13 @@ h2 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
   display: flex; flex-direction: column; align-items: center;
   justify-content: center; overflow: hidden;
 }
-.tile .jn { position: absolute; top: 3px; left: 5px; font-size: 10px; color: var(--dim); }
+/* Bottom left, beside the lamp, not above the label. At iPad width a tile is
+   55px and the label fills it; with the far-end line now always held open the
+   label sits high enough that a number in the top corner runs into it. Down
+   here it is in the strip the lamp already occupies, which is otherwise
+   empty. */
+.tile .jn { position: absolute; bottom: 4px; left: 4px; font-size: 9px;
+            color: var(--dim); }
 .tile .jl { font-size: 17px; font-weight: 700; line-height: 1.1; text-align: center;
             padding: 0 4px; }
 /* min-height, because an empty one still has to hold the space open: see the
@@ -134,7 +140,8 @@ h2 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
 }
 .cap {
   position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%);
-  width: 17px; height: 17px;
+  /* 16, not 17: at iPad width a 55px tile has to fit "30" beside it. */
+  width: 16px; height: 16px;
 }
 
 /* The glass. Three gradients, back to front: the body of the jewel darkening
