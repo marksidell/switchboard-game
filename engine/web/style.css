@@ -177,20 +177,34 @@ h2 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
 }
 
 /* Lit, and only then, the cap throws light onto the panel around it. This is
-   what carries across the room; the colour itself is what you read up close. */
+   what carries across the room; the colour itself is what you read up close.
+   Two layers: a tight halo at the bezel and a wide wash on the panel. */
 .tile.lit .cap {
-  box-shadow: 0 0 11px 2px color-mix(in srgb, var(--cap) 42%, transparent),
+  box-shadow: 0 0 5px 1px color-mix(in srgb, var(--cap) 75%, transparent),
+              0 0 18px 5px color-mix(in srgb, var(--cap) 50%, transparent),
               0 1px 2px rgba(0, 0, 0, 0.55);
+}
+/* A lit filament is hotter than the glass around it: the hot spot runs
+   nearer white and wider than on an unlit cap, where it is only a sheen. */
+.tile.lit .cap::after {
+  background:
+    radial-gradient(circle at 35% 27%, rgba(255,255,255,0.45), transparent 33%),
+    radial-gradient(circle at 50% 66%,
+                    color-mix(in srgb, var(--cap) 45%, white), transparent 60%),
+    radial-gradient(circle at 50% 46%, var(--cap) 55%,
+                    color-mix(in srgb, var(--cap) 65%, black));
 }
 
 /* Dark amber glass: the resting state of most of the board. */
 .tile         { --cap: #4a3316; }
 .s-busy       { --cap: #68717f; }   /* off-hook, nothing else: dull, not lit */
-.s-operator   { --cap: var(--operator); }
-.s-connected  { --cap: var(--connected); }
-.s-calling    { --cap: var(--calling); }
-.s-ringing    { --cap: var(--ringing); }
-.s-fault      { --cap: var(--fault); }
+/* Lit lamps have their own colours, brighter than the palette's, which the
+   buttons share and which reads as a dim bulb behind glass. Same hues. */
+.s-operator   { --cap: #4f9cf0; }
+.s-connected  { --cap: #34d17a; }
+.s-calling    { --cap: #f5b53d; }
+.s-ringing    { --cap: #ff7a2e; }
+.s-fault      { --cap: #f0484a; }
 
 /* A ringing lamp flashes, as it does on the board. brightness() takes the
    glow with it, so the cap goes properly dark rather than merely dimmer. */
