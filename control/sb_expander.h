@@ -63,5 +63,26 @@ void expanderReleaseAllRelays();
 bool expanderBusFault();
 
 /* The control.md 10 recovery: /RESET, rescan, reconfigure. The caller inhibits
- * ring first, and rate-limits the retries. Returns true if the bus came back. */
+ * ring first and drops every relay after. Returns true if the bus came back.
+ *
+ * /RESET is one line to every chip on the bus, so this is not a per-board
+ * operation and is not cheap: it drops the relays of every board, including the
+ * ones that are working. It is the right answer to a bus that is wedged and the
+ * wrong answer to a board that has been unplugged. Use it on the fault edge,
+ * and expanderRescanAbsent() for the retries after it. */
 bool expanderRecover(bool quiet = false);
+
+/* Probe and configure only the expanders currently marked absent, leaving every
+ * present device untouched: no /RESET, no relay disturbed, no poll missed. This
+ * is what a board that has been plugged back in actually needs - its own
+ * power-on reset put it in the default state, and configureOne() writes every
+ * register that matters regardless of what state it was in.
+ *
+ * Returns true if every configured expander is now present, and clears the bus
+ * fault in that case. Logs only the boards that came back. */
+bool expanderRescanAbsent();
+
+/* True if at least one configured expander is answering. False says the fault
+ * may be the bus itself rather than one board, and that there are no working
+ * relays for a /RESET to disturb. */
+bool expanderAnyPresent();

@@ -121,3 +121,13 @@ static constexpr uint32_t EXP_RESET_SETTLE_MS = 5;
  * which at 200Hz would be the whole loop budget. One second is also well
  * inside a human's idea of "I plugged it back in and it came up". */
 static constexpr uint32_t I2C_RETRY_MS = 1000;
+
+/* How often the retry is allowed to be a /RESET rather than a probe, in the
+ * case where nothing at all answers. /RESET is one line to every chip, so it
+ * costs a 7ms stall in the 5ms poll and drops every relay; a bus that is
+ * wedged has already dropped them, and is not a fault that anything but a
+ * human is going to clear, so a slower knock is enough. The probe still runs
+ * once a second in between. Ten seconds, chiefly so that a bench board with no
+ * expanders fitted does not spend the rest of the session reporting a 7ms
+ * longest-poll-gap that has nothing to do with the loop's real timing. */
+static constexpr uint32_t I2C_RESET_RETRY_MS = 10000;

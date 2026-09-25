@@ -227,6 +227,45 @@ void expanderReleaseAllRelays() {
 
 bool expanderBusFault() { return bus_fault; }
 
+bool expanderAnyPresent() {
+  for (uint8_t i = 0; i < N_EXPANDERS; ++i)
+    if (expanderConfigured(i) && exp_state[i].present) return true;
+  return false;
+}
+
+bool expanderRescanAbsent() {
+  bool all_present = true;
+
+  for (uint8_t i = 0; i < N_EXPANDERS; ++i) {
+    if (!expanderConfigured(i)) continue;
+    if (exp_state[i].present)   continue;
+
+    if (!probe(expanders[i].addr)) { all_present = false; continue; }
+
+    /* It answered. Configure it from scratch - it has been away, and whatever
+     * reset it had is not one this firmware watched - and start its relay
+     * shadow from the released state configureOne() just wrote. */
+    exp_state[i].relay_shadow = 0;
+    exp_state[i].relay_dirty  = false;
+    exp_state[i].inputs       = 0;
+
+    if (!configureOne(i)) {
+      Serial.printf("I2C: %s at 0x%02X answered but would not configure\n",
+                    expanders[i].label, expanders[i].addr);
+      all_present = false;
+      continue;
+    }
+
+    exp_state[i].present  = true;
+    consecutive_errors[i] = 0;
+    Serial.printf("I2C: %s at 0x%02X is back - configured, in service\n",
+                  expanders[i].label, expanders[i].addr);
+  }
+
+  bus_fault = !all_present;
+  return all_present;
+}
+
 bool expanderRecover(bool quiet) {
   if (!quiet) Serial.println("I2C: recovering - /RESET, rescan, reconfigure");
   expanderResetPulse();

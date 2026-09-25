@@ -276,6 +276,7 @@ static bool expanders_all_present = false;
  * that trips the error threshold and then settles is back within 5ms - and
  * every attempt after that once a second. */
 static uint32_t last_i2c_retry_ms = 0;
+static uint32_t last_i2c_reset_ms = 0;
 static uint16_t i2c_retries       = 0;
 
 static bool slavesPresent() {
@@ -498,8 +499,11 @@ static void printBanner() {
   /* Only when there is something to say. Silence here means the bus is whole,
    * which is what it says the rest of the time the board is working. */
   if (expanderBusFault())
-    Serial.printf("  i2c recovery retrying every %lu ms, %u attempts so far\n",
-                  (unsigned long)I2C_RETRY_MS, (unsigned)i2c_retries);
+    Serial.printf("  i2c recovery probing every %lu ms%s, %u attempts so far\n",
+                  (unsigned long)I2C_RETRY_MS,
+                  expanderAnyPresent() ? ""
+                                       : " and /RESET on the slow knock (nothing answers)",
+                  (unsigned)i2c_retries);
   Serial.printf("  arming gate  %s\n",
                 slavesPresent() ? "pass" : "INHIBITED - expander absent");
   Serial.printf("  mqtt         %s, broker %s:%u\n",
@@ -570,7 +574,10 @@ void setup() {
    * absent from power-up is not rescanned again 5ms later in the first loop
    * pass - the console would print the same block twice. The retry that
    * matters is a second from now, and every second after that. */
-  if (!expanders_all_present) { i2c_retries = 1; last_i2c_retry_ms = millis(); }
+  if (!expanders_all_present) {
+    i2c_retries = 1;
+    last_i2c_retry_ms = last_i2c_reset_ms = millis();   // step 4 was the /RESET
+  }
 
   /* ---- 4.2 step 7: MQTT birth, subscribe, publish all state ----------
    * Given a bounded wait rather than blocked on: the generator must run
@@ -695,36 +702,59 @@ static void serviceFailsafes(uint32_t now) {
    * bus can report on it again - the retry has to be timed from here, and the
    * fault deliberately stays set until a scan finds every configured expander.
    *
-   * So this is both halves: the board going away, and the board coming back.
-   * A board plugged back in is probed, /RESET, reconfigured from scratch and in
-   * service again within about a second, without a reboot. */
+   * Two different faults wear the same flag, and they want opposite treatment,
+   * because /RESET is one line to every chip on the bus:
+   *
+   *   the bus is wedged - nothing answers. /RESET is the remedy, and there are
+   *   no working relays for it to disturb. This is the control.md 10 recovery.
+   *
+   *   a board is out - its expander is absent and the others answer fine.
+   *   /RESET would drop the relays of every board that is working, and would
+   *   not help the one that is unplugged: it is not on the bus to be reset.
+   *   Probing the absent address and configuring it if it answers is all a
+   *   returning board needs, and it disturbs nothing.
+   *
+   * So the fault edge takes the specified recovery once, and the retries after
+   * it take whichever of the two the bus is actually showing. A board plugged
+   * back in is in service about a second later, with calls on the other boards
+   * still up. */
   if (expanderBusFault() &&
       (i2c_retries == 0 || now - last_i2c_retry_ms >= I2C_RETRY_MS)) {
     const bool first = (i2c_retries == 0);
     last_i2c_retry_ms = now;
     if (i2c_retries < 0xFFFF) i2c_retries++;
 
-    /* 6.2: inhibit ring before /RESET. A reset mid-cadence would release the
-     * ring relay at an arbitrary point in the 20Hz waveform rather than at a
-     * cadence boundary. */
-    trunkInhibitRing();
-    expanderFlushRelays();
+    /* Nothing answering at all is the bus, not a board - but /RESET is still
+     * expensive and still not something a second attempt is going to fix, so
+     * it gets a slower knock and the cheap probe runs in between. */
+    const bool wedged = !expanderAnyPresent();
 
-    /* Verbose on the first attempt only; the rest are one a second for as long
-     * as the board is out, and coming back is announced here instead. */
-    const bool ok = expanderRecover(!first);
+    bool ok;
+    if (first || (wedged && now - last_i2c_reset_ms >= I2C_RESET_RETRY_MS)) {
+      last_i2c_reset_ms = now;
+      /* 6.2: inhibit ring before /RESET. A reset mid-cadence would release the
+       * ring relay at an arbitrary point in the 20Hz waveform rather than at a
+       * cadence boundary. Verbose on the fault edge, quiet on the repeats. */
+      trunkInhibitRing();
+      expanderFlushRelays();
+
+      ok = expanderRecover(!first);
+
+      /* The reset dropped every relay in hardware, so the firmware's own idea
+       * of them has to come back to zero as well or the echoed state would be
+       * a lie. Only on this path: the probe below drops nothing. */
+      stationReleaseAll();
+      trunkReleaseAll();
+    } else {
+      ok = expanderRescanAbsent();
+    }
+
     if (ok && !first)
       Serial.printf("I2C: every configured expander present again, after %u retries\n",
                     (unsigned)i2c_retries);
     const bool changed = first || (ok != expanders_all_present);
     expanders_all_present = ok;
     if (ok) i2c_retries = 0;
-
-    /* The reset dropped every relay in hardware, so the firmware's own idea of
-     * them has to come back to zero as well or the echoed state would be a lie.
-     * Cheap, and unconditional: this path runs when things are already wrong. */
-    stationReleaseAll();
-    trunkReleaseAll();
 
     /* Only when the answer changed. A board left out for ten minutes must not
      * put six hundred republishes of every state topic through the broker. */
