@@ -1,0 +1,29 @@
+#!/bin/sh
+# Put this checkout on the host and restart the game program.
+#
+#   ./release
+#
+# Installs the engine and the loader into /opt/sbgame/venv, script.yml and
+# wav/ into /srv/sbgame, and the page into /srv/sbgame/web, then restarts
+# sbgame and shows the start of its log.
+#
+# Everything, every time: the daemon runs its own installed copy of the
+# loader, so a script.yml in a new form needs the new code alongside it, and
+# installing what has not changed costs a few seconds. The installed script is
+# checked before the restart (sbgame --check, in sbgame-install), so a script
+# that does not load stops here and the running game program is left alone.
+#
+# The restart stops any game in progress; the page comes back to a stopped
+# game. Needs sudo.
+set -eu
+
+cd "$(dirname "$0")"
+
+make -C host sbgame-install
+make -C host sbgame-web
+sudo systemctl restart sbgame
+
+# Give it a moment to load the script and reach the broker.
+sleep 2
+systemctl is-active sbgame
+journalctl -u sbgame --since "-10s" --no-pager -o cat
