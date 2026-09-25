@@ -105,7 +105,7 @@ h2 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
    label sits high enough that a number in the top corner runs into it. Down
    here it is in the strip the lamp already occupies, which is otherwise
    empty. */
-.tile .jn { position: absolute; bottom: 4px; left: 4px; font-size: 9px;
+.tile .jn { position: absolute; bottom: 3px; left: 5px; font-size: 11px;
             color: var(--dim); }
 .tile .jl { font-size: 17px; font-weight: 700; line-height: 1.1; text-align: center;
             padding: 0 4px; }
@@ -140,8 +140,7 @@ h2 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
 }
 .cap {
   position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%);
-  /* 16, not 17: at iPad width a 55px tile has to fit "30" beside it. */
-  width: 16px; height: 16px;
+  width: 17px; height: 17px;
 }
 
 /* The glass. Three gradients, back to front: the body of the jewel darkening
