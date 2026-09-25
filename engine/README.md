@@ -67,6 +67,15 @@ be exercised, and so a scene can be watched end to end.
 
 ## Tests
 
+The tests run under a checkout venv, not the installed one. Once, from the top
+of the repo (editable, so edits to `engine/` and `tts/` take effect at once):
+
+```sh
+python3 -m venv engine/.venv && engine/.venv/bin/pip install -e engine -e tts
+```
+
+Then:
+
 ```sh
 cd engine && PYTHONPATH=.:tests ./.venv/bin/python tests/test_flows.py
 ```
