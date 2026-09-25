@@ -28,13 +28,21 @@ sudo journalctl -u sbgame -f
 /opt/sbgame/venv/bin/sbgame --check   # validate script.yml and exit
 ```
 
-After editing `script.yml` or regenerating `wav/`, the daemon needs both
-re-installed and a restart — it runs against copies under `/srv/sbgame`,
-because it cannot traverse `/home/sidell`:
+After changing anything it runs — `script.yml`, `wav/`, the engine, the
+loader in `tts/`, or the page — release the checkout and restart:
 
 ```sh
-make -C host sbgame-data && sudo systemctl restart sbgame
+./release        # from the top of the repo
 ```
+
+The daemon runs its own installed copies: the code in `/opt/sbgame/venv`, and
+`script.yml` and the wavs under `/srv/sbgame`, because it cannot traverse
+`/home/sidell`. `release` installs all three and the page, checks the
+installed script before restarting, and leaves the running daemon alone if the
+check fails. Copying `script.yml` alone (`make -C host sbgame-data`) is not
+enough when its form has changed, since the installed loader is the one that
+reads it. The Home Screen page picks up a new build by itself when it next
+comes into view.
 
 ## Without the boards
 
