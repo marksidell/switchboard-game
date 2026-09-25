@@ -19,8 +19,8 @@ exec 9>"${TMPDIR:-/tmp}/sbgame-tts.lock"
 flock -n 9 || die "another sbgame-tts session is running (or its teardown has not finished). \
 Wait for it, or check tts/aws/status."
 
-SCRIPT_YML=${SCRIPT_YML:-$HOME/s/game/script.yml}
 REPO=$(cd ../.. && pwd)
+SCRIPT_YML=${SCRIPT_YML:-$REPO/script.yml}
 PY=$REPO/tts/.venv/bin/python
 [ -x "$PY" ] || PY=python3
 RAW=$REPO/tts/raw

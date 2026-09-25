@@ -1,6 +1,6 @@
 // main.cpp - sbaudio, the 551 switchboard simulator's audio program.
 //
-// Specified by ~/s/game/audio.md, which is the authority for everything here.
+// Specified by docs/audio.md, which is the authority for everything here.
 // Three threads (audio.md 3): this one becomes the MQTT thread once the other
 // two are running.
 //

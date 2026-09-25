@@ -52,7 +52,7 @@ class StateLink(FakeLink):
 async def build_game(tmp: Path, **cfg_kw):
     b = Board()
     link = StateLink(b)
-    cfg = Config(script="~/s/game/script.yml", wav_dir="../wav",
+    cfg = Config(script="../script.yml", wav_dir="../wav",
                  session_db=str(tmp / "s.db"), **cfg_kw)
     gs = build(cfg.resolved("script"), cfg.resolved("wav_dir"))
     sess = SessionLog(cfg.resolved("session_db"))

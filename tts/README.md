@@ -1,11 +1,11 @@
 # Speech generation
 
 Turns every scripted line into a wav the audio program will play, per
-`~/s/game/tts_task.md`. Qwen3-TTS does the speaking on a rented GPU; the
+`docs/tts_task.md`. Qwen3-TTS does the speaking on a rented GPU; the
 telephone band-limiting happens here, on any machine, with no GPU.
 
-The script itself lives in the Syncthing share at `~/s/game/script.yml` and is
-read, never written.
+The script itself is `script.yml` at the top of the repo, shared with the game
+program; this pipeline reads it and never writes it.
 
 ## Order of work
 

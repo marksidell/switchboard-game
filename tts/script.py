@@ -23,8 +23,8 @@ from typing import Iterator
 from ruamel.yaml import YAML
 from ruamel.yaml.constructor import DuplicateKeyError
 
-# The script is outside the repo on purpose (CLAUDE.md: read, do not edit).
-DEFAULT_SCRIPT = Path.home() / "s" / "game" / "script.yml"
+# The script is at the top of the repo, shared with the game program (engine/).
+DEFAULT_SCRIPT = Path(__file__).resolve().parent.parent / "script.yml"
 
 # audio.md 7.1 / mqtt.md 7: the constraints on a playable file name.
 MAX_NAME = 31

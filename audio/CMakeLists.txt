@@ -1,5 +1,5 @@
 # sbaudio - the 551 switchboard simulator's audio program.
-# Specified by ~/s/game/audio.md; see README.md beside this file.
+# Specified by docs/audio.md; see README.md beside this file.
 #
 #   cmake -S audio -B audio/build -DCMAKE_BUILD_TYPE=Release
 #   cmake --build audio/build

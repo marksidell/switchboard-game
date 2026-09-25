@@ -402,7 +402,7 @@ def main(argv: list[str] | None = None) -> int:
     # list gives both the same rights (mqtt.md 9).
     p.add_argument("--user", default="sbgame-audio")
     p.add_argument("--pass-file", default="/etc/sbgame/mqtt-audio.pass")
-    p.add_argument("--secrets", default="~/game/control/secrets.h",
+    p.add_argument("--secrets", default="~/s/sbgame/control/secrets.h",
                    help="the firmware's credentials, for the controller identity")
     p.add_argument("-v", "--verbose", action="store_true")
     args = p.parse_args(argv)

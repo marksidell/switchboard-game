@@ -133,7 +133,7 @@ sbgame-install: sbgame-user sbgame-data
 ## Re-run this after editing script.yml or regenerating wav/, then restart.
 sbgame-data:
 	@$(SUDO) install -d -m 755 /srv/sbgame
-	@$(SUDO) install -m 644 $(HOME)/s/game/script.yml /srv/sbgame/script.yml
+	@$(SUDO) install -m 644 $(REPO)/script.yml /srv/sbgame/script.yml
 	@$(SUDO) rsync -a --delete $(REPO)/wav/ /srv/sbgame/wav/
 	@$(SUDO) chmod -R a+rX /srv/sbgame/script.yml /srv/sbgame/wav
 	@echo "script.yml and `ls /srv/sbgame/wav | wc -l` wavs installed"

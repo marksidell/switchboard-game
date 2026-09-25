@@ -33,3 +33,6 @@
 __pycache__/
 *.egg-info/
 /engine/sbgame.egg-info/
+
+# What a non-editable pip install (make -C host sbgame-install) leaves behind.
+/tts/build/

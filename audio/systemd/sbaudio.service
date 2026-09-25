@@ -11,7 +11,7 @@
 
 [Unit]
 Description=551 switchboard simulator audio program
-Documentation=file:///home/sidell/game/audio/README.md
+Documentation=file:///home/sidell/s/sbgame/audio/README.md
 # The broker is not a hard dependency: audio.md 13.1 starts the stream before
 # MQTT on purpose, because the pilots and the operator tone are part of the
 # switchboard's electrical environment and nothing about them needs a broker.
@@ -22,14 +22,14 @@ Wants=mosquitto.service
 Type=exec
 User=sidell
 SupplementaryGroups=audio
-WorkingDirectory=/home/sidell/game
+WorkingDirectory=/home/sidell/s/sbgame
 
 ExecStart=/usr/local/bin/sbaudio \
     --card USB24306452 \
     --period 256 --periods 3 \
     --broker localhost:1883 \
     --mqtt-user sbgame --mqtt-pass-file /etc/sbaudio/mqtt.pass \
-    --wav-dir /home/sidell/game/wav
+    --wav-dir /home/sidell/s/sbgame/wav
 
 # audio.md 13.2: there is no attempt to run without audio. An unrecoverable
 # stream failure exits non-zero, systemd brings the program back, and the

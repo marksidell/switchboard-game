@@ -1,6 +1,6 @@
 [Unit]
 Description=551 Switchboard Simulator game program
-Documentation=file:///home/sidell/game/engine/README.md
+Documentation=file:///home/sidell/s/sbgame/engine/README.md
 # The broker is the only thing it needs; it retries forever if the broker is
 # not up yet, so this is an ordering hint rather than a requirement.
 After=network-online.target mosquitto.service

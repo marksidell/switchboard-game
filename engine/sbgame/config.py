@@ -33,7 +33,7 @@ class Config:
     password_file: str = "/etc/sbgame/mqtt-game.pass"
 
     # ---- the script ----------------------------------------------------
-    script: str = "~/s/game/script.yml"
+    script: str = "~/s/sbgame/script.yml"
     wav_dir: str = "wav"
 
     # ---- pacing, the starting values (game_control.md §4.3) ------------

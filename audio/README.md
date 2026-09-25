@@ -1,7 +1,7 @@
 # `sbaudio` — the audio program
 
-C++17, one binary. Specified by `~/s/game/audio.md`, which is the authority for
-everything here; `~/s/game/mqtt.md` owns the wire, `station_circuit.md` §8 owns the
+C++17, one binary. Specified by `docs/audio.md`, which is the authority for
+everything here; `docs/mqtt.md` owns the wire, `docs/station_circuit.md` §8 owns the
 pilot comb, the detector and the monitor filter, and `docs/pilot-map.md` owns the
 slot ↔ bin table. This file is how to build and run it, not what it does.
 
@@ -93,7 +93,7 @@ and every start would pay the slow plan. The log says which happened: `plan from
 wisdom`, `wisdom saved`, or `could not save wisdom`.
 
 The wav directory does not exist yet — no content is authored. Create
-`/home/sidell/game/wav` before the first `play/set`, or every one of them will publish
+`/home/sidell/s/sbgame/wav` before the first `play/set`, or every one of them will publish
 `missing`.
 
 ## Commissioning
