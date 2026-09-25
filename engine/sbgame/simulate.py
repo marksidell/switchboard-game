@@ -351,14 +351,33 @@ class Sim:
                              self.control_user, self.audio_user)
                     await self.birth()
                     await cc.subscribe(PREFIX + "#", qos=1)
-                    async with asyncio.TaskGroup() as tg:
-                        tg.create_task(self.heartbeat())
-                        tg.create_task(self.work_the_board())
-                        tg.create_task(self._dispatch(cc))
+                    try:
+                        async with asyncio.TaskGroup() as tg:
+                            tg.create_task(self.heartbeat())
+                            tg.create_task(self.work_the_board())
+                            tg.create_task(self._dispatch(cc))
+                    except asyncio.CancelledError:
+                        # Ctrl-C. Leaving the `async with` disconnects
+                        # cleanly, and a clean disconnect is the one case in
+                        # which the broker discards a will: both statuses
+                        # would stay retained "online" with no heartbeat
+                        # behind them. So say it ourselves, as the wills
+                        # would have.
+                        await asyncio.shield(self._goodbye(cc, ac))
+                        raise
             except* Exception as eg:
                 log.warning("mqtt: %s; retrying", eg.exceptions[0])
                 self.cc = self.ac = None
                 await asyncio.sleep(2)
+
+    async def _goodbye(self, cc: aiomqtt.Client, ac: aiomqtt.Client) -> None:
+        try:
+            async with asyncio.timeout(2):
+                await cc.publish(PREFIX + "ctl/status", "offline", qos=1, retain=True)
+                await ac.publish(PREFIX + "ctl/audio_status", "offline", qos=1, retain=True)
+            log.info("offline")
+        except Exception as e:
+            log.warning("could not say offline: %s", e)
 
     def _args(self, ident: str, user: str, password: str, will_topic: str) -> dict:
         return dict(hostname=self.cfg.broker_host, port=self.cfg.broker_port,
