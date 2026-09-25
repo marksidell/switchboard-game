@@ -2,7 +2,7 @@
 
 **Ring Generator Circuit Design**
 
-*Rev 63 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C_OUT at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J10, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7*
+*Rev 64 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C_OUT at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J10, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7*
 
 # 1. Overview
 
@@ -312,6 +312,8 @@ Rev 15 exists because the gate-drive logic threshold in Rev 14 was checked again
 — Rev 62: cross-reference only. §15 put the operator tap on station board 1. It moved to board 3 at station Rev 3.35, and to strip 7 of that board at station Rev 3.40, when strip 8's A32 output, channel 24, became the audience monitor feed in place of the Digiface's own analog output. §15 follows; §15.5's channel-budget argument is unchanged, since all 32 A32 channels are still allocated. The Rev 27 entry keeps board 1 as history. Nothing on this board changes.
 
 — Rev 63: bench record only. §9.4 gains a second V_measured, 2026-09-25, the first run on the firmware without the arming gate (control.md Rev 11) and with the 74HCT04 fitted: 15.2V RMS drive at J10, 79.3V RMS output through the 11:1 divider, ratio 5.22, 20.0Hz. It agrees with the 2026-09-16 record and with the §9.2 prediction. Nothing on this board changes.
+
+— Rev 64: bench record only. The start-phase verification is made, 2026-09-25, and recorded in control.md §5.3 (Rev 12); §12.6 says so. The first half-cycle at J8 matches the steady state, so the peak start does what §12.6 asks on the Antek. Nothing on this board changes.
 
 # 2. Signal Path
 
@@ -1092,7 +1094,7 @@ control.md §4.2 and §6.
 
 ## 12.6 Start Phase
 
-control.md §5.3. The requirement — start at SINE_STEPS/4, not at the zero crossing — and the flux reasoning are there; the verification capture is still to be made and is listed in control.md §11.
+control.md §5.3. The requirement — start at SINE_STEPS/4, not at the zero crossing — and the flux reasoning are there, and so is the verification capture, made 2026-09-25: the first half-cycle at J8 is the same amplitude as those that follow.
 
 # 13. Layout Notes
 

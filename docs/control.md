@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 11 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
+*Rev 12 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
 
 # 1. Overview
 
@@ -94,6 +94,10 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 
 — Firmware consequence, for Claude Code, made in the same commit: `startWaveform()` no longer refuses on a missing expander; `slavesPresent()`, the banner's arming-gate line, the boot-time `ARM INHIBITED` message and the `BENCH_ALLOW_MISSING_EXPANDERS` build option are removed. `CLAUDE.md` and `TODO.md` lose the bench build.
 
+## 1.12 Changes in Rev 12
+
+— Bench record only. The §5.3 start-phase verification is made on the Antek, and §5.3 records it; §11 loses the item. No behaviour changes.
+
 # 2. Platform and Build
 
 Olimex ESP32-POE-ISO. Arduino IDE: "ESP32-POE-ISO" under the Olimex ESP32 boards package; PlatformIO: `board = esp32-poe-iso`, `framework = arduino`. The firmware requires Arduino core 3.x and carries an `#error` against 2.x — the 2.x LEDC API path was removed rather than maintained. The reason it avoids the LEDC overflow interrupt (§5.2) is that the register struct names it would need move between IDF versions. MQTT client: MQTT 2.5.3, Joël Gähwiler (256dpi/arduino-mqtt) — §9.1.
@@ -184,7 +188,9 @@ What it does not solve is remanence: after a stop, the core keeps some flux from
 
 In the firmware, the active leg goes from parked to about 90% duty on the first PWM period after SD, which is a single edge and not a transient. Its bootstrap capacitor is uncharged at that instant and fills through the low-side windows over the first few carrier cycles, during which UVLO holds HO off — harmless, the parked leg holds the primary at zero meanwhile. The §5.4 sync output's first real edge is the rising one at index 0, three quarters of a cycle after SD. The fallback, if the peak start ever proves awkward downstream of sync, is a zero-crossing start with g_amplitude ramped over the first two cycles.
 
-Verification is still open: capture from SD rising on GPIO14, 10ms/div, primary through the J10 monitor on one channel and the rail at the bridge on the other. Pass is a first half-cycle of the same amplitude as those that follow and no dip on the rail. The change was in the firmware before the Antek's first power-up (generator Rev 52), so the transient it prevents has never been seen on that transformer.
+Verification, as specified: capture from SD rising on GPIO14, 10ms/div, primary through the J10 monitor on one channel and the rail at the bridge on the other. Pass is a first half-cycle of the same amplitude as those that follow and no dip on the rail. The change was in the firmware before the Antek's first power-up (generator Rev 52), so the transient it prevents has never been seen on that transformer.
+
+Verified 2026-09-25, Analog Discovery 3 (Mark's capture `ring11.png`, not in the repository): 10ms/div, triggered on the first rising edge of the §5.4 sync on DIO 0 with the start 37.6ms before it in the pre-trigger record, channel 1 on J10, channel 2 on J8 through the 11:1 divider, no load, C_OUT fitted, firmware at control.md Rev 11. The start is at −38ms. J8 steps from 0 to 112V peak and the first half-cycle is the same amplitude and shape as every one after it; J10's first peak reads 19.5V against 21.5V steady, which is the §8.7 filter settling (0.94ms) while the sine is already 3.5ms past its peak — 21.5 × cos 25° = 19.5V — and from the second half-cycle it is ±21V. The rail was not captured, as the procedure asked; J8 stands in for it, since the output is duty × rail × ratio and a rail dip of the 2026-09-04 kind would show as a sag in the first output half-cycle, and there is none. Inrush current in the first 10ms was not measured and is not practical on this bench; steady-state supply current is 30mA, as at Rev 52. Channel 1 was connected reversed, so both traces read inverted: the start shows as a negative peak and the sync edge as a negative-going zero crossing. With the probe the right way round the start is the positive peak and sync rises into the positive half-cycle, as written. Pass.
 
 ## 5.4 Waveform Sync Output
 
@@ -388,7 +394,6 @@ What the firmware cannot do is make the ring bus safe: the generator runs whenev
 # 11. Open Items
 
 - Nothing in §6 to §10 has yet run against a station or trunk board, because none is built. First bring-up with a board on the chain: scan result on ctl/i2c, IPOL sense, relay drive and echo, ring and seize debounce against the real detectors.
-- §5.3 start-phase verification capture still to be made on the Antek.
 - The concurrent-ring cap value waits on the ring-current measurements in trunk §7.6.
 - Dial pulse timing through the real 551 trunk cord circuit and dial has not been measured. Scope SEIZE_n while dialling a full digit and a 0 on a seized trunk, and confirm the break and make intervals land inside the §8.2 windows with margin; the cord circuit's retard coils will round the edges, and the current source's recovery (trunk §3.2.2) is calculated, not measured, into a real dial.
 - The 1ms /RESET pulse width is chosen as safe, not read from the MCP23017 datasheet; confirm.

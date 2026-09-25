@@ -293,7 +293,8 @@ static uint16_t i2c_retries       = 0;
  * is zero, so the first half-cycle runs 0 to -Phi_pk and matches every one that
  * follows. T1 is specified as an Antek AS-0522 toroid driven from its 44V
  * winding, which takes 44 * 20/50 = 17.6 V RMS at 20 Hz before rated flux -
- * see the bench-state note in the header; it is not yet fitted. The bridge applies
+ * fitted since 2026-09-16, and this start verified on it 2026-09-25 (control.md
+ * 5.3). The bridge applies
  * 15.3 V RMS at g_amplitude 0.90, so steady state sits at 87% of rated and a
  * zero-crossing start would put the first half-cycle at about 175%. The core
  * saturates, magnetizing current spikes for up to 25 ms, and F1 sees it - Rev 48
