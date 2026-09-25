@@ -40,9 +40,16 @@ body.offline { filter: grayscale(0.7) brightness(0.8); }
 .group { display: flex; gap: 8px; align-items: center; }
 .lbl { color: var(--dim); font-size: 13px; }
 
-.lamp { width: 11px; height: 11px; border-radius: 50%; background: var(--busy); }
-.lamp.up { background: var(--ok); }
-.lamp.down { background: var(--danger); }
+/* The same glass cap as the board's lamps, smaller: these are lamps too, and
+   two kinds of indicator on one page would be one kind too many. The jewel
+   itself is the .cap rule further down. */
+.lamp { position: relative; width: 13px; height: 13px; --cap: #3d4350; }
+.lamp.up { --cap: var(--ok); }
+.lamp.down { --cap: var(--danger); }
+.lamp.up, .lamp.down {
+  box-shadow: 0 0 8px 1px color-mix(in srgb, var(--cap) 40%, transparent),
+              0 1px 2px rgba(0, 0, 0, 0.55);
+}
 
 button {
   min-height: 44px; padding: 0 16px; border: 1px solid var(--line);
@@ -85,7 +92,10 @@ h2 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
 .row.trunks { margin-top: 10px; }
 
 .tile {
-  position: relative; height: 62px; border-radius: 8px;
+  /* padding-bottom, not a margin on the cap: the cap is positioned out of
+     flow, so this is what keeps the label centred in the space above it
+     rather than centred behind it. */
+  position: relative; height: 62px; border-radius: 8px; padding-bottom: 18px;
   border: 1px solid var(--line); background: var(--idle);
   display: flex; flex-direction: column; align-items: center;
   justify-content: center; overflow: hidden;
@@ -97,13 +107,66 @@ h2 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
 /* A jack with no circuit keeps its outline, so the board keeps its shape. */
 .tile.empty { background: transparent; border-style: dashed; opacity: 0.5; }
 
-.s-busy { background: var(--busy); }
-.s-operator { background: var(--operator); }
-.s-connected { background: var(--connected); }
-.s-calling { background: var(--calling); }
-.s-fault { background: var(--fault); }
-.s-ringing { background: var(--ringing); animation: flash 1s steps(1) infinite; }
-@keyframes flash { 50% { background: var(--idle); } }
+/* ---- the lamps ----------------------------------------------------------
+ * The board itself puts a lamp cap under every jack, and that is what the
+ * operator reads: a domed glass jewel in a brass bezel, lit from behind. So
+ * the tile keeps its own colour and the lamp carries the state, rather than
+ * the whole rectangle changing colour - which at a glance said only "several
+ * things are different" and not which.
+ *
+ * An unlit cap is still visibly a cap. On the real board the dark ones are
+ * amber glass with a dull sheen, not empty holes, and a board of unlit amber
+ * is the thing you learn to see past. Idle is that, not black.
+ *
+ * One colour per state, in --cap. The dome, the rim and the hot spot are all
+ * mixed from it, so a state needs one line and not four. */
+
+.cap, .lamp {
+  /* The bezel. Brass, turned by sixty years of thumbs: lighter where the light
+     falls, darker below. */
+  border-radius: 50%;
+  background: linear-gradient(155deg, #a2916b, #6a5c42 62%, #8a7a5c);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+}
+.cap {
+  position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%);
+  width: 17px; height: 17px;
+}
+
+/* The glass. Three gradients, back to front: the body of the jewel darkening
+   towards the rim where it is thickest, the filament's hot spot low and
+   central, and a soft broad reflection in the upper left - the caps are
+   polished domes, so it is a sheen and not a specular dot. */
+.cap::after, .lamp::after {
+  content: ''; position: absolute; inset: 2px; border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 27%, rgba(255,255,255,0.40), transparent 33%),
+    radial-gradient(circle at 50% 72%,
+                    color-mix(in srgb, var(--cap) 74%, white), transparent 52%),
+    radial-gradient(circle at 50% 46%, var(--cap) 46%,
+                    color-mix(in srgb, var(--cap) 42%, black));
+}
+
+/* Lit, and only then, the cap throws light onto the panel around it. This is
+   what carries across the room; the colour itself is what you read up close. */
+.tile.lit .cap {
+  box-shadow: 0 0 11px 2px color-mix(in srgb, var(--cap) 42%, transparent),
+              0 1px 2px rgba(0, 0, 0, 0.55);
+}
+
+/* Dark amber glass: the resting state of most of the board. */
+.tile         { --cap: #4a3316; }
+.s-busy       { --cap: #68717f; }   /* off-hook, nothing else: dull, not lit */
+.s-operator   { --cap: var(--operator); }
+.s-connected  { --cap: var(--connected); }
+.s-calling    { --cap: var(--calling); }
+.s-ringing    { --cap: var(--ringing); }
+.s-fault      { --cap: var(--fault); }
+
+/* A ringing lamp flashes, as it does on the board. brightness() takes the
+   glow with it, so the cap goes properly dark rather than merely dimmer. */
+.s-ringing .cap { animation: lampflash 1s steps(1) infinite; }
+@keyframes lampflash { 50% { filter: brightness(0.28); } }
 
 /* ---- calls -------------------------------------------------------------- */
 

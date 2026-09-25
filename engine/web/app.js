@@ -172,11 +172,16 @@ function renderBoard() {
       const far = peer && peer !== 'ambiguous' && peer !== 'deaf' ? labelOf(peer) : '';
       // A jack with no circuit keeps its outline so the board keeps its shape.
       const label = kind === 'trunk' ? '' : (jackLabel(kind, n) || '');
+      // `lit` is every state that is not the board at rest. The stylesheet
+      // uses it for the glow, so idle and empty jacks stay quiet.
       const cls = `tile s-${state}` + (circuit ? '' : ' empty') +
+                  (circuit && state !== 'idle' ? ' lit' : '') +
                   ((espStale() || audioStale()) ? ' stale' : '');
       const html = `<span class="jn">${n}</span>` +
                    (label ? `<span class="jl">${esc(label)}</span>` : '') +
-                   (far ? `<span class="far">${esc(far)}</span>` : '');
+                   (far ? `<span class="far">${esc(far)}</span>` : '') +
+                   // No circuit, no lamp: the board has no cap there either.
+                   (circuit ? '<span class="cap"></span>' : '');
       // Rewriting an unchanged tile restarts the ringing animation and throws
       // away any selection, twice a second.
       if (tile.className !== cls) tile.className = cls;
