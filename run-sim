@@ -2,9 +2,17 @@
 # Stand in for the controller and the audio program, so the game can be played
 # before the boards arrive.
 #
-#   ./run-sim              hardware only — you work the board from the page
-#   ./run-sim -o           it answers and connects the calls too
+#   ./run-sim -o           it answers and connects the calls too  <- what you want
 #   ./run-sim -o -d 0.3    the same, but a quick operator
+#   ./run-sim              hardware only, and nothing to work it: see below
+#
+# Without -o the simulator is only the boards. Nobody answers, so every call
+# runs to its timeout at the first stage — which looks exactly like the game
+# being stuck. The status page cannot stand in: it sends run, next and the
+# pacing, and nothing else (game_control.md §7 makes it a monitor). The thing
+# that works the board is the switchboard, and the switchboard is not here
+# yet. So plain mode is for watching the hardware side alone, and -o is the
+# mode that plays.
 #
 # Ctrl-C to stop. It is a tool, not a service: nothing restarts it, and both
 # of its identities go offline the moment it exits, however it exits.
@@ -33,7 +41,7 @@ while getopts "od:h" opt; do
     case $opt in
         o) OPERATOR="--operator" ;;
         d) DELAY="--delay $OPTARG" ;;
-        h) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        h) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "try -h" >&2; exit 2 ;;
     esac
 done
@@ -52,6 +60,13 @@ fi
 if ! systemctl is-active --quiet sbgame; then
     echo "note: the game program is not running, so there is nothing to play." >&2
     echo "      sudo systemctl start sbgame" >&2
+fi
+
+# The mistake that costs half an hour: without -o the game looks broken rather
+# than unattended, because the only symptom is every call timing out.
+if [ -z "$OPERATOR" ]; then
+    echo "note: no -o, so nothing will answer and every call will time out." >&2
+    echo "      ./run-sim -o  to have the simulator work the board as well." >&2
 fi
 
 # Unbuffered, so its log appears as it happens rather than in blocks.
