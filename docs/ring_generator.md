@@ -2,7 +2,7 @@
 
 **Ring Generator Circuit Design**
 
-*Rev 62 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C_OUT at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J10, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7*
+*Rev 63 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C_OUT at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J10, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7*
 
 # 1. Overview
 
@@ -310,6 +310,8 @@ Rev 15 exists because the gate-drive logic threshold in Rev 14 was checked again
 — Rev 61: cross-reference only. The controller's specification is `control.md`, renamed from `esp32.md`, and the firmware is `control/control.ino`, renamed from `ring/esp32.ino`, both on 2026-09-19 (control.md Rev 9). Every pointer in §4.5, §4.7, §6.1, §6.2 and §12 follows, and the Rev 56 entry above now reads the new names. `ring/ring.ino` in the Rev 44, 52, 54 and 56 entries is history and stays. Nothing on this board changes.
 
 — Rev 62: cross-reference only. §15 put the operator tap on station board 1. It moved to board 3 at station Rev 3.35, and to strip 7 of that board at station Rev 3.40, when strip 8's A32 output, channel 24, became the audience monitor feed in place of the Digiface's own analog output. §15 follows; §15.5's channel-budget argument is unchanged, since all 32 A32 channels are still allocated. The Rev 27 entry keeps board 1 as history. Nothing on this board changes.
+
+— Rev 63: bench record only. §9.4 gains a second V_measured, 2026-09-25, the first run on the firmware without the arming gate (control.md Rev 11) and with the 74HCT04 fitted: 15.2V RMS drive at J10, 79.3V RMS output through the 11:1 divider, ratio 5.22, 20.0Hz. It agrees with the 2026-09-16 record and with the §9.2 prediction. Nothing on this board changes.
 
 # 2. Signal Path
 
@@ -789,6 +791,8 @@ The OSD record, for the history: 508mH / 22Ω at the 20W tap, 14.6mH / 0.63Ω re
 The trim value must stay clear of 1.00. §8.3 records the measurement: at 1.00 enough consecutive steps reach 100% duty that the low side stops turning on, C_BOOT gets no refill window and the bootstrap collapses to about 2.6V at each sine peak. At 0.90 it holds 11.98V. There is now a second reason: 0.90 puts the toroid at 87% of rated flux at 20Hz, and 1.00 would put it at 97%. A measurement that calls for a trim above 0.95 points at the winding, not at the duty.
 
 — V_measured, 2026-09-16, C_OUT fitted, no load: 78.9V RMS on the DMM; about 114V peak, 81V RMS read from the Analog Discovery trace through an 11:1 divider. The DMM figure is the record — the scope figure was read from a trace at 5V/div — and the two bracket the 80V predicted from the ratio within 2%. No trim; g_amplitude stays at 0.90 and station R1a/R1b stay at their present value.
+
+— V_measured, 2026-09-25, C_OUT fitted, no load, 74HCT04 fitted, firmware at control.md Rev 11 (commit b7cac13): Analog Discovery 3 at 5V/div, 20ms/div (Mark's capture `ring10.png`, not in the repository). Channel 1 on J10 after the §8.7 filter: ±21.5V peak, 15.2V RMS, against 15.3V at g_amplitude 0.90. Channel 2 on J8 through the 11:1 divider — 100k in series and 10k to ground on each leg, read differentially across the two 10k: ±10.2V peak, so 112V peak and 79.3V RMS at the winding. Ratio 112 / 21.5 = 5.22 against the 5.23 of §9.2; period 50.0ms, 20.0Hz. Both traces clean sines with no flat-topping. The output leads the J10 trace by about 1.5ms, 11°, most of which is the §8.7 filter's 7° lag on the J10 side rather than anything in the transformer. Read from the trace, so the 2026-09-16 DMM figure stays the record; the two agree within 0.5%.
 
 — Only then connect to telephone line.
 
