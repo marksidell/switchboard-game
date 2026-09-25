@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     why       TEXT,               -- 'stop', 'client lost', or the client's name
     seed      INTEGER NOT NULL,
     pace      TEXT, gap REAL, ramp REAL, floor REAL,
+    jitter    REAL,               -- percent; added with game_control.md Rev 12
     started_n INTEGER DEFAULT 0,
     success   INTEGER DEFAULT 0,
     fail      INTEGER DEFAULT 0
@@ -83,6 +84,11 @@ class SessionLog:
     def _connect(self) -> sqlite3.Connection:
         db = sqlite3.connect(self.path, check_same_thread=False)
         db.executescript(SCHEMA)
+        # CREATE IF NOT EXISTS leaves an older table as it was. Columns added
+        # since are added here, so an existing record keeps its games.
+        have = {r[1] for r in db.execute("PRAGMA table_info(sessions)")}
+        if "jitter" not in have:
+            db.execute("ALTER TABLE sessions ADD COLUMN jitter REAL")
         db.commit()
         return db
 
@@ -119,14 +125,14 @@ class SessionLog:
     # ---- the game's calls ------------------------------------------------
 
     async def start_game(self, seed: int, pace: str, gap: float, ramp: float,
-                         floor: float) -> int:
+                         floor: float, jitter: float = 0.0) -> int:
         """Synchronous, because everything after it needs the session id."""
         assert self._db is not None
         cur = await asyncio.to_thread(
             self._db.execute,
-            "INSERT INTO sessions (started, seed, pace, gap, ramp, floor) "
-            "VALUES (?,?,?,?,?,?)",
-            (time.time(), seed, pace, gap, ramp, floor))
+            "INSERT INTO sessions (started, seed, pace, gap, ramp, floor, jitter) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (time.time(), seed, pace, gap, ramp, floor, jitter))
         await asyncio.to_thread(self._db.commit)
         self.session_id = int(cur.lastrowid)
         return self.session_id

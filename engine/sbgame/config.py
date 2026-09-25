@@ -37,11 +37,12 @@ class Config:
     wav_dir: str = "wav"
 
     # ---- pacing, the starting values (game_control.md §4.3) ------------
-    # "manual pacing, gap 20, ramp 0, floor 5"
+    # "manual pacing, gap 20, ramp 0, floor 5, jitter 0"
     pace: str = "manual"
     gap: float = 20.0
     ramp: float = 0.0
     floor: float = 5.0
+    jitter: float = 0.0            # percent (Rev 12); 0 is the fixed wait
 
     # ---- timeouts (§5), all play-testing values ------------------------
     answer_timeout: float = 60.0   # operator to answer a lamp
@@ -89,6 +90,8 @@ class Config:
             bad.append(f"ramp {self.ramp} outside 0-60")
         if not 0 <= self.floor <= 600:
             bad.append(f"floor {self.floor} outside 0-600")
+        if not 0 <= self.jitter <= 100:
+            bad.append(f"jitter {self.jitter} outside 0-100")
         if self.floor > self.gap:
             bad.append(f"floor {self.floor} is above gap {self.gap}")
         for name in ("answer_timeout", "connect_timeout", "speak_timeout", "max_speech"):

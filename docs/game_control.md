@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 11 — Start and Stop, Manual and Automatic Call Pacing with a Ramp, Scenes Dealt from a Shuffled Deck, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets*
+*Rev 12 — Start and Stop, Manual and Automatic Call Pacing with a Ramp and Jitter, Scenes Dealt from a Shuffled Deck, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets*
 
 # 1. Overview
 
@@ -109,9 +109,21 @@ The game program and the page are written by Claude Code to this document, like 
 
 — The load checks follow (§6.3). Code consequence for Claude Code: the shared loader checks `jacks:` and rejects `switchboard:` and `label:` on a station entry, the game program builds the `board/` map from `jacks:`, and the page draws labelled uncabled jacks as working. `mqtt.md` Rev 18 corrects the `board/` rows to match. No topic changes. Trunk jacks are unchanged: trunk n on trunk jack n, no labels.
 
-— The page is rearranged (§7.1), Mark's request, 2026-09-25, from the first look at it on the iPad. The health column took 380px beside the board, leaving each tile about 71 points wide, and one-word labels such as "Housekeeping" were clipped and two-word ones wrapped out of the tile. The board now takes the whole width; the calls table has the log under it, and health sits in a narrow column beside those two. A label that still does not fit is set smaller rather than clipped.
+— The page is rearranged (§7.1), Mark's request, 2026-09-25, from the first look at it on the iPad. The health column took 380px beside the board, leaving each tile about 71 points wide, and one-word labels such as "Housekeeping" were clipped and two-word ones wrapped out of the tile. The board now takes the whole width; the calls table has the log under it, and health sits in a narrow column beside those two. A label that still does not fit is set smaller rather than clipped, and every label is set at that one size, so the board does not mix sizes.
 
 — The §10 item "Labels on jacks the game does not use" is closed. The item named a station entry with no `number:` as one way to do it; a separate list was chosen instead, so that a station entry always means a circuit.
+
+## 1.12 Changes in Rev 12
+
+— Automatic pacing gains `jitter` (§4.3), Mark's decision, 2026-09-25. Rev 1 to Rev 11 waited exactly `gap_now` before every automatic call, a rhythm a player learns within a few calls. Each wait is now drawn evenly from `gap_now × (1 ± jitter/100)`, with `jitter` a percentage from 0 to 100 set on the page like the other three. Its mean is still `gap_now`, so `gap`, `ramp` and `floor` keep their meaning and the game is no harder or easier on average, only less regular.
+
+— Bounded and even, not exponential. Calls at a real switchboard arrive nearly at random, which is an exponential wait between them, but at a mean of 20s that puts four waits in ten under 10s and one in twenty over a minute — a dead stretch for the player and the audience. The even spread keeps every wait within a known band. The exponential form, and calls that arrive whether or not the operator is ready (§4.5), stay available for when the game is played on the hardware.
+
+— `floor` bounds `gap_now`, the centre of the spread, not each wait, so near the floor some waits fall a little below it. Holding each wait to the floor instead would raise the short ones to it and lift the mean above `gap_now` exactly where the ramp is meant to be steadiest.
+
+— The draws come from the game's seed (§4.4), so a replay draws the same waits, and `jitter` is recorded with the other pacing values in the session record. Its starting value is 0, from the configuration file, so nothing changes until it is set.
+
+— `mqtt.md` Rev 19 adds `game/jitter` and `game/jitter/set`. Code consequence for Claude Code: the scheduler, the configuration, the session record and a fourth stepper on the page.
 
 # 2. Serving the Page
 
@@ -182,11 +194,16 @@ These are the milestones the game program must expose to the scheduler. How it r
 
 ```text
 gap_now = max(floor, gap − ramp × connected)
+wait    = gap_now × (1 + jitter/100 × u),   u drawn evenly from −1 to 1, and never below 0
 ```
 
-where `connected` is the number of calls connected so far in this game. `gap`, `ramp` and `floor` are set from the page; `gap_now` is what the scheduler uses, and it is published so the page shows it. `ramp` of 0 is a constant rate. A change to any of the three takes effect at the next scheduling, not on a call already scheduled.
+where `connected` is the number of calls connected so far in this game. `gap`, `ramp` and `floor` are set from the page; `gap_now` is what the scheduler uses, and it is published so the page shows it. `ramp` of 0 is a constant rate.
 
-Ranges, clamped by the game program and echoed as applied: `gap` 0–600s, `ramp` 0–60s, `floor` 0–600s and not above `gap`. Starting values come from the game program's configuration file: manual pacing, `gap` 20, `ramp` 0, `floor` 5. They hold across games until changed, and return to the configured values when the game program restarts.
+**Jitter** (Rev 12). The scheduler waits `wait`, not `gap_now`: a draw spread evenly around `gap_now` by `jitter`, a percentage. At `gap_now` 20 and `jitter` 50 every wait is between 10s and 30s, and they average 20s. `jitter` of 0 is the fixed wait. `floor` bounds `gap_now`, the centre, and not the draw, so near the floor a wait can fall below it; bounding the draw would lift the average there. The draws come from the game's seed (§4.4), so a replay draws the same sequence. `next_at` is the drawn start; `gap_now` stays the centre.
+
+A change to any of the four takes effect at the next scheduling, not on a call already scheduled.
+
+Ranges, clamped by the game program and echoed as applied: `gap` 0–600s, `ramp` 0–60s, `floor` 0–600s and not above `gap`, `jitter` 0–100%. Starting values come from the game program's configuration file: manual pacing, `gap` 20, `ramp` 0, `floor` 5, `jitter` 0. They hold across games until changed, and return to the configured values when the game program restarts.
 
 ## 4.4 Which Scene, and Scenes That Follow Another
 
@@ -204,7 +221,7 @@ At most eight calls are in progress at once — the number of call slots (§6.1)
 
 ## 4.5 Not Yet: Calls Before Connection
 
-Mark wants, later, a mode where a new call can arrive before the operator has connected the current one — the real pressure of a busy board. The likely form is a fixed interval, a new call every `n` seconds from the start of the last, bounded by the eight slots. It is one more value on `game/pace` and uses the same `gap`, `ramp` and `floor`. Not specified until it is wanted.
+Mark wants, later, a mode where a new call can arrive before the operator has connected the current one — the real pressure of a busy board. The likely form is a fixed interval, a new call every `n` seconds from the start of the last, bounded by the eight slots. It is one more value on `game/pace` and uses the same `gap`, `ramp`, `floor` and `jitter`. Not specified until it is wanted.
 
 # 5. Tallies
 
@@ -342,14 +359,14 @@ For an iPad in landscape, 1024 CSS pixels wide or more. Touch targets 44px or la
 - Start and Stop. Stop needs a second tap within 3s, because it ends a player's game.
 - Pacing: Manual | Automatic.
 - Next Call: large in manual pacing, small in automatic.
-- `gap`, `ramp`, `floor`, each with − and + steppers (5s, 1s, 1s steps). Shown only in automatic pacing, with `gap_now` and the countdown to `next_at` beside them.
+- `gap`, `ramp`, `floor`, `jitter`, each with − and + steppers (5s, 1s, 1s, 10% steps; `jitter` Rev 12). Shown only in automatic pacing, with `gap_now` and the countdown to `next_at` beside them.
 - Tallies: started, handled, success, fail, success percentage.
 
 **Board.** Laid out as the switchboard is (Rev 5): station jacks in three rows of ten, and one row of ten trunk jacks below them. Rows run 1–10, 11–20, 21–30 from the top, left to right, until checked against the board (§10). Each tile is one jack, from the `board/` topics (§6.3).
 
 A tile shows little:
 
-- the jack's **label**, large, and its jack number, small. A label too long for the tile is set smaller until it fits, never clipped, and words are not broken (Rev 11);
+- the jack's **label**, large, and its jack number, small. Every label on the board is set at one size, the largest at which the longest still fits its tile, so the board reads as one designation strip; a label is never clipped, and words are not broken (Rev 11);
 - **one state**, as a colour, the most urgent first:
 
 | **State** | **Station jack** | **Trunk jack** |

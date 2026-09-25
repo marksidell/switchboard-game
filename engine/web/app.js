@@ -163,6 +163,7 @@ function renderBoard() {
     });
   }
 
+  const labels = [];
   for (const kind of ['station', 'trunk']) {
     const count = kind === 'station' ? N_STATION_JACKS : N_TRUNK_JACKS;
     for (let n = 1; n <= count; n++) {
@@ -199,38 +200,59 @@ function renderBoard() {
       if (tile.dataset.html !== html) {
         tile.innerHTML = html;
         tile.dataset.html = html;
-        fitLabel(tile);
+        const jl = tile.querySelector('.jl');
+        if (jl) jl.style.fontSize = `${labelPx}px`;
       }
+      labels.push(label);
     }
   }
+  // Refitted only when the labels themselves change, not on every call: the
+  // far-end line has its space held open whether it is empty or not, so a
+  // call connecting cannot change what fits.
+  const key = labels.join('\n');
+  if (key !== labelsKey) { labelsKey = key; fitBoard(); }
 }
 
-/** Shrink a label until it fits its tile: no word wider than the tile, and
- *  nothing pushed out of the top or bottom. The stylesheet's size is the most
- *  it gets. */
+/** One size for every label on the board: the largest at which the longest
+ *  of them still fits its tile, so the board reads as one designation strip
+ *  rather than a mixture of sizes. The stylesheet's size is the most any
+ *  label gets. */
 const LABEL_MAX_PX = 17, LABEL_MIN_PX = 10;
-function fitLabel(tile) {
+let labelPx = LABEL_MAX_PX;
+let labelsKey = null;           // the labels last fitted, to refit on a change
+
+function fitBoard() {
+  const tiles = [...document.querySelectorAll('#board .tile')]
+    .filter((t) => t.querySelector('.jl'));
+  let px = LABEL_MAX_PX;
+  for (const t of tiles) px = Math.min(px, fitsAt(t, px));
+  labelPx = px;
+  for (const t of tiles) t.querySelector('.jl').style.fontSize = `${px}px`;
+}
+
+/** The largest size, from `start` down, at which this tile's label fits: no
+ *  word wider than the tile, and nothing pushed out of the top or into the
+ *  lamp. */
+function fitsAt(tile, start) {
   const jl = tile.querySelector('.jl');
-  if (!jl) return;
   // The lamp is out of flow, so nothing stops the label and the far-end line
   // under it running into it: they must end above the lamp, not just inside
   // the tile.
   const far = tile.querySelector('.far') || jl;
   const cap = tile.querySelector('.cap');
-  for (let px = LABEL_MAX_PX; px >= LABEL_MIN_PX; px--) {
+  for (let px = start; px > LABEL_MIN_PX; px--) {
     jl.style.fontSize = `${px}px`;
     const box = tile.getBoundingClientRect();
     const floor = cap ? cap.getBoundingClientRect().top : box.bottom;
     if (jl.scrollWidth <= jl.clientWidth
         && jl.getBoundingClientRect().top >= box.top
-        && far.getBoundingClientRect().bottom <= floor) return;
+        && far.getBoundingClientRect().bottom <= floor) return px;
   }
+  return LABEL_MIN_PX;
 }
 
-// A rotation or a resize changes the tile width, so every label is refitted.
-window.addEventListener('resize', () => {
-  for (const t of document.querySelectorAll('#board .tile')) fitLabel(t);
-});
+// A rotation or a resize changes the tile width, so the board is refitted.
+window.addEventListener('resize', fitBoard);
 
 function closePanel() {
   document.getElementById('panel').hidden = true;
@@ -350,6 +372,8 @@ function renderTop() {
   document.getElementById('steppers').style.display = auto ? '' : 'none';
   for (const f of ['gap', 'ramp', 'floor'])
     document.getElementById('v-' + f).textContent = get('game/' + f) || '–';
+  const jitter = get('game/jitter');
+  document.getElementById('v-jitter').textContent = jitter ? `${jitter}%` : '–';
   document.getElementById('v-gapnow').textContent = get('game/gap_now') || '–';
   const at = num('game/next_at');
   document.getElementById('v-countdown').textContent =

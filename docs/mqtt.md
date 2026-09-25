@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 18 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program) and the Status Page, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
+*Rev 19 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program) and the Status Page, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
 
 # 1. Overview
 
@@ -164,6 +164,10 @@ This document specifies the messages: the topic names, who publishes each, what 
 
 — §9.1 now says why the Route 53 credentials belong under `[default]` rather than a named profile. They were first put in `[sbgame-letsencrypt]`, which worked for issuance by hand and would have failed every unattended renewal: boto3 reads `[default]` unless `AWS_PROFILE` names another, and `certbot renew` runs from `certbot.timer` with an empty environment. Mark moved them to `[default]`, which is the arrangement §9.1 records; the alternative is a systemd drop-in on `certbot.service`, and the root account has no other AWS use to keep separate.
 
+## 1.19 Changes in Rev 19
+
+— `game/jitter` and `game/jitter/set` added (§6.1, §6.2), following game_control.md Rev 12, 2026-09-25: the spread of the automatic wait around `gap_now`, a percentage from 0 to 100. An addition; no existing topic or payload changes. `next_at` is now the drawn start, which differs from the last connection plus `gap_now` whenever `jitter` is above 0. The page's access list already covers the new command through `sbgame/game/+/set`.
+
 ## 1.18 Changes in Rev 18
 
 — The `board/` labels and circuits come from script.yml's `jacks:` list, not from its station entries (§6.1, §7), following game_control.md Rev 11, 2026-09-25. Every station jack the list names has a label, whether or not a station is cabled to it, so `board/station/<n>/label` can now be set while `board/station/<n>/circuit` is empty. Rev 14 said a jack with no circuit had no label. The topics, their payloads and their retention do not change.
@@ -278,8 +282,9 @@ Published by the game program for the status page and the log (Rev 10). All reta
 | `sbgame/game/gap` | seconds | yes | Automatic pacing: the gap from a call's connection to the next call's start, at the start of a game. Echoes `gap/set` after clamping. |
 | `sbgame/game/ramp` | seconds | yes | Seconds taken off the gap for each call connected. Echoes `ramp/set`. |
 | `sbgame/game/floor` | seconds | yes | The least the gap can fall to. Echoes `floor/set`. |
-| `sbgame/game/gap_now` | seconds | yes | The gap in use now, after the ramp. |
-| `sbgame/game/next_at` | host Unix time in seconds, or `""` | yes | When the next call will start; empty when none is scheduled. |
+| `sbgame/game/jitter` | percent | yes | The spread of each automatic wait around `gap_now`: each is drawn evenly from `gap_now × (1 ± jitter/100)`. Echoes `jitter/set` (Rev 19). |
+| `sbgame/game/gap_now` | seconds | yes | The gap in use now, after the ramp: the centre of the jitter's spread. |
+| `sbgame/game/next_at` | host Unix time in seconds, or `""` | yes | When the next call will start, after the jitter's draw; empty when none is scheduled. |
 | `sbgame/game/started` | integer | yes | Calls started this game. Goes up by one when `next/set` starts a call. |
 | `sbgame/game/success` | integer | yes | Calls that ran to their scripted end this game. |
 | `sbgame/game/fail` | integer | yes | Calls that failed this game. |
@@ -305,6 +310,7 @@ The page's commands, consumed by the game program only (Rev 10). The page publis
 | `sbgame/game/gap/set` | seconds | no | game | Starting gap for automatic pacing, 0–600. Echoed on `gap`. |
 | `sbgame/game/ramp/set` | seconds | no | game | Reduction per call connected, 0–60. Echoed on `ramp`. |
 | `sbgame/game/floor/set` | seconds | no | game | Least gap, 0–600 and not above `gap`. Echoed on `floor`. |
+| `sbgame/game/jitter/set` | percent | no | game | Spread of the automatic wait, 0–100. Echoed on `jitter` (Rev 19). |
 | `sbgame/game/next/set` | ignored | no — and QoS 0, §2 | game | Start the next call now, if a game is running and a scene can be dealt; otherwise reported on `error`. Shows as `started` going up by one (Rev 11; a call number through Rev 10). |
 
 # 7. Payload Conventions

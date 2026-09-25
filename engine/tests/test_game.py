@@ -19,6 +19,7 @@ from pathlib import Path
 from sbgame.board import Board
 from sbgame.config import Config
 from sbgame.game import Game
+from sbgame.pacing import Pacing
 from sbgame.script_data import build
 from sbgame.session import SessionLog
 from tts.script import ScriptError, load
@@ -129,7 +130,35 @@ async def main() -> int:
         await g.on_command("next", "")
         check("no game" in link.state_v.get("game/error", ""),
               "next with no game running is refused")
+        check(link.state_v.get("game/jitter") == "0", "jitter published at birth, 0")
+        await g.on_command("jitter", "150")
+        check(link.state_v.get("game/jitter") == "100", "jitter clamped to 100")
+        await g.on_command("jitter", "30")
+        check(link.state_v.get("game/jitter") == "30", "jitter 30 applied and echoed")
         await sess.close()
+
+        print("\n== jitter: the spread of the automatic wait (§4.3)")
+        p = Pacing(pace="auto", gap=20, ramp=0, floor=5, jitter=0)
+        p.seed(1)
+        check({p.wait() for _ in range(50)} == {20.0}, "jitter 0 is the fixed wait")
+        p.jitter = 50
+        ws = [p.wait() for _ in range(4000)]
+        check(min(ws) >= 10 and max(ws) <= 30, f"50% of 20 stays in 10-30: {min(ws):.1f}-{max(ws):.1f}")
+        mean = sum(ws) / len(ws)
+        check(abs(mean - 20) < 0.5, f"and its mean is still gap_now: {mean:.2f}")
+        p.jitter = 100
+        check(min(p.wait() for _ in range(4000)) >= 0, "100% never goes below zero")
+        p.gap, p.ramp, p.floor, p.jitter, p.connected = 30, 5, 8, 50, 10
+        ws = [p.wait() for _ in range(4000)]
+        check(min(ws) >= 4 and max(ws) <= 12 and min(ws) < 8,
+              f"the floor bounds the centre, not the draw: {min(ws):.1f}-{max(ws):.1f}")
+        a, b = Pacing(jitter=40), Pacing(jitter=40)
+        a.seed(7); b.seed(7)
+        check([a.wait() for _ in range(20)] == [b.wait() for _ in range(20)],
+              "the same seed draws the same waits (replay)")
+        a.pace = "auto"
+        at = a.schedule(1000.0)
+        check(at is not None and 12 <= at - 1000.0 <= 28, f"schedule() uses the draw: {at - 1000.0:.1f}s")
 
         print("\n== start, one manual call, stop")
         b, link, g, sess = await build_game(tmp, pace="manual")

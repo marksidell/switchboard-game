@@ -4,8 +4,13 @@
 #   ./release
 #
 # Installs the engine and the loader into /opt/sbgame/venv, script.yml and
-# wav/ into /srv/sbgame, and the page into /srv/sbgame/web, then restarts
-# sbgame and shows the start of its log.
+# wav/ into /srv/sbgame, the page into /srv/sbgame/web, and the game
+# program's configuration into /etc/sbgame/game.toml, then restarts sbgame
+# and shows the start of its log.
+#
+# The configuration goes with the code because the two must agree: the game
+# program refuses a setting it does not know, so a new key in game.toml needs
+# the program that reads it, and is checked against it here.
 #
 # Everything, every time: the daemon runs its own installed copy of the
 # loader, so a script.yml in a new form needs the new code alongside it, and
@@ -20,6 +25,8 @@ set -eu
 cd "$(dirname "$0")"
 
 make -C host sbgame-install
+sudo install -o root -g root -m 644 host/etc/sbgame/game.toml /etc/sbgame/game.toml
+sudo /opt/sbgame/venv/bin/sbgame --check -c /etc/sbgame/game.toml
 make -C host sbgame-web
 sudo systemctl restart sbgame
 

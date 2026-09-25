@@ -60,7 +60,8 @@ class Game:
         # Set from the configuration at start-up and owned by the page after
         # that; a restart returns to the configured values (§4.3).
         from .pacing import Pacing
-        self.pacing = Pacing(pace=cfg.pace, gap=cfg.gap, ramp=cfg.ramp, floor=cfg.floor)
+        self.pacing = Pacing(pace=cfg.pace, gap=cfg.gap, ramp=cfg.ramp, floor=cfg.floor,
+                             jitter=cfg.jitter)
 
         self._flows: dict[int, asyncio.Task] = {}       # slot -> task
         self._afters: dict[str, asyncio.Task] = {}      # scene id -> timer task
@@ -103,6 +104,7 @@ class Game:
         await self.link.state("game/gap", f"{p.gap:g}")
         await self.link.state("game/ramp", f"{p.ramp:g}")
         await self.link.state("game/floor", f"{p.floor:g}")
+        await self.link.state("game/jitter", f"{p.jitter:g}")
         await self.link.state("game/gap_now", f"{p.gap_now():g}")
         await self.link.state("game/next_at",
                               "" if p.next_at is None else f"{p.next_at:.0f}")
@@ -158,7 +160,7 @@ class Game:
                 await self._publish_pacing()
                 return
 
-            if name in ("gap", "ramp", "floor"):
+            if name in ("gap", "ramp", "floor", "jitter"):
                 try:
                     want = float(payload)
                 except ValueError:
@@ -191,9 +193,10 @@ class Game:
         self.pacing.connected = 0
         self.pacing.gap = self.cfg.gap              # the gap returns to configured (§3)
         self.deck = Deck(self.gs)
+        self.pacing.seed(self.deck.seed)
         await self.session.start_game(self.deck.seed, self.pacing.pace,
                                       self.pacing.gap, self.pacing.ramp,
-                                      self.pacing.floor)
+                                      self.pacing.floor, self.pacing.jitter)
         self.session.deck(1, self.deck.orders[0])
         self._decks_recorded = 1
         await self.log.clear()

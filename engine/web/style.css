@@ -38,7 +38,7 @@ body.offline { filter: grayscale(0.7) brightness(0.8); }
   border-bottom: 1px solid var(--line);
 }
 .group { display: flex; gap: 8px; align-items: center; }
-.lbl { color: var(--dim); font-size: 13px; }
+.lbl { color: var(--dim); font-size: 13px; white-space: nowrap; }
 
 /* The same glass cap as the board's lamps, smaller: these are lamps too, and
    two kinds of indicator on one page would be one kind too many. The jewel
@@ -69,6 +69,11 @@ button.seg.sel { background: var(--operator); }
 .stepper { display: flex; align-items: center; gap: 4px; }
 .stepper button { min-width: 44px; padding: 0; font-size: 20px; }
 .stepper span:not(.lbl) { min-width: 34px; text-align: center; font-variant-numeric: tabular-nums; }
+
+/* Last in the bar, so the tallies share the first row with the buttons and
+   the four steppers (automatic pacing only) have the second to themselves.
+   In the markup order the tallies wrapped onto a third row of their own. */
+#steppers { order: 1; }
 
 #tallies { gap: 12px; margin-left: auto; color: var(--dim); font-size: 13px; }
 #tallies b { color: var(--ink); font-size: 17px; margin-right: 3px;
@@ -116,7 +121,8 @@ h2 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
 .tile .jn { position: absolute; bottom: 3px; left: 5px; font-size: 11px;
             color: var(--dim); }
 /* 17px is the most a label gets. A word too long for the tile at that size is
-   shrunk to fit by fitLabel() in app.js rather than clipped; words are never
+   shrunk to fit by fitBoard() in app.js rather than clipped, and every label
+   on the board is set at the one size the longest needs. Words are never
    broken, so "Room Service" wraps between the words and not inside one. The
    tile's 72px holds two lines at 17px over the far-end line and the lamp. */
 .tile .jl { font-size: 17px; font-weight: 700; line-height: 1.1; text-align: center;
