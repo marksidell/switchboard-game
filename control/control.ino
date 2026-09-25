@@ -2,7 +2,9 @@
  * 551 Switchboard Simulator - ESP32 controller firmware
  *
  * Target : Olimex ESP32-POE-ISO   (arduino-cli FQBN esp32:esp32:esp32-poe-iso)
- * Implements control.md Rev 9, the specification for everything in this folder.
+ * Implements control.md Rev 9, the specification for everything in this folder,
+ * and Rev 11's removal of the arming gate. Rev 10's channel-table change
+ * (control.md 1.10) is not yet made.
  * The firmware has three jobs: ring waveform generation, I2C master to the
  * station and trunk MCP23017 expanders, and MQTT client to the host - and with
  * them the relay failsafes of control.md 10 and dial pulse detection on the
@@ -42,9 +44,9 @@
  * THE WAVEFORM
  *   Generates the 20.000 Hz sine on a 40 kHz carrier that drives the two
  *   IR2104 half-bridges through the 74HCT04, and sequences SD around it. The
- *   generator runs while GPIO4 is held LOW and the arming gate of control.md 4.2
- *   step 8 has passed; it free-runs, and ring cadence is done by the trunk
- *   board's relays (control.md 8.4), not here.
+ *   generator runs while GPIO4 is held LOW, whatever the I2C scan found
+ *   (control.md Rev 11 removed the arming gate); it free-runs, and ring cadence
+ *   is done by the trunk board's relays (control.md 8.4), not here.
  *
  * POLARITY (section 5.1/5.2)
  *   IN1 = GPIO32,  IN2 = GPIO33,  SD = GPIO14.  All non-inverting.
@@ -264,11 +266,12 @@ static void parkOutputs() {
   digitalWrite(PIN_SYNC, LOW);     // sync idles low whenever the generator is stopped
 }
 
-/* ---- The arming gate (control.md 4.2 step 8) -------------------------------
- * "Do not arm the H-bridge if a required expander is absent." Set by the boot
- * scan and by every I2C recovery. The
- * bridge is not armed while a configured expander is missing: the generator
- * would be feeding a ring bus whose relays the firmware cannot see or release. */
+/* ---- The scan result (control.md 4.2 step 5) -------------------------------
+ * Set by the boot scan and by every I2C recovery, and published on ctl/i2c.
+ * It does not gate the generator. Ring reaches a circuit only through a trunk
+ * board ring relay, which is normally open and held released by R_pd whenever
+ * its expander is absent or unconfigured, so a missing expander cannot leave
+ * ring applied to anything (control.md Rev 11). */
 static bool expanders_all_present = false;
 
 /* I2C recovery bookkeeping. `i2c_retries` is 0 when the bus is believed good,
@@ -278,11 +281,6 @@ static bool expanders_all_present = false;
 static uint32_t last_i2c_retry_ms = 0;
 static uint32_t last_i2c_reset_ms = 0;
 static uint16_t i2c_retries       = 0;
-
-static bool slavesPresent() {
-  if (expanders_all_present) return true;
-  return BENCH_ALLOW_MISSING_EXPANDERS;   // see sb_config.h; temporary
-}
 
 /* ---- Section 6.1 / 6.2: start and stop ----------------------------------- */
 
@@ -330,10 +328,6 @@ static constexpr uint32_t START_STEP = SINE_STEPS / 4;   // 62 of 250. Exact:
 
 static bool startWaveform() {
   if (running) return true;
-  if (!slavesPresent()) {
-    Serial.println("ARM REFUSED: a configured expander is absent (control.md 4.2 step 8)");
-    return false;
-  }
 
   step_index = START_STEP;
   tick_count = 0;
@@ -483,8 +477,7 @@ static void printBanner() {
                 (unsigned long)tick_count);
 
   /* ---- the rest of the controller ------------------------------------
-   * The expander line is the arming gate's input, so a refused arm can be
-   * explained from the same keypress that reported it. The heartbeat line is
+   * The heartbeat line is
    * the one thing the MQTT side cannot tell you about itself: a game program
    * that has died leaves `online` on the broker and retained state that looks
    * current. */
@@ -504,8 +497,6 @@ static void printBanner() {
                   expanderAnyPresent() ? ""
                                        : " and /RESET on the slow knock (nothing answers)",
                   (unsigned)i2c_retries);
-  Serial.printf("  arming gate  %s\n",
-                slavesPresent() ? "pass" : "INHIBITED - expander absent");
   Serial.printf("  mqtt         %s, broker %s:%u\n",
                 netConnected() ? "connected" : "down",
                 MQTT_BROKER_HOST, (unsigned)MQTT_PORT);
@@ -597,22 +588,10 @@ void setup() {
     Serial.println("mqtt: not connected at boot; will connect from loop()");
   }
 
-  /* ---- 4.2 step 8: the arming gate ----------------------------------- */
-  if (!expanders_all_present) {
-    if (BENCH_ALLOW_MISSING_EXPANDERS) {
-      Serial.println("BENCH OVERRIDE: a configured expander is absent, but this "
-                     "is a bench build (BENCH_ALLOW_MISSING_EXPANDERS=1), so the "
-                     "bridge will still arm. Build without it once a board is fitted.");
-    } else {
-      Serial.println("ARM INHIBITED: a configured expander is absent (4.2 step 8)");
-    }
-  }
-
-  /* ---- 4.2 step 9: LEDC, both channels at duty 0 ---------------------
-   * Configured whether or not the gate passed. Duty 0 with SD low is the
-   * hardware's own park state - the peripheral comes up that way - so this is
-   * not arming anything. Steps 10 to 12 are startWaveform(), which the enable
-   * input reaches through serviceEnable() and which refuses on a failed gate. */
+  /* ---- 4.2 step 8: LEDC, both channels at duty 0 ---------------------
+   * Duty 0 with SD low is the hardware's own park state - the peripheral comes
+   * up that way - so this is not arming anything. Steps 9 to 11 are
+   * startWaveform(), which the enable input reaches through serviceEnable(). */
   buildDutyTables(G_AMPLITUDE);
 
   if (!pwmBegin()) {
@@ -653,9 +632,8 @@ void setup() {
  * at once, and because a failsafe split across three files is a failsafe nobody
  * can audit.
  *
- * Three rows of that table are elsewhere, each for a reason:
+ * Two rows of that table are elsewhere, each for a reason:
  *   Power-on / reset          the hardware's doing, before any of this runs (4.1)
- *   Expander absent at boot   the arming gate in setup(), via slavesPresent()
  *   Trunk ringing for 30s     per-trunk, in trunkPoll(), beside the cadence it
  *                             interrupts
  * ------------------------------------------------------------------------- */

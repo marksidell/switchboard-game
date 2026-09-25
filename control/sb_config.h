@@ -21,27 +21,6 @@
  * ------------------------------------------------------------------------- */
 static constexpr uint8_t STATION_BOARDS_FITTED = 3;
 
-/* ---- Bench override ------------------------------------------------------
- * control.md 4.2 step 8 says not to arm the H-bridge when a configured expander
- * is absent. A breadboard with no station or trunk board would refuse every
- * boot, and the ring generator could never be characterised on it.
- *
- * Off unless the build turns it on (control.md 1.7), so a fresh checkout built
- * the ordinary way is safe. The bench build adds it on the command line:
- *
- *   arduino-cli compile --fqbn esp32:esp32:esp32-poe-iso \
- *     --build-property "compiler.cpp.extra_flags=-DBENCH_ALLOW_MISSING_EXPANDERS=1" control
- *
- * With it on, the scan result is still reported honestly on ctl/i2c and in the
- * console banner; only the gate is bypassed, and loudly. It is the one place
- * this firmware knowingly departs from the specification, and it is a build
- * option rather than a source edit so that departure cannot be committed by
- * accident.
- * ------------------------------------------------------------------------- */
-#ifndef BENCH_ALLOW_MISSING_EXPANDERS
-#define BENCH_ALLOW_MISSING_EXPANDERS 0
-#endif
-
 static constexpr uint8_t STATIONS_PER_BOARD = 8;
 
 /* Twenty-two stations. The last two positions on the last station board -

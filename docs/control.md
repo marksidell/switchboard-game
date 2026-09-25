@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 10 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
+*Rev 11 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
 
 # 1. Overview
 
@@ -18,7 +18,7 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 
 **Ownership.** The firmware is `control/control.ino` — the folder and file renamed from `ring/esp32.ino` on 2026-09-19, and that from `ring/ring.ino` on 2026-09-17, since it has been the whole controller and not the ring generator alone since Rev 4 — maintained through Claude Code and not through chat sessions (PROJECT_INDEX.md, *Firmware ownership*). This document is the specification the firmware is written to. When a revision here has a firmware consequence it says so, and the change is made on the Claude Code side.
 
-**Build state as of Rev 8.** Everything in this document is written in `control/control.ino` and its `sb_*.cpp/h` modules: the ring waveform, SD sequence, GPIO4 enable, GPIO15 sync and peak-phase start (bench-run at generator Rev 52, 2026-09-16), and as of 2026-09-17 Ethernet, the I²C scan, expander polling, relay control, the MQTT client, the trunk state machine and dial pulse detection. The source was reviewed against Rev 6 on 2026-09-18 (§1.7) and the reviewed fixes were confirmed in the source on 2026-09-19: the spread republish, strict `on`/`off` payloads, `seize` kept in RING_ON_TRUNK, `ring/set` dropped outside IDLE, the header and comments brought current. The duty tables are in the §3 form for the 74HCT04 — direct duty, park at 0 — and the source says not to run that build on a board still carrying the 74HCT02. The arming-gate bypass is no longer a source constant: it is a build option, `-DBENCH_ALLOW_MISSING_EXPANDERS=1` on the command line, off in an ordinary build. The station and trunk boards themselves are not yet built, so none of the expander-side code has run against hardware; §11 lists what is still to be verified. Rev 10's channel-table change (§1.10) is a code consequence not yet in the source.
+**Build state as of Rev 8.** Everything in this document is written in `control/control.ino` and its `sb_*.cpp/h` modules: the ring waveform, SD sequence, GPIO4 enable, GPIO15 sync and peak-phase start (bench-run at generator Rev 52, 2026-09-16), and as of 2026-09-17 Ethernet, the I²C scan, expander polling, relay control, the MQTT client, the trunk state machine and dial pulse detection. The source was reviewed against Rev 6 on 2026-09-18 (§1.7) and the reviewed fixes were confirmed in the source on 2026-09-19: the spread republish, strict `on`/`off` payloads, `seize` kept in RING_ON_TRUNK, `ring/set` dropped outside IDLE, the header and comments brought current. The duty tables are in the §3 form for the 74HCT04 — direct duty, park at 0 — and the source says not to run that build on a board still carrying the 74HCT02. There is no arming gate as of Rev 11 (§1.11), and so no bench build: the one build runs the generator with or without boards on the chain. The station and trunk boards themselves are not yet built, so none of the expander-side code has run against hardware; §11 lists what is still to be verified. Rev 10's channel-table change (§1.10) is a code consequence not yet in the source.
 
 ## 1.1 Changes in Rev 1
 
@@ -86,6 +86,14 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 
 — Firmware consequence, for Claude Code: the channel table in `sb_table.cpp` / `sb_table.h` loses the station 23 row (board 3, address 0x22, bit 6), leaving 22 station rows and 8 trunk rows, 30 in all, and any constant or comment that counts stations (`sb_config.h`) goes from 23 to 22. No other behaviour changes.
 
+## 1.11 Changes in Rev 11
+
+— The arming gate is removed (Mark, 2026-09-25). §4.2 step 8 said not to arm the H-bridge while a configured expander was absent, on the reasoning that the generator would be feeding a ring bus whose relays the firmware could not see or release. That reasoning does not hold for this hardware. Ring reaches a circuit through the trunk board's ring relays alone, and they are normally open: with their expander absent or unconfigured, R_pd holds every driver off and every relay released (§4.1), so the bus goes nowhere. The station boards take no ring from the bus. The switchboard's own ring supply on generator J6 was never switched by any relay the firmware drives, so the gate never protected it either. What the gate did do was refuse to run the generator on a board with nothing on the chain, which is the configuration the generator is brought up and characterised in.
+
+— §4.2 loses step 8 and its later steps renumber, 8 to 11; §4.3's reference follows. §6.2's note that the bridge stays armed through a recovery now rests on this rather than on the gate being a boot check. §10's row for an expander absent at boot becomes report-only. §11 loses the pre-chain item to build without the bench option. The scan is unchanged and still published on `ctl/i2c`. Generator §6's Rev 56 pointers name the gate as what moved here; they are history and are left.
+
+— Firmware consequence, for Claude Code, made in the same commit: `startWaveform()` no longer refuses on a missing expander; `slavesPresent()`, the banner's arming-gate line, the boot-time `ARM INHIBITED` message and the `BENCH_ALLOW_MISSING_EXPANDERS` build option are removed. `CLAUDE.md` and `TODO.md` lose the bench build.
+
 # 2. Platform and Build
 
 Olimex ESP32-POE-ISO. Arduino IDE: "ESP32-POE-ISO" under the Olimex ESP32 boards package; PlatformIO: `board = esp32-poe-iso`, `framework = arduino`. The firmware requires Arduino core 3.x and carries an `#error` against 2.x — the 2.x LEDC API path was removed rather than maintained. The reason it avoids the LEDC overflow interrupt (§5.2) is that the register struct names it would need move between IDF versions. MQTT client: MQTT 2.5.3, Joël Gähwiler (256dpi/arduino-mqtt) — §9.1.
@@ -128,13 +136,12 @@ In this order, and the order matters:
 5. I²C: `Wire.begin(13, 16)` at 100kHz. Scan the configured device list — 0x20, 0x21, 0x22 and 0x23 with the three station boards and the trunk board all built. The list is driven from the configured station board count, not hard-coded, so that a board pulled for repair is a configuration change rather than a phantom missing device logged on every boot, which trains whoever reads the log to ignore the one message that matters. Log any device that does not respond and remember the result; it is published on `sbgame/ctl/i2c` at step 7, once there is a connection to publish on.
 6. Configure every expander that answered: IODIR Port A inputs, Port B outputs; GPPU off on Port A (the boards fit their own pull-ups); IPOL on Port A so a read returns 1 for ring or seize present (the detectors are active low); OLAT Port B all zero. Every relay is now released by command as well as by default.
 7. MQTT: connect with the last will, publish the birth message, subscribe, publish every state topic once (§9.1), and publish the step-5 scan result on `sbgame/ctl/i2c`, retained: `"ok"`, or `"missing: "` followed by the absent addresses in hex, space-separated. It is republished on every reconnect and after any rescan (§6.2).
-8. **Arming gate.** Do not arm the H-bridge if a required expander is absent; report the fault over MQTT and stop here. (Live in the firmware as of Rev 4.)
-9. LEDC channels configured, both at duty 0.
-10. GPIO14 driven LOW (it already is, by R_SD_PD; this makes it a firmware fact as well).
-11. The 200µs step timer enabled; waveform generation armed at the peak-phase index (§5.3).
-12. GPIO14 driven HIGH — drivers enabled. The generator runs while GPIO4 is held LOW.
+8. LEDC channels configured, both at duty 0.
+9. GPIO14 driven LOW (it already is, by R_SD_PD; this makes it a firmware fact as well).
+10. The 200µs step timer enabled; waveform generation armed at the peak-phase index (§5.3).
+11. GPIO14 driven HIGH — drivers enabled. The generator runs while GPIO4 is held LOW.
 
-Steps 3 to 8 are new relative to generator §6.1, which listed the ring generator's own startup and named the Ethernet and I²C steps without ordering them against the arming gate. Nothing about the ring generator's own sequence changes.
+Steps 3 to 7 are new relative to generator §6.1, which listed the ring generator's own startup and named the Ethernet and I²C steps without ordering them against it. Nothing about the ring generator's own sequence changes. The scan result does not gate steps 8 to 11: an absent expander leaves its relays released, and the generator runs regardless (§1.11). Until Rev 11 a step 8 here refused to arm the bridge on a missing expander.
 
 ## 4.3 Shutdown Sequence
 
@@ -142,7 +149,7 @@ Steps 3 to 8 are new relative to generator §6.1, which listed the ring generato
 2. LEDC duty parked at 0 on both channels. Both IN pins low; bridge fully off.
 3. GPIO15 low.
 
-Release of the GPIO4 enable is the operator's shutdown; the firmware runs this sequence when it sees GPIO4 go high and re-runs §4.2 steps 9 to 12 when it returns low. Remanence after a stop is accepted rather than addressed (§5.3).
+Release of the GPIO4 enable is the operator's shutdown; the firmware runs this sequence when it sees GPIO4 go high and re-runs §4.2 steps 8 to 11 when it returns low. Remanence after a stop is accepted rather than addressed (§5.3).
 
 # 5. Ring Waveform Generation
 
@@ -207,7 +214,7 @@ GPIO5 drives /RESET to every expander on 6P6C positions 1 and 6 (generator §4.7
 
 A reset returns every expander to IODIR = 0xFF and so drops every relay it controls — off-hook relays on the station boards, ring relays on the trunk board — with R_pd holding the drivers off through the window. Assert it at startup before the scan (§4.2 step 4), and on a detected bus fault: three consecutive errors on one device — NAKs, or reads that return a value inconsistent with what was written. One error is logged and counted, not acted on; a single NAK on six feet of daisy-chained 6P6C is a glitch, and resetting every relay on the chain for it would be the worse fault. Do not assert it while calls are up unless recovering from a fault, and **never while ring is applied** (§8.4): a reset mid-cadence releases the ring relay at an arbitrary point in the 20Hz waveform rather than at the cadence boundary. A wedged expander holding a ring relay closed is the one failure a firmware watchdog alone cannot clear, and this is the tool for it — with ring inhibited first.
 
-The recovery is one reset, one rescan and one reconfigure. An expander that is still absent afterwards stays absent until the next boot: its circuits are not polled, its commands are dropped (§9.4), and `ctl/i2c` says so. It is not retried, because a retry is another /RESET and another drop of every relay on the chain (Rev 7). The bridge stays armed; the arming gate is a boot check.
+The recovery is one reset, one rescan and one reconfigure. An expander that is still absent afterwards stays absent until the next boot: its circuits are not polled, its commands are dropped (§9.4), and `ctl/i2c` says so. It is not retried, because a retry is another /RESET and another drop of every relay on the chain (Rev 7). The bridge stays armed: an absent expander's ring relays are released, so nothing is ringing that the firmware cannot stop (§1.11).
 
 ## 6.3 Polling
 
@@ -373,7 +380,7 @@ Every relay on every board is released — OFFHOOK_n all zero, RING_EN_n all zer
 | MQTT connection lost | Client callback / failed publish | Release all relays immediately; keep polling; reconnect |
 | Game heartbeat missed twice | 2s timer on `game_heartbeat` | Release all relays; log; resume when it returns |
 | Trunk ringing for 30s | Per-trunk timer | Release that trunk's ring relay; state → IDLE |
-| Required expander absent at boot | I²C scan | Do not arm the bridge; report over MQTT |
+| Required expander absent at boot | I²C scan | Report over MQTT; its relays stay released (§4.1); the generator is not stopped (§1.11) |
 | I²C bus fault in service | Three consecutive errors on one device (NAK or read-back mismatch); single errors logged only | Inhibit ring, assert /RESET, rescan, reconfigure, republish ctl/i2c |
 
 What the firmware cannot do is make the ring bus safe: the generator runs whenever GPIO4 is low, and the only things that stop it are that switch and SD. Nothing on the station or trunk boards can (trunk §15).
@@ -386,5 +393,4 @@ What the firmware cannot do is make the ring bus safe: the generator runs whenev
 - Dial pulse timing through the real 551 trunk cord circuit and dial has not been measured. Scope SEIZE_n while dialling a full digit and a 0 on a seized trunk, and confirm the break and make intervals land inside the §8.2 windows with margin; the cord circuit's retard coils will round the edges, and the current source's recovery (trunk §3.2.2) is calculated, not measured, into a real dial.
 - The 1ms /RESET pulse width is chosen as safe, not read from the MCP23017 datasheet; confirm.
 - The three-error bus-fault threshold (§6.2) and the two-interval ring threshold (§8.1) are judgement values; revisit both once there is a bus and a switchboard to measure against.
-- Before the first board goes on the chain: build without `-DBENCH_ALLOW_MISSING_EXPANDERS=1`. The duty tables and the Rev 7 code consequences are in (Rev 8).
 - Read the banner's loop timing — longest pass and longest poll gap — with the broker up and a republish cycle in the window, and confirm the gap stays at the 5ms nominal.

@@ -32,8 +32,8 @@
 void expanderResetPulse();
 
 /* Scan the configured addresses and configure every device that answers.
- * Returns true only if every configured expander is present, which is the
- * arming gate of control.md 4.2 step 8. Logs each device that does not
+ * Returns true only if every configured expander is present, which is what
+ * ctl/i2c reports. Logs each device that does not
  * respond, unless `quiet`, which the repeated retries of a board that is out
  * use so that one unplugged cable does not fill the console at one block a
  * second. */
