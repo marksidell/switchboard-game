@@ -14,6 +14,26 @@ map $http_upgrade $connection_upgrade {
     ''      close;
 }
 
+# Plain HTTP, only to send the browser to TLS.
+#
+# Not for the certificate: that is issued by DNS-01 through Route 53, so no
+# ACME challenge ever comes here. It is for the address bar and the bookmark.
+# With no listener on 80 at all, a request for `game.kr3am.org` typed without a
+# scheme - or a Home Screen icon saved from one - is refused at the TCP level,
+# and the browser can only report that the site cannot be reached. A desktop
+# browser hides this after its first successful https:// visit, because it then
+# remembers to upgrade the host; a device visiting for the first time does not,
+# which is how one machine can work and another appear to have no route at all.
+#
+# 301 rather than 302: it is permanent, and a permanent redirect is what teaches
+# the browser to stop asking for http next time.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name game.kr3am.org;
+    return 301 https://$host$request_uri;
+}
+
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
