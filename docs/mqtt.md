@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 17 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program) and the Status Page, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
+*Rev 18 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program) and the Status Page, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
 
 # 1. Overview
 
@@ -164,6 +164,10 @@ This document specifies the messages: the topic names, who publishes each, what 
 
 — §9.1 now says why the Route 53 credentials belong under `[default]` rather than a named profile. They were first put in `[sbgame-letsencrypt]`, which worked for issuance by hand and would have failed every unattended renewal: boto3 reads `[default]` unless `AWS_PROFILE` names another, and `certbot renew` runs from `certbot.timer` with an empty environment. Mark moved them to `[default]`, which is the arrangement §9.1 records; the alternative is a systemd drop-in on `certbot.service`, and the root account has no other AWS use to keep separate.
 
+## 1.18 Changes in Rev 18
+
+— The `board/` labels and circuits come from script.yml's `jacks:` list, not from its station entries (§6.1, §7), following game_control.md Rev 11, 2026-09-25. Every station jack the list names has a label, whether or not a station is cabled to it, so `board/station/<n>/label` can now be set while `board/station/<n>/circuit` is empty. Rev 14 said a jack with no circuit had no label. The topics, their payloads and their retention do not change.
+
 # 2. Design Rules
 
 These hold across every topic. A new topic that breaks one of them needs a reason recorded here.
@@ -267,8 +271,8 @@ Published by the game program for the status page and the log (Rev 10). All reta
 | **Topic** | **Payload** | **Retained** | **Meaning** |
 | --- | --- | --- | --- |
 | `sbgame/ctl/game_status` | `"online"` or `"offline"` | yes | Birth message and last will (§8.1). |
-| `sbgame/board/station/<1-30>/label`, `sbgame/board/trunk/<1-10>/label` | text, or `""` | yes | The label on this switchboard jack, such as `"463"` or `"lobby"`: the `label:` of the script.yml station entry whose `switchboard:` is this jack. Empty for a station jack no entry names, and for every trunk jack. Published at start (Rev 12; source script.yml since Rev 14). |
-| `sbgame/board/station/<1-30>/circuit`, `sbgame/board/trunk/<1-10>/circuit` | circuit id, or `""` | yes | The game circuit cabled to this jack, such as `"station/11"`: the `number:` of the station entry that names this jack, or `trunk/n` on trunk jack n for n = 1–8. Empty otherwise. Published at start (Rev 12; source script.yml since Rev 14). |
+| `sbgame/board/station/<1-30>/label`, `sbgame/board/trunk/<1-10>/label` | text, or `""` | yes | The label on this switchboard jack, such as `"463"` or `"lobby"`: the `label:` of the script.yml `jacks:` item for this jack, whether or not a station is cabled to it (Rev 18). Empty for a station jack `jacks:` does not list, and for every trunk jack. Published at start (Rev 12; source script.yml since Rev 14). |
+| `sbgame/board/station/<1-30>/circuit`, `sbgame/board/trunk/<1-10>/circuit` | circuit id, or `""` | yes | The game circuit cabled to this jack, such as `"station/11"`: the `number:` of the station that this jack's `jacks:` item names as its `station:`, or `trunk/n` on trunk jack n for n = 1–8. Empty otherwise, including for a labelled jack with nothing cabled (Rev 18). Published at start (Rev 12; source script.yml since Rev 14). |
 | `sbgame/game/run` | `"on"` or `"off"` | yes | A game is running. Echoes `run/set`. |
 | `sbgame/game/pace` | `"manual"` or `"auto"` | yes | Call pacing. Echoes `pace/set`. |
 | `sbgame/game/gap` | seconds | yes | Automatic pacing: the gap from a call's connection to the next call's start, at the start of a game. Echoes `gap/set` after clamping. |
@@ -334,7 +338,7 @@ The two diagnostics are literal strings on the same topic, rather than a separat
 
 **Integers** on the tallies and `number` are unsigned decimal strings with no leading zeros.
 
-**Labels** on `board/…/label` are the text on the switchboard's designation strip, as the `label:` of a script.yml station entry gives it (Rev 14), UTF-8, no length rule beyond what fits a tile.
+**Labels** on `board/…/label` are the text on the switchboard's designation strip, as the `label:` of a script.yml `jacks:` item gives it (Rev 14; from the station entry until Rev 18), UTF-8, no length rule beyond what fits a tile.
 
 **Line names** on `from` and `to` are the keys of script.yml's `stations:` and `outside:` maps, as written there.
 

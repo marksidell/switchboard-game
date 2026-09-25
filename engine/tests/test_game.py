@@ -21,6 +21,7 @@ from sbgame.config import Config
 from sbgame.game import Game
 from sbgame.script_data import build
 from sbgame.session import SessionLog
+from tts.script import ScriptError, load
 
 from test_sim import FakeLink, D
 
@@ -80,6 +81,38 @@ async def main() -> int:
               f"jack 1 is {link.state_v.get('board/station/1/label')!r}")
         check(link.state_v.get("board/trunk/9/circuit") == "",
               "trunk jack 9 carries nothing")
+        check(link.state_v.get("board/station/1/circuit") == "station/1",
+              f"jack 1 carries {link.state_v.get('board/station/1/circuit')!r}")
+
+        print("\n== jacks: a labelled jack with nothing cabled (§6.3)")
+        real = Path("../script.yml").read_text(encoding="utf-8")
+        spare = real.replace("\njacks:\n", '\njacks:\n    -   jack: 30\n        label: "Garage"\n', 1)
+        (tmp / "spare.yml").write_text(spare, encoding="utf-8")
+        gs = build(tmp / "spare.yml", "../wav")
+        j30 = next(j for j in gs.jacks if j.kind == "station" and j.number == 30)
+        check(j30.label == "Garage" and j30.circuit == "",
+              f"jack 30 is labelled and uncabled: {j30.label!r} {j30.circuit!r}")
+        for what, text in (
+            ("a station on no jack",
+             real.replace("        station: room822\n", "", 1)),
+            ("a station on two jacks",
+             spare.replace('label: "Garage"\n', 'label: "Garage"\n        station: lobby\n', 1)),
+            ("a jack listed twice",
+             spare.replace("jack: 30", "jack: 1", 1)),
+            ("a jack with no label",
+             spare.replace('        label: "Garage"\n', "", 1)),
+            ("a jack naming no station",
+             spare.replace('label: "Garage"\n', 'label: "Garage"\n        station: attic\n', 1)),
+            ("the old switchboard: key on a station",
+             real.replace("        number: 1\n", "        number: 1\n        switchboard: 1\n", 1)),
+        ):
+            (tmp / "bad.yml").write_text(text, encoding="utf-8")
+            try:
+                load(tmp / "bad.yml")
+                check(False, f"rejects {what}")
+            except ScriptError as e:
+                check(True, f"rejects {what}")
+                print(f"        {e.failures[0]}")
 
         print("\n== page commands: clamps and refusals (§8)")
         await g.on_command("gap", "700")

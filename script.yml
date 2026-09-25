@@ -50,446 +50,473 @@
 #     The whole name must be 31 characters or less (audio.md 7.1), so keep scene ids short.
 
 setting:
-   hotel: Hotel Ballard
-   city: Seattle
+    hotel: Hotel Ballard
+    city: Seattle
 
 # The cast of characters
 #
 cast:
-   thornhill:
-      sex: male
-      accent: mid-Atlantic, suave
-      description: Roger Thornhill, a 1950s New York advertising man; smooth and quick, a little impatient
-   operator:
-      sex: female
-      accent: generic American
-      description: public telephone operator (for long distance calls)
-   assassin:
-      sex: male
-      accent: sinister foreign
-      description: one of the assassins in North by Northwest
-   valet:
-      sex: male
-      accent: midwest
-      description: hotel valet
-   pike:
-      sex: male
-      accent: Chicago, fast talking
-      description: Harold Pike, traveling vacuum cleaner salesman, room 214
-   albright:
-      sex: female
-      accent: refined American, older woman
-      description: Mrs. Edith Albright, well-to-do widow from Spokane, room 512
-   hale:
-      sex: female
-      accent: generic American, young and cheerful
-      description: Betty Hale, on her honeymoon, room 715
-   lindqvist:
-      sex: male
-      accent: Pacific Northwest, slow and plain
-      description: Nils Lindqvist, owns fishing boats in Ballard, room 601
-   crane:
-      sex: female
-      accent: generic American, precise
-      description: Miss Dorothy Crane, schoolteacher from Yakima, room 308
-   hollis:
-      sex: male
-      accent: generic American, older, dry
-      description: Dr. Walter Hollis, visiting surgeon, room 100
-   desk_clerk:
-      sex: male
-      accent: generic American, young and polite
-      description: hotel front desk clerk
-   waiter:
-      sex: male
-      accent: generic American, older and patient
-      description: hotel room service order taker
-   florist:
-      sex: female
-      accent: generic American, friendly
-      description: clerk at the Harbor Florist
-   pizza_man:
-      sex: male
-      accent: Italian American
-      description: counterman at Sunny Hill Pizza
-   dispatcher:
-      sex: female
-      accent: generic American, brisk
-      description: dispatcher at Shilshole Cab
-   maitre_d:
-      sex: male
-      accent: smooth, formal American
-      description: maitre d' at Canlis
-   reporter:
-      sex: male
-      accent: generic American, fast and nosy
-      description: Joe Barrett, reporter for the Seattle Times
+    thornhill:
+        sex: male
+        accent: mid-Atlantic, suave
+        description: Roger Thornhill, a 1950s New York advertising man; smooth and quick, a little impatient
+    operator:
+        sex: female
+        accent: generic American
+        description: public telephone operator (for long distance calls)
+    assassin:
+        sex: male
+        accent: sinister foreign
+        description: one of the assassins in North by Northwest
+    valet:
+        sex: male
+        accent: midwest
+        description: hotel valet
+    pike:
+        sex: male
+        accent: Chicago, fast talking
+        description: Harold Pike, traveling vacuum cleaner salesman, room 214
+    albright:
+        sex: female
+        accent: refined American, older woman
+        description: Mrs. Edith Albright, well-to-do widow from Spokane, room 512
+    hale:
+        sex: female
+        accent: generic American, young and cheerful
+        description: Betty Hale, on her honeymoon, room 715
+    lindqvist:
+        sex: male
+        accent: Pacific Northwest, slow and plain
+        description: Nils Lindqvist, owns fishing boats in Ballard, room 601
+    crane:
+        sex: female
+        accent: generic American, precise
+        description: Miss Dorothy Crane, schoolteacher from Yakima, room 308
+    hollis:
+        sex: male
+        accent: generic American, older, dry
+        description: Dr. Walter Hollis, visiting surgeon, room 100
+    desk_clerk:
+        sex: male
+        accent: generic American, young and polite
+        description: hotel front desk clerk
+    waiter:
+        sex: male
+        accent: generic American, older and patient
+        description: hotel room service order taker
+    florist:
+        sex: female
+        accent: generic American, friendly
+        description: clerk at the Harbor Florist
+    pizza_man:
+        sex: male
+        accent: Italian American
+        description: counterman at Sunny Hill Pizza
+    dispatcher:
+        sex: female
+        accent: generic American, brisk
+        description: dispatcher at Shilshole Cab
+    maitre_d:
+        sex: male
+        accent: smooth, formal American
+        description: maitre d' at Canlis
+    reporter:
+        sex: male
+        accent: generic American, fast and nosy
+        description: Joe Barrett, reporter for the Seattle Times
 
 # Locations reached via public trunks, like local businesses.
 # The number is what the operator must dial. Quoted so it stays a string.
 #
 outside:
-   operator:
-      number: "0"
-      description: public telephone operator
-   pizza:
-      number: "275-4101"
-      description: Sunny Hill Pizza in Loyal Heights
-   canlis:
-      number: "275-5678"
-      description: fine dining restaurant
-   florist:
-      number: "783-2250"
-      description: Harbor Florist
-   taxi:
-      number: "632-1400"
-      description: Shilshole Cab
-   times:
-      number: "524-3000"
-      description: The Seattle Times newspaper
+    operator:
+        number: "0"
+        description: public telephone operator
+    pizza:
+        number: "275-4101"
+        description: Sunny Hill Pizza in Loyal Heights
+    canlis:
+        number: "275-5678"
+        description: fine dining restaurant
+    florist:
+        number: "783-2250"
+        description: Harbor Florist
+    taxi:
+        number: "632-1400"
+        description: Shilshole Cab
+    times:
+        number: "524-3000"
+        description: The Seattle Times newspaper
 
-# Stations within the hotel.
-# The number of the station ID (1..22). Board 3 strips 7 and 8 are the operator tap and the audience monitor output, not stations.
+# Stations within the hotel: the game's station circuits.
+# number is the circuit, 1..22. Board 3 strips 7 and 8 are the operator tap and the audience monitor output, not stations.
+# Which switchboard jack a circuit is cabled to, and its label, are under jacks: below.
 #
 stations:
-   frontdesk:
-      number: 1
-      switchboard: 1
-      label: "Front Desk"
-   roomservice:
-      number: 2
-      switchboard: 2
-      label: "Room Service"
-   restaurant:
-      number: 3
-      switchboard: 3
-      label: "Restaurant"
-   lobby:
-      number: 4
-      switchboard: 4
-      label: "Lobby"
-   valet:
-      number: 5
-      switchboard: 5
-      label: "Valet"
-   housekeeping:
-      number: 6
-      switchboard: 6
-      label: "Housekeeping"
-   bellcaptain:
-      number: 7
-      switchboard: 7
-      label: "Bell Captain"
-   room100:
-      number: 10
-      switchboard: 10
-      label: "100"
-   room463:
-      number: 11
-      switchboard: 11
-      label: "463"
-   room214:
-      number: 12
-      switchboard: 12
-      label: "214"
-   room308:
-      number: 13
-      switchboard: 13
-      label: "308"
-   room512:
-      number: 14
-      switchboard: 14
-      label: "512"
-   room601:
-      number: 15
-      switchboard: 15
-      label: "601"
-   room715:
-      number: 16
-      switchboard: 16
-      label: "715"
-   room822:
-      number: 17
-      switchboard: 17
-      label: "822"
+    frontdesk:
+        number: 1
+    roomservice:
+        number: 2
+    restaurant:
+        number: 3
+    lobby:
+        number: 4
+    valet:
+        number: 5
+    housekeeping:
+        number: 6
+    bellcaptain:
+        number: 7
+    room100:
+        number: 10
+    room463:
+        number: 11
+    room214:
+        number: 12
+    room308:
+        number: 13
+    room512:
+        number: 14
+    room601:
+        number: 15
+    room715:
+        number: 16
+    room822:
+        number: 17
+
+# The switchboard's 30 station jacks, as the page draws them (game_control.md 6.3).
+#     jack:    the jack number on the board, 1..30
+#     label:   the text on the board's designation strip at that jack
+#     station: the station above whose circuit is cabled to this jack.
+#              Leave it out for a jack with nothing cabled: the page still
+#              draws it, labelled, as if it were working.
+# Every station must be on exactly one jack. A jack not listed here is drawn
+# as an empty outline.
+#
+jacks:
+    -   jack: 1
+        label: "Front Desk"
+        station: frontdesk
+    -   jack: 2
+        label: "Room Service"
+        station: roomservice
+    -   jack: 3
+        label: "Restaurant"
+        station: restaurant
+    -   jack: 4
+        label: "Lobby"
+        station: lobby
+    -   jack: 5
+        label: "Valet"
+        station: valet
+    -   jack: 6
+        label: "Housekeeping"
+        station: housekeeping
+    -   jack: 7
+        label: "Bell Captain"
+        station: bellcaptain
+    -   jack: 10
+        label: "100"
+        station: room100
+    -   jack: 11
+        label: "463"
+        station: room463
+    -   jack: 12
+        label: "214"
+        station: room214
+    -   jack: 13
+        label: "308"
+        station: room308
+    -   jack: 14
+        label: "512"
+        station: room512
+    -   jack: 15
+        label: "601"
+        station: room601
+    -   jack: 16
+        label: "715"
+        station: room715
+    -   jack: 17
+        label: "822"
+        station: room822
 
 scenes:
-   nbn-valet:
-     calling:
-        line: room463
-        person: thornhill
-     called:
-        line: valet
-        person: valet
-     request:
-        id: 1
-        text: Hello. Valet service, please.
-     conversation:
-        - id: 2
-          called: Valet service.
-        - id: 3
-          caller: Valet? This is room 463. How quickly can you get a suit sponged and pressed?
-        - id: 4
-          called: Do you want fast service?
-        - id: 5
-          caller: Yes, fast.
-        - id: 6
-          called: Twenty minutes, sir.
-        - id: 7
-          caller: Twenty minutes? Fine. OK. 463.
+    nbn-valet:
+        calling:
+            line: room463
+            person: thornhill
+        called:
+            line: valet
+            person: valet
+        request:
+            id: 1
+            text: Hello. Valet service, please.
+        conversation:
+            -   id: 2
+                called: Valet service.
+            -   id: 3
+                caller: Valet? This is room 463. How quickly can you get a suit sponged and pressed?
+            -   id: 4
+                called: Do you want fast service?
+            -   id: 5
+                caller: Yes, fast.
+            -   id: 6
+                called: Twenty minutes, sir.
+            -   id: 7
+                caller: Twenty minutes? Fine. OK. 463.
 
-   nbn-kaplan:
-     calling:
-        line: lobby
-        person: assassin
-     called:
-        line: room463
-        person: thornhill
-     request:
-        id: 1
-        text: Connect me with room 463.
-     conversation:
-        - id: 2
-          called: Hello?
-        - id: 3
-          caller: Mr. Kaplan, how good it is to find you in.
-        - id: 4
-          called: Who are you?
-        - id: 5
-          caller: We will meet very soon.
+    nbn-kaplan:
+        calling:
+            line: lobby
+            person: assassin
+        called:
+            line: room463
+            person: thornhill
+        request:
+            id: 1
+            text: Connect me with room 463.
+        conversation:
+            -   id: 2
+                called: Hello?
+            -   id: 3
+                caller: Mr. Kaplan, how good it is to find you in.
+            -   id: 4
+                called: Who are you?
+            -   id: 5
+                caller: We will meet very soon.
 
-   nbn-trace:
-     after: nbn-kaplan
-     delay: 2
-     calling:
-        line: room463
-        person: thornhill
-     request:
-        id: 1
-        text: Operator, where did that call come from?
+    nbn-trace:
+        after: nbn-kaplan
+        delay: 2
+        calling:
+            line: room463
+            person: thornhill
+        request:
+            id: 1
+            text: Operator, where did that call come from?
 
-   # Station to station.
-   pike-breakfast:
-     calling:
-        line: room214
-        person: pike
-     called:
-        line: roomservice
-        person: waiter
-     request:
-        id: 1
-        text: Room service, please.
-     conversation:
-        - id: 2
-          called: Room service.
-        - id: 3
-          caller: Yeah, this is Pike in 214. Two eggs over easy, bacon, toast, and a pot of coffee.
-        - id: 4
-          called: Two eggs over easy, bacon, toast, coffee. Anything else, sir?
-        - id: 5
-          caller: A newspaper, if you've got one.
-        - id: 6
-          called: Right away, sir. About twenty minutes.
-        - id: 7
-          caller: Make it fifteen and there's a quarter in it for you.
+    # Station to station.
+    pike-breakfast:
+        calling:
+            line: room214
+            person: pike
+        called:
+            line: roomservice
+            person: waiter
+        request:
+            id: 1
+            text: Room service, please.
+        conversation:
+            -   id: 2
+                called: Room service.
+            -   id: 3
+                caller: Yeah, this is Pike in 214. Two eggs over easy, bacon, toast, and a pot of coffee.
+            -   id: 4
+                called: Two eggs over easy, bacon, toast, coffee. Anything else, sir?
+            -   id: 5
+                caller: A newspaper, if you've got one.
+            -   id: 6
+                called: Right away, sir. About twenty minutes.
+            -   id: 7
+                caller: Make it fifteen and there's a quarter in it for you.
 
-   # Outgoing. The guest does not know the number, so the operator must look it up.
-   albright-florist:
-     calling:
-        line: room512
-        person: albright
-     called:
-        line: florist
-        person: florist
-     request:
-        id: 1
-        text: Operator, I'd like the Harbor Florist, please. I'm afraid I don't have the number.
-     conversation:
-        - id: 2
-          called: Harbor Florist.
-        - id: 3
-          caller: This is Mrs. Albright at the Hotel Ballard. I'd like a dozen white roses sent up to room 715.
-        - id: 4
-          called: White roses, room 715. What should the card say?
-        - id: 5
-          caller: Just say, congratulations, from a well-wisher.
-        - id: 6
-          called: Very good, ma'am. They'll be there this afternoon.
-        - id: 7
-          caller: Thank you, dear.
+    # Outgoing. The guest does not know the number, so the operator must look it up.
+    albright-florist:
+        calling:
+            line: room512
+            person: albright
+        called:
+            line: florist
+            person: florist
+        request:
+            id: 1
+            text: Operator, I'd like the Harbor Florist, please. I'm afraid I don't have the number.
+        conversation:
+            -   id: 2
+                called: Harbor Florist.
+            -   id: 3
+                caller: This is Mrs. Albright at the Hotel Ballard. I'd like a dozen white roses sent up to room 715.
+            -   id: 4
+                called: White roses, room 715. What should the card say?
+            -   id: 5
+                caller: Just say, congratulations, from a well-wisher.
+            -   id: 6
+                called: Very good, ma'am. They'll be there this afternoon.
+            -   id: 7
+                caller: Thank you, dear.
 
-   # Outgoing, busy. The operator must go back and tell the caller.
-   hale-busy:
-     calling:
-        line: room715
-        person: hale
-     called:
-        line: pizza
-        person: pizza_man
-        busy: true
-     request:
-        id: 1
-        text: Hello, operator? Could you get me Sunny Hill Pizza, please?
-     conversation:
-        - id: 2
-          caller: Busy? Oh, bother. All right, I'll call back later.
+    # Outgoing, busy. The operator must go back and tell the caller.
+    hale-busy:
+        calling:
+            line: room715
+            person: hale
+        called:
+            line: pizza
+            person: pizza_man
+            busy: true
+        request:
+            id: 1
+            text: Hello, operator? Could you get me Sunny Hill Pizza, please?
+        conversation:
+            -   id: 2
+                caller: Busy? Oh, bother. All right, I'll call back later.
 
-   # Incoming on a trunk.
-   times-pike:
-     calling:
-        line: times
-        person: reporter
-     called:
-        line: room214
-        person: pike
-     request:
-        id: 1
-        text: Room 214, please. Mr. Harold Pike.
-     conversation:
-        - id: 2
-          called: Pike.
-        - id: 3
-          caller: Mr. Pike, Joe Barrett, Seattle Times. Is it true you sold a vacuum cleaner to the mayor?
-        - id: 4
-          called: Who told you that?
-        - id: 5
-          caller: So it's true.
-        - id: 6
-          called: No comment. And don't call here again.
+    # Incoming on a trunk.
+    times-pike:
+        calling:
+            line: times
+            person: reporter
+        called:
+            line: room214
+            person: pike
+        request:
+            id: 1
+            text: Room 214, please. Mr. Harold Pike.
+        conversation:
+            -   id: 2
+                called: Pike.
+            -   id: 3
+                caller: Mr. Pike, Joe Barrett, Seattle Times. Is it true you sold a vacuum cleaner to the mayor?
+            -   id: 4
+                called: Who told you that?
+            -   id: 5
+                caller: So it's true.
+            -   id: 6
+                called: No comment. And don't call here again.
 
-   # Call to the operator. Asks for a wake-up call.
-   crane-wakeup:
-     calling:
-        line: room308
-        person: crane
-     request:
-        id: 1
-        text: Operator? Could you ring me at six-thirty tomorrow morning? I have an early bus.
-     conversation:
-        - id: 2
-          caller: Thank you. Room 308. Good night.
+    # Call to the operator. Asks for a wake-up call.
+    crane-wakeup:
+        calling:
+            line: room308
+            person: crane
+        request:
+            id: 1
+            text: Operator? Could you ring me at six-thirty tomorrow morning? I have an early bus.
+        conversation:
+            -   id: 2
+                caller: Thank you. Room 308. Good night.
 
-   # Outgoing.
-   lindqvist-canlis:
-     calling:
-        line: room601
-        person: lindqvist
-     called:
-        line: canlis
-        person: maitre_d
-     request:
-        id: 1
-        text: Operator, ring Canlis for me, would you?
-     conversation:
-        - id: 2
-          called: Good evening, Canlis.
-        - id: 3
-          caller: This is Nils Lindqvist. I want a table for four tonight. Eight o'clock.
-        - id: 4
-          called: Let me see. I can offer you eight-thirty, Mr. Lindqvist, by the window.
-        - id: 5
-          caller: Eight-thirty is fine. My wife wants to see the lake.
-        - id: 6
-          called: Very good, sir. We look forward to it.
-        - id: 7
-          caller: Good. Thank you.
+    # Outgoing.
+    lindqvist-canlis:
+        calling:
+            line: room601
+            person: lindqvist
+        called:
+            line: canlis
+            person: maitre_d
+        request:
+            id: 1
+            text: Operator, ring Canlis for me, would you?
+        conversation:
+            -   id: 2
+                called: Good evening, Canlis.
+            -   id: 3
+                caller: This is Nils Lindqvist. I want a table for four tonight. Eight o'clock.
+            -   id: 4
+                called: Let me see. I can offer you eight-thirty, Mr. Lindqvist, by the window.
+            -   id: 5
+                caller: Eight-thirty is fine. My wife wants to see the lake.
+            -   id: 6
+                called: Very good, sir. We look forward to it.
+            -   id: 7
+                caller: Good. Thank you.
 
-   # Outgoing. The same caller as hale-busy, calling back three minutes later.
-   hale-pizza:
-     after: hale-busy
-     delay: 180
-     calling:
-        line: room715
-        person: hale
-     called:
-        line: pizza
-        person: pizza_man
-     request:
-        id: 1
-        text: It's room 715 again. Let's try Sunny Hill Pizza one more time.
-     conversation:
-        - id: 2
-          called: Sunny Hill Pizza.
-        - id: 3
-          caller: Hello! We'd like a large pizza, cheese and mushroom, delivered to the Hotel Ballard. Room 715.
-        - id: 4
-          called: Hotel Ballard, 715. That's gonna be forty-five minutes, lady.
-        - id: 5
-          caller: Forty-five minutes! We're on our honeymoon. We'll starve.
-        - id: 6
-          called: Thirty-five. Best I can do.
-        - id: 7
-          caller: All right. Thank you!
+    # Outgoing. The same caller as hale-busy, calling back three minutes later.
+    hale-pizza:
+        after: hale-busy
+        delay: 180
+        calling:
+            line: room715
+            person: hale
+        called:
+            line: pizza
+            person: pizza_man
+        request:
+            id: 1
+            text: It's room 715 again. Let's try Sunny Hill Pizza one more time.
+        conversation:
+            -   id: 2
+                called: Sunny Hill Pizza.
+            -   id: 3
+                caller: Hello! We'd like a large pizza, cheese and mushroom, delivered to the Hotel Ballard. Room 715.
+            -   id: 4
+                called: Hotel Ballard, 715. That's gonna be forty-five minutes, lady.
+            -   id: 5
+                caller: Forty-five minutes! We're on our honeymoon. We'll starve.
+            -   id: 6
+                called: Thirty-five. Best I can do.
+            -   id: 7
+                caller: All right. Thank you!
 
-   # Station to station, from the staff side.
-   desk-hollis:
-     calling:
-        line: frontdesk
-        person: desk_clerk
-     called:
-        line: room100
-        person: hollis
-     request:
-        id: 1
-        text: Operator, room 100, please.
-     conversation:
-        - id: 2
-          called: Hollis.
-        - id: 3
-          caller: Dr. Hollis, this is the front desk. A package just came for you from the hospital.
-        - id: 4
-          called: Keep it behind the desk. I'll be down in five minutes.
-        - id: 5
-          caller: Yes, sir.
-        - id: 6
-          called: And don't let anyone sign for it but me.
+    # Station to station, from the staff side.
+    desk-hollis:
+        calling:
+            line: frontdesk
+            person: desk_clerk
+        called:
+            line: room100
+            person: hollis
+        request:
+            id: 1
+            text: Operator, room 100, please.
+        conversation:
+            -   id: 2
+                called: Hollis.
+            -   id: 3
+                caller: Dr. Hollis, this is the front desk. A package just came for you from the hospital.
+            -   id: 4
+                called: Keep it behind the desk. I'll be down in five minutes.
+            -   id: 5
+                caller: Yes, sir.
+            -   id: 6
+                called: And don't let anyone sign for it but me.
 
-   # Outgoing long distance, through the public operator.
-   albright-portland:
-     calling:
-        line: room512
-        person: albright
-     called:
-        line: operator
-        person: operator
-     request:
-        id: 1
-        text: Operator, I'd like to place a long distance call, please.
-     conversation:
-        - id: 2
-          called: Long distance.
-        - id: 3
-          caller: I'd like to call Portland, Oregon. Person to person, to Mrs. Ruth Seaver. The number is 284-1187.
-        - id: 4
-          called: And your name, please?
-        - id: 5
-          caller: Mrs. Edith Albright. I'm at the Hotel Ballard in Seattle.
-        - id: 6
-          called: One moment, please. I'm sorry, Mrs. Seaver does not answer. Shall I try again later?
-        - id: 7
-          caller: Yes, please. In about an hour.
+    # Outgoing long distance, through the public operator.
+    albright-portland:
+        calling:
+            line: room512
+            person: albright
+        called:
+            line: operator
+            person: operator
+        request:
+            id: 1
+            text: Operator, I'd like to place a long distance call, please.
+        conversation:
+            -   id: 2
+                called: Long distance.
+            -   id: 3
+                caller: I'd like to call Portland, Oregon. Person to person, to Mrs. Ruth Seaver. The number is 284-1187.
+            -   id: 4
+                called: And your name, please?
+            -   id: 5
+                caller: Mrs. Edith Albright. I'm at the Hotel Ballard in Seattle.
+            -   id: 6
+                called: One moment, please. I'm sorry, Mrs. Seaver does not answer. Shall I try again later?
+            -   id: 7
+                caller: Yes, please. In about an hour.
 
-   # From the lobby house phone, outgoing.
-   pike-taxi:
-     calling:
-        line: lobby
-        person: pike
-     called:
-        line: taxi
-        person: dispatcher
-     request:
-        id: 1
-        text: Operator, get me a taxi, would you?
-     conversation:
-        - id: 2
-          called: Shilshole Cab.
-        - id: 3
-          caller: I need a cab at the front door of the Hotel Ballard. Going to King Street Station.
-        - id: 4
-          called: Name?
-        - id: 5
-          caller: Pike.
-        - id: 6
-          called: Ten minutes, Mr. Pike.
-        - id: 7
-          caller: Tell him to step on it. I've got a train to catch.
+    # From the lobby house phone, outgoing.
+    pike-taxi:
+        calling:
+            line: lobby
+            person: pike
+        called:
+            line: taxi
+            person: dispatcher
+        request:
+            id: 1
+            text: Operator, get me a taxi, would you?
+        conversation:
+            -   id: 2
+                called: Shilshole Cab.
+            -   id: 3
+                caller: I need a cab at the front door of the Hotel Ballard. Going to King Street Station.
+            -   id: 4
+                called: Name?
+            -   id: 5
+                caller: Pike.
+            -   id: 6
+                called: Ten minutes, Mr. Pike.
+            -   id: 7
+                caller: Tell him to step on it. I've got a train to catch.

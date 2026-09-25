@@ -121,9 +121,10 @@ function labelOf(circuit) {
   return circuit;
 }
 
-/** One state per tile, most urgent first (§7.1's table). */
-function tileState(kind, circuit) {
-  if (!circuit) return 'none';
+/** One state per tile, most urgent first (§7.1's table). A labelled jack with
+ *  nothing cabled to it is drawn as a working jack at rest (Rev 11). */
+function tileState(kind, circuit, label) {
+  if (!circuit) return label ? 'idle' : 'none';
   const peer = get(`${circuit}/peer`);
   if (peer === 'ambiguous' || peer === 'deaf' || get(`${circuit}/play`) === 'missing'
       || on(`${circuit}/fault`)) return 'fault';
@@ -167,14 +168,17 @@ function renderBoard() {
     for (let n = 1; n <= count; n++) {
       const tile = document.getElementById(`j-${kind}-${n}`);
       const circuit = jackCircuit(kind, n);
-      const state = tileState(kind, circuit);
+      const label = kind === 'trunk' ? '' : (jackLabel(kind, n) || '');
+      const state = tileState(kind, circuit, label);
       const peer = circuit ? get(`${circuit}/peer`) : '';
       const far = peer && peer !== 'ambiguous' && peer !== 'deaf' ? labelOf(peer) : '';
-      // A jack with no circuit keeps its outline so the board keeps its shape.
-      const label = kind === 'trunk' ? '' : (jackLabel(kind, n) || '');
+      // A jack with a label looks like a working jack whether or not a
+      // circuit is cabled to it: the operator sees the board, not the wiring.
+      // One with neither keeps its outline so the board keeps its shape.
+      const shown = !!(circuit || label);
       // `lit` is every state that is not the board at rest. The stylesheet
       // uses it for the glow, so idle and empty jacks stay quiet.
-      const cls = `tile s-${state}` + (circuit ? '' : ' empty') +
+      const cls = `tile s-${state}` + (shown ? '' : ' empty') +
                   (circuit && state !== 'idle' ? ' lit' : '') +
                   ((espStale() || audioStale()) ? ' stale' : '');
       const html = `<span class="jn">${n}</span>` +
@@ -185,16 +189,48 @@ function renderBoard() {
                    // the label up and down under a connecting tile. The
                    // stylesheet holds its height open whether it has text or
                    // not, so the label sits where it will stay.
-                   (circuit ? `<span class="far">${esc(far)}</span>` : '') +
-                   // No circuit, no lamp: the board has no cap there either.
-                   (circuit ? '<span class="cap"></span>' : '');
+                   (shown ? `<span class="far">${esc(far)}</span>` : '') +
+                   // An unlabelled, uncabled jack has no lamp drawn: it is
+                   // not part of the board the operator is shown.
+                   (shown ? '<span class="cap"></span>' : '');
       // Rewriting an unchanged tile restarts the ringing animation and throws
       // away any selection, twice a second.
       if (tile.className !== cls) tile.className = cls;
-      if (tile.dataset.html !== html) { tile.innerHTML = html; tile.dataset.html = html; }
+      if (tile.dataset.html !== html) {
+        tile.innerHTML = html;
+        tile.dataset.html = html;
+        fitLabel(tile);
+      }
     }
   }
 }
+
+/** Shrink a label until it fits its tile: no word wider than the tile, and
+ *  nothing pushed out of the top or bottom. The stylesheet's size is the most
+ *  it gets. */
+const LABEL_MAX_PX = 17, LABEL_MIN_PX = 10;
+function fitLabel(tile) {
+  const jl = tile.querySelector('.jl');
+  if (!jl) return;
+  // The lamp is out of flow, so nothing stops the label and the far-end line
+  // under it running into it: they must end above the lamp, not just inside
+  // the tile.
+  const far = tile.querySelector('.far') || jl;
+  const cap = tile.querySelector('.cap');
+  for (let px = LABEL_MAX_PX; px >= LABEL_MIN_PX; px--) {
+    jl.style.fontSize = `${px}px`;
+    const box = tile.getBoundingClientRect();
+    const floor = cap ? cap.getBoundingClientRect().top : box.bottom;
+    if (jl.scrollWidth <= jl.clientWidth
+        && jl.getBoundingClientRect().top >= box.top
+        && far.getBoundingClientRect().bottom <= floor) return;
+  }
+}
+
+// A rotation or a resize changes the tile width, so every label is refitted.
+window.addEventListener('resize', () => {
+  for (const t of document.querySelectorAll('#board .tile')) fitLabel(t);
+});
 
 function closePanel() {
   document.getElementById('panel').hidden = true;
@@ -417,9 +453,29 @@ function secs(v) {
 // The page is installable and opens from the Home Screen without Safari's
 // bars (game_control.md 7.3). The worker also opens it from cache, which
 // matters when the iPad has been asleep and the board is wanted at once.
+//
+// Picking up a new build. From the Home Screen there is no reload button, and
+// an app brought back from the background loads nothing, so without help an
+// iPad runs the build it first opened with until the app is force-quit.
+// Instead: look for a new worker each time the page comes back into view, and
+// when one takes over (the worker skips waiting and claims the page), reload
+// so this page runs the new build too. The broker holds all the state, so a
+// reload loses nothing but the open tile panel.
 if ('serviceWorker' in navigator) {
+  const hadWorker = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    // The first install also claims the page; that is not a new build.
+    if (!hadWorker || reloading) return;
+    reloading = true;
+    location.reload();
+  });
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch((e) => {
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update().catch(() => {});
+      });
+    }).catch((e) => {
       // Not fatal: without it the page is an ordinary page.
       console.warn('service worker not registered:', e);
     });

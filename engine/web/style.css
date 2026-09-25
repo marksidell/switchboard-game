@@ -76,11 +76,19 @@ button.seg.sel { background: var(--operator); }
 
 /* ---- layout ------------------------------------------------------------- */
 
-main { flex: 1; display: grid; grid-template-columns: 1fr 380px;
-       grid-template-rows: auto 1fr; gap: 12px; padding: 12px; min-height: 0; }
-#board-area { grid-column: 1; grid-row: 1; }
-#calls-area { grid-column: 1; grid-row: 2; min-height: 0; overflow: auto; }
-#health-area { grid-column: 2; grid-row: 1 / span 2; min-height: 0;
+/* The board takes the whole width: at 1180pt (iPad Air, landscape) that is a
+   ~110pt tile, where sharing the row with a 380px health column left ~71pt
+   and clipped every one-word label longer than "Lobby". Calls with the log
+   under it, and health in a narrow column beside them. */
+main { flex: 1; display: grid; grid-template-columns: 1fr 210px;
+       grid-template-rows: auto auto 1fr; gap: 12px; padding: 12px; min-height: 0; }
+#board-area { grid-column: 1 / -1; grid-row: 1; }
+/* Capped, so eight calls in progress still leave the log some room. */
+#calls-area { grid-column: 1; grid-row: 2; min-height: 0; max-height: 34vh;
+              overflow: auto; }
+#log-area { grid-column: 1; grid-row: 3; min-height: 120px;
+            display: flex; flex-direction: column; }
+#health-area { grid-column: 2; grid-row: 2 / span 2; min-height: 0;
                display: flex; flex-direction: column; }
 h2 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
      letter-spacing: 0.08em; color: var(--dim); font-weight: 600; }
@@ -95,20 +103,25 @@ h2 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
   /* padding-bottom, not a margin on the cap: the cap is positioned out of
      flow, so this is what keeps the label centred in the space above it
      rather than centred behind it. */
-  position: relative; height: 62px; border-radius: 8px; padding-bottom: 18px;
+  position: relative; height: 72px; border-radius: 8px; padding-bottom: 18px;
   border: 1px solid var(--line); background: var(--idle);
   display: flex; flex-direction: column; align-items: center;
   justify-content: center; overflow: hidden;
 }
-/* Bottom left, beside the lamp, not above the label. At iPad width a tile is
-   55px and the label fills it; with the far-end line now always held open the
+/* Bottom left, beside the lamp, not above the label. The label fills the
+   tile; with the far-end line now always held open the
    label sits high enough that a number in the top corner runs into it. Down
    here it is in the strip the lamp already occupies, which is otherwise
    empty. */
 .tile .jn { position: absolute; bottom: 3px; left: 5px; font-size: 11px;
             color: var(--dim); }
+/* 17px is the most a label gets. A word too long for the tile at that size is
+   shrunk to fit by fitLabel() in app.js rather than clipped; words are never
+   broken, so "Room Service" wraps between the words and not inside one. The
+   tile's 72px holds two lines at 17px over the far-end line and the lamp. */
 .tile .jl { font-size: 17px; font-weight: 700; line-height: 1.1; text-align: center;
-            padding: 0 4px; }
+            padding: 0 4px; max-width: 100%; box-sizing: border-box;
+            overflow-wrap: normal; hyphens: none; }
 /* min-height, because an empty one still has to hold the space open: see the
    comment where it is written in app.js. Without it the label under a tile
    jumps up the moment the call connects and back down when it clears. */

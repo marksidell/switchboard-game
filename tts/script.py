@@ -39,8 +39,8 @@ MIN_STATION, MAX_STATION = 1, 22
 
 # The switchboard's own jacks, which are not the game's circuits: 30 station
 # jacks and 10 trunk jacks (game_control.md 6.3). Which circuit is cabled to
-# which jack is Mark's choice and changes when he recables, so it lives in
-# script.yml rather than here.
+# which jack, and what every jack is labelled, is Mark's choice and changes
+# when he recables, so it lives in script.yml's jacks: rather than here.
 MIN_JACK, MAX_JACK = 1, 30
 
 
@@ -80,6 +80,8 @@ class Script:
     outside: dict[str, dict]
     stations: dict[str, dict]
     scenes: dict[str, dict]
+    # script.yml's jacks:, each {"jack": int, "label": str, "station": str | None}
+    jacks: list[dict] = field(default_factory=list)
     utterances: list[Utterance] = field(default_factory=list)
 
     def by_speaker(self) -> dict[str, list[Utterance]]:
@@ -159,6 +161,7 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
     outside: dict = data.get("outside") or {}
     stations: dict = data.get("stations") or {}
     scenes: dict = data.get("scenes") or {}
+    jacks = data.get("jacks") or []
     for key, value in (("cast", cast), ("outside", outside),
                        ("stations", stations), ("scenes", scenes)):
         if not isinstance(value, dict) or not value:
@@ -172,7 +175,6 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
 
     # --- station and outside numbering --------------------------------------
     seen_station: dict[int, str] = {}
-    seen_jack: dict[int, str] = {}
     for name, entry in stations.items():
         entry = entry or {}
         number = entry.get("number")
@@ -186,29 +188,55 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
             else:
                 seen_station[number] = name
 
-        # game_control.md 6.3: which switchboard jack this circuit is cabled
-        # to, and what the board says at that jack. The game program refuses
-        # to start without them — the page builds the board from these alone,
-        # and a missing one is a tile that cannot be drawn.
-        jack = entry.get("switchboard")
-        if jack is None:
-            bad(f"stations.{name}", "no switchboard: (game_control.md 6.3)")
-        elif not isinstance(jack, int) or isinstance(jack, bool):
-            bad(f"stations.{name}.switchboard", f"not an integer: {jack!r}")
+    # --- jacks (game_control.md 6.3) -----------------------------------------
+    # Every station jack the board draws, with its label, and the station
+    # cabled to it if any. The game program refuses to start without a jack
+    # for every station — the page builds the board from these alone, and a
+    # station with no jack is a circuit with no tile.
+    seen_jack: set[int] = set()
+    jack_of: dict[str, int | None] = {}
+    board: list[dict] = []
+    if not isinstance(jacks, list) or not jacks:
+        bad("jacks", "missing, empty or not a list")
+        jacks = []
+    for i, entry in enumerate(jacks):
+        at = f"jacks[{i}]"
+        if not isinstance(entry, dict):
+            bad(at, "not a mapping")
+            continue
+        extra = sorted(set(entry) - {"jack", "label", "station"})
+        if extra:
+            bad(at, f"unknown key(s): {', '.join(map(str, extra))}")
+        jack = entry.get("jack")
+        if not isinstance(jack, int) or isinstance(jack, bool):
+            bad(f"{at}.jack", f"not an integer: {jack!r}")
+        elif not MIN_JACK <= jack <= MAX_JACK:
+            bad(f"{at}.jack", f"{jack} outside {MIN_JACK}-{MAX_JACK}")
+        elif jack in seen_jack:
+            bad(f"{at}.jack", f"jack {jack} listed twice")
         else:
-            if not MIN_JACK <= jack <= MAX_JACK:
-                bad(f"stations.{name}.switchboard", f"{jack} outside {MIN_JACK}-{MAX_JACK}")
-            if jack in seen_jack:
-                bad(f"stations.{name}.switchboard",
-                    f"jack {jack} already used by {seen_jack[jack]}")
-            else:
-                seen_jack[jack] = name
-
+            seen_jack.add(jack)
         label = entry.get("label")
-        if label is None:
-            bad(f"stations.{name}", "no label: (game_control.md 6.3)")
-        elif not isinstance(label, str) or not label.strip():
-            bad(f"stations.{name}.label", f"empty or not text: {label!r}")
+        if not isinstance(label, str) or not label.strip():
+            bad(f"{at}.label", f"missing, empty or not text: {label!r}")
+        station = entry.get("station")
+        if station is not None:
+            if station not in stations:
+                bad(f"{at}.station", f"{station!r} is not a station")
+            elif station in jack_of:
+                bad(f"{at}.station", f"{station} is already on jack {jack_of[station]}")
+            else:
+                jack_of[station] = jack
+        board.append({"jack": jack, "label": label.strip() if isinstance(label, str) else "",
+                      "station": station})
+    for name in stations:
+        if name not in jack_of:
+            bad(f"stations.{name}", "on no jack: name it as station: under jacks: (game_control.md 6.3)")
+        extra = sorted(set(stations[name] or {}) - {"number"})
+        if extra:
+            bad(f"stations.{name}", f"unknown key(s): {', '.join(map(str, extra))}"
+                + (" — the jack and its label are under jacks: now"
+                   if {"switchboard", "label"} & set(extra) else ""))
 
     seen_outside: dict[str, str] = {}
     for name, entry in outside.items():
@@ -293,7 +321,7 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
 
     return Script(path=path, setting=data.get("setting") or {}, cast=cast,
                   outside=outside, stations=stations, scenes=scenes,
-                  utterances=utterances)
+                  jacks=board, utterances=utterances)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -318,7 +346,8 @@ def main(argv: list[str] | None = None) -> int:
     speakers = script.by_speaker()
     silent = sorted(p for p, us in speakers.items() if not us)
     print(f"{script.path}: {len(script.scenes)} scenes, {len(script.utterances)} utterances, "
-          f"{len(script.cast)} cast")
+          f"{len(script.cast)} cast, {len(script.jacks)} jacks "
+          f"({sum(1 for j in script.jacks if j['station'])} cabled)")
     if silent:
         print(f"cast with no lines: {', '.join(silent)}")
     return 0

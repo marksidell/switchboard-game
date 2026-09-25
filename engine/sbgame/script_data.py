@@ -74,7 +74,7 @@ class Jack:
     """One switchboard jack, for the board/ topics (§6.3)."""
     number: int          # 1-30 for stations, 1-10 for trunks
     kind: str            # "station" or "trunk"
-    label: str           # "" for a trunk jack, and for a jack with no circuit
+    label: str           # "" for a trunk jack, and for a station jack jacks: does not list
     circuit: str         # "station/11", "trunk/3", or "" if nothing is cabled
 
 
@@ -161,16 +161,18 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
 def _jacks(s: Script) -> tuple[Jack, ...]:
     """The board map (§6.3): 30 station jacks and 10 trunk jacks.
 
-    A station jack that no entry names is drawn as an empty outline, so the
-    board keeps its shape, and a stray ring on a circuit nobody cabled is
-    still visible. Trunk circuit n is on trunk jack n for n = 1-8, fixed;
-    jacks 9 and 10 carry nothing and no trunk jack has a label.
+    Station jacks come from script.yml's jacks:. A listed jack has a label
+    whether or not a station is cabled to it, and the page draws a labelled
+    jack with no circuit as a working one at rest. A jack jacks: does not
+    list is drawn as an empty outline, so the board keeps its shape. Trunk
+    circuit n is on trunk jack n for n = 1-8, fixed; jacks 9 and 10 carry
+    nothing and no trunk jack has a label.
     """
     by_jack: dict[int, tuple[str, str]] = {}
-    for name, entry in s.stations.items():
-        jack = entry.get("switchboard")
-        if isinstance(jack, int):
-            by_jack[jack] = (str(entry.get("label", "")), f"station/{entry['number']}")
+    for entry in s.jacks:
+        station = entry["station"]
+        circuit = f"station/{s.stations[station]['number']}" if station else ""
+        by_jack[entry["jack"]] = (entry["label"], circuit)
 
     out = []
     for n in range(1, 31):

@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 10 — Start and Stop, Manual and Automatic Call Pacing with a Ramp, Scenes Dealt from a Shuffled Deck, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets*
+*Rev 11 — Start and Stop, Manual and Automatic Call Pacing with a Ramp, Scenes Dealt from a Shuffled Deck, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets*
 
 # 1. Overview
 
@@ -98,6 +98,20 @@ The game program and the page are written by Claude Code to this document, like 
 — The page's socket takes the path `/mqtt`. It is what nginx routes on, and it is the whole of the page's change: `location.host` and the `wss://` rule of §2 stand. The page had not been written, so the path cost nothing.
 
 — §9 step 10 is withdrawn and replaced. It chose between a SIGHUP reload and a 04:00 restart, a question that only existed while Mosquitto held the certificate. An nginx reload disconnects nobody and does not touch Mosquitto's clients at all. What remains worth checking is the renewal itself, which `certbot renew --dry-run` does against staging without spending one of the five duplicate certificates a week Let's Encrypt allows.
+
+## 1.11 Changes in Rev 11
+
+— Every station jack can carry a label, cabled or not (§6.3). Mark's decision, 2026-09-25. The switchboard has 30 station jacks and the game 22 station circuits, and the board's designation strips are labelled at every jack. Rev 7 let a label live only on a station entry, so a jack no entry named was drawn as an empty outline, and §10 asked where the other labels should go. They go in a new top-level list in script.yml, `jacks:`, one item per jack: `jack:` (1–30), `label:`, and `station:`, the script.yml station cabled to it, left out for a jack with nothing cabled.
+
+— `switchboard:` and `label:` leave the station entries, which carry `number:` alone. A station entry is now the game's circuit and nothing about the board; the board is `jacks:`. Rev 7's reason for putting them together — one place to look — is kept by the list being in the same file, next to `stations:`.
+
+— A labelled jack with no circuit is drawn as a working jack at rest (§7.1): its label, its jack number and an unlit lamp, like any idle jack. The operator sees the board as built, not which jacks are wired. A jack `jacks:` does not list keeps Rev 7's empty outline. Tapping a labelled, uncabled jack shows its circuit as none.
+
+— The load checks follow (§6.3). Code consequence for Claude Code: the shared loader checks `jacks:` and rejects `switchboard:` and `label:` on a station entry, the game program builds the `board/` map from `jacks:`, and the page draws labelled uncabled jacks as working. `mqtt.md` Rev 18 corrects the `board/` rows to match. No topic changes. Trunk jacks are unchanged: trunk n on trunk jack n, no labels.
+
+— The page is rearranged (§7.1), Mark's request, 2026-09-25, from the first look at it on the iPad. The health column took 380px beside the board, leaving each tile about 71 points wide, and one-word labels such as "Housekeeping" were clipped and two-word ones wrapped out of the tile. The board now takes the whole width; the calls table has the log under it, and health sits in a narrow column beside those two. A label that still does not fit is set smaller rather than clipped.
+
+— The §10 item "Labels on jacks the game does not use" is closed. The item named a station entry with no `number:` as one way to do it; a separate list was chosen instead, so that a station entry always means a circuit.
 
 # 2. Serving the Page
 
@@ -264,31 +278,39 @@ Logged: game start and stop; each call's start, connection, success or failure w
 
 ## 6.3 The Board: Jacks and Labels
 
-The switchboard has 30 station jacks, numbered 1–30, and 10 trunk jacks, numbered 1–10. The game has 22 station circuits and 8 trunk circuits. Which station circuit is cabled to which station jack is Mark's choice, and it can change when he recables. It is recorded in script.yml, in each entry under `stations:` (Rev 7):
+The switchboard has 30 station jacks, numbered 1–30, and 10 trunk jacks, numbered 1–10. The game has 22 station circuits and 8 trunk circuits. Which station circuit is cabled to which station jack is Mark's choice, and it can change when he recables. It is recorded in script.yml's top-level `jacks:` list, one item per station jack, together with the label on the board at that jack whether or not anything is cabled to it (Rev 11):
 
 ```yaml
 stations:
-   room463:
-      number: 11          # the game's station circuit, 1-22
-      switchboard: 23     # the switchboard jack it is cabled to, 1-30
-      label: "463"        # the text on the board at that jack
+    room463:
+        number: 11          # the game's station circuit, 1-22
+
+jacks:
+    -   jack: 23            # the switchboard jack, 1-30
+        label: "463"        # the text on the board at that jack
+        station: room463    # the station cabled to it
+    -   jack: 24
+        label: "465"        # labelled on the board, nothing cabled: no station:
 ```
 
-(Illustrative. The real assignments are Mark's.) Trunk circuit n is cabled to trunk jack n for n = 1–8, fixed, and trunk jacks 9 and 10 carry nothing. No trunk jack has a label. A station jack that no entry names has no circuit and no label.
+(Illustrative. The real assignments are Mark's.) A station entry carries `number:` and nothing about the board. Trunk circuit n is cabled to trunk jack n for n = 1–8, fixed, and trunk jacks 9 and 10 carry nothing. No trunk jack has a label. A station jack that `jacks:` does not list has no circuit and no label.
 
-The script.yml loader rejects the file, and the game program refuses to start, if any station entry:
+The script.yml loader rejects the file, and the game program refuses to start, if:
 
-- lacks `switchboard:` or `label:`, or has an empty label;
-- has a `switchboard:` outside 1–30, or the same jack as another entry;
-- has a `number:` outside 1–22, or the same number as another entry (the loader's existing check).
+- `jacks:` is missing or empty, or an item has a key other than `jack:`, `label:` and `station:`;
+- an item's `jack:` is not an integer from 1 to 30, or is the same as another item's;
+- an item lacks `label:`, or its label is empty;
+- an item's `station:` is not a station entry, or names a station another item already names;
+- a station entry is named by no item in `jacks:`, or carries any key but `number:` — a file still in Rev 7's form, with `switchboard:` and `label:` on its stations, fails with a message saying where they went, rather than drawing a board with no labels;
+- a station's `number:` is outside 1–22, or the same number as another entry (the loader's existing check).
 
 The loader is the one `tts_task.md` §3.1 specifies, which the game program imports. These checks go into it, so the TTS run and the game both see them.
 
 A station circuit that no entry names is not on any jack as far as the game knows. It has no tile, and a ring or hook on it goes in the log as a stray. A station entry that no scene uses is still drawn, so a stray ring on it is seen.
 
-The game program publishes the map retained under `board/` (`mqtt.md` §6.1): each jack's label, and the circuit it carries or empty. The page builds the board from those topics alone. A change to script.yml takes effect when the game program restarts.
+The game program publishes the map retained under `board/` (`mqtt.md` §6.1): each jack's label, and the circuit it carries or empty. A labelled jack with nothing cabled has a label and an empty circuit. The page builds the board from those topics alone. A change to script.yml takes effect when the game program restarts.
 
-Recabling a station circuit to a different jack changes that entry's `switchboard:` and, if the jack's label differs, its `label:`. Nothing else changes.
+Recabling a station circuit to a different jack moves its `station:` from one item in `jacks:` to another. The labels stay with the jacks, and nothing else changes.
 
 ## 6.4 The Audience Loudspeaker
 
@@ -312,7 +334,7 @@ The log records each move as `monitor: <calling line>` against the call's number
 
 ## 7.1 Layout
 
-For an iPad in landscape, 1024 CSS pixels wide or more. Touch targets 44px or larger. Four areas:
+For an iPad in landscape, 1024 CSS pixels wide or more. Touch targets 44px or larger. Four areas: the top bar across the page; the board under it, across the whole width; then calls, with the log under them, beside a narrow health column (Rev 11):
 
 **Top bar**, always visible:
 
@@ -327,7 +349,7 @@ For an iPad in landscape, 1024 CSS pixels wide or more. Touch targets 44px or la
 
 A tile shows little:
 
-- the jack's **label**, large, and its jack number, small;
+- the jack's **label**, large, and its jack number, small. A label too long for the tile is set smaller until it fits, never clipped, and words are not broken (Rev 11);
 - **one state**, as a colour, the most urgent first:
 
 | **State** | **Station jack** | **Trunk jack** |
@@ -344,7 +366,7 @@ A tile shows little:
 
 Tapping a tile opens a panel with everything about that jack: its circuit, `hook` or `seize`, `ring`, `peer`, `op`, `play`, `tone`, `listen`, `fault`, the digits of a call on a trunk, and the call slot using it. Tapping elsewhere closes it. Mark expects the tile to need more or less than this once it is on the iPad.
 
-A jack with no circuit — a station jack that no script.yml entry names, and trunk jacks 9 and 10 — is drawn as an empty outline with its jack number, so the board keeps its shape (Rev 7). Trunk tiles show the jack number alone, since trunk jacks have no labels.
+A station jack with a label and no circuit — listed in `jacks:` with no `station:` — is drawn as a working jack at rest: label, jack number and an unlit lamp, the same as an idle cabled jack (Rev 11). The operator is shown the board as it is built, not which of its jacks the game has wired. A jack with neither a label nor a circuit — a station jack `jacks:` does not list, and trunk jacks 9 and 10 — is drawn as an empty outline with its jack number, so the board keeps its shape (Rev 7). Trunk tiles show the jack number alone, since trunk jacks have no labels.
 
 **Calls.** One row per occupied slot: call number, scene, from → to, trunk, stage, time in stage, time to deadline. From and to are script.yml's line names. The trunk is shown by its jack number.
 
@@ -388,7 +410,7 @@ Before step 1: the certificate is issued (`mqtt.md` §9.1), nginx is configured 
 5. Lock the iPad for a minute and unlock it. The page reconnects and shows the full state without a reload.
 6. Stop a game with a station off-hook, a trunk ringing and a file playing. Everything releases, and the tallies stay.
 7. Kill the game program. The page shows it offline within 2.5s and keeps showing the hardware.
-8. **Wiring check** (Rev 5). With no game running, put an answering cord into each cabled station jack in turn and ring it. The tile for that jack flashes. If another tile flashes, the cable and script.yml's `switchboard:` for that station disagree (Rev 7; `wiring.yml` at Rev 5–6). For trunks, seize each trunk jack in turn: the tile for that jack shows busy. This checks the cabling against the script using only topics that already exist.
+8. **Wiring check** (Rev 5). With no game running, put an answering cord into each cabled station jack in turn and ring it. The tile for that jack flashes. If another tile flashes, or none does, the cable and script.yml's `jacks:` disagree about that station (Rev 11; each station's `switchboard:` at Rev 7–10, `wiring.yml` at Rev 5–6). A labelled jack with nothing cabled looks like any other at rest, so a tile that never flashes is not by itself proof of a fault — tap it: its circuit reads none. For trunks, seize each trunk jack in turn: the tile for that jack shows busy. This checks the cabling against the script using only topics that already exist.
 9. **The loudspeaker follows the call** (Rev 6). Start a game. The page shows the monitor's source as `tap`. Start a call from a station and answer it: the source changes to that station's label and the audience hears the request. Put the call through and release the operator: the conversation stays on the loudspeaker. Do the same for a call from a trunk, and confirm the source does not change while the trunk is ringing. Stop the game: the source returns to `tap`.
 10. **Certificate reload** (Rev 10). Nothing to check. Mosquitto holds no certificate: nginx terminates TLS and rereads the certificate on `systemctl reload`, which starts new workers and lets the old ones finish, so no client is disconnected and no client of Mosquitto is touched at all. Rev 8 and Rev 9 had this step decide between SIGHUP and a 04:00 restart, because whether Mosquitto's libwebsockets listener reloads a certificate on SIGHUP was unconfirmed. Both are withdrawn (`mqtt.md` §9.1). Confirm the renewal path itself instead, without spending an issuance: `sudo certbot renew --dry-run` runs the DNS-01 challenge against staging and the deploy hook, and must report success.
 
@@ -402,7 +424,6 @@ Before step 1: the certificate is issued (`mqtt.md` §9.1), nginx is configured 
 - **Cords drawn as lines** between tiles rather than shown by colour. Only if the colour pairing is hard to read on the iPad.
 - **Row order on the board.** §7.1 assumes jack 1 at top left and rows of ten running left to right. Check against the 551's designation strips and correct §7.1 if the board runs otherwise.
 - **Script names or jack labels.** script.yml's station keys (`room463`) and the board's labels (`463`) name the same thing twice. The calls panel and the log use script names, and the tiles use labels. If that reads badly, the game program can put labels in the call slots instead.
-- **Labels on jacks the game does not use** (Rev 7). The board has labels on all 30 station jacks, and the page shows only those script.yml names. If the page should show the rest, they need somewhere to live — a station entry with no `number:` would do it, at the cost of one more loader rule.
 - **The loudspeaker leaving a conversation** (§6.4). In automatic pacing, the operator answering the next call takes the audience away from the current conversation, possibly mid-sentence. The alternative is to stay on a call until its conversation ends and then move to the most recently answered call, at the cost of missing that call's request. Rev 6 moves at each answer. Wants listening with an audience.
 - **Settings across restarts.** Pacing values return to the configuration file's when the game program restarts (§4.3). If that is annoying, the game program can read its own retained values back at start.
 - **Screen wake lock** (§7.3, Rev 8). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.

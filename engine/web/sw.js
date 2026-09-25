@@ -46,7 +46,11 @@ self.addEventListener('install', (e) => {
     caches.open(VERSION)
       // Not addAll: one missing file would reject the whole install and leave
       // the page with no worker at all.
-      .then((c) => Promise.allSettled(SHELL.map((u) => c.add(u))))
+      // cache: 'reload', past the browser's HTTP cache. nginx sends no
+      // Cache-Control for the shell, so Safari may keep a file by heuristic,
+      // and a new build's cache filled from that is the old build again.
+      .then((c) => Promise.allSettled(SHELL.map((u) =>
+        c.add(new Request(u, { cache: 'reload' })))))
       .then(() => self.skipWaiting())
   );
 });
@@ -69,7 +73,10 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(
     caches.open(VERSION).then(async (cache) => {
       const hit = await cache.match(req, { ignoreSearch: true });
-      const fresh = fetch(req)
+      // Revalidated with the server, not taken from the HTTP cache, for the
+      // same reason as at install. A new Request, because a navigation's own
+      // cannot be given a different cache mode.
+      const fresh = fetch(new Request(req.url, { cache: 'no-cache' }))
         .then((res) => {
           if (res && res.ok) cache.put(req, res.clone());
           return res;
