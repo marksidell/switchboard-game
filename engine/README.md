@@ -17,6 +17,7 @@ sbgame/session.py      the SQLite record
 sbgame/game.py         start, stop, dealing, page commands (3-8)
 sbgame/main.py         the entry point
 sbgame/simulate.py     a stand-in for the hardware, until the boards arrive
+sbgame/streamdeck.py   the Stream Deck+ that carries the controls (7.4)
 web/                   the status page (2, 7)
 ```
 
@@ -43,6 +44,23 @@ check fails. Copying `script.yml` alone (`make -C host sbgame-data`) is not
 enough when its form has changed, since the installed loader is the one that
 reads it. The Home Screen page picks up a new build by itself when it next
 comes into view.
+
+## The Stream Deck
+
+`sbgame-streamdeck` is a separate service, `sbgame-streamdeck`, running from
+the same venv as the user `sbgame-deck`; `host/README.md` has the one-time
+setup. It needs `libhidapi-libusb0` from apt. `./release` restarts it if it is
+running.
+
+Without a deck, `--fake DIR` writes the eight keys and the strip as PNGs
+instead, which is how to see a layout change before it reaches the deck:
+
+```sh
+engine/.venv/bin/sbgame-streamdeck --fake /tmp/deck \
+    --user sbgame-web --password-file /etc/sbgame/mqtt-web.pass
+```
+
+As `sbgame-web` it has the same rights it will have as `sbgame-deck`.
 
 ## Without the boards
 
@@ -80,7 +98,9 @@ Then:
 cd engine && PYTHONPATH=.:tests ./.venv/bin/python tests/test_flows.py
 ```
 
-`test_sim.py` is the delivered harness. `test_flows.py` covers every scene
+`test_streamdeck.py` checks every rule of §7.4 — keys, Stop's second press,
+Next Call's guard, the dials' target, errors, staleness — and draws each state
+once. `test_sim.py` is the delivered harness. `test_flows.py` covers every scene
 shape and every failure reason. `test_game.py` drives whole games against the
 real `script.yml`. `test_web.py` parses the page's JavaScript with gjs and
 checks the service worker's cache list — a 404 in that list poisons the cache.

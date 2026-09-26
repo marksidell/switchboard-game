@@ -13,14 +13,14 @@
 #
 #   /etc/mosquitto/passwd     hashed passwords. Rebuilt by `make passwd` from
 #                             the files below; never committed, hash or not.
-#   /etc/sbgame/mqtt-*.pass   the plaintext passwords, 640 root:<group of the
+#   /etc/sbgame/mqtt-*.pass   the plaintext passwords (audio, game, web, deck), 640 root:<group of the
 #                             program that reads it>. On the host only.
 #   control/secrets.h         the controller's password, gitignored, and the
 #                             source of sbgame-control's entry in passwd.
 #   /root/.aws/credentials    the Route 53 key for certbot, [default], 600.
 #   /etc/letsencrypt/         the certificate, its key and the ACME account.
 #
-# So a bare-metal rebuild is: apt install (see README), put the four secrets
+# So a bare-metal rebuild is: apt install (see README), put the secrets
 # back, `certbot certonly`, `make passwd`, `make install`.
 
 SHELL := /bin/bash
@@ -34,9 +34,11 @@ FILES := \
   etc/nginx/sites-available/sbgame:root:root:644 \
   etc/letsencrypt/renewal-hooks/deploy/nginx:root:root:755 \
   etc/systemd/system/sbgame.service:root:root:644 \
+  etc/systemd/system/sbgame-streamdeck.service:root:root:644 \
+  etc/udev/rules.d/70-sbgame-streamdeck.rules:root:root:644 \
   etc/sbgame/game.toml:root:root:644
 
-.PHONY: diff install passwd status check-clean sbgame-user sbgame-data sbgame-install sbgame-web sim
+.PHONY: diff install passwd status check-clean sbgame-user sbgame-deck-user sbgame-data sbgame-install sbgame-web sim
 
 ## diff - what differs between this tree and the host
 diff:
@@ -70,6 +72,9 @@ install:
 	@$(SUDO) rm -f /etc/nginx/sites-enabled/default
 	@echo "--- validating before reload, so a bad file cannot take the broker down ---"
 	@$(SUDO) nginx -t
+	@$(SUDO) systemctl daemon-reload
+	@$(SUDO) udevadm control --reload
+	@$(SUDO) udevadm trigger --subsystem-match=usb --attr-match=idVendor=0fd9
 	@$(SUDO) systemctl reload nginx
 	@$(SUDO) systemctl restart mosquitto
 	@sleep 1
@@ -78,16 +83,24 @@ install:
 ## passwd - rebuild the broker password file from the passwords on the host
 ##
 ## sbgame-control's password is the one compiled into the firmware, so the
-## broker and the board cannot drift apart. The others are in /etc/sbgame.
+## broker and the board cannot drift apart. The others are in /etc/sbgame,
+## and every one must be there: a missing file would otherwise put an empty
+## password in passwd for that user.
 ## mosquitto_passwd -U hashes a plaintext file in place; -b would put every
 ## password in the process table.
 passwd:
 	@set -e; umask 077; \
 	ctl=$$(sed -n 's/.*MQTT_PASSWORD  *"\([^"]*\)".*/\1/p' ../control/secrets.h); \
 	[ -n "$$ctl" ] || { echo "no password in ../control/secrets.h" >&2; exit 1; }; \
+	for u in audio game web deck; do \
+	  $(SUDO) test -s /etc/sbgame/mqtt-$$u.pass || { \
+	    echo "no /etc/sbgame/mqtt-$$u.pass; make one with" >&2; \
+	    echo "  sudo sh -c 'umask 027; openssl rand -base64 18 > /etc/sbgame/mqtt-$$u.pass'" >&2; \
+	    exit 1; }; \
+	done; \
 	t=$$($(SUDO) mktemp /etc/mosquitto/.passwd.XXXXXX); \
 	{ printf 'sbgame-control:%s\n' "$$ctl"; \
-	  for u in audio game web; do \
+	  for u in audio game web deck; do \
 	    printf 'sbgame-%s:%s\n' "$$u" "$$($(SUDO) cat /etc/sbgame/mqtt-$$u.pass)"; \
 	  done; } | $(SUDO) tee "$$t" >/dev/null; \
 	$(SUDO) mosquitto_passwd -U "$$t"; \
@@ -111,6 +124,21 @@ sbgame-user:
 	  $(SUDO) ls -l /etc/sbgame/mqtt-game.pass | sed 's/^/  /' || \
 	  echo "  /etc/sbgame/mqtt-game.pass is not there yet"
 
+## sbgame-deck-user - the account the Stream Deck program runs as
+##
+## Its own, not sbgame's: it needs the page's broker rights and the deck, and
+## should not be able to read the game program's password, which has the
+## whole tree (mqtt.md 9). The udev rule gives its group the deck.
+sbgame-deck-user:
+	@id -u sbgame-deck >/dev/null 2>&1 || { \
+	  $(SUDO) useradd --system --no-create-home --shell /usr/sbin/nologin sbgame-deck && \
+	  echo "created the sbgame-deck user"; }
+	@id sbgame-deck | sed 's/^/  /'
+	@$(SUDO) chgrp sbgame-deck /etc/sbgame/mqtt-deck.pass 2>/dev/null && \
+	  $(SUDO) chmod 640 /etc/sbgame/mqtt-deck.pass && \
+	  $(SUDO) ls -l /etc/sbgame/mqtt-deck.pass | sed 's/^/  /' || \
+	  echo "  /etc/sbgame/mqtt-deck.pass is not there yet"
+
 ## sbgame-install - the game program into /opt/sbgame, as the unit expects
 ##
 ## Its own venv, not the developer's: the daemon runs as sbgame and must not
@@ -118,12 +146,14 @@ sbgame-user:
 ## engine and the shared script loader are installed from the checkout, so an
 ## install is a `git pull` and this target.
 REPO := $(shell cd .. && pwd)
-sbgame-install: sbgame-user sbgame-data
+sbgame-install: sbgame-user sbgame-deck-user sbgame-data
 	@$(SUDO) install -d -m 755 -o root -g root /opt/sbgame
 	@test -x /opt/sbgame/venv/bin/python || $(SUDO) python3 -m venv /opt/sbgame/venv
 	@$(SUDO) /opt/sbgame/venv/bin/pip -q install --upgrade pip
 	@$(SUDO) /opt/sbgame/venv/bin/pip -q install "$(REPO)/engine" "$(REPO)/tts"
 	@$(SUDO) /opt/sbgame/venv/bin/sbgame --check -c /etc/sbgame/game.toml
+	@ldconfig -p | grep -q libhidapi-libusb || \
+	  echo "  no libhidapi-libusb: sbgame-streamdeck will not find a deck (apt install libhidapi-libusb0)"
 	@$(SUDO) systemctl daemon-reload
 	@echo "installed; `systemctl is-enabled sbgame 2>/dev/null || echo not enabled`"
 
@@ -183,7 +213,7 @@ sim:
 
 ## status - what is running and what is served
 status:
-	@for s in mosquitto nginx certbot.timer sbgame; do \
+	@for s in mosquitto nginx certbot.timer sbgame sbgame-streamdeck; do \
 	  printf '%-16s %s\n' "$$s" "$$(systemctl is-active $$s)"; \
 	done
 	@echo "listeners:"

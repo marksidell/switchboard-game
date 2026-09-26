@@ -1,0 +1,37 @@
+[Unit]
+Description=551 Switchboard Simulator Stream Deck (game_control.md 7.4)
+Documentation=file:///home/sidell/s/sbgame/engine/README.md
+# Only the broker; it retries forever if the broker is not up yet, and runs
+# with no deck plugged in, looking for one every 2s.
+After=network-online.target mosquitto.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sbgame-deck
+Group=sbgame-deck
+ExecStart=/opt/sbgame/venv/bin/sbgame-streamdeck --password-file /etc/sbgame/mqtt-deck.pass
+
+# SIGTERM clears the deck, so it goes blank rather than showing controls that
+# no longer work. A crash leaves the last images; always restart, and the
+# first thing it does is redraw them.
+KillSignal=SIGTERM
+TimeoutStopSec=5
+Restart=always
+RestartSec=2
+
+# It needs the broker, its password file and the deck's hidraw node, which
+# 70-sbgame-streamdeck.rules gives the sbgame-deck group. /dev is not made
+# private for that reason; nothing else in it is readable by this user.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

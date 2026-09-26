@@ -81,7 +81,7 @@ class Jack:
 @dataclass
 class GameScript:
     script: Script
-    scenes: dict[str, SceneDef]
+    scenes: dict[str, SceneDef]          # active scenes only
     people: dict[str, tuple[str, str]]   # scene id -> (calling person, called person)
     jacks: tuple[Jack, ...]
 
@@ -131,7 +131,8 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
 
     scenes: dict[str, SceneDef] = {}
     people: dict[str, tuple[str, str]] = {}
-    for sid, raw in s.scenes.items():
+    # Only active scenes are built, so an inactive one needs no wavs (§4.4).
+    for sid, raw in s.active_scenes().items():
         us = [u for u in s.utterances if u.scene == sid]
         req = us[0]
         calling, called = raw["calling"], raw.get("called")

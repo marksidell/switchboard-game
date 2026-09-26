@@ -62,8 +62,8 @@ async def run(cfg: Config) -> int:
     except (OSError, ValueError) as e:
         print(f"script: {e}", file=sys.stderr)
         return 2
-    log.info("script: %d scenes, %d in the deck, %d jacks",
-             len(gs.scenes), len(gs.deck_scenes()),
+    log.info("script: %d active scenes of %d, %d in the deck, %d jacks",
+             len(gs.scenes), len(gs.script.scenes), len(gs.deck_scenes()),
              sum(1 for j in gs.jacks if j.circuit))
 
     session = SessionLog(cfg.resolved("session_db"))
@@ -138,7 +138,8 @@ def main(argv: list[str] | None = None) -> int:
             for f in e.failures:
                 print(f"  {f}", file=sys.stderr)
             return 1
-        print(f"{cfg.resolved('script')}: {len(gs.scenes)} scenes, "
+        print(f"{cfg.resolved('script')}: {len(gs.scenes)} active scenes "
+              f"of {len(gs.script.scenes)}, "
               f"{len(gs.deck_scenes())} in the deck, "
               f"{sum(1 for j in gs.jacks if j.circuit)} jacks cabled")
         return 0

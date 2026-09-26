@@ -6,7 +6,7 @@
 # Installs the engine and the loader into /opt/sbgame/venv, script.yml and
 # wav/ into /srv/sbgame, the page into /srv/sbgame/web, and the game
 # program's configuration into /etc/sbgame/game.toml, then restarts sbgame
-# and shows the start of its log.
+# and the Stream Deck program if it is running, and shows the start of its log.
 #
 # The configuration goes with the code because the two must agree: the game
 # program refuses a setting it does not know, so a new key in game.toml needs
@@ -29,6 +29,9 @@ sudo install -o root -g root -m 644 host/etc/sbgame/game.toml /etc/sbgame/game.t
 sudo /opt/sbgame/venv/bin/sbgame --check -c /etc/sbgame/game.toml
 make -C host sbgame-web
 sudo systemctl restart sbgame
+# The Stream Deck program runs from the same venv; restart it only if it is
+# running, since it is not enabled until the deck is commissioned.
+sudo systemctl try-restart sbgame-streamdeck
 
 # Give it a moment to load the script and reach the broker.
 sleep 2

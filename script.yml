@@ -37,6 +37,13 @@
 #     Every line in the named scene has hung up by then, so for a caller who
 #     calls straight back, delay is also how long they stay on-hook.
 #
+# Active:
+#     Every scene says active: true or active: false. The game plays only
+#     active scenes, and needs wavs only for them; an inactive scene is still
+#     checked and still rendered by the TTS run, so a new scene can be written
+#     as active: false, rendered, and switched on once its wavs are in place.
+#     An active scene's after: must name an active scene.
+#
 # IDs:
 #     Every scene is keyed by its id, a short name chosen by hand.
 #     A repeated key is not an error to a plain YAML loader: the last one silently
@@ -242,6 +249,7 @@ jacks:
 
 scenes:
     nbn-valet:
+        active: true
         calling:
             line: room463
             person: thornhill
@@ -266,6 +274,7 @@ scenes:
                 caller: Twenty minutes? Fine. OK. 463.
 
     nbn-kaplan:
+        active: true
         calling:
             line: lobby
             person: assassin
@@ -286,6 +295,7 @@ scenes:
                 caller: We will meet very soon.
 
     nbn-trace:
+        active: true
         after: nbn-kaplan
         delay: 2
         calling:
@@ -297,6 +307,7 @@ scenes:
 
     # Station to station.
     pike-breakfast:
+        active: true
         calling:
             line: room214
             person: pike
@@ -322,6 +333,7 @@ scenes:
 
     # Outgoing. The guest does not know the number, so the operator must look it up.
     albright-florist:
+        active: true
         calling:
             line: room512
             person: albright
@@ -347,6 +359,7 @@ scenes:
 
     # Outgoing, busy. The operator must go back and tell the caller.
     hale-busy:
+        active: true
         calling:
             line: room715
             person: hale
@@ -363,6 +376,7 @@ scenes:
 
     # Incoming on a trunk.
     times-pike:
+        active: true
         calling:
             line: times
             person: reporter
@@ -386,6 +400,7 @@ scenes:
 
     # Call to the operator. Asks for a wake-up call.
     crane-wakeup:
+        active: true
         calling:
             line: room308
             person: crane
@@ -398,6 +413,7 @@ scenes:
 
     # Outgoing.
     lindqvist-canlis:
+        active: true
         calling:
             line: room601
             person: lindqvist
@@ -423,6 +439,7 @@ scenes:
 
     # Outgoing. The same caller as hale-busy, calling back three minutes later.
     hale-pizza:
+        active: true
         after: hale-busy
         delay: 180
         calling:
@@ -450,6 +467,7 @@ scenes:
 
     # Station to station, from the staff side.
     desk-hollis:
+        active: true
         calling:
             line: frontdesk
             person: desk_clerk
@@ -473,6 +491,7 @@ scenes:
 
     # Outgoing long distance, through the public operator.
     albright-portland:
+        active: true
         calling:
             line: room512
             person: albright
@@ -498,6 +517,7 @@ scenes:
 
     # From the lobby house phone, outgoing.
     pike-taxi:
+        active: true
         calling:
             line: lobby
             person: pike

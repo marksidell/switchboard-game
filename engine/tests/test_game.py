@@ -115,6 +115,48 @@ async def main() -> int:
                 check(True, f"rejects {what}")
                 print(f"        {e.failures[0]}")
 
+        print("\n== active: an inactive scene needs no wavs and is never dealt (§4.4)")
+        new = real.replace("\nscenes:\n", "\nscenes:\n"
+                           "    unrendered:\n"
+                           "        active: false\n"
+                           "        calling:\n"
+                           "            line: lobby\n"
+                           "            person: thornhill\n"
+                           "        request:\n"
+                           "            id: 1\n"
+                           "            text: Operator, is anyone there?\n", 1)
+        (tmp / "new.yml").write_text(new, encoding="utf-8")
+        gs = build(tmp / "new.yml", "../wav")
+        check("unrendered" in gs.script.scenes and "unrendered" not in gs.scenes,
+              "loaded, but left out of the game's scenes")
+        check("unrendered" not in gs.deck_scenes(), "and out of the deck")
+        check(any(u.scene == "unrendered" for u in gs.script.utterances),
+              "its utterances are still there for the TTS run")
+        off = real.replace("    nbn-kaplan:\n        active: true\n",
+                           "    nbn-kaplan:\n        active: false\n", 1)
+        (tmp / "off.yml").write_text(off, encoding="utf-8")
+        for what, text in (
+            ("a scene with no active:",
+             real.replace("    nbn-valet:\n        active: true\n", "    nbn-valet:\n", 1)),
+            ("active: that is not true/false",
+             real.replace("    nbn-valet:\n        active: true\n",
+                          "    nbn-valet:\n        active: yes please\n", 1)),
+            ("an active after: scene following an inactive one", off),
+        ):
+            (tmp / "bad.yml").write_text(text, encoding="utf-8")
+            try:
+                load(tmp / "bad.yml")
+                check(False, f"rejects {what}")
+            except ScriptError as e:
+                check(True, f"rejects {what}")
+                print(f"        {e.failures[0]}")
+        off2 = off.replace("    nbn-trace:\n        active: true\n",
+                           "    nbn-trace:\n        active: false\n", 1)
+        (tmp / "off2.yml").write_text(off2, encoding="utf-8")
+        gs = build(tmp / "off2.yml", "../wav")
+        check("nbn-kaplan" not in gs.scenes and not gs.followers("nbn-kaplan"),
+              "a scene and its after: both inactive: neither is played")
+
         print("\n== page commands: clamps and refusals (§8)")
         await g.on_command("gap", "700")
         check(link.state_v.get("game/gap") == "600", f"gap clamped to 600, got {link.state_v.get('game/gap')}")

@@ -33,19 +33,23 @@
   <div class="group" id="conn">
     <span class="lamp" id="lamp-broker"></span><span class="lbl">broker</span>
     <span class="lamp" id="lamp-game"></span><span class="lbl">game</span>
+    <button id="controls-toggle" class="toggle">Controls</button>
   </div>
 
-  <div class="group">
+  <!-- With the controls hidden (§7.1), what they would have shown. -->
+  <div class="group" id="state-text"><span id="v-state">–</span></div>
+
+  <div class="group control">
     <button id="start" class="big">Start</button>
     <button id="stop" class="big danger">Stop</button>
   </div>
 
-  <div class="group" id="pace-group">
+  <div class="group control" id="pace-group">
     <button id="pace-manual" class="seg">Manual</button>
     <button id="pace-auto" class="seg">Automatic</button>
   </div>
 
-  <div class="group"><button id="next" class="big">Next Call</button></div>
+  <div class="group control"><button id="next" class="big">Next Call</button></div>
 
   <div class="group" id="steppers">
     <div class="stepper"><span class="lbl">gap</span>

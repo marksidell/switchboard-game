@@ -67,6 +67,16 @@ button.seg:last-child { border-radius: 0 8px 8px 0; }
 button.seg.sel { background: var(--operator); }
 
 .stepper { display: flex; align-items: center; gap: 4px; }
+
+/* The controls can be hidden on this iPad (§7.1, Rev 13): the Stream Deck
+   carries them. The values stay; the buttons go, and one line of text says
+   what the Start, Stop and pacing buttons would have shown. */
+button.toggle { min-height: 32px; padding: 0 10px; font-size: 13px; font-weight: 400;
+                margin-left: 6px; }
+button.toggle.sel { background: var(--operator); }
+#state-text { display: none; font-weight: 600; }
+body.no-controls .control, body.no-controls .stepper button { display: none; }
+body.no-controls #state-text { display: flex; }
 .stepper button { min-width: 44px; padding: 0; font-size: 20px; }
 .stepper span:not(.lbl) { min-width: 34px; text-align: center; font-variant-numeric: tabular-nums; }
 

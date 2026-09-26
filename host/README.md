@@ -25,6 +25,10 @@ etc/mosquitto/conf.d/sbgame.conf              two listeners, no anonymous
 etc/mosquitto/acl                             who may write what
 etc/nginx/sites-available/sbgame              TLS on 443, the page, the /mqtt proxy
 etc/letsencrypt/renewal-hooks/deploy/nginx    reload nginx after a renewal
+etc/systemd/system/sbgame.service             the game program
+etc/systemd/system/sbgame-streamdeck.service  the Stream Deck program
+etc/udev/rules.d/70-sbgame-streamdeck.rules   the deck, for the sbgame-deck user
+etc/sbgame/game.toml                          the game program's configuration
 iam/certbot-route53.json                      the certbot user's policy
 ```
 
@@ -45,11 +49,12 @@ it. What is missing, and where it lives instead:
 
 ```sh
 sudo apt install mosquitto mosquitto-clients nginx certbot \
-                 python3-certbot-dns-route53 dnsutils openssl
+                 python3-certbot-dns-route53 dnsutils openssl \
+                 libhidapi-libusb0 fonts-dejavu-core
 
-# the four secrets, by hand:
+# the secrets, by hand:
 #   /root/.aws/credentials        [default], 600, the certbot IAM user
-#   /etc/sbgame/mqtt-{audio,game,web}.pass   640, root:<group>
+#   /etc/sbgame/mqtt-{audio,game,web,deck}.pass   640, root:<group>
 #   control/secrets.h             from control/secrets.h.example
 sudo install -d -m 755 /etc/sbgame /srv/sbgame/web
 
@@ -61,6 +66,25 @@ make install
 `certbot certonly` writes `/etc/letsencrypt/renewal/game.kr3am.org.conf` itself;
 it is not kept here, because recreating it by hand rather than by that command
 would leave the account and the plugin out of step with it.
+
+## The Stream Deck
+
+`sbgame-streamdeck` drives the Stream Deck+ (`game_control.md` §7.4). It runs
+as its own system user, `sbgame-deck`, which the udev rule gives the deck and
+the access list gives the page's rights. Once:
+
+```sh
+sudo sh -c 'umask 027; openssl rand -base64 18 > /etc/sbgame/mqtt-deck.pass'
+make passwd                  # adds sbgame-deck to the broker
+make install                 # the ACL, the unit, the udev rule
+make sbgame-install          # the user, and the program into /opt/sbgame/venv
+sudo systemctl enable --now sbgame-streamdeck
+journalctl -u sbgame-streamdeck -f
+```
+
+It runs with no deck plugged in and picks one up within 2s of it appearing.
+If it never does: `lsusb -d 0fd9:` should show `0fd9:0084`, and
+`ls -l /dev/bus/usb/*/*` should show that device in group `sbgame-deck`.
 
 ## Two things this host taught us
 

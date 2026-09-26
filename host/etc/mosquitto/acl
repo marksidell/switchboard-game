@@ -11,3 +11,8 @@ topic readwrite sbgame/#
 user sbgame-web
 topic read sbgame/#
 topic write sbgame/game/+/set
+
+# The Stream Deck program (mqtt.md 9, Rev 20): the page's rights.
+user sbgame-deck
+topic read sbgame/#
+topic write sbgame/game/+/set

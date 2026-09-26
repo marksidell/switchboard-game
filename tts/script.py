@@ -90,6 +90,10 @@ class Script:
             out.setdefault(u.speaker, []).append(u)
         return out
 
+    def active_scenes(self) -> dict[str, dict]:
+        """The scenes the game plays: those marked `active: true`."""
+        return {i: sc for i, sc in self.scenes.items() if sc.get("active") is True}
+
     def first_lines(self, person: str) -> list[Utterance]:
         """That person's lines in script order — session 1 samples from these."""
         return [u for u in self.utterances if u.speaker == person]
@@ -277,11 +281,21 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
         if parties["caller"] is None and not isinstance(scene.get("calling"), dict):
             bad(f"scenes.{scene_id}.calling", "missing")
 
+        # active: the game plays the scene (game_control.md 4.4); TTS renders
+        # every scene regardless, so a new one can be rendered before it plays
+        active = scene.get("active")
+        if not isinstance(active, bool):
+            bad(f"scenes.{scene_id}.active", f"missing or not true/false: {active!r}")
+
         # after: names a scene, and that scene has no after of its own
         after = scene.get("after")
         if after is not None:
             if after not in scenes:
                 bad(f"scenes.{scene_id}.after", f"{after!r} is not a scene")
+            elif (active is True and isinstance(scenes[after], dict)
+                  and scenes[after].get("active") is False):
+                bad(f"scenes.{scene_id}.after",
+                    f"{after!r} is inactive, so this active scene could never play")
             elif isinstance(scenes[after], dict) and scenes[after].get("after") is not None:
                 bad(f"scenes.{scene_id}.after",
                     f"{after!r} has an after of its own; chains of more than two are not allowed")
@@ -345,7 +359,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{u.name:<20} {u.speaker:<12} {u.text}")
     speakers = script.by_speaker()
     silent = sorted(p for p, us in speakers.items() if not us)
-    print(f"{script.path}: {len(script.scenes)} scenes, {len(script.utterances)} utterances, "
+    print(f"{script.path}: {len(script.scenes)} scenes ({len(script.active_scenes())} active), "
+          f"{len(script.utterances)} utterances, "
           f"{len(script.cast)} cast, {len(script.jacks)} jacks "
           f"({sum(1 for j in script.jacks if j['station'])} cabled)")
     if silent:

@@ -2,20 +2,23 @@
 
 **Game Control and the Status Page**
 
-*Rev 12 — Start and Stop, Manual and Automatic Call Pacing with a Ramp and Jitter, Scenes Dealt from a Shuffled Deck, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets*
+*Rev 14 — Start and Stop, Manual and Automatic Call Pacing with a Ramp and Jitter, Scenes Dealt from a Shuffled Deck, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played*
 
 # 1. Overview
 
-This document specifies how the game is run from an iPad: starting and stopping a game, pacing the calls, counting how the operator did, and a status page that shows the whole system while it runs. It covers two things that are written together:
+This document specifies how the game is run: starting and stopping a game, pacing the calls, counting how the operator did, and a status page on an iPad that shows the whole system while it runs. From Rev 13 the controls are on an Elgato Stream Deck+ beside the switchboard (§7.4), and the page becomes a display. It covers three things that are written together:
 
 - **What the game program does** with each control — the meaning of a game, of pacing, of success and failure. There is no game program specification yet; when one is written, §3 to §6 move into it and this document keeps the page.
 - **The status page** — one HTML page with its script, served by nginx and connected to Mosquitto over MQTT on WebSockets through the same nginx (Rev 10). It has no server of its own and no code on the host beyond the game program's topics.
+- **The Stream Deck** (Rev 13) — a Stream Deck+ on USB to the host, driven by a small program of its own, `sbgame-streamdeck`, that talks MQTT to the same broker. It carries Start, Stop, the pacing, Next Call and the four pacing values, and shows the tallies and the health of the three clients.
 
 Every topic named here is defined in `mqtt.md` (Rev 10, §6.1 and §6.2), which owns names, payloads, retention and the broker's access list. This document says what the values mean and when they change. It does not repeat the tables.
 
 The page reads the bus directly rather than through the game program. That is the reason for the design: it shows what the controller and the audio program actually report, and it keeps working when the game program is down — which is when it is most needed. The page commands only the game program, and the broker's access list holds it to that (`mqtt.md` §9).
 
-The game program and the page are written by Claude Code to this document, like `control/control.ino` to `control.md` and `sbaudio` to `audio.md`.
+The Stream Deck program follows the same design for the same reason (§7.4). It commands the game over the broker as the page does, and displays only what the broker reports.
+
+The game program, the page and the Stream Deck program are written by Claude Code to this document, like `control/control.ino` to `control.md` and `sbaudio` to `audio.md`.
 
 ## 1.1 Changes in Rev 1
 
@@ -125,6 +128,24 @@ The game program and the page are written by Claude Code to this document, like 
 
 — `mqtt.md` Rev 19 adds `game/jitter` and `game/jitter/set`. Code consequence for Claude Code: the scheduler, the configuration, the session record and a fourth stepper on the page.
 
+## 1.13 Changes in Rev 13
+
+— The game's controls move to an Elgato Stream Deck+ (§7.4), Mark's decision, 2026-09-25. The iPad becomes mostly a display. Eight keys carry Start, Stop, the pacing, Next Call, the tallies and the clients' health, and the four dials set `gap`, `ramp`, `floor` and `jitter`, with the touch strip above them showing the values. Stop needs a second press within 3s, as on the page.
+
+— The deck is driven by a program of its own, `sbgame-streamdeck`, on the host. It is not part of the game program, for the reason the page is not (§1): it shows what the broker reports, keeps working and shows the game offline when the game program is down, and a USB fault cannot touch a game in progress. It connects as a new broker user, `sbgame-deck`, with the page's access list (`mqtt.md` Rev 20). It publishes the page's commands, so the game program is unchanged.
+
+— Considered and not adopted: Elgato's own software with a community MQTT plugin, which needs a Windows or macOS machine and cannot draw the game's state on the keys; and Bitfocus Companion's generic MQTT module, which runs on Linux but keeps the layout in its own database rather than in this repository and this document.
+
+— The page keeps its controls, behind a Controls switch in the top bar that shows or hides them on that iPad (§7.1). Mark's decision, 2026-09-25: the deck carries the controls, and the page's stay available if the deck is not there. Both publish the same commands, so both work at once. `sbgame-web` keeps its write access (`mqtt.md` §9).
+
+— A dial reports relative steps and every command but Next Call is absolute (§7.2). The program therefore turns steps into a new absolute value, starting from the echoed value and adding every step made since, and publishes that (§7.4). Code consequence for Claude Code: the program, its unit and udev rule under `host/`, and later the page's top bar.
+
+## 1.14 Changes in Rev 14
+
+— Every scene in script.yml carries `active: true` or `active: false` (§4.4, §6.3), at Mark's request, 2026-09-26. He wants to write new cast and scenes before their wavs exist. Until now every scene was built at load, and a missing wav stopped the game program from starting. The game program now builds, deals and follows only active scenes, and reads wavs only for them. An inactive scene is still loaded and checked, and the TTS run still renders it, so a scene is written as `active: false`, rendered, and switched on once its wavs are in place. Every scene in the file at this revision is `active: true`.
+
+— The key is required, not defaulted, so a scene cannot be switched on or off by omission. An active `after:` scene naming an inactive scene is rejected, since it could never play. An inactive `after:` scene following an active one is allowed; it is simply not played. Code consequence for Claude Code: the shared loader checks the key and gives `Script.active_scenes()`; the game program builds from that. No topic changes.
+
 # 2. Serving the Page
 
 nginx serves the page's files over HTTPS on 443 and reverse-proxies its MQTT connection, on the path `/mqtt`, to Mosquitto's WebSockets listener on loopback. The configuration, the certificate and the name are `mqtt.md` §9. The files:
@@ -161,11 +182,11 @@ The game program always starts with `run` `"off"`.
 
 ## 4.1 Manual
 
-The page's Next Call button starts one call. Nothing else starts a call, apart from `after:` scenes (§4.4).
+The Next Call key on the Stream Deck starts one call (Rev 13; until the deck is commissioned the page's Next Call button does too). Nothing else starts a call, apart from `after:` scenes (§4.4).
 
-The button publishes `game/next/set`, at QoS 0, with an empty payload. The game program keeps its own count and starts the next call if `run` is `"on"` and a scene can be dealt (§4.4). If not, it reports why on `game/error`.
+The key publishes `game/next/set`, at QoS 0, with an empty payload. The game program keeps its own count and starts the next call if `run` is `"on"` and a scene can be dealt (§4.4). If not, it reports why on `game/error`.
 
-Two guards keep one tap to one call (Rev 4). QoS 0 is never resent on reconnect, so a connection that drops mid-send cannot deliver the command twice. The cost is that the tap may be lost, and the operator taps again. The page disables Next Call when it is tapped and re-enables it when `started` changes or `game/error` is published. It also re-enables after 3s regardless, so a lost tap does not leave the button dead. Two pages open at once could each start a call. That is accepted, since only Mark runs the page.
+Two guards keep one tap to one call (Rev 4). QoS 0 is never resent on reconnect, so a connection that drops mid-send cannot deliver the command twice. The cost is that the tap may be lost, and the operator taps again. The page disables Next Call when it is tapped and re-enables it when `started` changes or `game/error` is published. It also re-enables after 3s regardless, so a lost tap does not leave the button dead. The Stream Deck's key is guarded the same way (§7.4). Two pages open at once could each start a call, and so could the page and the deck. That is accepted, since only Mark runs them.
 
 `next/set` is accepted in automatic pacing too. It starts a call at once, and the automatic schedule then runs from that call (§4.2).
 
@@ -207,7 +228,7 @@ Ranges, clamped by the game program and echoed as applied: `gap` 0–600s, `ramp
 
 ## 4.4 Which Scene, and Scenes That Follow Another
 
-**The deck.** At game start the game program takes every scene in script.yml without `after:` and shuffles it into a list, the deck. Every new call, manual or automatic, is dealt from the deck. So every scene is played once before any is played twice, in an order that differs from game to game (Rev 2).
+**The deck.** At game start the game program takes every active scene in script.yml without `after:` and shuffles it into a list, the deck. Every new call, manual or automatic, is dealt from the deck. So every scene is played once before any is played twice, in an order that differs from game to game (Rev 2). A scene marked `active: false` is not played at all: it is never in the deck and never follows another, and its wavs need not exist (Rev 14).
 
 **Dealing.** A new call takes the first scene in the deck whose lines and people are all free, and removes it. A scene's lines are its calling and called lines, stations and outside names alike (Rev 3). Its people are the `person:` under `calling` and `called`. A call to the operator has no called line or person. A line or person is busy if it belongs to a call in progress, or to a waiting `after:` scene (below). Scenes passed over stay where they are, so a scene held back because its line was busy comes up at the next call. If no scene in the deck can be dealt, the call does not start, the log says so, and in automatic pacing the scheduler tries again after `gap_now`. A `next/set` that cannot be satisfied this way is reported on `game/error`.
 
@@ -319,11 +340,14 @@ The script.yml loader rejects the file, and the game program refuses to start, i
 - an item lacks `label:`, or its label is empty;
 - an item's `station:` is not a station entry, or names a station another item already names;
 - a station entry is named by no item in `jacks:`, or carries any key but `number:` — a file still in Rev 7's form, with `switchboard:` and `label:` on its stations, fails with a message saying where they went, rather than drawing a board with no labels;
-- a station's `number:` is outside 1–22, or the same number as another entry (the loader's existing check).
+- a station's `number:` is outside 1–22, or the same number as another entry (the loader's existing check);
+- a scene lacks `active:`, or its value is not `true` or `false`, or an active scene's `after:` names an inactive one (Rev 14).
 
 The loader is the one `tts_task.md` §3.1 specifies, which the game program imports. These checks go into it, so the TTS run and the game both see them.
 
 A station circuit that no entry names is not on any jack as far as the game knows. It has no tile, and a ring or hook on it goes in the log as a stray. A station entry that no scene uses is still drawn, so a stray ring on it is seen.
+
+The game program reads wavs for active scenes only, and refuses to start if one is missing. An inactive scene's wavs are not looked for.
 
 The game program publishes the map retained under `board/` (`mqtt.md` §6.1): each jack's label, and the circuit it carries or empty. A labelled jack with nothing cabled has a label and an empty circuit. The page builds the board from those topics alone. A change to script.yml takes effect when the game program restarts.
 
@@ -353,7 +377,7 @@ The log records each move as `monitor: <calling line>` against the call's number
 
 For an iPad in landscape, 1024 CSS pixels wide or more. Touch targets 44px or larger. Four areas: the top bar across the page; the board under it, across the whole width; then calls, with the log under them, beside a narrow health column (Rev 11):
 
-**Top bar**, always visible:
+**Top bar**, always visible. A Controls switch beside the connection lamps shows or hides its buttons — Start, Stop, the pacing, Next Call and the steppers' − and + — on this iPad (Rev 13). The Stream Deck carries the same controls (§7.4). With the buttons hidden the values stay — the four values, `gap_now`, the countdown and the tallies — and one line reads what the hidden buttons showed: Running or Stopped, and Manual or Automatic. The setting belongs to the iPad, kept in the browser's storage, not on the bus. An iPad with no setting, or one whose storage was cleared, shows the buttons, so it can always run the game.
 
 - Connection: broker connected or not; game program online or not.
 - Start and Stop. Stop needs a second tap within 3s, because it ends a player's game.
@@ -412,13 +436,46 @@ A station jack with a label and no circuit — listed in `jacks:` with no `stati
 
 Add the page to the Home Screen, so it opens without Safari's bars. Turn off Auto-Lock while it is in use at an event. The page is a secure origin (§2), so it could instead hold a screen wake lock while a game runs; that is not specified yet (§10, Rev 8). For a public exhibit, Guided Access keeps visitors on the page; for Rev 1 the page is Mark's.
 
+## 7.4 The Stream Deck
+
+New at Rev 13. An Elgato Stream Deck+ on a USB cable from the host, beside the switchboard, carries the game's controls. It has eight LCD keys, 120×120 pixels each, in two rows of four; four dials below them, each of which turns in detents and can be pushed; and between the two a touch strip, 800×100 pixels, a 200-pixel segment over each dial.
+
+**The program.** `sbgame-streamdeck`, a Python program in `engine/`, drives it through the `streamdeck` library over hidapi. It is a process of its own and not part of the game program, for the page's reason (§1): it reads the bus directly, so it shows the game offline rather than going dark with it, and a USB fault cannot disturb a game. It connects to the broker on loopback as `sbgame-deck`, with the page's access list: it reads `sbgame/#` and writes only `sbgame/game/+/set` (`mqtt.md` §9). It runs as a systemd service, `sbgame-streamdeck`, as the system user `sbgame-deck`, which a udev rule lets open the deck and nothing else. It has no will and no heartbeat, for the page's reason (`mqtt.md` §8.2): nothing depends on it.
+
+It follows every rule of §7.2. It shows only what was echoed, and a press changes nothing on the deck until the echo arrives. Every command is absolute but Next Call. Durations are computed against the host's clock, taken from each `game_heartbeat`. Stale values are greyed, not blanked. It subscribes to `sbgame/#` on every connect and needs nothing else.
+
+**Keys**, numbered 1–4 on the top row and 5–8 below, left to right:
+
+| **Key** | **Shows** | **Press** |
+| --- | --- | --- |
+| 1 Start | "Start", lit while `run` is `"off"` | `run/set` `"on"`. Ignored while a game runs. |
+| 2 Stop | "Stop", lit while `run` is `"on"`; "Stop again" in red for 3s after a first press | Arms it. A second press within 3s publishes `run/set` `"off"`. |
+| 3 Pacing | "Manual" or "Auto", the echoed `pace` | `pace/set` with the other value, which is absolute: the one not now echoed. |
+| 4 Next Call | "Next" over "Call", lit while a game runs; in automatic pacing the countdown to `next_at` in place of "Call" | `next/set`, at QoS 0, guarded as §4.1: dark from the press until `started` changes, `game/error` is published, or 3s pass. |
+| 5 Calls | `started` and in progress | nothing |
+| 6 Score | success and fail | nothing |
+| 7 Percent | success percentage of handled | nothing |
+| 8 Health | a lamp each for the game program, the controller and the audio program, red when offline or its heartbeat is 2.5s late; the whole key red while `game/error` is set | shows the last `game/error` on the strip again |
+
+**Dials**, left to right: `gap`, `ramp`, `floor`, `jitter`. One detent is one step of the page's stepper: 5s, 1s, 1s and 10%. A push does nothing at Rev 13. The strip segment above each dial shows its name and its echoed value, and above `gap` also `gap_now` while a game runs. The four are dimmed in manual pacing but still turn, so the values can be set before switching to automatic.
+
+**Turning a dial.** The dial reports steps and the command is absolute, so the program keeps a target. The first detent starts the target at the echoed value; each detent adds a step to the target, clamped to the §4.3 range, and publishes it. The target is held while detents keep coming and is dropped when the echo equals it or 1s after the last detent, so a fast turn loses no steps and a value the game clamped differently — `floor` above `gap` — settles on the echo. A dial whose value has not been echoed yet does nothing.
+
+**Errors.** When `game/error` changes to a non-empty value, the strip shows it across its whole width for 5s and then returns to the dials. Key 8 stays red until the error clears, and a press on it shows the error again. A touch on the strip dismisses it.
+
+**Staleness.** With the broker lost, every key is greyed and the strip says so. With the game program offline or its heartbeat 2.5s late, keys 1–7 and the dials are greyed and do nothing; key 8 still shows the three clients. A press that does nothing gives no other sign; the greyed key is the sign.
+
+**No deck.** The program runs whether or not a deck is plugged in. It looks for one every 2s, and draws a deck found or replugged from the state it already holds. It drives the first Stream Deck+ it finds and ignores any other. On a clean stop it clears the deck, so it is blank rather than showing controls that no longer work. A crash leaves the last images on the keys; systemd restarts the program within 5s, and the first thing it does is redraw them.
+
+**Brightness** is an option of the program, 60% by default. The deck has no screensaver in this program.
+
 # 8. What the Game Program Checks
 
-Every value arriving on `game/+/set` is checked by the game program; the access list keeps the page off hardware topics but does nothing about a bad value on the game's own. A value out of range is clamped and the applied value echoed; a value that is not understood — `run/set` other than `"on"` or `"off"`, `pace/set` other than `"manual"` or `"auto"`, a number that does not parse — is dropped, logged, and reported on `game/error`. Accepted commands are logged with `page:` in front (§6.2).
+Every value arriving on `game/+/set` is checked by the game program; the access list keeps the page off hardware topics but does nothing about a bad value on the game's own. A value out of range is clamped and the applied value echoed; a value that is not understood — `run/set` other than `"on"` or `"off"`, `pace/set` other than `"manual"` or `"auto"`, a number that does not parse — is dropped, logged, and reported on `game/error`. Accepted commands are logged with `page:` in front (§6.2). A command from the Stream Deck arrives on the same topic and is logged the same way; the game program cannot tell them apart and does not need to (Rev 13).
 
 # 9. Commissioning
 
-Before step 1: the certificate is issued (`mqtt.md` §9.1), nginx is configured and enabled, the Route 53 A record for `game.kr3am.org` points at the host, and the four broker users and the access list are in place. The deploy hook no longer has to be run by hand, because nginx reads the certificate from `/etc/letsencrypt/live` directly and the hook only reloads it.
+Before step 1: the certificate is issued (`mqtt.md` §9.1), nginx is configured and enabled, the Route 53 A record for `game.kr3am.org` points at the host, and the broker users and the access list are in place — four, and `sbgame-deck` the fifth from Rev 13. The deploy hook no longer has to be run by hand, because nginx reads the certificate from `/etc/letsencrypt/live` directly and the hook only reloads it.
 
 1. Restart Mosquitto and nginx after the §9 changes to `mqtt.md`'s configuration. Mosquitto's log shows two listeners open, MQTT on 1883 and WebSockets on 127.0.0.1:9001; `ss -ltnp` shows nginx on 443. Mosquitto's WebSockets listener is deliberately on loopback: nothing off the host reaches it except through nginx (Rev 10).
 2. From another machine on the LAN, `curl https://game.kr3am.org/` returns `index.html` with no certificate error. That checks the name, the certificate and `http_dir` together (Rev 8; `curl http://<host>.local:9001/` through Rev 7).
@@ -430,6 +487,7 @@ Before step 1: the certificate is issued (`mqtt.md` §9.1), nginx is configured 
 8. **Wiring check** (Rev 5). With no game running, put an answering cord into each cabled station jack in turn and ring it. The tile for that jack flashes. If another tile flashes, or none does, the cable and script.yml's `jacks:` disagree about that station (Rev 11; each station's `switchboard:` at Rev 7–10, `wiring.yml` at Rev 5–6). A labelled jack with nothing cabled looks like any other at rest, so a tile that never flashes is not by itself proof of a fault — tap it: its circuit reads none. For trunks, seize each trunk jack in turn: the tile for that jack shows busy. This checks the cabling against the script using only topics that already exist.
 9. **The loudspeaker follows the call** (Rev 6). Start a game. The page shows the monitor's source as `tap`. Start a call from a station and answer it: the source changes to that station's label and the audience hears the request. Put the call through and release the operator: the conversation stays on the loudspeaker. Do the same for a call from a trunk, and confirm the source does not change while the trunk is ringing. Stop the game: the source returns to `tap`.
 10. **Certificate reload** (Rev 10). Nothing to check. Mosquitto holds no certificate: nginx terminates TLS and rereads the certificate on `systemctl reload`, which starts new workers and lets the old ones finish, so no client is disconnected and no client of Mosquitto is touched at all. Rev 8 and Rev 9 had this step decide between SIGHUP and a 04:00 restart, because whether Mosquitto's libwebsockets listener reloads a certificate on SIGHUP was unconfirmed. Both are withdrawn (`mqtt.md` §9.1). Confirm the renewal path itself instead, without spending an issuance: `sudo certbot renew --dry-run` runs the DNS-01 challenge against staging and the deploy hook, and must report success.
+11. **The Stream Deck** (Rev 13). With `sbgame-streamdeck` running and the deck plugged in: the keys draw within 2s. Start and Stop start and stop a game, Stop only on the second press. The pacing key switches the page's pacing. Turn each dial one detent each way and check the page shows the step, then turn `gap` quickly through ten detents and check it moves 50s. Next Call starts one call per press, however fast it is pressed. Stop the game program: keys 1–7 grey within 2.5s and key 8 shows the game red. Unplug the deck and plug it in again: it redraws with the current state. `systemctl stop sbgame-streamdeck`: the deck goes blank. Then hide the page's controls with its Controls switch (§7.1), reload the page, and check they stay hidden and the line reads the game's state.
 
 # 10. Open Items
 
@@ -443,4 +501,7 @@ Before step 1: the certificate is issued (`mqtt.md` §9.1), nginx is configured 
 - **Script names or jack labels.** script.yml's station keys (`room463`) and the board's labels (`463`) name the same thing twice. The calls panel and the log use script names, and the tiles use labels. If that reads badly, the game program can put labels in the call slots instead.
 - **The loudspeaker leaving a conversation** (§6.4). In automatic pacing, the operator answering the next call takes the audience away from the current conversation, possibly mid-sentence. The alternative is to stay on a call until its conversation ends and then move to the most recently answered call, at the cost of missing that call's request. Rev 6 moves at each answer. Wants listening with an audience.
 - **Settings across restarts.** Pacing values return to the configuration file's when the game program restarts (§4.3). If that is annoying, the game program can read its own retained values back at start.
+- **Dial push** (§7.4). Unused at Rev 13. Candidates: a finer step while held, or back to the configured value — the program does not know the configured values, and the game program would have to publish them.
+- **Error on the strip** (§7.4). 5s may be too short to read a long error, or too long to lose the dials during a game. Wants use.
+- **Next Call on GPIO36** (`control.md` §11). A third way to publish `next/set`, needing the same guard as the page and the deck.
 - **Screen wake lock** (§7.3, Rev 8). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.

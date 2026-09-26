@@ -27,6 +27,14 @@ let stopArmed = 0;                  // Stop needs a second tap within 3 s
 let panelOpen = null;               // "station/7" while its panel is up
 let nextEnabledAt = 0;              // Next Call re-enables after 3 s regardless
 
+// Whether this iPad shows the controls (§7.1, Rev 13). A preference of this
+// device alone, so it lives in the browser and not on the bus. Shown unless
+// hidden here: storage can come back empty, and an iPad that has lost its
+// setting should be able to run the game.
+const CONTROLS_KEY = 'sbgame.controls';
+let showControls = true;
+try { showControls = localStorage.getItem(CONTROLS_KEY) !== 'hidden'; } catch (e) { /* default */ }
+
 const get = (k) => S[k] || '';
 const on = (k) => S[k] === 'on';
 const hostNow = () => Date.now() / 1000 + hostOffset;
@@ -391,6 +399,14 @@ function renderTop() {
   document.getElementById('t-prog').textContent = [...occupiedSlots()].length;
 
   document.getElementById('tallies').classList.toggle('stale', gameStale());
+
+  document.body.classList.toggle('no-controls', !showControls);
+  document.getElementById('controls-toggle').classList.toggle('sel', showControls);
+  const runText = get('game/run') === 'on' ? 'Running' : (get('game/run') ? 'Stopped' : '–');
+  const paceText = { auto: 'Automatic', manual: 'Manual' }[get('game/pace')] || '–';
+  const st = document.getElementById('v-state');
+  st.textContent = `${runText} · ${paceText}`;
+  st.parentElement.classList.toggle('stale', disabled);
 }
 
 function render() {
@@ -426,6 +442,13 @@ function render() {
 
 // ---- taps ------------------------------------------------------------------
 
+document.getElementById('controls-toggle').onclick = () => {
+  showControls = !showControls;
+  // A stop armed while visible must not fire on the next tap after showing.
+  stopArmed = 0;
+  try { localStorage.setItem(CONTROLS_KEY, showControls ? 'shown' : 'hidden'); } catch (e) { /* this session only */ }
+  render();
+};
 document.getElementById('start').onclick = () => send('run', 'on');
 document.getElementById('stop').onclick = () => {
   // §7.1: a second tap within 3 s, because Stop ends a player's game.

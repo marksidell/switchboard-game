@@ -2,11 +2,11 @@
 
 **MQTT Design**
 
-*Rev 19 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program) and the Status Page, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
+*Rev 20 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
 
 # 1. Overview
 
-Everything that is not audio moves over MQTT. The broker is Mosquitto on the Linux host. Three clients connect to it, and a browser page:
+Everything that is not audio moves over MQTT. The broker is Mosquitto on the Linux host. Three clients connect to it, a browser page, and the program that drives the Stream Deck:
 
 - **The ESP32** — the Olimex ESP32-POE-ISO on the ring generator board, the system's only microcontroller. It owns every relay and every supervisory input on the station and trunk boards, reached over I²C. It connects over Ethernet. Its firmware is specified in `control.md`.
 
@@ -15,6 +15,8 @@ Everything that is not audio moves over MQTT. The broker is Mosquitto on the Lin
 - **The game program** — Python, on the host. It is the game logic. It commands the ESP32 and the audio program, consumes everything both publish, publishes the game's own state for the status page, and is the only client that commands hardware or audio. It connects over loopback. What it does with the page's commands is specified in `game_control.md`.
 
 - **The status page** — one HTML page with its script, in Safari on an iPad, over Wi-Fi. nginx serves its files over HTTPS and proxies its secure WebSockets connection through to Mosquitto (§9, Rev 17). It reads every topic, and it commands the game program only — start and stop, pacing, the next call (§6.2). It is specified in `game_control.md`.
+
+- **The Stream Deck program** — `sbgame-streamdeck`, Python, on the host (Rev 20). It drives an Elgato Stream Deck+ on USB, which carries the game's controls from `game_control.md` Rev 13. It reads every topic and publishes the page's commands and nothing else, under the page's access list as its own user. It connects over loopback. It is specified in `game_control.md` §7.4.
 
 The ESP32 and the host are joined by wired Ethernet, with the ESP32 powered by PoE from the same cable. This replaced a USB serial link at station Rev 3.1: Ethernet is deterministic, unaffected by RF conditions in the room, puts one cable rather than two into the rack, and decouples the controller's position from the host's. The hardware side of that link — the controller board, its PoE budget and the switch — is in station §9.8 and §9.9.
 
@@ -172,6 +174,12 @@ This document specifies the messages: the topic names, who publishes each, what 
 
 — The `board/` labels and circuits come from script.yml's `jacks:` list, not from its station entries (§6.1, §7), following game_control.md Rev 11, 2026-09-25. Every station jack the list names has a label, whether or not a station is cabled to it, so `board/station/<n>/label` can now be set while `board/station/<n>/circuit` is empty. Rev 14 said a jack with no circuit had no label. The topics, their payloads and their retention do not change.
 
+## 1.20 Changes in Rev 20
+
+— A fifth client, the Stream Deck program, `sbgame-streamdeck` (§1), following game_control.md Rev 13, 2026-09-25. It publishes the commands of §6.2 and nothing else, as a new broker user, `sbgame-deck`, whose access list is the page's (§9). No topic or payload changes: the game program cannot tell the deck's commands from the page's and does not need to. Like the page it has no will and no heartbeat (§8.2).
+
+— The page keeps its commands, behind a switch that hides them on an iPad (game_control.md §7.1), so `sbgame-web` keeps its write access and both users write the same commands.
+
 # 2. Design Rules
 
 These hold across every topic. A new topic that breaks one of them needs a reason recorded here.
@@ -299,9 +307,9 @@ Published by the game program for the status page and the log (Rev 10). All reta
 | `sbgame/game/log` | text | yes | The last 50 events, newest first, one per line (game_control.md §6.2). |
 | `sbgame/game/error` | text, or `""` | yes | The last page command the game program rejected, and why; cleared by the next accepted command. |
 
-## 6.2 Messages Published by the Status Page
+## 6.2 Messages Published by the Status Page and the Stream Deck
 
-The page's commands, consumed by the game program only (Rev 10). The page publishes nothing else, and the broker enforces that (§9).
+The page's commands, consumed by the game program only (Rev 10). The Stream Deck program publishes the same commands (Rev 20). Neither publishes anything else, and the broker enforces that (§9).
 
 | **Topic** | **Payload** | **Retained** | **Consumer** | **Meaning** |
 | --- | --- | --- | --- | --- |
@@ -384,7 +392,7 @@ The ESP32 heartbeat is also the periodic reassurance that retained state is curr
 
 The audio program has a will but no heartbeat. Its main loop is the audio callback, and if that stops the A32 stream stops with it — a louder failure than a wedged ESP32 loop, and one the game program can already see from `audio_status` and from `peer` values that stop changing. That reasoning is weaker now that the program has an MQTT thread separate from its audio thread (audio.md §3): the MQTT thread can hold the connection open while the audio thread is wedged, and then a `listen` never resolves and a `play` never clears. Until §11 settles whether it gets a heartbeat, the game program applies its own deadline to anything it waits on from the audio program — the listen timeout plus a margin, the file's known length plus a margin — and treats a missed deadline as audio-program-down.
 
-The page has neither a will nor a heartbeat. Nothing depends on it being there: it commands only the game, and a page that vanishes mid-game leaves the game running on its own pacing, which is the right outcome.
+The page has neither a will nor a heartbeat. Nothing depends on it being there: it commands only the game, and a page that vanishes mid-game leaves the game running on its own pacing, which is the right outcome. The Stream Deck program has neither, for the same reason (Rev 20).
 
 ## 8.3 Sync
 
@@ -398,7 +406,7 @@ On game program start: connect with its will of `"offline"` on `game_status`; pu
 
 On audio program start or reconnect: publish `play`, `tone` and `listen` empty for every circuit, `monitor` and `monitor/source` as configured, `test/<ch>` off for every channel; then `peer`, `op` and `optone` from the first detector pass; then `audio_status` = `online`. State before birth, so a subscriber that sees `online` already has consistent values (audio.md §12). Nothing it was doing before a broker loss survives it: tones and files were stopped when the connection dropped (§8.2), so the empty `play` and `tone` published on reconnect are true.
 
-On page connect or reconnect: subscribe to `sbgame/#`. The retained topics are the whole state; there is nothing to ask for.
+On page connect or reconnect: subscribe to `sbgame/#`. The retained topics are the whole state; there is nothing to ask for. The Stream Deck program does the same (Rev 20).
 
 # 9. Broker Configuration
 
@@ -458,6 +466,29 @@ server {
 `listen 443 ssl http2` is the form Ubuntu 24.04's nginx 1.24 takes; the `http2 on` directive is 1.25.1 and later. The read and send timeouts are an hour because a game can sit idle between calls and the socket must not be dropped for it.
 
 nginx's master process runs as root and reads the certificate straight from `/etc/letsencrypt/live`, so no copy of the key is made and the deploy hook is a reload (§9.1). The page's files are read by the worker, as `www-data`, from `/srv/sbgame/web`, which is world-readable.
+
+**The access list**, `/etc/mosquitto/acl`. A user with no line can do nothing. The three clients have the whole tree. The page and the Stream Deck program read everything and write only the game's commands (Rev 20):
+
+```text
+user sbgame-control
+topic readwrite sbgame/#
+
+user sbgame-audio
+topic readwrite sbgame/#
+
+user sbgame-game
+topic readwrite sbgame/#
+
+user sbgame-web
+topic read sbgame/#
+topic write sbgame/game/+/set
+
+user sbgame-deck
+topic read sbgame/#
+topic write sbgame/game/+/set
+```
+
+The page keeps its write line: its controls can be hidden on an iPad but not removed (game_control.md §7.1). The deck's password is in `/etc/sbgame/mqtt-deck.pass`, 640, group `sbgame-deck`, like the others.
 
 ## 9.1 The Certificate
 
@@ -536,5 +567,5 @@ Recorded so the reasoning survives the move from the circuit documents, whose ch
 - Whether the audio program gets a heartbeat of its own, `sbgame/ctl/audio_heartbeat`, published from the audio thread once a second after a detector hop so that it proves the thread that plays and listens rather than the one that talks to the broker — the ESP32's argument in §8.2 applied to the audio program. Not added at Rev 5 because the game's own deadlines on `listen` and `play` cover the cases that matter and the pilots stopping is visible anyway; add it if a wedged audio thread is ever seen with `audio_status` still online.
 - Whether the audio program should accept `listen/set` on the tap channel, which always carries the operator's voice. audio.md §16.
 - The page's commands will grow as `game_control.md` §10 settles — a fixed-interval pacing value on `pace`, a named scene to start, timeouts. Each is one more `sbgame/game/…/set` and covered by the access list's existing pattern.
-- The page has only one user, `sbgame-web`, and anyone on the network who loads it can run the game. Acceptable at the bench and behind the travel router. For a public event where the Wi-Fi is shared, a second, private page could hold the password. Rev 10 to Rev 14 listed TLS on the listener here as the other half of that; it was taken at Rev 15 (§9).
+- The page has only one user, `sbgame-web`, and anyone on the network who loads it can run the game. Hiding its controls (Rev 20) does not change that; only the access list could. Acceptable at the bench and behind the travel router. For a public event where the Wi-Fi is shared, a second, private page could hold the password. Rev 10 to Rev 14 listed TLS on the listener here as the other half of that; it was taken at Rev 15 (§9).
 - `http_dir` is no longer used, so its removal in Mosquitto 3.0 no longer matters (Rev 17, §9). nginx serves the page's files and Mosquitto's WebSockets listener carries MQTT alone, which is not marked for removal. What moving past 2.x now means for this system is the `per_listener_settings` and password-file defaults, not the page.
