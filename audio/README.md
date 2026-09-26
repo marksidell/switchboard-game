@@ -74,13 +74,16 @@ the loopback — and every command, echo, failsafe and shutdown path works norma
 
 ```
 sudo install -m 755 audio/build/sbaudio /usr/local/bin/sbaudio
-sudo cp audio/systemd/sbaudio.service /etc/systemd/system/
-sudo systemctl daemon-reload
+make -C host install          # the unit, with the rest of the host's files
 sudo systemctl enable --now sbaudio
 journalctl -u sbaudio -f
 ```
 
-The unit's `ExecStart` is where bench settings live (`audio.md` §14): the program's
+After a rebuild, the `install` line and `sudo systemctl restart sbaudio`: the service
+runs the copy in `/usr/local/bin`, not the build directory.
+
+The unit is `host/etc/systemd/system/sbaudio.service`, so `make -C host diff` reports
+it when the installed copy drifts. The unit's `ExecStart` is where bench settings live (`audio.md` §14): the program's
 defaults are the figures station §8 gives, and what the bench says goes in the unit
 file, not into the source. `LimitRTPRIO` and `LimitMEMLOCK` are there so `SCHED_FIFO`
 and `mlockall` succeed; without them the program logs and continues, at the cost of

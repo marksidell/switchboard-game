@@ -27,6 +27,7 @@ etc/nginx/sites-available/sbgame              TLS on 443, the page, the /mqtt pr
 etc/letsencrypt/renewal-hooks/deploy/nginx    reload nginx after a renewal
 etc/systemd/system/sbgame.service             the game program
 etc/systemd/system/sbgame-streamdeck.service  the Stream Deck program
+etc/systemd/system/sbaudio.service            the audio program
 etc/udev/rules.d/70-sbgame-streamdeck.rules   the deck, for the sbgame-deck user
 etc/sbgame/game.toml                          the game program's configuration
 iam/certbot-route53.json                      the certbot user's policy

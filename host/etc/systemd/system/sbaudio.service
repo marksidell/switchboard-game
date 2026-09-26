@@ -1,13 +1,9 @@
 # sbaudio - the 551 switchboard simulator's audio program.
 #
-# Install per audio/README.md. Every level in ExecStart is a bench setting
-# (audio.md 14, 15): the defaults in the program are the figures station 8
-# gives, and what the bench says goes here rather than into the source.
-#
-#   sudo cp audio/systemd/sbaudio.service /etc/systemd/system/
-#   sudo systemctl daemon-reload
-#   sudo systemctl enable --now sbaudio
-#   journalctl -u sbaudio -f
+# Installed by `make -C host install`, with the rest of the host's files; the
+# program itself by the steps in audio/README.md. Every level in ExecStart is a
+# bench setting (audio.md 14, 15): the defaults in the program are the figures
+# station 8 gives, and what the bench says goes here rather than into the source.
 
 [Unit]
 Description=551 switchboard simulator audio program
