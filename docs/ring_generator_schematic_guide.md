@@ -1,5 +1,7 @@
 # Ring Generator Board — KiCad Schematic Drawing Guide
 
+> **Superseded for designators, 2026-09-26.** The board was drawn and built with a different assignment from the one below. `ring_generator.md` Rev 68 is renumbered to the board. Its §10 has a Board column giving every part's reference as built, and §11 is the netlist as built. Use those. This guide is kept for its reasoning about sheet structure and blocks.
+
 Derived from ring generator Rev 32 §10 and §11, and the KiCad library plan.
 Structure: **one flat sheet**. No hierarchy, no instances.
 

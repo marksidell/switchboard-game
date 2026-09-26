@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 13 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
+*Rev 14 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
 
 # 1. Overview
 
@@ -102,6 +102,12 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 
 — Follows generator Rev 65. GPIO36 is the operator's Next Call button, an optoisolator pulling the pin low against the Olimex's own 10k pull-up; §3 lists it. What the firmware does with it — debounce, the press event and its MQTT topic — is not yet specified, and §11 carries it as an open item. No firmware consequence until it is.
 
+## 1.14 Changes in Rev 14
+
+— Follows generator Rev 68, which brings that document into line with the board as built. Nothing the firmware does changes; the names it uses for the hardware do. §3: GPIO32 (PWM A) reaches IN2 and the right leg, U5, through 74HCT04 gates 2 and 5; GPIO33 (PWM B) reaches IN1 and the left leg, U4, through gates 1 and 6; SD goes through gates 3 and 4. The enable and sync header is J1 (pin 1 GPIO4, pins 2 and 3 GND, pin 4 GPIO15), not J9; the drive monitor is J3, not J10; the Antek's output terminal is J6, not J8. §4.1: R_SD_PD2 is not fitted, and the low-side gate pull-downs are R_GS2 and R_GS4. §5.2 says which leg the positive half-cycle drives on this board.
+
+— Firmware consequence, for Claude Code, made in the same commit: the pin comments in `control.ino` and the two banner lines that name J9 now name J1 and its pins. Comments and strings only.
+
 # 2. Platform and Build
 
 Olimex ESP32-POE-ISO. Arduino IDE: "ESP32-POE-ISO" under the Olimex ESP32 boards package; PlatformIO: `board = esp32-poe-iso`, `framework = arduino`. The firmware requires Arduino core 3.x and carries an `#error` against 2.x — the 2.x LEDC API path was removed rather than maintained. The reason it avoids the LEDC overflow interrupt (§5.2) is that the register struct names it would need move between IDF versions. MQTT client: MQTT 2.5.3, Joël Gähwiler (256dpi/arduino-mqtt) — §9.1.
@@ -111,10 +117,10 @@ Olimex ESP32-POE-ISO. Arduino IDE: "ESP32-POE-ISO" under the Olimex ESP32 boards
 The GPIO assignments and the reasons for them are generator §3.1 and §3.2, which are the authority; verify every assignment against the Olimex schematic for the board revision in hand before committing anything, as that section says. What the firmware needs to know about each pin:
 
 ```text
-  GPIO32  LEDC CH0   PWM A → IN1 via 74HCT04 gates 1-2. Active HIGH. Idle LOW (duty 0).
-  GPIO33  LEDC CH1   PWM B → IN2 via gates 3-4.          Active HIGH. Idle LOW (duty 0).
-  GPIO14  output     SD via gates 5-6, non-inverting.     HIGH = bridge enabled, LOW = disabled.
-  GPIO4   input      Master enable, active LOW, internal pull-up. LOW = generator may run. J9 pin 1.
+  GPIO32  LEDC CH0   PWM A → IN2 (U5, right leg) via 74HCT04 gates 2 and 5. Active HIGH. Idle LOW (duty 0).
+  GPIO33  LEDC CH1   PWM B → IN1 (U4, left leg) via gates 1 and 6.          Active HIGH. Idle LOW (duty 0).
+  GPIO14  output     SD via gates 3 and 4, non-inverting.     HIGH = bridge enabled, LOW = disabled.
+  GPIO4   input      Master enable, active LOW, internal pull-up. LOW = generator may run. J1 pin 1.
   GPIO5   output     Expander /RESET, active LOW, idles HIGH. Strapping pin — must be high at boot.
   GPIO13  I²C SDA    Wire.begin(13, 16) — note the argument order.
   GPIO16  I²C SCL    100kHz.
@@ -130,7 +136,7 @@ Say SD in levels, not states: LOW is shutdown, HIGH is enabled. "SD asserted" is
 
 ## 4.1 What the Hardware Guarantees Before the Firmware Runs
 
-The firmware does not create the safe state; it inherits one. R_PWMA_PD and R_PWMB_PD hold GPIO32 and GPIO33 low through boot, so both IR2104 IN pins are low and the bridge is parked with the primary at ground. R_SD_PD holds GPIO14 low and R_SD_PD2 holds the SD net itself low, so both drivers are in shutdown — including when PoE is absent, the 24V bus is live and the 74HCT04 has no supply. R_GS3 and R_GS4 hold the low-side gates down when nothing drives them. Generator §5.3 and §6 have the reasoning; the point for the firmware is that the bridge is off by two independent mechanisms until it deliberately turns both on, and that nothing the firmware does at boot can make it otherwise.
+The firmware does not create the safe state; it inherits one. R_PWMA_PD and R_PWMB_PD hold GPIO32 and GPIO33 low through boot, so both IR2104 IN pins are low and the bridge is parked with the primary at ground. R_SD_PD holds GPIO14 low, so both drivers are in shutdown. When PoE is absent, the 24V bus is live and the 74HCT04 has no supply, SD is held near 0V by the unpowered gate's output clamp rather than by a resistor — R_SD_PD2 is not fitted (generator §6, Rev 68). R_GS2 and R_GS4 hold the low-side gates down when nothing drives them. Generator §5.3 and §6 have the reasoning; the point for the firmware is that the bridge is off by two independent mechanisms until it deliberately turns both on, and that nothing the firmware does at boot can make it otherwise.
 
 On the expander side, the MCP23017 comes out of reset with IODIR = 0xFF, every pin an input, so Port B floats until the firmware configures it. R_pd on every relay driver holds the driver off through that window (station §5.2, trunk §7.3). A reset therefore drops every relay — see §6.2.
 
@@ -183,7 +189,7 @@ Why the carrier is 40kHz specifically is not recorded. Above audibility, and low
 
 Duty is updated once per step, phase-locked to the carrier. The end-of-period interrupt on CH0 would be the ideal source and needs no separate timer, but reaching it from the Arduino IDE means writing `LEDC.int_ena` directly, and those register struct names move between IDF versions — a build that breaks on a core update rather than on a design change. What is built instead is a periodic `esp_timer` at 200µs. The equivalence holds because LEDC latches a new duty at the next carrier period boundary: a duty written at an arbitrary instant still takes effect on a period edge, so there is no mid-period glitch. What remains is which period the write lands on — occasionally 7 or 9 carrier cycles rather than 8, at most 25µs on a 50ms waveform, non-accumulating because the timer free-runs at its own rate. Dispatch is `ESP_TIMER_TASK`, so the callback is task context and `ledcWrite()` is legal in it.
 
-During each half-cycle one leg is driven and the other is held at duty 0; during the positive half GPIO33 is held low and GPIO32 carries the sine, and the reverse during the negative half (generator §5.2's truth table).
+During each half-cycle one leg is driven and the other is held at duty 0; during the positive half GPIO33 is held low and GPIO32 carries the sine, and the reverse during the negative half (generator §5.2's truth table). On the board as built GPIO32 drives the right leg, U5, so the positive half-cycle drives SW_R high (generator §5.1).
 
 ## 5.3 Start Phase
 
@@ -193,13 +199,13 @@ What it does not solve is remanence: after a stop, the core keeps some flux from
 
 In the firmware, the active leg goes from parked to about 90% duty on the first PWM period after SD, which is a single edge and not a transient. Its bootstrap capacitor is uncharged at that instant and fills through the low-side windows over the first few carrier cycles, during which UVLO holds HO off — harmless, the parked leg holds the primary at zero meanwhile. The §5.4 sync output's first real edge is the rising one at index 0, three quarters of a cycle after SD. The fallback, if the peak start ever proves awkward downstream of sync, is a zero-crossing start with g_amplitude ramped over the first two cycles.
 
-Verification, as specified: capture from SD rising on GPIO14, 10ms/div, primary through the J10 monitor on one channel and the rail at the bridge on the other. Pass is a first half-cycle of the same amplitude as those that follow and no dip on the rail. The change was in the firmware before the Antek's first power-up (generator Rev 52), so the transient it prevents has never been seen on that transformer.
+Verification, as specified: capture from SD rising on GPIO14, 10ms/div, primary through the J3 monitor on one channel and the rail at the bridge on the other. Pass is a first half-cycle of the same amplitude as those that follow and no dip on the rail. The change was in the firmware before the Antek's first power-up (generator Rev 52), so the transient it prevents has never been seen on that transformer.
 
-Verified 2026-09-25, Analog Discovery 3 (Mark's capture `ring11.png`, not in the repository): 10ms/div, triggered on the first rising edge of the §5.4 sync on DIO 0 with the start 37.6ms before it in the pre-trigger record, channel 1 on J10, channel 2 on J8 through the 11:1 divider, no load, C_OUT fitted, firmware at control.md Rev 11. The start is at −38ms. J8 steps from 0 to 112V peak and the first half-cycle is the same amplitude and shape as every one after it; J10's first peak reads 19.5V against 21.5V steady, which is the §8.7 filter settling (0.94ms) while the sine is already 3.5ms past its peak — 21.5 × cos 25° = 19.5V — and from the second half-cycle it is ±21V. The rail was not captured, as the procedure asked; J8 stands in for it, since the output is duty × rail × ratio and a rail dip of the 2026-09-04 kind would show as a sag in the first output half-cycle, and there is none. Inrush current in the first 10ms was not measured and is not practical on this bench; steady-state supply current is 30mA, as at Rev 52. Channel 1 was connected reversed, so both traces read inverted: the start shows as a negative peak and the sync edge as a negative-going zero crossing. With the probe the right way round the start is the positive peak and sync rises into the positive half-cycle, as written. Pass.
+Verified 2026-09-25, Analog Discovery 3 (Mark's capture `ring11.png`, not in the repository): 10ms/div, triggered on the first rising edge of the §5.4 sync on DIO 0 with the start 37.6ms before it in the pre-trigger record, channel 1 on J10, channel 2 on J8 (J3 and J6 in the board's numbering, generator Rev 68) through the 11:1 divider, no load, C_OUT fitted, firmware at control.md Rev 11. The start is at −38ms. J8 steps from 0 to 112V peak and the first half-cycle is the same amplitude and shape as every one after it; J10's first peak reads 19.5V against 21.5V steady, which is the §8.7 filter settling (0.94ms) while the sine is already 3.5ms past its peak — 21.5 × cos 25° = 19.5V — and from the second half-cycle it is ±21V. The rail was not captured, as the procedure asked; J8 stands in for it, since the output is duty × rail × ratio and a rail dip of the 2026-09-04 kind would show as a sag in the first output half-cycle, and there is none. Inrush current in the first 10ms was not measured and is not practical on this bench; steady-state supply current is 30mA, as at Rev 52. Channel 1 was connected reversed, so both traces read inverted: the start shows as a negative peak and the sync edge as a negative-going zero crossing. With the probe the right way round the start is the positive peak and sync rises into the positive half-cycle, as written. Pass.
 
 ## 5.4 Waveform Sync Output
 
-GPIO15 carries one square wave per output cycle: high at step 0, low at step 125 — 20Hz at 50% duty with the rising edge marking phase zero. It is for bench work: triggering a scope or the Analog Discovery at a known point so the switching node, the gate drive and the secondary can be viewed against one reference. It is on J9 pin 3 with GND on pin 2.
+GPIO15 carries one square wave per output cycle: high at step 0, low at step 125 — 20Hz at 50% duty with the rising edge marking phase zero. It is for bench work: triggering a scope or the Analog Discovery at a known point so the switching node, the gate drive and the secondary can be viewed against one reference. It is on J1 pin 4 with GND on pin 3.
 
 Levels are written rather than toggled. A toggle that misses a tick stays inverted for as long as the generator runs; writing the level re-asserts it twice per cycle, so a lost tick costs one edge, not the polarity. The pin idles low whenever the generator is not running, so the absence of a trigger means the bridge is genuinely idle.
 

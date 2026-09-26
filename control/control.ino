@@ -30,7 +30,7 @@
  * The board DOES restart by itself after an upload - no reset press needed.
  * Verified 2026-09-04: flashed with arduino-cli, which ends with "Hard
  * resetting via RTS pin", while the serial port was left closed throughout and
- * a scope watched the 20 Hz sync on GPIO15 (J9 pin 3). The sync appeared on
+ * a scope watched the 20 Hz sync on GPIO15 (J1 pin 4). The sync appeared on
  * its own. A note here previously claimed the opposite; it was wrong.
  *
  * What misled it: the banner is printed inside setup(), and is gone before a
@@ -121,11 +121,11 @@ static constexpr float G_AMPLITUDE = 0.90f;
 
 /* ---- Section 3.2: pin assignments ---------------------------------------- */
 
-static constexpr int PIN_PWM_A     = 32;  // LEDC CH0 -> gate 1 -> IN1
-static constexpr int PIN_PWM_B     = 33;  // LEDC CH1 -> gate 2 -> IN2
+static constexpr int PIN_PWM_A     = 32;  // LEDC CH0 -> gates 2+5 -> IN2 (U5, right leg)
+static constexpr int PIN_PWM_B     = 33;  // LEDC CH1 -> gates 1+6 -> IN1 (U4, left leg)
 static constexpr int PIN_SD        = 14;  // -> gates 3+4 -> SD. HIGH = enabled
 static constexpr int PIN_ENBL      =  4;  // master enable, active LOW, pull-up
-static constexpr int PIN_SYNC      = 15;  // waveform sync out to J9 pin 3, doc 12.5.
+static constexpr int PIN_SYNC      = 15;  // waveform sync out to J1 pin 4, doc 12.5.
                                           // STRAPPING PIN - must be high when the ROM
                                           // bootloader samples it, and low at reset
                                           // also silences the boot log, so it is left
@@ -250,7 +250,7 @@ static void stepCallback(void*) {
   pwmWrite(PIN_PWM_A, duty_a[k]);
   pwmWrite(PIN_PWM_B, duty_b[k]);
 
-  // Sync out on J9 pin 3: rising edge at the start of the positive half-cycle,
+  // Sync out on J1 pin 4: rising edge at the start of the positive half-cycle,
   // falling at the start of the negative. One 20Hz square wave, 50% duty.
   // Levels are written, not toggled - a toggle that misses a tick stays
   // inverted for the whole run, where this re-asserts twice per cycle.
@@ -465,8 +465,8 @@ static void printBanner() {
   Serial.printf("  start step   %lu of %lu, phase %.1f deg (positive peak)\n",
                 (unsigned long)START_STEP, (unsigned long)SINE_STEPS,
                 360.0 * ((double)START_STEP + 0.5) / (double)SINE_STEPS);
-  Serial.println("  GPIO4 LOW to run (J9 pins 1-2)");
-  Serial.printf ("  sync on GPIO%d (J9 pin 3): rising = positive half-cycle\n", PIN_SYNC);
+  Serial.println("  GPIO4 LOW to run (J1 pins 1-2)");
+  Serial.printf ("  sync on GPIO%d (J1 pin 4): rising = positive half-cycle\n", PIN_SYNC);
   // tick_count advancing at 5000/s is the only visibility into whether the
   // esp_timer is really dispatching: a stalled timer with the bridge armed
   // looks exactly like a working one until a scope goes on GPIO32. enbl is the
