@@ -2,7 +2,7 @@
 
 **Ring Generator Circuit Design**
 
-*Rev 70 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C_OUT at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J10, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7*
+*Rev 71 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C_OUT at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J10, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7*
 
 # 1. Overview
 
@@ -335,6 +335,8 @@ Rev 15 exists because the gate-drive logic threshold in Rev 14 was checked again
 
 — Rev 70: build record only. R_GS2 and R_GS4 are fitted to the built board as bodges, 2026-09-26: 10k each, on the underside, across IR2104 pin 5 (LO) and pin 4 (COM) on both drivers. §8.4 records it. C_TVS2 (§4.6) is not bodged; it goes on at the next board revision (Mark, 2026-09-26). The design does not change.
 
+— Rev 71: the Next Call button is not fitted to this board (Mark, 2026-09-26). GPIO36 stays reserved for it and is unconnected on the board as built; the operator's Next Call comes from the page and the Stream Deck. §3.2 records the circuit as drawn in ring2, which changes Rev 66 in one respect: the contact switches the low side, not +12V, so the cable carries GND and a node fed from +12V through 2.2kΩ. A cable short to ground or between the two wires is then only a press, where Rev 66's arrangement put a short across the +12V rail. U_OPTO, R_OPTO and the NEXT_SW and OPTO_A nets leave §10.3 and §11.
+
 # 2. Signal Path
 
 ## 2.1 Ring Generator
@@ -402,9 +404,11 @@ Verify all four assignments against the Olimex schematic for the board revision 
 
 GPIO15 Output  Waveform sync, for scope and logic analyser triggering — §12.5. Assigned at Rev 42; brought out on J9 pin 3 at Rev 43, and on J1 pin 4 as built (Rev 68).
 
-GPIO36 Input   Next Call button, active LOW — optoisolator output to ground, R37's 10k pull-up on the Olimex (Rev K). Olimex EXT2 pin 2. Assigned at Rev 65; circuit chosen at Rev 66.
+GPIO36 Input   Reserved for the Next Call button, active LOW — optoisolator output to ground, R37's 10k pull-up on the Olimex (Rev K). Olimex EXT2 pin 2. Assigned at Rev 65. Not fitted on this board (Rev 71): unconnected as built.
 
-The Next Call circuit (Rev 66). The button is a plain contact closure, off-board, wired between +12V_VCC and R_OPTO. Closing it drives U_OPTO's LED through R_OPTO: (12 − 1.2)V / 2.2kΩ ≈ 4.9mA, 53mW in the resistor. U_OPTO's collector goes to GPIO36 and its emitter to GND. Pulling R37's 10k low takes 3.3V / 10kΩ = 0.33mA. At U_OPTO's minimum CTR of 50%, 4.9mA in gives 2.5mA available, so the transistor saturates well below the ESP32's V_IL of 0.83V with 7× margin for LED ageing. No diode is fitted across the LED, because a contact closure has no polarity and the cathode is grounded on the board, so the 6V reverse rating is never approached. A short on the button cable from +12V to ground loads the TSR 1, which limits its own output current; the IR2104s then drop into undervoltage lockout and the bridge stops, which is safe. Switching time is tens of microseconds, which does not matter for a button. Debounce belongs in firmware (`control.md`). So does the ESP32 erratum on GPIO36: the pin can glitch low for a moment when the SAR ADC powers up, so the firmware polls with a debounce of a few milliseconds rather than taking an edge interrupt.
+The Next Call circuit, as drawn in ring2 (Rev 71; not on this board). One ISP521-1X. Pin 1 (anode) to +12V; pin 2 (cathode) through 2.2kΩ to pin 2 of a 2-pin terminal; pin 1 of that terminal to GND; 100nF across the terminal at the board to damp pickup on a long run. The button is a normally open contact at the far end of a two-wire cable across the terminal — the low side of the LED circuit, so the cable carries GND and a node fed from +12V through 2.2kΩ, never the rail itself. Pin 4 (collector) to GPIO36, pin 3 (emitter) to GND.
+
+Closing the contact puts (12 − 1.2)V / 2.2kΩ ≈ 4.9mA through the LED, 53mW in the resistor. Pulling R37's 10k low takes 3.3V / 10kΩ = 0.33mA; at the minimum CTR of 50%, 4.9mA in gives 2.5mA available, so the transistor saturates well below the ESP32's V_IL of 0.83V with 7× margin for LED ageing. A cable short to ground, or the two wires touching, is a press and nothing more — the reason for switching the low side; Rev 66 switched +12V, and the same short would have loaded the TSR 1 into limit and dropped the IR2104s into undervoltage lockout. No diode is fitted across the LED: its cathode side cannot be driven negative except by connecting the cable to a supply. +12V shares GND with the Olimex, so the isolation is between the cable and the GPIO rather than between grounds: noise or ESD on the run lands on the LED side, and no ESP32 rail leaves the board. Switching time is tens of microseconds, which does not matter for a button. Debounce belongs in firmware (`control.md`), and so does the ESP32 erratum on GPIO36: the pin can glitch low for a moment when the SAR ADC powers up, so the firmware polls with a debounce of a few milliseconds rather than taking an edge interrupt.
 
 GPIO15 was assigned to the operator tone injector at Rev 21, freed again at Rev 27, and taken at Rev 42 for the waveform sync output — see §15 for the first use and §12.5 for the present one. It was never listed above, which is worth noting because the argument in the old §15.1 for choosing it depended on this list being complete. Anything wanting a spare output should still verify against the Olimex schematic for the board revision in hand, and should remember that GPIO15 is a strapping pin that must be high at boot.
 
@@ -1010,8 +1014,6 @@ The Designator column is this document's name for each part. The Board column is
 | R_SCL | R1 | 2.2kΩ 1/4W | SCL pull-up to +3.3V — DO NOT FIT on other boards |
 | TVS2 | U2 | Littelfuse SP721APP, 3pF SCR/diode rail-clamp array | ESD and mis-plug protection on SDA and SCL. 8-PDIP through-hole, 6 inputs, 3pF per line. Rail clamp, not a fixed-breakdown TVS: V+ (pin 8) to +3.3V, V- (pin 4) to GND, SDA and SCL to two of the six inputs, four spare. Sacrificial after a mis-plug — keep spares and consider a socket, since it is a DIP anyway. Same part as the station and trunk boards — see §4.6. |
 | C_TVS2 | C15 | 100nF ceramic 50V | Bypass across TVS2, pin 8 (V+) to pin 4 (V−), at the device. The SP721 clamps by conducting the transient from IN into V+, and that current has to come from somewhere local or V+ lifts while the clamp is working. §4.6 puts TVS2 at J5, away from the expanders, so there is no other +3.3V decoupling anywhere near it — on this board there is none on the rail at all, since +3V3 arrives from the Olimex header. Added at Rev 34; see §4.6 |
-| U_OPTO | — | Isocom ISP521-1X | Next Call optocoupler, phototransistor, 4-pin DIP. Pin 1 anode, 2 cathode, 3 emitter, 4 collector. CTR 50–600% at 5mA. Rev 66; see §3.2 |
-| R_OPTO | — | 2.2kΩ 1/4W | U_OPTO LED series resistor, 4.9mA from +12V through the button contact. Rev 66 |
 | J5 | J5 | Amphenol ICC 87180-066LF | 6P6C modular jack, right angle, through-hole. I²C bus out. Würth 615006138421 or Assmann A-2004-1-4-N-R equivalent. |
 
 ## 10.4 Level Translation and SD Buffer
@@ -1105,20 +1107,17 @@ As built, Rev 68 — checked against `~/s/kicad/game/ring/ring.kicad_sch` as sav
 | --- | --- |
 | +24V_IN | J2 pin1 (system 24V bus), F1 pin1 |
 | +24V_SW | F1 pin2, D1 cathode, C_BULK1+, C_BULK2+, Q1 drain, Q3 drain, U_12V Vin, C_12V_IN1+, C_12V_IN2+ |
-| +12V_VCC | U_12V Vout, C_12V_OUT+, C_12V_BULK+, U4 pin1, U5 pin1, D_BOOT1 anode, D_BOOT2 anode, Next Call button contact (connector not yet chosen) |
+| +12V_VCC | U_12V Vout, C_12V_OUT+, C_12V_BULK+, U4 pin1, U5 pin1, D_BOOT1 anode, D_BOOT2 anode |
 | +3V3 | Olimex 3.3V pin, R_SDA pin1, R_SCL pin1, TVS2 pin8 (V+), C_TVS2+ |
 | +5V | Olimex +5V (EXT1 pin 1), U1 pin14, C_U1+ |
 | SD_N | U1 pin6 (Gate 3 out), U1 pin9 (Gate 4 in) |
 | SD | U1 pin8 (Gate 4 out), U4 pin3, U5 pin3 (R_SD_PD2 not fitted — §6) |
-| GND | System GND, D1 anode, C_BULK1−, C_BULK2−, U_12V GND, C_12V_IN1−, C_12V_IN2−, C_12V_OUT−, U1 pin7, U4 pin4, U5 pin4, Q2 source, Q4 source, R_SD_PD pin2, R_PWMA_PD pin2, R_PWMB_PD pin2, R_GS2 pin2, R_GS4 pin2, U_OPTO pin2, U_OPTO pin3, J1 pin2, J1 pin3, J3 pin1, Olimex GND, TVS2 pin4 (V−), C_TVS2−, J2 pin2, J5 pin3, J5 pin5, J5 pin6 |
+| GND | System GND, D1 anode, C_BULK1−, C_BULK2−, U_12V GND, C_12V_IN1−, C_12V_IN2−, C_12V_OUT−, U1 pin7, U4 pin4, U5 pin4, Q2 source, Q4 source, R_SD_PD pin2, R_PWMA_PD pin2, R_PWMB_PD pin2, R_GS2 pin2, R_GS4 pin2, J1 pin2, J1 pin3, J3 pin1, Olimex GND, TVS2 pin4 (V−), C_TVS2−, J2 pin2, J5 pin3, J5 pin5, J5 pin6 |
 | GPIO32 | Olimex GPIO32, U1 pin3 (Gate 2 in), R_PWMA_PD pin1 |
 | GPIO15 | Olimex GPIO15 (waveform sync), J1 pin4 |
 | GPIO33 | Olimex GPIO33, U1 pin1 (Gate 1 in), R_PWMB_PD pin1 |
 | GPIO14 | Olimex GPIO14, R_SD_PD pin1, U1 pin5 (Gate 3 in) |
 | GPIO4 | Olimex GPIO4 (master enable, active LOW), J1 pin1 |
-| GPIO36 | Olimex GPIO36 (EXT2 pin 2, Next Call, active LOW), U_OPTO pin4 |
-| NEXT_SW | Next Call button contact, switched side (connector not yet chosen), R_OPTO pin1 |
-| OPTO_A | R_OPTO pin2, U_OPTO pin1 |
 | SDA | Olimex GPIO13, R_SDA pin2, TVS2 pin5 (IN4), J5 pin4 |
 | SCL | Olimex GPIO16, R_SCL pin2, TVS2 pin2 (IN2), J5 pin2 |
 | /RESET | Olimex GPIO5, TVS2 pin1 (IN1), J5 pin1 |

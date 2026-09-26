@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 15 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
+*Rev 16 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
 
 # 1. Overview
 
@@ -114,6 +114,10 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 
 — Firmware consequence, for Claude Code, made in the same commit: ArduinoOTA started once Ethernet has an address, with the hostname `sbgame-esp32` and a SHA-256 password hash from `secrets.h` (`OTA_PASSWORD_SHA256`; without it the firmware builds with OTA off). The start callback stops the waveform and releases every relay before anything is written to flash; an error after that point restarts the board. §10 gains the row.
 
+## 1.16 Changes in Rev 16
+
+— Follows generator Rev 71: the Next Call button is not fitted to the ring generator board as built. GPIO36 stays reserved for it (§3) and is unconnected; §11's item on the firmware's handling waits on hardware that has it. No firmware change — nothing reads GPIO36.
+
 # 2. Platform and Build
 
 Olimex ESP32-POE-ISO. Arduino IDE: "ESP32-POE-ISO" under the Olimex ESP32 boards package; PlatformIO: `board = esp32-poe-iso`, `framework = arduino`. The firmware requires Arduino core 3.x and carries an `#error` against 2.x — the 2.x LEDC API path was removed rather than maintained. The reason it avoids the LEDC overflow interrupt (§5.2) is that the register struct names it would need move between IDF versions. MQTT client: MQTT 2.5.3, Joël Gähwiler (256dpi/arduino-mqtt) — §9.1.
@@ -143,7 +147,7 @@ The GPIO assignments and the reasons for them are generator §3.1 and §3.2, whi
   GPIO13  I²C SDA    Wire.begin(13, 16) — note the argument order.
   GPIO16  I²C SCL    100kHz.
   GPIO15  output     Waveform sync for the bench (§5.4). Strapping pin — leave as input until setup().
-  GPIO36  input      Next Call button, active LOW. Input only; pull-up is R37 on the Olimex, not internal.
+  GPIO36  input      Reserved for the Next Call button, active LOW; not fitted (generator Rev 71). Pull-up is R37 on the Olimex.
 ```
 
 Both PWM pins are active HIGH as of generator Rev 44, so duty is written directly and the idle value is 0, which is LEDC's own power-on state: the peripheral comes up parked without the firmware doing anything. Under the earlier 74HCT02 the pins were active low, every duty was a complement, and parking at 0 put the full rail across the primary as DC; generator §12.3 keeps that history so an older board is legible.
@@ -423,7 +427,7 @@ What the firmware cannot do is make the ring bus safe: the generator runs whenev
 
 # 11. Open Items
 
-- The Next Call button on GPIO36 (Rev 13): debounce, the press event, its `mqtt.md` topic and the game program's handling of it, as an alternative to the page's `game/next/set`. Not yet written.
+- The Next Call button on GPIO36 (Rev 13): debounce, the press event, its `mqtt.md` topic and the game program's handling of it, as an alternative to the page's `game/next/set`. Not yet written, and waiting on hardware: the button is not fitted to the board as built (Rev 16); the circuit is drawn in ring2.
 - Nothing in §6 to §10 has yet run against a station or trunk board, because none is built. First bring-up with a board on the chain: scan result on ctl/i2c, IPOL sense, relay drive and echo, ring and seize debounce against the real detectors.
 - The concurrent-ring cap value waits on the ring-current measurements in trunk §7.6.
 - Dial pulse timing through the real 551 trunk cord circuit and dial has not been measured. Scope SEIZE_n while dialling a full digit and a 0 on a seized trunk, and confirm the break and make intervals land inside the §8.2 windows with margin; the cord circuit's retard coils will round the edges, and the current source's recovery (trunk §3.2.2) is calculated, not measured, into a real dial.
