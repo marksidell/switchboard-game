@@ -2,7 +2,7 @@
 
 **Ring Generator Circuit Design**
 
-*Rev 68 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C_OUT at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J10, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7*
+*Rev 69 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C_OUT at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J10, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7*
 
 # 1. Overview
 
@@ -331,6 +331,8 @@ Rev 15 exists because the gate-drive logic threshold in Rev 14 was checked again
 
 — Rev 68: the change-log entries above keep the designators they were written with. Read J2, J6, J7, J8, J9, J10, IC1, IC2, U4, Q2, Q3 and R_GS3 in any entry up to Rev 67 in the old numbering. The §9.7 paragraphs added at Rev 67 describe ring2 and use ring2's references. `ring_generator_schematic_guide.md` planned a different assignment again; its tables are superseded by §10's Board column.
 
+— Rev 69: §3.4 only. The firmware now updates over Ethernet (control.md Rev 15, §2.1). Powering the Olimex from a USB port on portland instead of PoE was considered on 2026-09-26 and not taken: a USB cable joins portland's ground, and through it mains earth, to the 24V system ground that PoE's isolation keeps separate, and any program opening the serial port resets the board and drops every call. PoE stays, from a TL-SG105PE PoE switch rather than a separate injector. Nothing on this board changes.
+
 # 2. Signal Path
 
 ## 2.1 Ring Generator
@@ -410,7 +412,7 @@ GPIO15 was assigned to the operator tone injector at Rev 21, freed again at Rev 
 
 ## 3.4 Programming
 
-Program via USB while PoE is disconnected, or use OTA. The -ISO variant tolerates USB and PoE simultaneously; confirm from the Olimex documentation. Prefer OTA for updates in the installed system.
+Program via USB while PoE is disconnected, or use OTA. The -ISO variant tolerates USB and PoE simultaneously; confirm from the Olimex documentation. Prefer OTA for updates in the installed system: the firmware does it as of control.md Rev 15, §2.1, and the installed board stays on PoE with no USB cable attached, so portland's ground stays off the 24V system ground (Rev 69).
 
 # 4. I²C Bus
 

@@ -89,6 +89,10 @@
 #include "sb_net.h"
 #include "secrets.h"
 
+#ifdef OTA_PASSWORD_SHA256
+#include <ArduinoOTA.h>           // control.md 2.1; off without a password
+#endif
+
 /* ---- Section 12.2: waveform constants ------------------------------------ */
 
 static constexpr uint32_t CARRIER_FREQ_HZ         = 40000;  // 25 us period
@@ -389,6 +393,13 @@ static void serviceEnable() {
   else             stopWaveform();
 }
 
+/* Network update state (control.md 2.1), here because the banner reports it;
+ * the code that uses it is beside the failsafes, further down. */
+static bool ota_started = false;          // listener started, or OTA is off
+#ifdef OTA_PASSWORD_SHA256
+static bool ota_in_progress = false;      // past the start callback
+#endif
+
 /* ---- setup / loop -------------------------------------------------------- */
 
 /* Configuration and live state, on demand. Called once from setup() and again
@@ -501,6 +512,13 @@ static void printBanner() {
   Serial.printf("  mqtt         %s, broker %s:%u\n",
                 netConnected() ? "connected" : "down",
                 MQTT_BROKER_HOST, (unsigned)MQTT_PORT);
+#ifdef OTA_PASSWORD_SHA256
+  Serial.printf("  ota          %s\n",
+                ota_started ? "listening, " MQTT_CLIENT_ID ".local:3232"
+                            : "waiting for an address");
+#else
+  Serial.println("  ota          OFF - no OTA_PASSWORD_SHA256 in secrets.h");
+#endif
   Serial.printf("  game beat    %s\n",
                 netGameAlive(millis()) ? "alive" : "MISSING - relays held released");
   Serial.printf("  trunks       %u ringing, %u queued (cap %u)\n",
@@ -521,9 +539,9 @@ static void printBanner() {
 }
 
 void setup() {
-  // SD low before anything else touches the PWM pins. R_SD_PD (at GPIO14) and
-  // R_SD_PD2 (on the SD net itself) already hold it low through boot; this
-  // makes it driven rather than merely pulled. SD LOW = shutdown.
+  // SD low before anything else touches the PWM pins. R_SD_PD (at GPIO14)
+  // already holds it low through boot; this makes it driven rather than merely
+  // pulled. SD LOW = shutdown. (R_SD_PD2 is not fitted - generator 6, Rev 68.)
   pinMode(PIN_SD, OUTPUT);
   digitalWrite(PIN_SD, LOW);
 
@@ -660,6 +678,55 @@ static void releaseAllRelays(const char* why) {
   if (netConnected()) requestRepublish();
 }
 
+/* ---- Network firmware update (control.md 2.1) -----------------------------
+ * ArduinoOTA's handle() runs a whole update inside itself, so for those seconds
+ * nothing below it runs: no poll, no publish, no failsafe. The start callback
+ * therefore puts the board where a reset would, before the first byte reaches
+ * flash - the waveform stopped and every relay released. The broker notices
+ * the lapsed keepalive and publishes the will; the retained state it leaves
+ * behind is covered by ctl/status going to `offline`, as on any other loss.
+ *
+ * A wrong password raises the error callback too, before anything has been
+ * stopped. That must change nothing, so the restart is only for errors once an
+ * update has actually begun: by then the calls are gone anyway, and a restart
+ * is the one state that is known. The old image is still in its partition until
+ * the new one verifies, so it is what the board restarts into. */
+static void otaBegin() {
+#ifdef OTA_PASSWORD_SHA256
+  ArduinoOTA.setHostname(MQTT_CLIENT_ID);
+  ArduinoOTA.setPasswordHash(OTA_PASSWORD_SHA256);
+  ArduinoOTA.setRebootOnSuccess(true);
+  ArduinoOTA.onStart([]() {
+    ota_in_progress = true;
+    stopWaveform();
+    releaseAllRelays("network firmware update starting");
+    Serial.println("OTA: receiving");
+  });
+  ArduinoOTA.onEnd([]() { Serial.println("OTA: complete, restarting"); });
+  ArduinoOTA.onError([](ota_error_t e) {
+    Serial.printf("OTA: error %u%s\n", (unsigned)e,
+                  ota_in_progress ? ", restarting" : " - nothing changed");
+    if (ota_in_progress) {
+      delay(100);                    // let the line reach the console
+      ESP.restart();
+    }
+  });
+  ArduinoOTA.begin();
+  Serial.printf("OTA: listening as %s.local:3232\n", MQTT_CLIENT_ID);
+#endif
+  ota_started = true;
+}
+
+static void serviceOta() {
+  if (!ota_started) {
+    if (netHasAddress()) otaBegin();
+    return;
+  }
+#ifdef OTA_PASSWORD_SHA256
+  ArduinoOTA.handle();
+#endif
+}
+
 static void serviceFailsafes(uint32_t now) {
   const bool mqtt_up = netConnected();
   const bool game_up = netGameAlive(now);
@@ -786,6 +853,8 @@ void loop() {
   }
 
   serviceEnable();
+
+  serviceOta();
 
   const uint32_t pass_us = micros() - pass_start_us;
   if (pass_us > loop_max_us) loop_max_us = pass_us;

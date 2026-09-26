@@ -30,6 +30,11 @@ void netService(uint32_t now_ms);
 
 bool netConnected();
 
+/* Ethernet has a link and an address. The OTA listener (control.md 2.1) waits
+ * for this rather than for the broker: an update must be possible with the
+ * broker down, since a firmware that cannot reach it is one reason to update. */
+bool netHasAddress();
+
 /* True exactly once after each successful connect, so the caller can run the
  * birth sequence of control.md 9.1. */
 bool netTakeJustConnected();

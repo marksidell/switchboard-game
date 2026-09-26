@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 14 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
+*Rev 15 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
 
 # 1. Overview
 
@@ -108,9 +108,27 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 
 — Firmware consequence, for Claude Code, made in the same commit: the pin comments in `control.ino` and the two banner lines that name J9 now name J1 and its pins. Comments and strings only.
 
+## 1.15 Changes in Rev 15
+
+— Firmware updates over the network (§2.1), so that the installed board can be reflashed without a USB cable. A cable left attached would join portland's ground to the system's 24V ground, which PoE's isolation keeps apart, and anything that opened the port would reset the board; Mark weighed powering the Olimex from USB and chose to stay on PoE (with a TL-SG105PE PoE switch in place of a separate injector) and update over the network instead. The generator §3.4 recommendation to prefer OTA in the installed system is now something the firmware can do.
+
+— Firmware consequence, for Claude Code, made in the same commit: ArduinoOTA started once Ethernet has an address, with the hostname `sbgame-esp32` and a SHA-256 password hash from `secrets.h` (`OTA_PASSWORD_SHA256`; without it the firmware builds with OTA off). The start callback stops the waveform and releases every relay before anything is written to flash; an error after that point restarts the board. §10 gains the row.
+
 # 2. Platform and Build
 
 Olimex ESP32-POE-ISO. Arduino IDE: "ESP32-POE-ISO" under the Olimex ESP32 boards package; PlatformIO: `board = esp32-poe-iso`, `framework = arduino`. The firmware requires Arduino core 3.x and carries an `#error` against 2.x — the 2.x LEDC API path was removed rather than maintained. The reason it avoids the LEDC overflow interrupt (§5.2) is that the register struct names it would need move between IDF versions. MQTT client: MQTT 2.5.3, Joël Gähwiler (256dpi/arduino-mqtt) — §9.1.
+
+## 2.1 Updating over the Network
+
+The installed board is updated over Ethernet with the core's ArduinoOTA, not over USB. The first flash of a board, and recovery from a firmware that does not reach the network, are still by USB (CLAUDE.md, Commands).
+
+- **When it listens.** From the first time Ethernet has an address, on UDP port 3232, advertised over mDNS as `sbgame-esp32` (the MQTT client id). `ArduinoOTA.handle()` is called once per loop pass; while no update is under way it costs a UDP poll.
+- **Password.** Required. `secrets.h` carries its SHA-256 as `OTA_PASSWORD_SHA256` (`echo -n 'password' | sha256sum`), so the plaintext is not in the firmware image; the uploader gives the plaintext. A firmware built without it has OTA off and says so in the banner. A wrong password is refused and changes nothing on the board.
+- **What an update does to the system.** An update in progress blocks the main loop for its duration, some seconds, so nothing is polled, published or commanded. Before the first byte is written to flash the firmware therefore puts the board in the state a reset would: SD low and the bridge parked (§4.3), every relay released (§10). The broker sees the keepalive lapse and publishes the will, `offline` on `sbgame/ctl/status` (mqtt.md §8.1), which is how the game program learns the controller has gone. On success the board restarts into the new firmware and runs §4.2 from the top. On any error after that first write it restarts into the old one, which is still in its own partition: an interrupted update leaves the board running what it had, having dropped the calls in progress.
+- **Not during a show.** An update drops every call, exactly as a USB upload does. The firmware does not refuse one while calls are up: a relay-idle test misses a seized trunk, which energises no relay, and a game-state test would need a new topic. Updating is an operator action taken between games.
+- **Why not USB, since it is there.** The USB connector was the update path until Rev 15. Left attached in the installed system it would join portland's ground to the 24V system ground, and every program that opened the port — a serial monitor, ModemManager probing a new tty — would reset the board. PoE keeps the grounds apart, and the network path needs no cable.
+
+The partition table is the core's default for the board: two 1.25MB application slots, which is what an update needs — the new image is written to the slot not running and the boot pointer moved only when it verifies. The firmware is about 0.56MB.
 
 # 3. Pins and Polarity
 
@@ -399,6 +417,7 @@ Every relay on every board is released — OFFHOOK_n all zero, RING_EN_n all zer
 | Trunk ringing for 30s | Per-trunk timer | Release that trunk's ring relay; state → IDLE |
 | Required expander absent at boot | I²C scan | Report over MQTT; its relays stay released (§4.1); the generator is not stopped (§1.11) |
 | I²C bus fault in service | Three consecutive errors on one device (NAK or read-back mismatch); single errors logged only | Inhibit ring, assert /RESET, rescan, reconfigure, republish ctl/i2c |
+| Network firmware update starting | ArduinoOTA start callback (§2.1) | Stop the waveform, release every relay, then write; restart when done or on error |
 
 What the firmware cannot do is make the ring bus safe: the generator runs whenever GPIO4 is low, and the only things that stop it are that switch and SD. Nothing on the station or trunk boards can (trunk §15).
 

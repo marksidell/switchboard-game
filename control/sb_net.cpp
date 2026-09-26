@@ -213,6 +213,10 @@ void netService(uint32_t now_ms) {
 
 bool netConnected() { return mqtt.connected(); }
 
+bool netHasAddress() {
+  return ETH.linkUp() && ETH.localIP() != IPAddress((uint32_t)0);
+}
+
 bool netTakeJustConnected() {
   const bool v = just_connected;
   just_connected = false;
