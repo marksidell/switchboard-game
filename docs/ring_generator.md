@@ -2,7 +2,7 @@
 
 **Ring Generator Circuit Design**
 
-*Rev 69 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C_OUT at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J10, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7*
+*Rev 70 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C_OUT at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J10, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7*
 
 # 1. Overview
 
@@ -332,6 +332,8 @@ Rev 15 exists because the gate-drive logic threshold in Rev 14 was checked again
 — Rev 68: the change-log entries above keep the designators they were written with. Read J2, J6, J7, J8, J9, J10, IC1, IC2, U4, Q2, Q3 and R_GS3 in any entry up to Rev 67 in the old numbering. The §9.7 paragraphs added at Rev 67 describe ring2 and use ring2's references. `ring_generator_schematic_guide.md` planned a different assignment again; its tables are superseded by §10's Board column.
 
 — Rev 69: §3.4 only. The firmware now updates over Ethernet (control.md Rev 15, §2.1). Powering the Olimex from a USB port on portland instead of PoE was considered on 2026-09-26 and not taken: a USB cable joins portland's ground, and through it mains earth, to the 24V system ground that PoE's isolation keeps separate, and any program opening the serial port resets the board and drops every call. PoE stays, from a TL-SG105PE PoE switch rather than a separate injector. Nothing on this board changes.
+
+— Rev 70: build record only. R_GS2 and R_GS4 are fitted to the built board as bodges, 2026-09-26: 10k each, on the underside, across IR2104 pin 5 (LO) and pin 4 (COM) on both drivers. §8.4 records it. C_TVS2 (§4.6) is not bodged; it goes on at the next board revision (Mark, 2026-09-26). The design does not change.
 
 # 2. Signal Path
 
@@ -718,6 +720,8 @@ Two resistors, not four, and the asymmetry is the point. Every DC path from +24V
 High-side gate-to-source resistors are deliberately NOT fitted, and this is a decision rather than an omission. A 10kΩ from HO to VS draws about 1.1mA continuously while the high side conducts, all of it out of C_BOOT. Over the 600µs window §8.3 works through that is 6.6V of droop on a 100nF capacitor starting near 11V — against the 0.33V §8.3 currently calculates, and enough to take VBS below anything usable. Raising the value to 100kΩ cuts the load to 110µA but still roughly triples the total against the 55µA IQBS. They would buy nothing the low-side pair does not already buy, and would cost the margin §8.3 exists to document.
 
 10kΩ gives τ = 17µs against Ciss, comparable to the 25µs carrier period, which sounds marginal and is not: when the driver is actually driving it discharges the gate through the 10Ω series resistor in about 100ns. The 17µs figure applies only when nothing is driving, which is exactly the condition the resistors are for.
+
+On the board as built. The first board was made from a drawing that predated them, so R_GS2 and R_GS4 were fitted as bodges on 2026-09-26: 10k each, on the underside, soldered across IR2104 pin 5 (LO) and pin 4 (COM) of each driver. Electrically that is the same place: LO reaches the gate through R_G's 10Ω and COM is the low-side source at GND, so the resistor holds the gate down through 10Ω it does not notice. With them fitted the board may run from the LRS-150-24 as well as the current-limited bench supply. The schematic of 2026-09-26 places them at the Q2 and Q4 gates (R13, R14), and a board made from it needs no bodge.
 
 ## 8.5 RC Snubber
 
