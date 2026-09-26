@@ -39,14 +39,16 @@ engine renders pilots with.
 
 ```
 ./audio/build/sbaudio --card USB24306452 --broker localhost:1883 \
-    --mqtt-user sbgame --mqtt-pass-file /etc/sbaudio/mqtt.pass --wav-dir wav
+    --mqtt-user sbgame-audio --mqtt-pass-file /etc/sbgame/mqtt-audio.pass --wav-dir wav
 ```
 
 `--help` lists every option; they are `audio.md` §14's list exactly. `--card` is
 required and has no default: it is the id in the second column of `/proc/asound/cards`,
 which `snd-usb-audio` derives from the device's serial number — `USB24306452` for the
 Digiface on portland. Prefer `--mqtt-pass-file` to `--mqtt-pass`: a password in
-`ExecStart` is in every `ps` listing on the host.
+`ExecStart` is in every `ps` listing on the host. The password file is the host's, not
+this program's: `/etc/sbgame/mqtt-audio.pass`, 640 `root:sidell`, made with the others
+by the steps in `host/README.md`, and user `sbgame-audio` is its broker entry.
 
 The channel map is `audio.md` §2 and `docs/pilot-map.md`: stations on document channels
 1–22, the operator tap on 23, the audience monitor out of 24 — the A32 output wired to
@@ -61,7 +63,8 @@ converters:
 
 ```
 sudo modprobe snd-aloop pcm_substreams=1
-./audio/build/sbaudio --card Loopback --no-realtime --broker localhost:1883
+./audio/build/sbaudio --card Loopback --no-realtime --broker localhost:1883 \
+    --mqtt-user sbgame-audio --mqtt-pass-file /etc/sbgame/mqtt-audio.pass
 ```
 
 Every circuit then reads `deaf`, which is correct — nothing is writing the other side of
@@ -71,9 +74,6 @@ the loopback — and every command, echo, failsafe and shutdown path works norma
 
 ```
 sudo install -m 755 audio/build/sbaudio /usr/local/bin/sbaudio
-sudo install -d -m 755 /etc/sbaudio
-printf '%s\n' 'the-broker-password' | sudo tee /etc/sbaudio/mqtt.pass > /dev/null
-sudo chmod 640 /etc/sbaudio/mqtt.pass && sudo chown root:sidell /etc/sbaudio/mqtt.pass
 sudo cp audio/systemd/sbaudio.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now sbaudio
