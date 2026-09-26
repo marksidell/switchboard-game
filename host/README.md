@@ -74,6 +74,7 @@ as its own system user, `sbgame-deck`, which the udev rule gives the deck and
 the access list gives the page's rights. Once:
 
 ```sh
+sudo apt install libhidapi-libusb0 fonts-dejavu-core
 sudo sh -c 'umask 027; openssl rand -base64 18 > /etc/sbgame/mqtt-deck.pass'
 make passwd                  # adds sbgame-deck to the broker
 make install                 # the ACL, the unit, the udev rule

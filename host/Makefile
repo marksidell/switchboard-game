@@ -134,6 +134,9 @@ sbgame-deck-user:
 	  $(SUDO) useradd --system --no-create-home --shell /usr/sbin/nologin sbgame-deck && \
 	  echo "created the sbgame-deck user"; }
 	@id sbgame-deck | sed 's/^/  /'
+	@# The udev rule names this group; a deck plugged in before it existed is
+	@# still root:root until udev runs the rule again.
+	@$(SUDO) udevadm trigger --subsystem-match=usb --attr-match=idVendor=0fd9
 	@$(SUDO) chgrp sbgame-deck /etc/sbgame/mqtt-deck.pass 2>/dev/null && \
 	  $(SUDO) chmod 640 /etc/sbgame/mqtt-deck.pass && \
 	  $(SUDO) ls -l /etc/sbgame/mqtt-deck.pass | sed 's/^/  /' || \

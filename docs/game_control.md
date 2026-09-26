@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 14 — Start and Stop, Manual and Automatic Call Pacing with a Ramp and Jitter, Scenes Dealt from a Shuffled Deck, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played*
+*Rev 15 — Start and Stop, Manual and Automatic Call Pacing with a Ramp and Jitter, Scenes Dealt from a Shuffled Deck, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played*
 
 # 1. Overview
 
@@ -145,6 +145,12 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 — Every scene in script.yml carries `active: true` or `active: false` (§4.4, §6.3), at Mark's request, 2026-09-26. He wants to write new cast and scenes before their wavs exist. Until now every scene was built at load, and a missing wav stopped the game program from starting. The game program now builds, deals and follows only active scenes, and reads wavs only for them. An inactive scene is still loaded and checked, and the TTS run still renders it, so a scene is written as `active: false`, rendered, and switched on once its wavs are in place. Every scene in the file at this revision is `active: true`.
 
 — The key is required, not defaulted, so a scene cannot be switched on or off by omission. An active `after:` scene naming an inactive scene is rejected, since it could never play. An inactive `after:` scene following an active one is allowed; it is simply not played. Code consequence for Claude Code: the shared loader checks the key and gives `Script.active_scenes()`; the game program builds from that. No topic changes.
+
+## 1.15 Changes in Rev 15
+
+— Commissioning record only. §9 step 11, the Stream Deck, was run on portland on 2026-09-26, with Mark at the deck and the page. Everything passed except one check, which could not be made (below). No behaviour changes.
+
+— Two host snags met on the way, both fixed in `host/`, not here. `libhidapi-libusb0` was not installed; the Stream Deck steps in `host/README.md` now install it. The udev rule names the `sbgame-deck` group, which did not exist when `make install` triggered udev, so the deck stayed `root:root` until udev was triggered again; `make sbgame-install` now triggers it after making the user.
 
 # 2. Serving the Page
 
@@ -488,6 +494,8 @@ Before step 1: the certificate is issued (`mqtt.md` §9.1), nginx is configured 
 9. **The loudspeaker follows the call** (Rev 6). Start a game. The page shows the monitor's source as `tap`. Start a call from a station and answer it: the source changes to that station's label and the audience hears the request. Put the call through and release the operator: the conversation stays on the loudspeaker. Do the same for a call from a trunk, and confirm the source does not change while the trunk is ringing. Stop the game: the source returns to `tap`.
 10. **Certificate reload** (Rev 10). Nothing to check. Mosquitto holds no certificate: nginx terminates TLS and rereads the certificate on `systemctl reload`, which starts new workers and lets the old ones finish, so no client is disconnected and no client of Mosquitto is touched at all. Rev 8 and Rev 9 had this step decide between SIGHUP and a 04:00 restart, because whether Mosquitto's libwebsockets listener reloads a certificate on SIGHUP was unconfirmed. Both are withdrawn (`mqtt.md` §9.1). Confirm the renewal path itself instead, without spending an issuance: `sudo certbot renew --dry-run` runs the DNS-01 challenge against staging and the deploy hook, and must report success.
 11. **The Stream Deck** (Rev 13). With `sbgame-streamdeck` running and the deck plugged in: the keys draw within 2s. Start and Stop start and stop a game, Stop only on the second press. The pacing key switches the page's pacing. Turn each dial one detent each way and check the page shows the step, then turn `gap` quickly through ten detents and check it moves 50s. Next Call starts one call per press, however fast it is pressed. Stop the game program: keys 1–7 grey within 2.5s and key 8 shows the game red. Unplug the deck and plug it in again: it redraws with the current state. `systemctl stop sbgame-streamdeck`: the deck goes blank. Then hide the page's controls with its Controls switch (§7.1), reload the page, and check they stay hidden and the line reads the game's state.
+
+    Run 2026-09-26 (Rev 15). Passed: the keys drew; Start and Stop, Stop on the second press; the pacing key; each dial one step per detent (`gap` 5s, `ramp` and `floor` 1, `jitter` 10), and eight quick `gap` detents moved it 40s, published in order within a second; with the game program stopped the keys greyed and key 8 went red; replugged, the deck redrew; with `sbgame-streamdeck` stopped it went blank; the page's controls stayed hidden across a reload. A fast turn can carry two detents in one message (`jitter` 100 → 80); the total comes out right. Not yet checked: Next Call pressed fast, one call per press. With the audio program offline every call fails at once and the game stops (§3), so the presses after the first land on a stopped game. Make the check once `sbaudio` is running.
 
 # 10. Open Items
 
