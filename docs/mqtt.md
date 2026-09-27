@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 20 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
+*Rev 22 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
 
 # 1. Overview
 
@@ -180,6 +180,14 @@ This document specifies the messages: the topic names, who publishes each, what 
 
 — The page keeps its commands, behind a switch that hides them on an iPad (game_control.md §7.1), so `sbgame-web` keeps its write access and both users write the same commands.
 
+## 1.21 Changes in Rev 21
+
+— `game/pace` and `game/pace/set` take a third value, `"listen"` (§6.1, §6.2), following game_control.md Rev 16, 2026-09-26: automatic pacing that waits for the board to empty rather than for the last call to connect. An addition of a value; the existing two are unchanged. A subscriber that knows only `"manual"` and `"auto"` should treat any other value as automatic.
+
+## 1.22 Changes in Rev 22
+
+— `game/pause` and `game/pause/set` added (§6.1, §6.2), following game_control.md Rev 17, 2026-09-27: listen pacing's own wait, the seconds from the board emptying to the next call, 0–60. An addition; no existing topic or payload changes. The page's and the deck's access lists already cover the command through `sbgame/game/+/set`.
+
 # 2. Design Rules
 
 These hold across every topic. A new topic that breaks one of them needs a reason recorded here.
@@ -286,11 +294,12 @@ Published by the game program for the status page and the log (Rev 10). All reta
 | `sbgame/board/station/<1-30>/label`, `sbgame/board/trunk/<1-10>/label` | text, or `""` | yes | The label on this switchboard jack, such as `"463"` or `"lobby"`: the `label:` of the script.yml `jacks:` item for this jack, whether or not a station is cabled to it (Rev 18). Empty for a station jack `jacks:` does not list, and for every trunk jack. Published at start (Rev 12; source script.yml since Rev 14). |
 | `sbgame/board/station/<1-30>/circuit`, `sbgame/board/trunk/<1-10>/circuit` | circuit id, or `""` | yes | The game circuit cabled to this jack, such as `"station/11"`: the `number:` of the station that this jack's `jacks:` item names as its `station:`, or `trunk/n` on trunk jack n for n = 1–8. Empty otherwise, including for a labelled jack with nothing cabled (Rev 18). Published at start (Rev 12; source script.yml since Rev 14). |
 | `sbgame/game/run` | `"on"` or `"off"` | yes | A game is running. Echoes `run/set`. |
-| `sbgame/game/pace` | `"manual"` or `"auto"` | yes | Call pacing. Echoes `pace/set`. |
+| `sbgame/game/pace` | `"manual"`, `"auto"` or `"listen"` (Rev 21) | yes | Call pacing. Echoes `pace/set`. |
 | `sbgame/game/gap` | seconds | yes | Automatic pacing: the gap from a call's connection to the next call's start, at the start of a game. Echoes `gap/set` after clamping. |
 | `sbgame/game/ramp` | seconds | yes | Seconds taken off the gap for each call connected. Echoes `ramp/set`. |
 | `sbgame/game/floor` | seconds | yes | The least the gap can fall to. Echoes `floor/set`. |
 | `sbgame/game/jitter` | percent | yes | The spread of each automatic wait around `gap_now`: each is drawn evenly from `gap_now × (1 ± jitter/100)`. Echoes `jitter/set` (Rev 19). |
+| `sbgame/game/pause` | seconds | yes | Listen pacing: the wait from the board emptying to the next call, the same every time. Echoes `pause/set` after clamping (Rev 22). |
 | `sbgame/game/gap_now` | seconds | yes | The gap in use now, after the ramp: the centre of the jitter's spread. |
 | `sbgame/game/next_at` | host Unix time in seconds, or `""` | yes | When the next call will start, after the jitter's draw; empty when none is scheduled. |
 | `sbgame/game/started` | integer | yes | Calls started this game. Goes up by one when `next/set` starts a call. |
@@ -314,11 +323,12 @@ The page's commands, consumed by the game program only (Rev 10). The Stream Deck
 | **Topic** | **Payload** | **Retained** | **Consumer** | **Meaning** |
 | --- | --- | --- | --- | --- |
 | `sbgame/game/run/set` | `"on"` or `"off"` | no | game | Start a game — ignored while one is running — or stop it. Echoed on `run`. |
-| `sbgame/game/pace/set` | `"manual"` or `"auto"` | no | game | Call pacing. Echoed on `pace`. |
+| `sbgame/game/pace/set` | `"manual"`, `"auto"` or `"listen"` (Rev 21) | no | game | Call pacing. Echoed on `pace`. |
 | `sbgame/game/gap/set` | seconds | no | game | Starting gap for automatic pacing, 0–600. Echoed on `gap`. |
 | `sbgame/game/ramp/set` | seconds | no | game | Reduction per call connected, 0–60. Echoed on `ramp`. |
 | `sbgame/game/floor/set` | seconds | no | game | Least gap, 0–600 and not above `gap`. Echoed on `floor`. |
 | `sbgame/game/jitter/set` | percent | no | game | Spread of the automatic wait, 0–100. Echoed on `jitter` (Rev 19). |
+| `sbgame/game/pause/set` | seconds | no | game | Listen's wait after the board empties, 0–60. Echoed on `pause` (Rev 22). |
 | `sbgame/game/next/set` | ignored | no — and QoS 0, §2 | game | Start the next call now, if a game is running and a scene can be dealt; otherwise reported on `error`. Shows as `started` going up by one (Rev 11; a call number through Rev 10). |
 
 # 7. Payload Conventions

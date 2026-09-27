@@ -66,6 +66,8 @@ class Dial:
 # Left to right under the strip. The page's steppers and §4.3's ranges.
 DIALS = (Dial("gap", 5, 0, 600, "s"), Dial("ramp", 1, 0, 60, "s"),
          Dial("floor", 1, 0, 600, "s"), Dial("jitter", 10, 0, 100, "%"))
+# In listen the first dial sets listen's own value and the others rest (Rev 17).
+PAUSE = Dial("pause", 1, 0, 60, "s")
 
 # Colours, the page's where it has one (style.css :root).
 BG = (22, 24, 28)
@@ -77,6 +79,10 @@ OK = (56, 161, 105)
 DANGER = (197, 48, 48)
 AMBER = (183, 121, 31)
 BLUE = (59, 110, 165)
+
+# The pacing key cycles in this order and shows all three, the echoed one lit
+# (§7.4, Rev 16), so the choices are on the key and not in the manual.
+PACES = (("manual", "Manual"), ("auto", "Auto"), ("listen", "Listen"))
 
 
 Command = tuple[str, str, int]           # topic under sbgame/, payload, QoS
@@ -102,6 +108,8 @@ class Panel:
         self.error_until = 0.0
         # Per dial: [target, time of the last detent], or None when idle.
         self.targets: list[list[float] | None] = [None] * len(DIALS)
+        # The pacing key's target, as a dial's: [pace, time of the press].
+        self.pace_target: tuple[str, float] | None = None
 
     # -- reading --
 
@@ -119,7 +127,18 @@ class Panel:
         return self.get("game/run") == "on"
 
     def auto(self) -> bool:
-        return self.get("game/pace") == "auto"
+        """Automatic pacing, auto or listen: the dials and countdown apply."""
+        return self.get("game/pace") in ("auto", "listen")
+
+    def listen(self) -> bool:
+        return self.get("game/pace") == "listen"
+
+    def dial(self, i: int) -> Dial | None:
+        """What dial i sets now: auto's four, or in listen pause on the first
+        and nothing on the rest. Manual turns auto's four, to set them ahead."""
+        if self.listen():
+            return PAUSE if i == 0 else None
+        return DIALS[i]
 
     def game_stale(self, now: float) -> bool:
         return (not self.broker_up or self.get("ctl/game_status") != "online"
@@ -164,9 +183,12 @@ class Panel:
             self.error_until = now + ERROR_SHOW
         elif key == "game/error" and not payload:
             self.error_until = 0.0
-        for i, d in enumerate(DIALS):
-            t = self.targets[i]
-            if key == f"game/{d.name}" and t is not None and self.num(key) == t[0]:
+        if key == "game/pace" and payload != old:
+            # The dials change meaning with the pace: no target carries over.
+            self.targets = [None] * len(DIALS)
+        for i in range(len(DIALS)):
+            d, t = self.dial(i), self.targets[i]
+            if d and key == f"game/{d.name}" and t is not None and self.num(key) == t[0]:
                 self.targets[i] = None   # the echo caught up
 
     # -- input --
@@ -191,9 +213,16 @@ class Panel:
             self.stop_armed_until = now + STOP_ARM
             return []
         if key == 2:
-            if not self.get("game/pace"):
-                return []                # nothing echoed yet to be the other of
-            return [("game/pace/set", "manual" if self.auto() else "auto", 1)]
+            # Cycle from the target while presses keep coming, as a dial
+            # does, so two fast presses move two places, not one.
+            t = self.pace_target
+            base = t[0] if t is not None and now - t[1] <= DIAL_HOLD else self.get("game/pace")
+            names = [n for n, _ in PACES]
+            if base not in names:
+                return []                # nothing echoed yet to cycle from
+            want = names[(names.index(base) + 1) % len(names)]
+            self.pace_target = (want, now)
+            return [("game/pace/set", want, 1)]
         if key == 3:
             if not running or now < self.next_guard_until:
                 return []
@@ -205,7 +234,9 @@ class Panel:
         """Dial 0-3 turned by `detents` (negative anticlockwise)."""
         if self.game_stale(now) or detents == 0 or not 0 <= dial < len(DIALS):
             return []
-        d = DIALS[dial]
+        d = self.dial(dial)
+        if d is None:
+            return []                    # resting in listen (Rev 17)
         t = self.targets[dial]
         if t is None or now - t[1] > DIAL_HOLD:
             base = self.num(f"game/{d.name}")
@@ -227,6 +258,10 @@ class Panel:
         for i, t in enumerate(self.targets):
             if t is not None and now - t[1] > DIAL_HOLD:
                 self.targets[i] = None
+        if self.pace_target is not None and (
+                now - self.pace_target[1] > DIAL_HOLD
+                or self.get("game/pace") == self.pace_target[0]):
+            self.pace_target = None
 
     # -- drawing --
 
@@ -247,19 +282,21 @@ class Panel:
             _wrap(d, (12, 6, STRIP_W - 12, STRIP_H - 6), err, 26, INK)
             return img
         stale = self.game_stale(now)
-        for i, dl in enumerate(DIALS):
+        for i in range(len(DIALS)):
             x0 = i * SEG_W
             if i:
                 d.line((x0, 10, x0, STRIP_H - 10), fill=GREY, width=1)
+            # In listen the rest show auto's values, dim, as in manual (Rev 17).
+            dl = self.dial(i) or DIALS[i]
             v = self.num(f"game/{dl.name}")
-            active = not stale and self.auto()
+            active = not stale and self.auto() and self.dial(i) is not None
             ink = INK if active else DIM
             if stale:
                 ink = GREY
             _text(d, (x0 + 14, 8), dl.name, 20, DIM if not stale else GREY)
             shown = "–" if v is None else f"{v:g}{dl.unit}"
             _text(d, (x0 + 14, 34), shown, 44, ink)
-            if dl.name == "gap" and self.running() and self.auto():
+            if dl.name == "gap" and self.running() and self.get("game/pace") == "auto":
                 gn = self.num("game/gap_now")
                 if gn is not None:
                     _text(d, (x0 + 120, 12), f"now {gn:g}", 18, ink)
@@ -282,9 +319,16 @@ class Panel:
     def _k_pace(self, now: float) -> Image.Image:
         stale = self.game_stale(now)
         pace = self.get("game/pace")
-        label = {"auto": "Auto", "manual": "Manual"}.get(pace, "–")
-        return _key(label, "pacing", fill=PANEL if stale else BLUE,
-                    ink=GREY if stale else INK)
+        img = Image.new("RGB", (KEY_PX, KEY_PX), PANEL if stale else BG)
+        d = ImageDraw.Draw(img)
+        for i, (name, label) in enumerate(PACES):
+            y = 4 + i * 38
+            if name == pace and not stale:
+                d.rounded_rectangle((4, y, KEY_PX - 4, y + 36), 6, fill=BLUE)
+            ink = GREY if stale else (INK if name == pace else DIM)
+            _centre(d, (0, y, KEY_PX, y + 36), label,
+                    _fit(label, KEY_PX - 18, 26 if name == pace else 20), ink)
+        return img
 
     def _k_next(self, now: float) -> Image.Image:
         live = (not self.game_stale(now) and self.running()

@@ -10,7 +10,7 @@ sbgame/scenes.py       say/hear and the scene helpers
 sbgame/flows.py        the five call shapes
 sbgame/script_data.py  script.yml resolved into scenes, wavs and the jack map
 sbgame/deck.py         which scene comes next (4.4)
-sbgame/pacing.py       manual and automatic, and the ramp (4.1-4.3)
+sbgame/pacing.py       manual, auto and listen, and the ramp (4.1-4.3)
 sbgame/calls.py        the eight slots, the stages, the tallies (5, 6.1)
 sbgame/gamelog.py      the page's log (6.2)
 sbgame/session.py      the SQLite record

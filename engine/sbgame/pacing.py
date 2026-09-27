@@ -19,6 +19,13 @@ three settings describe is unchanged and only the rhythm goes. The floor
 bounds gap_now, the centre, and not the draw — bounding the draw would push
 the short ones up to the floor and lift the mean near it. The draws come
 from the game's seed, so a replay draws the same sequence.
+
+Listen (§4.2, Rev 16): counted from the moment the board is empty — the
+most recent call has ended and no `after:` scene is waiting — so calls never
+overlap and every conversation is heard to its hang-up. What "empty" means is
+the game's to judge (game.py `_idle`). The wait is `pause`, its own value and
+the same every time (Rev 17): listen is for enjoying the conversations, not
+for pressure, so it has no ramp and no jitter, and auto's four are left alone.
 """
 
 from __future__ import annotations
@@ -28,19 +35,28 @@ import time
 from dataclasses import dataclass, field
 
 
+PACES = ("manual", "auto", "listen")
+AUTOMATIC = ("auto", "listen")     # the paces the scheduler starts calls in
+
+
 @dataclass
 class Pacing:
-    pace: str = "manual"       # "manual" or "auto"
+    pace: str = "manual"       # one of PACES
     gap: float = 20.0
     ramp: float = 0.0
     floor: float = 5.0
     jitter: float = 0.0        # percent, 0-100: each wait is gap_now × (1 ± jitter/100)
+    pause: float = 3.0         # listen's wait after the board empties (Rev 17)
 
     # Set when a call is connected or ends; None while a call is waiting to be
     # connected, which is when no next call is scheduled and next_at is empty.
     next_at: float | None = None
     connected: int = 0         # calls connected this game, the ramp's input
     _rng: random.Random = field(default_factory=random.Random, repr=False)
+
+    @property
+    def automatic(self) -> bool:
+        return self.pace in AUTOMATIC
 
     def seed(self, seed: int) -> None:
         """At game start, from the deck's seed: the waits replay with the deck.
@@ -51,7 +67,9 @@ class Pacing:
         self._rng = random.Random(f"pacing-{seed}")
 
     def wait(self) -> float:
-        """One wait: gap_now, spread by the jitter. Never negative."""
+        """One wait: gap_now, spread by the jitter, or listen's pause. Never negative."""
+        if self.pace == "listen":
+            return self.pause
         centre = self.gap_now()
         if self.jitter <= 0:
             return centre
@@ -69,17 +87,20 @@ class Pacing:
             return min(60.0, max(0.0, value))
         if name == "jitter":
             return min(100.0, max(0.0, value))
+        if name == "pause":
+            return min(60.0, max(0.0, value))
         if name == "floor":
             # "0-600s and not above gap"
             return min(600.0, max(0.0, min(value, self.gap)))
         raise ValueError(name)
 
     def schedule(self, now: float | None = None) -> float | None:
-        """A call was connected or ended: set the next start time.
+        """The game is idle for this pace: set the next start time.
 
-        Only in automatic pacing. Returns the new next_at, or None in manual.
+        Only in automatic pacing, auto or listen. Returns the new next_at, or
+        None in manual.
         """
-        if self.pace != "auto":
+        if not self.automatic:
             self.next_at = None
             return None
         self.next_at = (time.time() if now is None else now) + self.wait()
@@ -90,5 +111,5 @@ class Pacing:
         self.next_at = None
 
     def due(self, now: float | None = None) -> bool:
-        return (self.pace == "auto" and self.next_at is not None
+        return (self.automatic and self.next_at is not None
                 and (time.time() if now is None else now) >= self.next_at)

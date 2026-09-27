@@ -31,6 +31,7 @@ from .config import Config
 from .deck import Deck, Holding
 from .flows import Ctx, FLOWS, Outcome, outside_to_station
 from .gamelog import GameLog
+from .pacing import PACES
 from .link import Hw, Link
 from .script_data import GameScript, SceneDef, Shape
 from .session import SessionLog
@@ -61,7 +62,7 @@ class Game:
         # that; a restart returns to the configured values (§4.3).
         from .pacing import Pacing
         self.pacing = Pacing(pace=cfg.pace, gap=cfg.gap, ramp=cfg.ramp, floor=cfg.floor,
-                             jitter=cfg.jitter)
+                             jitter=cfg.jitter, pause=cfg.pause)
 
         self._flows: dict[int, asyncio.Task] = {}       # slot -> task
         self._afters: dict[str, asyncio.Task] = {}      # scene id -> timer task
@@ -105,6 +106,7 @@ class Game:
         await self.link.state("game/ramp", f"{p.ramp:g}")
         await self.link.state("game/floor", f"{p.floor:g}")
         await self.link.state("game/jitter", f"{p.jitter:g}")
+        await self.link.state("game/pause", f"{p.pause:g}")
         await self.link.state("game/gap_now", f"{p.gap_now():g}")
         await self.link.state("game/next_at",
                               "" if p.next_at is None else f"{p.next_at:.0f}")
@@ -148,19 +150,19 @@ class Game:
                 return
 
             if name == "pace":
-                if payload not in ("manual", "auto"):
-                    await self._error(f"pace: {payload!r} is not manual or auto")
+                if payload not in PACES:
+                    await self._error(f"pace: {payload!r} is not manual, auto or listen")
                     return
                 self.pacing.pace = payload
                 await self._say(f"page: pace {payload}")
-                if payload == "auto" and self.running and not self._waiting_to_connect():
-                    self.pacing.schedule()
-                elif payload == "manual":
+                if self.running:
+                    await self._reschedule()
+                else:
                     self.pacing.next_at = None
-                await self._publish_pacing()
+                    await self._publish_pacing()
                 return
 
-            if name in ("gap", "ramp", "floor", "jitter"):
+            if name in ("gap", "ramp", "floor", "jitter", "pause"):
                 try:
                     want = float(payload)
                 except ValueError:
@@ -196,7 +198,8 @@ class Game:
         self.pacing.seed(self.deck.seed)
         await self.session.start_game(self.deck.seed, self.pacing.pace,
                                       self.pacing.gap, self.pacing.ramp,
-                                      self.pacing.floor, self.pacing.jitter)
+                                      self.pacing.floor, self.pacing.jitter,
+                                      self.pacing.pause)
         self.session.deck(1, self.deck.orders[0])
         self._decks_recorded = 1
         await self.log.clear()
@@ -205,7 +208,7 @@ class Game:
         await self.link.state("game/run", "on")
         await self.link.state("game/error", "")
         await self._publish_tallies()
-        if self.pacing.pace == "auto":
+        if self.pacing.automatic:
             await self._start_call()                # the first call at once (§3)
         else:
             self.pacing.next_at = None
@@ -260,6 +263,26 @@ class Game:
         assert self.slots is not None
         return any(not c.connected for c in self.slots)
 
+    def _idle(self) -> bool:
+        """Whether the automatic schedule may run now (§4.2).
+
+        Auto: no call is waiting to be connected. Listen (Rev 16): no call in
+        progress at all and no `after:` scene waiting to start, so the next
+        call comes only once the story on the board has been heard out.
+        """
+        assert self.slots is not None
+        if self.pacing.pace == "listen":
+            return not any(True for _ in self.slots) and not self._pending_after
+        return not self._waiting_to_connect()
+
+    async def _reschedule(self) -> None:
+        """Schedule the next call if the board is idle for the pace, else clear it."""
+        if self._idle():
+            self.pacing.schedule()
+        else:
+            self.pacing.next_at = None
+        await self._publish_pacing()
+
     def _free_trunk(self) -> int | None:
         for n in range(1, N_TRUNKS + 1):
             if not self.b.on(f"trunk/{n}/seize") and not self.b.on(f"trunk/{n}/ring"):
@@ -286,9 +309,8 @@ class Game:
                 await self._say(f"no call: {why}")
                 if asked:
                     await self._error(why)
-                if self.pacing.pace == "auto":
-                    self.pacing.schedule()
-                    await self._publish_pacing()
+                if self.pacing.automatic:
+                    await self._reschedule()        # try again after gap_now
                 return
             # deal() reshuffles when the deck runs out (§4.4). Record each new
             # order for the replay, and log it, which the specification asks for.
@@ -361,9 +383,7 @@ class Game:
         self.pacing.connected += 1
         self.session.call_connected(call.number)
         await self._say("connected", call.number)
-        if not self._waiting_to_connect():
-            self.pacing.schedule()
-        await self._publish_pacing()
+        await self._reschedule()
 
     async def _finish_call(self, call: Call, scene: SceneDef,
                            outcome: Outcome) -> None:
@@ -387,9 +407,7 @@ class Game:
                 await self._say(
                     f"dropped {follower.id}: {scene.id} was never connected")
 
-        if not self._waiting_to_connect():
-            self.pacing.schedule()
-        await self._publish_pacing()
+        await self._reschedule()
 
     # ---- `after:` scenes (§4.4) -----------------------------------------
 
@@ -416,7 +434,13 @@ class Game:
             self._pending_after.pop(scene.id, None)
             self._afters.pop(scene.id, None)
             if self.running:
+                started = self.tallies.started
                 await self._start_call(scene=scene)
+                # In listen a waiting `after:` holds the schedule; if it could
+                # not start after all, the board is empty and must not stall.
+                if (self.running and self.tallies.started == started
+                        and self.pacing.automatic):
+                    await self._reschedule()
         except asyncio.CancelledError:
             self._pending_after.pop(scene.id, None)
             raise

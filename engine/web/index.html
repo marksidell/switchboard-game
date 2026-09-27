@@ -47,20 +47,23 @@
   <div class="group control" id="pace-group">
     <button id="pace-manual" class="seg">Manual</button>
     <button id="pace-auto" class="seg">Automatic</button>
+    <button id="pace-listen" class="seg">Listen</button>
   </div>
 
   <div class="group control"><button id="next" class="big">Next Call</button></div>
 
   <div class="group" id="steppers">
-    <div class="stepper"><span class="lbl">gap</span>
+    <div class="stepper listen-only"><span class="lbl">pause</span>
+      <button data-step="pause:-1">−</button><span id="v-pause">–</span><button data-step="pause:1">+</button></div>
+    <div class="stepper auto-only"><span class="lbl">gap</span>
       <button data-step="gap:-5">−</button><span id="v-gap">–</span><button data-step="gap:5">+</button></div>
-    <div class="stepper"><span class="lbl">ramp</span>
+    <div class="stepper auto-only"><span class="lbl">ramp</span>
       <button data-step="ramp:-1">−</button><span id="v-ramp">–</span><button data-step="ramp:1">+</button></div>
-    <div class="stepper"><span class="lbl">floor</span>
+    <div class="stepper auto-only"><span class="lbl">floor</span>
       <button data-step="floor:-1">−</button><span id="v-floor">–</span><button data-step="floor:1">+</button></div>
-    <div class="stepper"><span class="lbl">jitter</span>
+    <div class="stepper auto-only"><span class="lbl">jitter</span>
       <button data-step="jitter:-10">−</button><span id="v-jitter">–</span><button data-step="jitter:10">+</button></div>
-    <div class="stepper"><span class="lbl">now</span><span id="v-gapnow">–</span></div>
+    <div class="stepper auto-only"><span class="lbl">now</span><span id="v-gapnow">–</span></div>
     <div class="stepper"><span class="lbl">next in</span><span id="v-countdown">–</span></div>
   </div>
 

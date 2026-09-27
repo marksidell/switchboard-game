@@ -47,7 +47,25 @@ def main() -> int:
     check(p.on_key(STOP, 0) == [], "Stop does nothing while stopped")
     check(p.on_key(NEXT, 0) == [], "Next Call does nothing while stopped")
     check(p.on_key(PACE, 0) == [("game/pace/set", "auto", 1)],
-          "pacing publishes the other value, absolute")
+          "pacing publishes the next value, absolute")
+    check(p.on_key(PACE, 0.3) == [("game/pace/set", "listen", 1)],
+          "a second press before the echo moves on from the target (Rev 16)")
+    p.on_message("game/pace", "listen", 0.4)
+    p.tick(0.4)
+    check(p.pace_target is None, "the echo drops the target")
+    check(p.on_key(PACE, 0.5) == [("game/pace/set", "manual", 1)],
+          "and listen wraps round to manual")
+    p.on_message("game/pace", "manual", 0.6)
+    p.tick(3.0)
+
+    print("\n== in listen the first dial is pause, the rest rest (Rev 17)")
+    q = live(game__pace="listen", game__pause="3", game__gap="20")
+    check(q.on_dial(0, 2, 0) == [("game/pause/set", "5", 1)], "dial 1 sets pause, 1s a detent")
+    check(q.on_dial(1, 1, 0) == [] and q.on_dial(3, 1, 0) == [], "dials 2-4 do nothing")
+    check(q.on_dial(0, 99, 0.2) == [("game/pause/set", "60", 1)], "pause stops at 60")
+    q.on_message("game/pace", "auto", 0.3)
+    check(q.on_dial(0, 1, 0.4) == [("game/gap/set", "25", 1)],
+          "back in auto dial 1 is gap again, from gap's echo, not pause's target")
     check(p.on_key(4, 0) == [] and p.on_key(5, 0) == [], "tally keys publish nothing")
 
     p.on_message("game/run", "on", 0)
@@ -135,6 +153,7 @@ def main() -> int:
                 ("running", live(game__run="on", game__pace="auto", game__gap_now="15",
                                  game__next_at="1000012", game__success="7",
                                  game__fail="2", game__call__1__scene="x"), 0),
+                ("listen", live(game__run="on", game__pace="listen", game__pause="3"), 0),
                 ("error", live(game__error="floor: 30 is above gap 20; set to 20"), 0),
                 ("stale", live(), 10),
                 ("no broker", Panel(), 0)):

@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 15 — Start and Stop, Manual and Automatic Call Pacing with a Ramp and Jitter, Scenes Dealt from a Shuffled Deck, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played*
+*Rev 17 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played*
 
 # 1. Overview
 
@@ -152,6 +152,24 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 
 — Two host snags met on the way, both fixed in `host/`, not here. `libhidapi-libusb0` was not installed; the Stream Deck steps in `host/README.md` now install it. The udev rule names the `sbgame-deck` group, which did not exist when `make install` triggered udev, so the deck stayed `root:root` until udev was triggered again; `make sbgame-install` now triggers it after making the user.
 
+## 1.16 Changes in Rev 16
+
+— A third pacing, **Listen** (§4.2), Mark's request, 2026-09-26. It is for showing the game: the next call waits until the board is empty — the last call has ended and no `after:` scene is waiting — so calls never overlap and the room hears every conversation to its hang-up. Automatic pacing times from the connection, so the next call can arrive mid-conversation and the operator's answer takes the loudspeaker away from it (§6.4). Listen is the other half of that open item (§10): it keeps the loudspeaker on each conversation by never starting two.
+
+— A third value of `pace`, not a special value of `gap`. Listen still wants a pause after the hang-up, and `gap`, `ramp`, `floor` and `jitter` keep their meaning, counted from the end instead of the connection. `mqtt.md` Rev 21 adds `"listen"` to `pace` and `pace/set`. "Automatic pacing" in this document now means auto or listen wherever the two behave alike: the first call at once (§3), the dials and steppers, the countdown.
+
+— The deck has no key to spare, so its pacing key cycles Manual → Auto → Listen → Manual, and shows all three names, the echoed one lit, so the choices can be read off the key (§7.4). Presses count from the last press while its echo is outstanding, as a dial's detents do, so two quick presses go two places. Going from Auto to Manual passes through Listen and from Manual to Listen through Auto; the pass is a fraction of a second, and a call is started on the way only if `gap_now` is shorter than that. The page gains a third segment (§7.1).
+
+— Code consequence for Claude Code, made the same day: the scheduler, the configuration check, the deck's pacing key and the page. The game program's tests cover the schedule in listen, including a waiting `after:` scene holding it; the deck's tests cover the cycle.
+
+## 1.17 Changes in Rev 17
+
+— Listen gets one value of its own, `pause`, in place of auto's four (§4.2, §4.3), Mark's decision, 2026-09-27. Rev 16 ran listen on `gap`, `ramp`, `floor` and `jitter`, counted from the end of a call. But listen is for entertaining with the conversations, not for pressure: Mark wants the next call a few seconds after the last one ends, every time. So listen waits `pause` seconds, 0–60, starting at 3 from the configuration file, with no ramp and no jitter. Auto's four are untouched by listen, so switching between a demonstration and a real game needs nothing reset.
+
+— Considered and not adopted: a separate set of all four for each pace. Eight values, with dials and steppers whose meaning changes with the pace, for three knobs listen has no use for.
+
+— In listen the first dial sets `pause` and the other three rest, dimmed and showing auto's values, as in manual (§7.4); the page shows one stepper, `pause`, in place of the four (§7.1). `mqtt.md` Rev 22 adds `game/pause` and `game/pause/set`, and the session record gains a `pause` column. Code consequence for Claude Code, made the same day.
+
 # 2. Serving the Page
 
 nginx serves the page's files over HTTPS on 443 and reverse-proxies its MQTT connection, on the path `/mqtt`, to Mosquitto's WebSockets listener on loopback. The configuration, the certificate and the name are `mqtt.md` §9. The files:
@@ -176,7 +194,7 @@ The path is what lets nginx tell the two apart: `/mqtt` goes to Mosquitto, every
 
 A game is one player's turn. It begins with `game/run/set` `"on"` and ends with `"off"`.
 
-**Start.** Accepted only while `run` is `"off"`; while running it is ignored. The tallies are zeroed (§5), the call number restarts at 1, the gap returns to its configured value (§4.3), the deck is shuffled (§4.4), the loudspeaker's source is set to the tap (§6.4), and `run` reads `"on"`. In automatic pacing the first call starts at once; in manual pacing nothing happens until the page asks for a call. A game is one session in the game program's SQLite log.
+**Start.** Accepted only while `run` is `"off"`; while running it is ignored. The tallies are zeroed (§5), the call number restarts at 1, the gap returns to its configured value (§4.3), the deck is shuffled (§4.4), the loudspeaker's source is set to the tap (§6.4), and `run` reads `"on"`. In automatic pacing, auto or listen, the first call starts at once; in manual pacing nothing happens until the page asks for a call. A game is one session in the game program's SQLite log.
 
 **Stop.** Every call in progress is torn down at once: stations on-hook, trunk ring off, every file and tone stopped, every listen cancelled; every `after:` scene that was waiting is dropped; the call slots clear (§6.1); the loudspeaker's source goes back to the tap (§6.4). `run` reads `"off"`. Calls torn down this way are neither successes nor failures (§5). The tallies stay as they were until the next start, so the player can see the score.
 
@@ -194,7 +212,7 @@ The key publishes `game/next/set`, at QoS 0, with an empty payload. The game pro
 
 Two guards keep one tap to one call (Rev 4). QoS 0 is never resent on reconnect, so a connection that drops mid-send cannot deliver the command twice. The cost is that the tap may be lost, and the operator taps again. The page disables Next Call when it is tapped and re-enables it when `started` changes or `game/error` is published. It also re-enables after 3s regardless, so a lost tap does not leave the button dead. The Stream Deck's key is guarded the same way (§7.4). Two pages open at once could each start a call, and so could the page and the deck. That is accepted, since only Mark runs them.
 
-`next/set` is accepted in automatic pacing too. It starts a call at once, and the automatic schedule then runs from that call (§4.2).
+`next/set` is accepted in automatic pacing too. It starts a call at once, and the automatic schedule then runs from that call (§4.2). In listen, that call is one more on the board, and the schedule waits for it to end as well.
 
 ## 4.2 Automatic
 
@@ -203,6 +221,8 @@ The next call starts `gap` seconds after the most recent call to start has been 
 Timing from the most recent call rather than from every call means that at most one call is ever waiting for the operator to connect it. Calls overlap — the next one arrives while the last is still talking — but the operator is never asked to route two at once. That is the case Mark has deferred (§4.5).
 
 While a call is waiting to be connected, no next call is scheduled and `game/next_at` is empty. Once it is scheduled, `next_at` is the host time it will start, and the page counts down to it.
+
+**Listen** (Rev 16), `pace` `"listen"`. The next call starts `pause` seconds after the board has emptied (Rev 17; Rev 16 used `gap`): every call has ended, however it ended, and no `after:` scene is waiting to start (§4.4). A call that succeeds ends when its parties hang up as the script ends; one that fails ends when it fails, so a missed call does not stall the game. Calls never overlap, and the audience hears each conversation through (§6.4). An `after:` scene still starts its own `delay` after the scene it follows, and the schedule waits for it too, so a story's second call is not interrupted by a new deal. If a waiting `after:` scene cannot start after all — every slot or every trunk busy — the board is empty and the schedule runs from then. The wait is `pause` exactly, every time: listen is for enjoying the conversations, so it has no ramp and no jitter, and `gap`, `ramp`, `floor` and `jitter` are auto's alone and are not changed by it (Rev 17). `next_at` is the board's emptying plus `pause`; while anything is on the board it is empty.
 
 ## 4.3 Connected, and the Ramp
 
@@ -230,7 +250,7 @@ where `connected` is the number of calls connected so far in this game. `gap`, `
 
 A change to any of the four takes effect at the next scheduling, not on a call already scheduled.
 
-Ranges, clamped by the game program and echoed as applied: `gap` 0–600s, `ramp` 0–60s, `floor` 0–600s and not above `gap`, `jitter` 0–100%. Starting values come from the game program's configuration file: manual pacing, `gap` 20, `ramp` 0, `floor` 5, `jitter` 0. They hold across games until changed, and return to the configured values when the game program restarts.
+Ranges, clamped by the game program and echoed as applied: `gap` 0–600s, `ramp` 0–60s, `floor` 0–600s and not above `gap`, `jitter` 0–100%, and listen's `pause` 0–60s (Rev 17). Starting values come from the game program's configuration file: manual pacing, `gap` 20, `ramp` 0, `floor` 5, `jitter` 0, `pause` 3. They hold across games until changed, and return to the configured values when the game program restarts.
 
 ## 4.4 Which Scene, and Scenes That Follow Another
 
@@ -369,7 +389,7 @@ The loudspeaker carries one receive channel, chosen by the game program with `au
 
 **What the audience hears.** The calling line's receive channel carries the caller's side at full strength, since the interface has no hybrid (station §8.4). It carries the operator while she is bridged to the line, and the called party once the cord connects them. So one source carries the request, the operator's reply and the conversation. A call to the operator, and a busy scene where the operator goes back to the caller, are heard the same way. An outgoing call's ringback and busy tone reach the caller through the cord, and the audience hears them when the caller would.
 
-**Which call.** Only the most recent answer counts. In automatic pacing the next call can arrive while the current one is talking (§4.2). When the operator answers it, the audience leaves the current conversation for the new request. An `after:` scene is a call like any other and moves the loudspeaker when it is answered.
+**Which call.** Only the most recent answer counts. In auto pacing the next call can arrive while the current one is talking (§4.2); in listen it cannot. When the operator answers it, the audience leaves the current conversation for the new request. An `after:` scene is a call like any other and moves the loudspeaker when it is answered.
 
 **Start and stop.** When a game starts, and when it stops for any reason (§3), the game program publishes `monitor/source/set` `"tap"`. Between games the loudspeaker carries the operator tap as it always has. The audio program also returns to the tap by itself if it loses the game program (audio.md §13.2).
 
@@ -383,13 +403,13 @@ The log records each move as `monitor: <calling line>` against the call's number
 
 For an iPad in landscape, 1024 CSS pixels wide or more. Touch targets 44px or larger. Four areas: the top bar across the page; the board under it, across the whole width; then calls, with the log under them, beside a narrow health column (Rev 11):
 
-**Top bar**, always visible. A Controls switch beside the connection lamps shows or hides its buttons — Start, Stop, the pacing, Next Call and the steppers' − and + — on this iPad (Rev 13). The Stream Deck carries the same controls (§7.4). With the buttons hidden the values stay — the four values, `gap_now`, the countdown and the tallies — and one line reads what the hidden buttons showed: Running or Stopped, and Manual or Automatic. The setting belongs to the iPad, kept in the browser's storage, not on the bus. An iPad with no setting, or one whose storage was cleared, shows the buttons, so it can always run the game.
+**Top bar**, always visible. A Controls switch beside the connection lamps shows or hides its buttons — Start, Stop, the pacing, Next Call and the steppers' − and + — on this iPad (Rev 13). The Stream Deck carries the same controls (§7.4). With the buttons hidden the values stay — the four values, `gap_now`, the countdown and the tallies — and one line reads what the hidden buttons showed: Running or Stopped, and Manual, Automatic or Listen. The setting belongs to the iPad, kept in the browser's storage, not on the bus. An iPad with no setting, or one whose storage was cleared, shows the buttons, so it can always run the game.
 
 - Connection: broker connected or not; game program online or not.
 - Start and Stop. Stop needs a second tap within 3s, because it ends a player's game.
-- Pacing: Manual | Automatic.
-- Next Call: large in manual pacing, small in automatic.
-- `gap`, `ramp`, `floor`, `jitter`, each with − and + steppers (5s, 1s, 1s, 10% steps; `jitter` Rev 12). Shown only in automatic pacing, with `gap_now` and the countdown to `next_at` beside them.
+- Pacing: Manual | Automatic | Listen (Rev 16).
+- Next Call: large in manual pacing, small in automatic (auto or listen).
+- `gap`, `ramp`, `floor`, `jitter`, each with − and + steppers (5s, 1s, 1s, 10% steps; `jitter` Rev 12). Shown only in auto pacing, with `gap_now` and the countdown to `next_at` beside them. In listen, one stepper, `pause` (1s steps), and the countdown take their place (Rev 17).
 - Tallies: started, handled, success, fail, success percentage.
 
 **Board.** Laid out as the switchboard is (Rev 5): station jacks in three rows of ten, and one row of ten trunk jacks below them. Rows run 1–10, 11–20, 21–30 from the top, left to right, until checked against the board (§10). Each tile is one jack, from the `board/` topics (§6.3).
@@ -456,14 +476,14 @@ It follows every rule of §7.2. It shows only what was echoed, and a press chang
 | --- | --- | --- |
 | 1 Start | "Start", lit while `run` is `"off"` | `run/set` `"on"`. Ignored while a game runs. |
 | 2 Stop | "Stop", lit while `run` is `"on"`; "Stop again" in red for 3s after a first press | Arms it. A second press within 3s publishes `run/set` `"off"`. |
-| 3 Pacing | "Manual" or "Auto", the echoed `pace` | `pace/set` with the other value, which is absolute: the one not now echoed. |
-| 4 Next Call | "Next" over "Call", lit while a game runs; in automatic pacing the countdown to `next_at` in place of "Call" | `next/set`, at QoS 0, guarded as §4.1: dark from the press until `started` changes, `game/error` is published, or 3s pass. |
+| 3 Pacing | "Manual", "Auto" and "Listen", one per line, the echoed `pace` lit (Rev 16) | `pace/set` with the next of the three in that order, wrapping from Listen to Manual. Absolute; counted from the last press while its echo is outstanding, and from the echo once it arrives or 1s after the press. |
+| 4 Next Call | "Next" over "Call", lit while a game runs; in automatic pacing, auto or listen, the countdown to `next_at` in place of "Call" | `next/set`, at QoS 0, guarded as §4.1: dark from the press until `started` changes, `game/error` is published, or 3s pass. |
 | 5 Calls | `started` and in progress | nothing |
 | 6 Score | success and fail | nothing |
 | 7 Percent | success percentage of handled | nothing |
 | 8 Health | a lamp each for the game program, the controller and the audio program, red when offline or its heartbeat is 2.5s late; the whole key red while `game/error` is set | shows the last `game/error` on the strip again |
 
-**Dials**, left to right: `gap`, `ramp`, `floor`, `jitter`. One detent is one step of the page's stepper: 5s, 1s, 1s and 10%. A push does nothing at Rev 13. The strip segment above each dial shows its name and its echoed value, and above `gap` also `gap_now` while a game runs. The four are dimmed in manual pacing but still turn, so the values can be set before switching to automatic.
+**Dials**, left to right: `gap`, `ramp`, `floor`, `jitter`. One detent is one step of the page's stepper: 5s, 1s, 1s and 10%. A push does nothing at Rev 13. The strip segment above each dial shows its name and its echoed value, and above `gap` also `gap_now` while a game runs. The four are dimmed in manual pacing but still turn, so the values can be set before switching to auto. In listen the first dial sets `pause` instead, 1s a detent, and its segment reads `pause`; the other three are dimmed, show auto's values, and do nothing (Rev 17). A dial's pending target is dropped when the pace changes, since the dial may now set a different value.
 
 **Turning a dial.** The dial reports steps and the command is absolute, so the program keeps a target. The first detent starts the target at the echoed value; each detent adds a step to the target, clamped to the §4.3 range, and publishes it. The target is held while detents keep coming and is dropped when the echo equals it or 1s after the last detent, so a fast turn loses no steps and a value the game clamped differently — `floor` above `gap` — settles on the echo. A dial whose value has not been echoed yet does nothing.
 
@@ -477,7 +497,7 @@ It follows every rule of §7.2. It shows only what was echoed, and a press chang
 
 # 8. What the Game Program Checks
 
-Every value arriving on `game/+/set` is checked by the game program; the access list keeps the page off hardware topics but does nothing about a bad value on the game's own. A value out of range is clamped and the applied value echoed; a value that is not understood — `run/set` other than `"on"` or `"off"`, `pace/set` other than `"manual"` or `"auto"`, a number that does not parse — is dropped, logged, and reported on `game/error`. Accepted commands are logged with `page:` in front (§6.2). A command from the Stream Deck arrives on the same topic and is logged the same way; the game program cannot tell them apart and does not need to (Rev 13).
+Every value arriving on `game/+/set` is checked by the game program; the access list keeps the page off hardware topics but does nothing about a bad value on the game's own. A value out of range is clamped and the applied value echoed; a value that is not understood — `run/set` other than `"on"` or `"off"`, `pace/set` other than `"manual"`, `"auto"` or `"listen"`, a number that does not parse — is dropped, logged, and reported on `game/error`. Accepted commands are logged with `page:` in front (§6.2). A command from the Stream Deck arrives on the same topic and is logged the same way; the game program cannot tell them apart and does not need to (Rev 13).
 
 # 9. Commissioning
 
@@ -507,7 +527,7 @@ Before step 1: the certificate is issued (`mqtt.md` §9.1), nginx is configured 
 - **Cords drawn as lines** between tiles rather than shown by colour. Only if the colour pairing is hard to read on the iPad.
 - **Row order on the board.** §7.1 assumes jack 1 at top left and rows of ten running left to right. Check against the 551's designation strips and correct §7.1 if the board runs otherwise.
 - **Script names or jack labels.** script.yml's station keys (`room463`) and the board's labels (`463`) name the same thing twice. The calls panel and the log use script names, and the tiles use labels. If that reads badly, the game program can put labels in the call slots instead.
-- **The loudspeaker leaving a conversation** (§6.4). In automatic pacing, the operator answering the next call takes the audience away from the current conversation, possibly mid-sentence. The alternative is to stay on a call until its conversation ends and then move to the most recently answered call, at the cost of missing that call's request. Rev 6 moves at each answer. Wants listening with an audience.
+- **The loudspeaker leaving a conversation** (§6.4). In automatic pacing, the operator answering the next call takes the audience away from the current conversation, possibly mid-sentence. The alternative is to stay on a call until its conversation ends and then move to the most recently answered call, at the cost of missing that call's request. Rev 6 moves at each answer. Wants listening with an audience. Rev 16's listen pacing sidesteps it when the conversations matter more than the pressure.
 - **Settings across restarts.** Pacing values return to the configuration file's when the game program restarts (§4.3). If that is annoying, the game program can read its own retained values back at start.
 - **Dial push** (§7.4). Unused at Rev 13. Candidates: a finer step while held, or back to the configured value — the program does not know the configured values, and the game program would have to publish them.
 - **Error on the strip** (§7.4). 5s may be too short to read a long error, or too long to lose the dials during a game. Wants use.

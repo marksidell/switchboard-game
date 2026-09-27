@@ -165,7 +165,7 @@ async def main() -> int:
         await g.on_command("floor", "99")
         check(link.state_v.get("game/floor") == "10", "floor is held to gap")
         await g.on_command("pace", "sideways")
-        check("not manual or auto" in link.state_v.get("game/error", ""),
+        check("not manual, auto or listen" in link.state_v.get("game/error", ""),
               "a bad pace is refused, not clamped")
         await g.on_command("run", "maybe")
         check("not on or off" in link.state_v.get("game/error", ""), "a bad run is refused")
@@ -278,6 +278,45 @@ async def main() -> int:
         check(not g._afters, "Stop dropped the waiting after: scene")
         await sess.close()
 
+        print("\n== listen: the schedule waits for the board to empty (§4.2, Rev 16)")
+        b, link, g, sess = await build_game(tmp, pace="manual")
+        await g.start()
+        check(link.state_v.get("game/pause") == "3", "pause published, 3 from the configuration")
+        await g.on_command("pause", "90")
+        check(link.state_v.get("game/pause") == "60", "pause clamped to 60")
+        await g.on_command("pause", "4")
+        await g.on_command("jitter", "50")
+        await g.on_command("pace", "listen")
+        check(link.state_v.get("game/pace") == "listen", "pace listen accepted and echoed")
+        g.pacing.seed(3)
+        check({g.pacing.wait() for _ in range(20)} == {4.0},
+              "listen waits pause, every time: no jitter, no ramp (Rev 17)")
+        check(link.state_v.get("game/next_at") != "", "an empty board schedules at once")
+        lone = next(sc for sc in g.gs.scenes.values()
+                    if not g.gs.followers(sc.id) and sc.id != "nbn-trace")
+        call = C(slot=1, number=1, scene=lone.id, from_line=lone.from_line,
+                 to_line=lone.to_line)
+        await g.slots.open(call)
+        g.pacing.waiting_to_connect()
+        await g._connected(call)
+        check(link.state_v.get("game/next_at") == "",
+              "connecting does not schedule in listen: the conversation is still on")
+        await g.on_command("pace", "auto")
+        check(link.state_v.get("game/next_at") != "", "the same moment in auto schedules")
+        await g.on_command("pace", "listen")
+        check(link.state_v.get("game/next_at") == "", "and back in listen it is cleared")
+        await g._finish_call(call, lone, Outcome(True))
+        check(link.state_v.get("game/next_at") != "", "the call's end schedules the next")
+        call = C(slot=1, number=2, scene=parent.id, from_line=parent.from_line,
+                 to_line=parent.to_line)
+        await g.slots.open(call)
+        call.connected = True
+        await g._finish_call(call, parent, Outcome(True))
+        check(link.state_v.get("game/next_at") == "",
+              "a waiting after: scene holds the schedule in listen")
+        await g.stop("stop")
+        await sess.close()
+
         print("\n== losing the controller stops the game (§3)")
         b, link, g, sess = await build_game(tmp, pace="manual")
         watcher = asyncio.create_task(g.watch_clients())
@@ -304,6 +343,8 @@ async def main() -> int:
         check(n_sessions >= 1, f"{n_sessions} sessions recorded")
         check(seeded == n_sessions, "every one has its seed, for the replay (§4.4)")
         check(decks >= 1, f"{decks} deck orders recorded")
+        pause = db.execute("SELECT pause FROM sessions ORDER BY id DESC").fetchone()[0]
+        check(pause == 3.0, f"pause recorded with the pacing values (Rev 17): {pause}")
         db.close()
 
         print("\n== the simulator hands out each trunk once (no broker needed)")

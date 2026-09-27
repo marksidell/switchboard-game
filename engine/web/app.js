@@ -360,7 +360,8 @@ function renderTop() {
     'lamp ' + (get('ctl/game_status') === 'online' && !gameStale() ? 'up' : 'down');
 
   const running = get('game/run') === 'on';
-  const auto = get('game/pace') === 'auto';
+  const pace = get('game/pace');
+  const auto = pace === 'auto' || pace === 'listen';   // listen is automatic too (§4.2)
   const disabled = gameStale();
 
   document.getElementById('start').disabled = disabled || running;
@@ -369,16 +370,23 @@ function renderTop() {
   stop.textContent = stopArmed > Date.now() ? 'Stop — again' : 'Stop';
   stop.classList.toggle('armed', stopArmed > Date.now());
 
-  document.getElementById('pace-manual').classList.toggle('sel', !auto);
-  document.getElementById('pace-auto').classList.toggle('sel', auto);
-  for (const b of ['pace-manual', 'pace-auto']) document.getElementById(b).disabled = disabled;
+  for (const p of ['manual', 'auto', 'listen']) {
+    const b = document.getElementById('pace-' + p);
+    b.classList.toggle('sel', pace === p);
+    b.disabled = disabled;
+  }
 
   const next = document.getElementById('next');
   next.disabled = disabled || !running || Date.now() < nextEnabledAt;
   next.classList.toggle('small', auto);
 
   document.getElementById('steppers').style.display = auto ? '' : 'none';
-  for (const f of ['gap', 'ramp', 'floor'])
+  // Listen has one value of its own, pause, in place of auto's four (Rev 17).
+  for (const el of document.querySelectorAll('#steppers .auto-only'))
+    el.style.display = pace === 'listen' ? 'none' : '';
+  for (const el of document.querySelectorAll('#steppers .listen-only'))
+    el.style.display = pace === 'listen' ? '' : 'none';
+  for (const f of ['gap', 'ramp', 'floor', 'pause'])
     document.getElementById('v-' + f).textContent = get('game/' + f) || '–';
   const jitter = get('game/jitter');
   document.getElementById('v-jitter').textContent = jitter ? `${jitter}%` : '–';
@@ -403,7 +411,7 @@ function renderTop() {
   document.body.classList.toggle('no-controls', !showControls);
   document.getElementById('controls-toggle').classList.toggle('sel', showControls);
   const runText = get('game/run') === 'on' ? 'Running' : (get('game/run') ? 'Stopped' : '–');
-  const paceText = { auto: 'Automatic', manual: 'Manual' }[get('game/pace')] || '–';
+  const paceText = { auto: 'Automatic', manual: 'Manual', listen: 'Listen' }[get('game/pace')] || '–';
   const st = document.getElementById('v-state');
   st.textContent = `${runText} · ${paceText}`;
   st.parentElement.classList.toggle('stale', disabled);
@@ -466,6 +474,7 @@ document.getElementById('next').onclick = () => {
 };
 document.getElementById('pace-manual').onclick = () => send('pace', 'manual');
 document.getElementById('pace-auto').onclick = () => send('pace', 'auto');
+document.getElementById('pace-listen').onclick = () => send('pace', 'listen');
 document.getElementById('steppers').addEventListener('click', (e) => {
   const spec = e.target.dataset.step;
   if (!spec) return;

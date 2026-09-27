@@ -81,7 +81,7 @@ body.no-controls #state-text { display: flex; }
 .stepper span:not(.lbl) { min-width: 34px; text-align: center; font-variant-numeric: tabular-nums; }
 
 /* Last in the bar, so the tallies share the first row with the buttons and
-   the four steppers (automatic pacing only) have the second to themselves.
+   the steppers (automatic pacing only: four in auto, pause in listen) have the second to themselves.
    In the markup order the tallies wrapped onto a third row of their own. */
 #steppers { order: 1; }
 

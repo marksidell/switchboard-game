@@ -43,6 +43,7 @@ class Config:
     ramp: float = 0.0
     floor: float = 5.0
     jitter: float = 0.0            # percent (Rev 12); 0 is the fixed wait
+    pause: float = 3.0             # listen's wait after the board empties (Rev 17)
 
     # ---- timeouts (§5), all play-testing values ------------------------
     answer_timeout: float = 60.0   # operator to answer a lamp
@@ -80,8 +81,9 @@ class Config:
     def check(self) -> None:
         """Refuse a configuration that would misbehave rather than fail late."""
         bad: list[str] = []
-        if self.pace not in ("manual", "auto"):
-            bad.append(f"pace must be manual or auto, not {self.pace!r}")
+        from .pacing import PACES
+        if self.pace not in PACES:
+            bad.append(f"pace must be manual, auto or listen, not {self.pace!r}")
         # The page's own ranges, §4.3. Applied here too: a configuration file
         # is not the page and is not clamped, it is refused.
         if not 0 <= self.gap <= 600:
@@ -92,6 +94,8 @@ class Config:
             bad.append(f"floor {self.floor} outside 0-600")
         if not 0 <= self.jitter <= 100:
             bad.append(f"jitter {self.jitter} outside 0-100")
+        if not 0 <= self.pause <= 60:
+            bad.append(f"pause {self.pause} outside 0-60")
         if self.floor > self.gap:
             bad.append(f"floor {self.floor} is above gap {self.gap}")
         for name in ("answer_timeout", "connect_timeout", "speak_timeout", "max_speech"):
