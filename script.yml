@@ -131,6 +131,10 @@ cast:
         sex: male
         accent: generic American, fast and nosy
         description: Joe Barrett, reporter for the Seattle Times
+    martha:
+        sex: female
+        accent: A dog who can speak, with a deep dog-like voice
+        description: Martha the dog
 
 # Locations reached via public trunks, like local businesses.
 # The number is what the operator must dial. Quoted so it stays a string.
@@ -156,7 +160,8 @@ outside:
         description: The Seattle Times newspaper
 
 # Stations within the hotel: the game's station circuits.
-# number is the circuit, 1..22. Board 3 strips 7 and 8 are the operator tap and the audience monitor output, not stations.
+# number is the circuit, 1..22.
+# Board 3 strips 7 and 8 are the operator tap and the audience monitor output, not stations.
 # Which switchboard jack a circuit is cabled to, and its label, are under jacks: below.
 #
 stations:
@@ -174,6 +179,10 @@ stations:
         number: 6
     bellcaptain:
         number: 7
+    concierge:
+        nunmber: 8
+    room3:
+        number: 9
     room100:
         number: 10
     room463:
@@ -222,6 +231,9 @@ jacks:
     -   jack: 7
         label: "Bell Captain"
         station: bellcaptain
+    -   jack: 8
+        label: "Concierge"
+        station: concierge
     -   jack: 10
         label: "100"
         station: room100
@@ -246,6 +258,9 @@ jacks:
     -   jack: 17
         label: "822"
         station: room822
+    -   jack: 18
+        label: "3"
+        station: room3
 
 scenes:
     nbn-valet:
@@ -322,7 +337,7 @@ scenes:
                 called: Room service.
             -   id: 3
                 caller: Yeah, this is Pike in 214. Two eggs over easy, bacon, toast, and a pot of coffee.
-            -   id: 4
+			   -   id: 4
                 called: Two eggs over easy, bacon, toast, coffee. Anything else, sir?
             -   id: 5
                 caller: A newspaper, if you've got one.
@@ -540,3 +555,28 @@ scenes:
                 called: Ten minutes, Mr. Pike.
             -   id: 7
                 caller: Tell him to step on it. I've got a train to catch.
+
+    martha-roomservice
+        active: false
+        calling:
+            line: room3
+            person: martha
+        called:
+            line: roomservice
+            person: waiter
+        request:
+            id: 1
+            text: Connect me to room service.
+        conversation:
+            -   id: 2
+                called: Room service.
+            -   id: 3
+                caller: Hello, room service? This is room 3. I'd like to order 8 t-bone steaks, rare, no salad, a half-dozen pork chops, rack of lamb, with a side order of chikecn.
+            -   id: 4
+                called: Will that be all, ma'am?
+            -   id: 5
+                caller: Just leave it on the floor, please.
+            -   id: 6
+                called: Our pleasure.
+            -   id: 7
+                caller: woof, woof, woof!

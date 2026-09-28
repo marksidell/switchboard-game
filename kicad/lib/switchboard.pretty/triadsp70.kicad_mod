@@ -1,0 +1,229 @@
+(footprint "Triad_SP-70"
+	(version 20241229)
+	(generator "pcbnew")
+	(generator_version "9.0")
+	(layer "F.Cu")
+	(descr "Triad Magnetics SP-70 miniature 600:600 ohm audio isolation transformer, 4-pin plug-in, body 10.41 x 7.87 x 11.81 mm, pin grid 7.62 x 5.08 mm (0.300 x 0.200 in), 0.508 mm leads. Pins 1-2 primary (72 ohm DCR), pins 3-4 secondary (92 ohm DCR). Tab at pin 1.")
+	(tags "transformer audio isolation 600 ohm Triad SP-70 through-hole")
+	(attr through_hole)
+	(property "Reference" "T**"
+		(at 0 -5.535 0)
+		(layer "F.SilkS")
+		(uuid "5c151132-a7b0-4c0f-9385-b674fb2dd89b")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "Triad_SP-70"
+		(at 0 5.535 0)
+		(layer "F.Fab")
+		(uuid "b53b104d-5561-4a1f-8ec0-233b978d0e04")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" "http://catalog.triadmagnetics.com/asset/sp-70.pdf"
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "43aba0a6-b672-4d9e-a3ea-8bef43513d1d")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "Description" "Audio isolation transformer 600:600 ohm 1:1 50 mW"
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "5403bb44-12ea-4274-ab5d-d08259abe8ba")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(fp_line
+		(start -5.315 -4.045)
+		(end 5.315 -4.045)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "50950f0d-923a-4923-abb8-e528dda4b315")
+	)
+	(fp_line
+		(start 5.315 -4.045)
+		(end 5.315 4.045)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "77322a4e-505e-4252-b779-d0fd24b832a1")
+	)
+	(fp_line
+		(start 5.315 4.045)
+		(end -5.315 4.045)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "803a926d-9878-41a8-b126-93d2038110f2")
+	)
+	(fp_line
+		(start -5.315 4.045)
+		(end -5.315 -4.045)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "957326a0-ab2a-4a06-98f3-8f85a0de42a0")
+	)
+	(fp_circle
+		(center -3.810 -4.635)
+		(end -3.610 -4.635)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(fill solid)
+		(layer "F.SilkS")
+		(uuid "ac7a4368-5aaa-41e4-97c9-bd860d569d3d")
+	)
+	(fp_line
+		(start -4.205 -3.935)
+		(end 5.205 -3.935)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "fcf85cda-8c14-43f5-96a4-54789fd440d4")
+	)
+	(fp_line
+		(start 5.205 -3.935)
+		(end 5.205 3.935)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "20facac3-c8d5-41a9-834a-f51d23cdeaad")
+	)
+	(fp_line
+		(start 5.205 3.935)
+		(end -5.205 3.935)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "e97659d5-2226-4347-ae40-2d8f1020fcf2")
+	)
+	(fp_line
+		(start -5.205 3.935)
+		(end -5.205 -2.935)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "a00de3f0-b23a-45db-aae8-c9f59f34e6de")
+	)
+	(fp_line
+		(start -5.205 -2.935)
+		(end -4.205 -3.935)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "d7cfdeb3-f0f9-4a7a-ab0f-edf074d49658")
+	)
+	(fp_line
+		(start -5.455 -4.185)
+		(end 5.455 -4.185)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "406f4aff-d82e-4ae8-b72e-baf19d8451ec")
+	)
+	(fp_line
+		(start 5.455 -4.185)
+		(end 5.455 4.185)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "10de6ba5-3c5c-4f82-bbff-02d4e61453ed")
+	)
+	(fp_line
+		(start 5.455 4.185)
+		(end -5.455 4.185)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "1fcd87d4-56a5-4077-bc43-e6314269fb92")
+	)
+	(fp_line
+		(start -5.455 4.185)
+		(end -5.455 -4.185)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "50bdb9fe-051f-4702-b8bf-1c48eb594ae2")
+	)
+	(pad "1" thru_hole rect
+		(at -3.810 -2.540)
+		(size 1.6 1.6)
+		(drill 0.8)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "a2987c23-920a-4240-9ef6-228beb41e15d")
+	)
+	(pad "2" thru_hole circle
+		(at -3.810 2.540)
+		(size 1.6 1.6)
+		(drill 0.8)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "3247d687-3fc5-4822-9f63-91698a9703f1")
+	)
+	(pad "3" thru_hole circle
+		(at 3.810 2.540)
+		(size 1.6 1.6)
+		(drill 0.8)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "1247b225-20e7-45bf-a09c-a5bfe0d3e6ae")
+	)
+	(pad "4" thru_hole circle
+		(at 3.810 -2.540)
+		(size 1.6 1.6)
+		(drill 0.8)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "e80caa21-9963-435f-ad45-087bcf9ddb97")
+	)
+	(embedded_fonts no)
+)
