@@ -135,6 +135,21 @@ cast:
         sex: female
         accent: A dog who can speak, with a deep dog-like voice
         description: Martha the dog
+    marysmith:
+        sex: female
+        accent: >
+            A 1930s American woman in her early thirties. Husky, slightly
+            raspy alto with a hint of nasal brightness. Speaks quickly and
+            crisply, with a dry, wisecracking, working-girl edge. Her voice
+            is a little unstable: on emotional or surprised words it cracks
+            upward into a brief, high squeak, then drops back to the husky
+            register. Tough on the surface, vulnerable underneath. Clear
+            mid-Atlantic-leaning diction, not breathy or sultry.
+        description: Mary Smith in the film Easy Living
+    carsalesman:
+        sex: male
+        accent: American, but attempts to sound sophisticated with a pseudo British accent
+        description: Salesman for the V16 Company of America
 
 # Locations reached via public trunks, like local businesses.
 # The number is what the operator must dial. Quoted so it stays a string.
@@ -158,6 +173,9 @@ outside:
     times:
         number: "524-3000"
         description: The Seattle Times newspaper
+    v16company:
+        number: "942-1792"
+        description: The V16 Company of America
 
 # Stations within the hotel: the game's station circuits.
 # number is the circuit, 1..22.
@@ -199,6 +217,8 @@ stations:
         number: 16
     room822:
         number: 17
+    imperialsuite:
+        number: 18
 
 # The switchboard's 30 station jacks, as the page draws them (game_control.md 6.3).
 #     jack:    the jack number on the board, 1..30
@@ -261,6 +281,9 @@ jacks:
     -   jack: 18
         label: "3"
         station: room3
+    -   jack: 20
+        label: "penthouse"
+        station: imperialsuite
 
 scenes:
     nbn-valet:
@@ -580,3 +603,70 @@ scenes:
                 called: Our pleasure.
             -   id: 7
                 caller: woof, woof, woof!
+
+    easyliving-v16:
+        active: false
+        calling:
+            line: v16company
+            person: carsalesman
+        called:
+            line: imperialsuite
+            person: marysmith
+        request:
+            id: 1
+            text: Please connect me with your guest Mary Smith
+        conversation:
+            -   id: 2
+                called: Hello, hello?
+            -   id: 3
+                caller: Do I have the pleasure of speaking with Mary Smith
+            -   id: 4
+                called: Hello. Yes, this is me.
+            -   id: 5
+                caller: This is the V-16 Company of America. We want to provide you with our newest model.
+            -   id: 6
+                called: You want to what?
+            -   id: 7
+                caller: We want to provide you with a V-16 motorcar free of charge. Have you driven one?
+            -   id: 8
+                called: Did I ever what? Oh, no. Of course I've never driven one. No. No, we had a Saxon.
+            -   id: 9
+                caller: Ah, well, the V-16 is far superior to a Saxon, and we want you to have the pleasure of owning one.
+            -   id: 10
+                called: Well, I suppose they are different. Well, what do you want to do that for? Oh, well... I'll take your word for it.
+            -   id: 11
+                caller: May we deliver the automobile to the hotel?
+            -   id: 12
+                called: Yes. But, look, even if I did want it, what would I use it for?
+            -   id: 13
+                caller: We are sure you'll find many uses for it.
+            -   id: 14
+                called: Oh, but, mister, you...
+            -   id: 15
+                caller: We will have it delivered immediately.
+            -   id: 16
+                called: Look, please, you don't...
+            -   id: 17
+                caller: Completely free of charge.
+            -   id: 18
+                called: Yeah, I know, but I...
+            -   id: 19
+                caller: You are Mary Smith?
+            -   id: 20
+                called: Yeah. Well, all right. All right.
+            -   id: 21
+                caller: Shall we send chauffeurs?
+            -   id: 22
+                called: Yes, you can put two chauffeurs in it if it'll make you happy.
+            -   id: 23
+                caller: What color do you prefer?
+            -   id: 24
+                called: Pink, well...
+            -   id: 25
+                caller: I'm sorry, the V-16 is not available in pink.
+            -   id: 26
+                called: Well, any color you like.
+            -   id: 27
+                caller: Very well, then, we will send you a black V-16 with a chauffeur.
+            -   id: 28
+                called: All right, all right. Goodbye.
