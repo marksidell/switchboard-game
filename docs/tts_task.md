@@ -39,7 +39,7 @@ Write one loader, used by every step here, and written so the game program can i
 - **Cross-check**, and exit non-zero listing every failure, not just the first:
   - every `line` names a station or an outside entry, and no name is both;
   - every `person` names a cast member;
-  - every `after` names a scene that has no `after` of its own;
+  - every `after` names a scene, no scene is named by two, and the `after`s make no loop (chains of any length are allowed from `game_control.md` Rev 19; this said "a scene that has no `after` of its own" until then);
   - station numbers are unique and within 1–23; outside numbers are strings and unique;
   - utterance ids are integers and unique within their scene;
   - every file name meets §2.

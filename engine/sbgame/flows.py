@@ -180,11 +180,19 @@ def _cord_broken(a: str, c: str):
 
 
 async def _converse(ctx: Ctx, caller: str, called: str) -> None:
-    """Stage `talking`: play the scripted conversation, turn by turn."""
+    """Stage `talking`: play the scripted conversation, turn by turn.
+
+    A line marked wait: plays only after the operator has spoken on its side
+    and stopped (§4.6) — "Long distance, please" to the local operator before
+    the long-distance operator comes on. Raises TimeoutError if she never
+    does, which the flow turns into `timeout` (§5).
+    """
     await ctx.slots.set_stage(ctx.call, Stage.TALKING, None)
     broken = _cord_broken(caller, called)
     for line in ctx.scene.conversation:
         where = caller if line.by == "caller" else called
+        if line.wait:
+            await hear(ctx.b, ctx.hw, where, ctx.cfg.speak_timeout, abort_if=broken)
         await _play(ctx, where, line, broken)
 
 
@@ -221,7 +229,10 @@ async def station_to_station(ctx: Ctx) -> Outcome:
             return Outcome(False, Reason.NOT_CONNECTED)
 
         await ctx.mark_connected()
-        await _converse(ctx, caller, called)
+        try:
+            await _converse(ctx, caller, called)
+        except TimeoutError:
+            return Outcome(False, Reason.TIMEOUT)
         return Outcome(True)
     except Abandoned:
         return Outcome(False, Reason.CUT_OFF)
@@ -269,7 +280,10 @@ async def station_to_outside(ctx: Ctx) -> Outcome:
         await ctx.hw.tone(trunk, "off")                    # the far end answers
         await ctx.mark_connected()
 
-        await _converse(ctx, caller, called)
+        try:
+            await _converse(ctx, caller, called)
+        except TimeoutError:
+            return Outcome(False, Reason.TIMEOUT)
         return Outcome(True)
     except Abandoned:
         return Outcome(False, Reason.CUT_OFF)
@@ -371,7 +385,10 @@ async def outside_to_station(ctx: Ctx, trunk: int) -> Outcome:
             return Outcome(False, Reason.NOT_CONNECTED)
 
         await ctx.mark_connected()
-        await _converse(ctx, caller, called)
+        try:
+            await _converse(ctx, caller, called)
+        except TimeoutError:
+            return Outcome(False, Reason.TIMEOUT)
         return Outcome(True)
     except Abandoned:
         return Outcome(False, Reason.CUT_OFF)

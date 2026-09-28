@@ -61,6 +61,12 @@ class Utterance:
     id: int
     speaker: str
     text: str
+    # Which side of the call says it, "caller" or "called". Usually the scene's
+    # party on that side is the speaker; a line's own person: overrides that.
+    role: str = "caller"
+    # wait: true — the game plays it only after the operator has spoken on
+    # that side and stopped (game_control.md 4.6).
+    wait: bool = False
 
     @property
     def name(self) -> str:
@@ -131,15 +137,16 @@ def _read(path: Path) -> dict:
     return data
 
 
-def _utterances_of(scene_id: str, scene: dict) -> Iterator[tuple[int | None, str, str, str]]:
-    """Yield (id, role, text, where) for every utterance of a scene, in order.
+def _utterances_of(scene_id: str, scene: dict) -> Iterator[tuple[int | None, str, str, str, dict]]:
+    """Yield (id, role, text, where, line) for every utterance of a scene, in order.
 
     `role` is 'caller' or 'called'; resolving that to a person needs the
-    scene's parties, which validation checks separately.
+    scene's parties, which validation checks separately. `line` is the raw
+    entry, for its person: and wait:.
     """
     request = scene.get("request")
     if isinstance(request, dict):
-        yield request.get("id"), "caller", request.get("text", ""), "request"
+        yield request.get("id"), "caller", request.get("text", ""), "request", {}
     conversation = scene.get("conversation") or []
     if isinstance(conversation, list):
         for i, line in enumerate(conversation):
@@ -147,9 +154,9 @@ def _utterances_of(scene_id: str, scene: dict) -> Iterator[tuple[int | None, str
                 continue
             where = f"conversation[{i}]"
             if "caller" in line:
-                yield line.get("id"), "caller", line["caller"], where
+                yield line.get("id"), "caller", line["caller"], where, line
             elif "called" in line:
-                yield line.get("id"), "called", line["called"], where
+                yield line.get("id"), "called", line["called"], where, line
 
 
 def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
@@ -287,7 +294,8 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
         if not isinstance(active, bool):
             bad(f"scenes.{scene_id}.active", f"missing or not true/false: {active!r}")
 
-        # after: names a scene, and that scene has no after of its own
+        # after: names a scene. Chains are allowed (game_control.md 4.4, Rev 19);
+        # loops and a scene with two followers are checked below, over all scenes.
         after = scene.get("after")
         if after is not None:
             if after not in scenes:
@@ -296,15 +304,36 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
                   and scenes[after].get("active") is False):
                 bad(f"scenes.{scene_id}.after",
                     f"{after!r} is inactive, so this active scene could never play")
-            elif isinstance(scenes[after], dict) and scenes[after].get("after") is not None:
-                bad(f"scenes.{scene_id}.after",
-                    f"{after!r} has an after of its own; chains of more than two are not allowed")
             elif after == scene_id:
                 bad(f"scenes.{scene_id}.after", "names itself")
 
         # utterances: integer ids, unique in the scene, legal file names
+        # A call to the operator, or one that meets busy, waits for her before
+        # every line already (flows.py), so wait: has nothing to add there.
+        called_party = scene.get("called")
+        waits_anyway = not isinstance(called_party, dict) or bool(called_party.get("busy"))
+        conv = scene.get("conversation") or []
+        for i, line in enumerate(conv if isinstance(conv, list) else []):
+            at = f"scenes.{scene_id}.conversation[{i}]"
+            if not isinstance(line, dict):
+                bad(at, "not a mapping")
+                continue
+            extra = sorted(set(line) - {"id", "caller", "called", "person", "wait"})
+            if extra:
+                bad(at, f"unknown key(s): {', '.join(map(str, extra))}")
+            if "caller" in line and "called" in line:
+                bad(at, "has both caller: and called:")
+            elif "caller" not in line and "called" not in line:
+                bad(at, "has neither caller: nor called:")
+            if "wait" in line:
+                if not isinstance(line["wait"], bool):
+                    bad(f"{at}.wait", f"not true/false: {line['wait']!r}")
+                elif line["wait"] and waits_anyway:
+                    bad(f"{at}.wait", "every line of a call to the operator or a busy call waits already")
+            if "person" in line and line["person"] not in cast:
+                bad(f"{at}.person", f"{line['person']!r} is not in the cast")
         seen_id: dict[int, str] = {}
-        for uid, role, text, where in _utterances_of(scene_id, scene):
+        for uid, role, text, where, raw in _utterances_of(scene_id, scene):
             at = f"scenes.{scene_id}.{where}"
             if not isinstance(uid, int) or isinstance(uid, bool):
                 bad(f"{at}.id", f"not an integer: {uid!r}")
@@ -320,7 +349,10 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
             if speaker is None:
                 bad(at, f"is a {role} line but the scene has no usable {role}")
                 continue
-            u = Utterance(scene=scene_id, id=uid, speaker=speaker, text=text.strip())
+            if raw.get("person") in cast:
+                speaker = raw["person"]
+            u = Utterance(scene=scene_id, id=uid, speaker=speaker, text=text.strip(),
+                          role=role, wait=raw.get("wait") is True)
             why = name_problem(u.name)
             if why is not None:
                 bad(at, f"file name {u.name!r} is not usable: {why}")
@@ -329,6 +361,27 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
 
         if not seen_id:
             bad(f"scenes.{scene_id}", "has no utterances")
+
+    # --- after: chains (game_control.md 4.4) ---------------------------------
+    # One follower per scene: two would each wait for the other's people to
+    # come free, and neither would ever start. And no loop, which would never
+    # reach the deck at all.
+    after_of = {i: sc.get("after") for i, sc in scenes.items()
+                if isinstance(sc, dict) and sc.get("after") in scenes and sc.get("after") != i}
+    followed: dict[str, str] = {}
+    for i, a in after_of.items():
+        if a in followed:
+            bad(f"scenes.{i}.after", f"{a!r} is already followed by {followed[a]}; a scene has one follower")
+        else:
+            followed[a] = i
+    for i in after_of:
+        seen, at = {i}, after_of[i]
+        while at in after_of:
+            if at in seen:
+                bad(f"scenes.{i}.after", "is part of a loop of after:s")
+                break
+            seen.add(at)
+            at = after_of[at]
 
     if fail:
         raise ScriptError(path, fail)

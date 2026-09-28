@@ -11,6 +11,7 @@ game will actually run.
 """
 
 import asyncio
+import re
 import logging
 import sys
 import tempfile
@@ -87,7 +88,9 @@ async def main() -> int:
 
         print("\n== jacks: a labelled jack with nothing cabled (§6.3)")
         real = Path("../script.yml").read_text(encoding="utf-8")
-        spare = real.replace("\njacks:\n", '\njacks:\n    -   jack: 30\n        label: "Garage"\n', 1)
+        # Jack 30 is taken out and put back first, labelled and uncabled.
+        spare = re.sub(r"\n    -   jack: 30\n(        \w+:.*\n)*", "\n", real, count=1)
+        spare = spare.replace("\njacks:\n", '\njacks:\n    -   jack: 30\n        label: "Garage"\n', 1)
         (tmp / "spare.yml").write_text(spare, encoding="utf-8")
         gs = build(tmp / "spare.yml", "../wav")
         j30 = next(j for j in gs.jacks if j.kind == "station" and j.number == 30)
@@ -95,7 +98,7 @@ async def main() -> int:
               f"jack 30 is labelled and uncabled: {j30.label!r} {j30.circuit!r}")
         for what, text in (
             ("a station on no jack",
-             real.replace("        station: room822\n", "", 1)),
+             real.replace("        station: room404\n", "", 1)),
             ("a station on two jacks",
              spare.replace('label: "Garage"\n', 'label: "Garage"\n        station: lobby\n', 1)),
             ("a jack listed twice",
@@ -104,6 +107,14 @@ async def main() -> int:
              spare.replace('        label: "Garage"\n', "", 1)),
             ("a jack naming no station",
              spare.replace('label: "Garage"\n', 'label: "Garage"\n        station: attic\n', 1)),
+            ("wait: in a call to the operator",
+             real.replace("                caller: Thank you. Room 404. Good night.\n",
+                          "                caller: Thank you. Room 404. Good night.\n"
+                          "                wait: true\n", 1)),
+            ("a line whose person: is not in the cast",
+             real.replace("                called: Valet service.\n",
+                          "                called: Valet service.\n"
+                          "                person: nobody\n", 1)),
             ("the old switchboard: key on a station",
              real.replace("        number: 1\n", "        number: 1\n        switchboard: 1\n", 1)),
         ):
@@ -142,6 +153,20 @@ async def main() -> int:
              real.replace("    nbn-valet:\n        active: true\n",
                           "    nbn-valet:\n        active: yes please\n", 1)),
             ("an active after: scene following an inactive one", off),
+            ("a scene named in two after:s",
+             real.replace("\nscenes:\n", "\nscenes:\n"
+                          "    twin:\n"
+                          "        active: false\n"
+                          "        after: nbn-kaplan\n"
+                          "        calling:\n"
+                          "            line: room403\n"
+                          "            person: thornhill\n"
+                          "        request:\n"
+                          "            id: 1\n"
+                          "            text: Operator, who was that?\n", 1)),
+            ("a loop of after:s",
+             real.replace("    nbn-kaplan:\n        active: true\n",
+                          "    nbn-kaplan:\n        active: true\n        after: nbn-trace\n", 1)),
         ):
             (tmp / "bad.yml").write_text(text, encoding="utf-8")
             try:
@@ -156,6 +181,23 @@ async def main() -> int:
         gs = build(tmp / "off2.yml", "../wav")
         check("nbn-kaplan" not in gs.scenes and not gs.followers("nbn-kaplan"),
               "a scene and its after: both inactive: neither is played")
+
+        chain = real.replace("\nscenes:\n", "\nscenes:\n"
+                             "    third:\n"
+                             "        active: false\n"
+                             "        after: nbn-trace\n"
+                             "        calling:\n"
+                             "            line: room403\n"
+                             "            person: thornhill\n"
+                             "        request:\n"
+                             "            id: 1\n"
+                             "            text: Operator, get me the police.\n", 1)
+        (tmp / "chain.yml").write_text(chain, encoding="utf-8")
+        try:
+            load(tmp / "chain.yml")
+            check(True, "accepts a chain of three after:s (Rev 19)")
+        except ScriptError as e:
+            check(False, f"accepts a chain of three after:s (Rev 19): {e.failures}")
 
         print("\n== page commands: clamps and refusals (§8)")
         await g.on_command("gap", "700")
@@ -235,12 +277,13 @@ async def main() -> int:
         print("\n== the deck deals every scene before repeating, across a game")
         b, link, g, sess = await build_game(tmp, pace="manual")
         await g.start()
+        n = len(g.gs.deck_scenes())
         dealt = []
-        for _ in range(11):
+        for _ in range(n):
             sc, why = g.deck.deal([])
             if sc:
                 dealt.append(sc.id)
-        check(len(set(dealt)) == 11, f"11 distinct scenes dealt, got {len(set(dealt))}")
+        check(len(set(dealt)) == n, f"{n} distinct scenes dealt, got {len(set(dealt))}")
         await g.stop("stop")
         await sess.close()
 

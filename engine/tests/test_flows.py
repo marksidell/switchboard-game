@@ -259,6 +259,17 @@ async def main() -> int:
     check(any("dialled 275-4101" in e for e in h.events), f"logged the number: {h.events}")
     check(Stage.DIALLING in h.stages, f"went through dialling: {h.stages}")
 
+    print("\n== long distance: a line that waits for the operator on the trunk (§4.6)")
+    h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="operator", to_station=None,
+                      dial="0",
+                      conversation=(speech("t.2", "called"),
+                                    Speech("t.3", D * 3, "called", wait=True),
+                                    speech("t.4", "caller"))))
+    r = await h.run(station_to_outside, lambda hh: outgoing_operator(hh, "0"))
+    check(r.ok, "succeeds")
+    listens = [k for k, _ in h.link.sent if k.endswith("/listen/set")]
+    check(listens.count("trunk/3/listen/set") == 1, f"listened once on the trunk: {listens}")
+
     print("\n== the operator dials a wrong number, releases, and redials")
     h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
                       dial="275-4101"))

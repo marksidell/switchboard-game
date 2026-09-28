@@ -25,6 +25,21 @@
 #     The conversation holds only caller lines. Each one plays after the
 #     operator has spoken and stopped (listen: speech, then silence).
 #
+# Waiting for the operator mid-conversation (game_control.md 4.6):
+#     wait: true on a conversation line means it plays only after the
+#     operator has spoken on that side of the call and stopped. Not allowed
+#     in a call to the operator or a busy scene, where every line waits.
+#
+# Someone else on the line (game_control.md 4.6):
+#     person: <cast member> on a conversation line means that person says it,
+#     on the same side of the call, in place of the scene's party there.
+#
+# Long distance:
+#     The hotel operator dials 0 and gets the local operator, who is
+#     called: person: local_operator. The hotel operator asks for long
+#     distance; the long-distance operator's first line is marked wait: true
+#     and person: operator. The party she rings speaks with a person: too.
+#
 # Busy:
 #     busy: true under called means the operator hears busy tone when dialing.
 #     The conversation then holds only caller lines, played after the operator
@@ -36,6 +51,8 @@
 #     goes off-hook (station) or rings (trunk) again, as for any other scene.
 #     Every line in the named scene has hung up by then, so for a caller who
 #     calls straight back, delay is also how long they stay on-hook.
+#     A scene with after: can itself be followed, so a story can run to any
+#     number of calls. Each scene has at most one follower.
 #
 # Active:
 #     Every scene says active: true or active: false. The game plays only
@@ -71,6 +88,10 @@ cast:
         sex: female
         accent: generic American
         description: public telephone operator (for long distance calls)
+    local_operator:
+        sex: female
+        accent: generic American, flat and quick
+        description: the local telephone company operator who answers when the hotel operator dials 0
     assassin:
         sex: male
         accent: sinister foreign
@@ -82,27 +103,27 @@ cast:
     pike:
         sex: male
         accent: Chicago, fast talking
-        description: Harold Pike, traveling vacuum cleaner salesman, room 214
+        description: Harold Pike, traveling vacuum cleaner salesman, room 204
     albright:
         sex: female
         accent: refined American, older woman
-        description: Mrs. Edith Albright, well-to-do widow from Spokane, room 512
+        description: Mrs. Edith Albright, well-to-do widow from Spokane, room 302
     hale:
         sex: female
         accent: generic American, young and cheerful
-        description: Betty Hale, on her honeymoon, room 715
+        description: Betty Hale, on her honeymoon, room 305
     lindqvist:
         sex: male
         accent: Pacific Northwest, slow and plain
-        description: Nils Lindqvist, owns fishing boats in Ballard, room 601
+        description: Nils Lindqvist, owns fishing boats in Ballard, room 401
     crane:
         sex: female
         accent: generic American, precise
-        description: Miss Dorothy Crane, schoolteacher from Yakima, room 308
+        description: Miss Dorothy Crane, schoolteacher from Yakima, room 404
     hollis:
         sex: male
         accent: generic American, older, dry
-        description: Dr. Walter Hollis, visiting surgeon, room 100
+        description: Dr. Walter Hollis, visiting surgeon, room 101
     desk_clerk:
         sex: male
         accent: generic American, young and polite
@@ -151,6 +172,128 @@ cast:
         accent: American, but attempts to sound sophisticated with a pseudo British accent
         description: Salesman for the V16 Company of America
 
+    # Guests added 2026-09-28.
+    pemberton:
+        sex: female
+        accent: affected upper-class American, drawling and imperious
+        description: Mrs. Vivian Pemberton, wealthy widow from Pasadena, room 102; nothing is ever quite right
+    dobbs:
+        sex: male
+        accent: Nebraska, loud and cheerful
+        description: Earl Dobbs, feed-store owner from Omaha on his first vacation, room 105
+    vance:
+        sex: female
+        accent: sultry, low, a little sleepy
+        description: Miss Lorraine Vance, nightclub singer appearing downtown, room 201; sleeps till noon
+    beaumont:
+        sex: male
+        accent: Southern, booming, old-fashioned
+        description: Colonel Augustus Beaumont, retired, of Savannah, Georgia, room 205
+    finch:
+        sex: male
+        accent: generic American, nervous and fussy
+        description: Howard Finch, accountant at a Rotary convention, room 303; a hypochondriac
+    jim_hale:
+        sex: male
+        accent: generic American, young and eager
+        description: Jim Hale, Betty Hale's new husband, room 305
+
+    # Hotel staff added 2026-09-28.
+    housekeeper:
+        sex: female
+        accent: Scandinavian Ballard, patient but tried
+        description: Mrs. Olsen, the head housekeeper
+    bellcaptain:
+        sex: male
+        accent: generic American, gravelly, seen it all
+        description: Gus, the bell captain
+    concierge:
+        sex: male
+        accent: polished, a touch continental
+        description: Mr. Fairweather, the hotel concierge; knows everybody
+    hostess:
+        sex: female
+        accent: generic American, bright and professional
+        description: hostess at the Stoneburner, the hotel restaurant
+
+    # Outside, added 2026-09-28.
+    pigalle:
+        sex: female
+        accent: French, charming but firm
+        description: reservationist at Place Pigalle
+    rays_host:
+        sex: male
+        accent: Pacific Northwest, easygoing and casual
+        description: the fellow who answers the phone at Ray's Boathouse
+    telegraph_clerk:
+        sex: male
+        accent: generic American, clipped
+        description: counter clerk at Western Union
+    pharmacist:
+        sex: male
+        accent: generic American, kindly, older
+        description: pharmacist at Ballard Pharmacy
+    box_office:
+        sex: female
+        accent: generic American, gum-chewing, bored
+        description: box office clerk at the Paramount Theatre
+    ferry_clerk:
+        sex: male
+        accent: Pacific Northwest, salty
+        description: information clerk at the Washington State Ferries dock
+    sergeant:
+        sex: male
+        accent: Irish American, weary
+        description: desk sergeant at the Seattle Police
+    nurse:
+        sex: female
+        accent: generic American, crisp
+        description: nurse at the switchboard of Swedish Hospital
+
+    # Far away, reached by long distance, added 2026-09-28.
+    clara_thornhill:
+        sex: female
+        accent: New York, older, dry and skeptical
+        description: Clara Thornhill, Roger Thornhill's mother, in New York
+    gruber:
+        sex: male
+        accent: Chicago, gruff
+        description: Mr. Gruber, Pike's sales manager at the Whirlwind Vacuum Company in Chicago
+    mrs_dunn:
+        sex: female
+        accent: Idaho, warm and worried
+        description: Mrs. Dunn, Betty Hale's mother, in Boise
+    lucinda:
+        sex: female
+        accent: Southern, genteel, sharp
+        description: Miss Lucinda Beaumont, the Colonel's sister, in Savannah
+    edna_finch:
+        sex: female
+        accent: generic American, practical
+        description: Edna Finch, Howard's wife, in Walla Walla
+    dr_keller:
+        sex: male
+        accent: Minnesota, measured
+        description: Dr. Keller of the Mayo Clinic in Rochester, Minnesota
+
+    # Visitors on the lobby house phone, added 2026-09-28.
+    gunderson:
+        sex: female
+        accent: Scandinavian Ballard, indignant
+        description: Mrs. Gunderson, who bought a vacuum cleaner from Pike
+    chester:
+        sex: male
+        accent: generic American, young, wheedling
+        description: Chester, Mrs. Albright's nephew, always short of money
+    admirer:
+        sex: male
+        accent: generic American, young and smitten
+        description: a young sailor who heard Lorraine Vance sing last night
+    eddie:
+        sex: male
+        accent: generic American, young man, sheepish
+        description: Eddie Moran, a former pupil of Miss Crane, now in the Navy
+
 # Locations reached via public trunks, like local businesses.
 # The number is what the operator must dial. Quoted so it stays a string.
 #
@@ -176,6 +319,30 @@ outside:
     v16company:
         number: "942-1792"
         description: The V16 Company of America
+    rays:
+        number: "642-5000"
+        description: Ray's Boathouse, a popular restaurant for tourists, on a dock near Shilshole Marina
+    placepigalle:
+        number: "942-7068"
+        description: Place Pigalle, a venerable French restaurant at Pike Place, behind where they throw the fish
+    westernunion:
+        number: "682-6200"
+        description: Western Union telegraph office
+    pharmacy:
+        number: "783-0550"
+        description: Ballard Pharmacy
+    paramount:
+        number: "682-1414"
+        description: Paramount Theatre box office
+    ferries:
+        number: "464-6400"
+        description: Washington State Ferries information, Colman Dock
+    police:
+        number: "583-2111"
+        description: Seattle Police
+    swedish:
+        number: "322-5100"
+        description: Swedish Hospital
 
 # Stations within the hotel: the game's station circuits.
 # number is the circuit, 1..22.
@@ -185,11 +352,11 @@ outside:
 stations:
     frontdesk:
         number: 1
-    roomservice:
+    lobby:
         number: 2
     restaurant:
         number: 3
-    lobby:
+    roomservice:
         number: 4
     valet:
         number: 5
@@ -199,26 +366,34 @@ stations:
         number: 7
     concierge:
         number: 8
-    room3:
-        number: 9
-    room100:
-        number: 10
-    room463:
-        number: 11
-    room214:
-        number: 12
-    room308:
-        number: 13
-    room512:
-        number: 14
-    room601:
-        number: 15
-    room715:
-        number: 16
-    room822:
-        number: 17
     imperialsuite:
+        number: 9
+    room101:
+        number: 10
+    room102:
+        number: 11
+    room103:
+        number: 12
+    room105:
+        number: 13
+    room201:
+        number: 14
+    room204:
+        number: 15
+    room205:
+        number: 16
+    room302:
+        number: 17
+    room303:
         number: 18
+    room305:
+        number: 19
+    room401:
+        number: 20
+    room403:
+        number: 21
+    room404:
+        number: 22
 
 # The switchboard's 30 station jacks, as the page draws them (game_control.md 6.3).
 #     jack:    the jack number on the board, 1..30
@@ -234,14 +409,14 @@ jacks:
         label: "Front Desk"
         station: frontdesk
     -   jack: 2
-        label: "Room Service"
-        station: roomservice
-    -   jack: 3
-        label: "Restaurant"
-        station: restaurant
-    -   jack: 4
         label: "Lobby"
         station: lobby
+    -   jack: 3
+        label: "Stoneburner"
+        station: restaurant
+    -   jack: 4
+        label: "Room Service"
+        station: roomservice
     -   jack: 5
         label: "Valet"
         station: valet
@@ -254,42 +429,80 @@ jacks:
     -   jack: 8
         label: "Concierge"
         station: concierge
+    -   jack: 9
+        label: "Maintenance"
+        station:
     -   jack: 10
-        label: "100"
-        station: room100
-    -   jack: 11
-        label: "463"
-        station: room463
-    -   jack: 12
-        label: "214"
-        station: room214
-    -   jack: 13
-        label: "308"
-        station: room308
-    -   jack: 14
-        label: "512"
-        station: room512
-    -   jack: 15
-        label: "601"
-        station: room601
-    -   jack: 16
-        label: "715"
-        station: room715
-    -   jack: 17
-        label: "822"
-        station: room822
-    -   jack: 18
-        label: "3"
-        station: room3
-    -   jack: 20
         label: "penthouse"
         station: imperialsuite
+
+    -   jack: 11
+        label: "101"
+        station: room101
+    -   jack: 12
+        label: "102"
+        station: room102
+    -   jack: 13
+        label: "103"
+        station: room103
+    -   jack: 14
+        label: "104"
+        station:
+    -   jack: 15
+        label: "105"
+        station: room105
+    -   jack: 16
+        label: "201"
+        station: room201
+    -   jack: 17
+        label: "202"
+        station:
+    -   jack: 18
+        label: "203"
+        station:
+    -   jack: 19
+        label: "204"
+        station: room204
+    -   jack: 20
+        label: "205"
+        station: room205
+
+    -   jack: 21
+        label: "301"
+        station:
+    -   jack: 22
+        label: "302"
+        station: room302
+    -   jack: 23
+        label: "303"
+        station: room303
+    -   jack: 24
+        label: "304"
+        station:
+    -   jack: 25
+        label: "305"
+        station: room305
+    -   jack: 26
+        label: "401"
+        station: room401
+    -   jack: 27
+        label: "402"
+        station:
+    -   jack: 28
+        label: "403"
+        station: room403
+    -   jack: 29
+        label: "404"
+        station: room404
+    -   jack: 30
+        label: "405"
+        station:
 
 scenes:
     nbn-valet:
         active: true
         calling:
-            line: room463
+            line: room403
             person: thornhill
         called:
             line: valet
@@ -301,7 +514,7 @@ scenes:
             -   id: 2
                 called: Valet service.
             -   id: 3
-                caller: Valet? This is room 463. How quickly can you get a suit sponged and pressed?
+                caller: Valet? This is room 403. How quickly can you get a suit sponged and pressed?
             -   id: 4
                 called: Do you want fast service?
             -   id: 5
@@ -309,7 +522,7 @@ scenes:
             -   id: 6
                 called: Twenty minutes, sir.
             -   id: 7
-                caller: Twenty minutes? Fine. OK. 463.
+                caller: Twenty minutes? Fine. OK. 403.
 
     nbn-kaplan:
         active: true
@@ -317,11 +530,11 @@ scenes:
             line: lobby
             person: assassin
         called:
-            line: room463
+            line: room403
             person: thornhill
         request:
             id: 1
-            text: Connect me with room 463.
+            text: Connect me with room 403.
         conversation:
             -   id: 2
                 called: Hello?
@@ -337,7 +550,7 @@ scenes:
         after: nbn-kaplan
         delay: 2
         calling:
-            line: room463
+            line: room403
             person: thornhill
         request:
             id: 1
@@ -347,7 +560,7 @@ scenes:
     pike-breakfast:
         active: true
         calling:
-            line: room214
+            line: room204
             person: pike
         called:
             line: roomservice
@@ -359,7 +572,7 @@ scenes:
             -   id: 2
                 called: Room service.
             -   id: 3
-                caller: Yeah, this is Pike in 214. Two eggs over easy, bacon, toast, and a pot of coffee.
+                caller: Yeah, this is Pike in 204. Two eggs over easy, bacon, toast, and a pot of coffee.
             -   id: 4
                 called: Two eggs over easy, bacon, toast, coffee. Anything else, sir?
             -   id: 5
@@ -373,7 +586,7 @@ scenes:
     albright-florist:
         active: true
         calling:
-            line: room512
+            line: room302
             person: albright
         called:
             line: florist
@@ -385,9 +598,9 @@ scenes:
             -   id: 2
                 called: Harbor Florist.
             -   id: 3
-                caller: This is Mrs. Albright at the Hotel Ballard. I'd like a dozen white roses sent up to room 715.
+                caller: This is Mrs. Albright at the Hotel Ballard. I'd like a dozen white roses sent up to room 305.
             -   id: 4
-                called: White roses, room 715. What should the card say?
+                called: White roses, room 305. What should the card say?
             -   id: 5
                 caller: Just say, congratulations, from a well-wisher.
             -   id: 6
@@ -399,7 +612,7 @@ scenes:
     hale-busy:
         active: true
         calling:
-            line: room715
+            line: room305
             person: hale
         called:
             line: pizza
@@ -419,11 +632,11 @@ scenes:
             line: times
             person: reporter
         called:
-            line: room214
+            line: room204
             person: pike
         request:
             id: 1
-            text: Room 214, please. Mr. Harold Pike.
+            text: Room 204, please. Mr. Harold Pike.
         conversation:
             -   id: 2
                 called: Pike.
@@ -440,20 +653,20 @@ scenes:
     crane-wakeup:
         active: true
         calling:
-            line: room308
+            line: room404
             person: crane
         request:
             id: 1
             text: Operator? Could you ring me at six-thirty tomorrow morning? I have an early bus.
         conversation:
             -   id: 2
-                caller: Thank you. Room 308. Good night.
+                caller: Thank you. Room 404. Good night.
 
     # Outgoing.
     lindqvist-canlis:
         active: true
         calling:
-            line: room601
+            line: room401
             person: lindqvist
         called:
             line: canlis
@@ -481,21 +694,21 @@ scenes:
         after: hale-busy
         delay: 180
         calling:
-            line: room715
+            line: room305
             person: hale
         called:
             line: pizza
             person: pizza_man
         request:
             id: 1
-            text: It's room 715 again. Let's try Sunny Hill Pizza one more time.
+            text: It's room 305 again. Let's try Sunny Hill Pizza one more time.
         conversation:
             -   id: 2
                 called: Sunny Hill Pizza.
             -   id: 3
-                caller: Hello! We'd like a large pizza, cheese and mushroom, delivered to the Hotel Ballard. Room 715.
+                caller: Hello! We'd like a large pizza, cheese and mushroom, delivered to the Hotel Ballard. Room 305.
             -   id: 4
-                called: Hotel Ballard, 715. That's gonna be forty-five minutes, lady.
+                called: Hotel Ballard, 305. That's gonna be forty-five minutes, lady.
             -   id: 5
                 caller: Forty-five minutes! We're on our honeymoon. We'll starve.
             -   id: 6
@@ -510,11 +723,11 @@ scenes:
             line: frontdesk
             person: desk_clerk
         called:
-            line: room100
+            line: room101
             person: hollis
         request:
             id: 1
-            text: Operator, room 100, please.
+            text: Operator, room 101, please.
         conversation:
             -   id: 2
                 called: Hollis.
@@ -527,29 +740,37 @@ scenes:
             -   id: 6
                 called: And don't let anyone sign for it but me.
 
-    # Outgoing long distance, through the public operator.
+    # Outgoing long distance: the hotel operator dials 0, asks the local
+    # operator for long distance, and the long-distance operator comes on.
+    # Inactive until 8 is rendered; 2-7 are unchanged.
     albright-portland:
-        active: true
+        active: false
         calling:
-            line: room512
+            line: room302
             person: albright
         called:
             line: operator
-            person: operator
+            person: local_operator
         request:
             id: 1
             text: Operator, I'd like to place a long distance call, please.
         conversation:
+            -   id: 8
+                called: Operator.
             -   id: 2
                 called: Long distance.
+                person: operator
+                wait: true
             -   id: 3
                 caller: I'd like to call Portland, Oregon. Person to person, to Mrs. Ruth Seaver. The number is 284-1187.
             -   id: 4
                 called: And your name, please?
+                person: operator
             -   id: 5
                 caller: Mrs. Edith Albright. I'm at the Hotel Ballard in Seattle.
             -   id: 6
                 called: One moment, please. I'm sorry, Mrs. Seaver does not answer. Shall I try again later?
+                person: operator
             -   id: 7
                 caller: Yes, please. In about an hour.
 
@@ -582,7 +803,7 @@ scenes:
     martha-roomservice:
         active: false
         calling:
-            line: room3
+            line: room103
             person: martha
         called:
             line: roomservice
@@ -594,7 +815,7 @@ scenes:
             -   id: 2
                 called: Room service.
             -   id: 3
-                caller: Hello, room service? This is room 3. I'd like to order 8 t-bone steaks, rare, no salad, a half-dozen pork chops, rack of lamb, with a side order of chicken.
+                caller: Hello, room service? This is room 103. I'd like to order 8 t-bone steaks, rare, no salad, a half-dozen pork chops, rack of lamb, with a side order of chicken.
             -   id: 4
                 called: Will that be all, ma'am?
             -   id: 5
@@ -670,3 +891,2216 @@ scenes:
                 caller: Very well, then, we will send you a black V-16 with a chauffeur.
             -   id: 28
                 called: All right, all right. Goodbye.
+
+    # ---------------------------------------------------------------------
+    # Scenes added 2026-09-28. All inactive until their wavs are rendered.
+    # ---------------------------------------------------------------------
+
+    # Mrs. Pemberton and housekeeping: seven calls, each after the last.
+    pemb-blanket:
+        active: false
+        calling:
+            line: room102
+            person: pemberton
+        called:
+            line: housekeeping
+            person: housekeeper
+        request:
+            id: 1
+            text: Operator, housekeeping. At once, please.
+        conversation:
+            -   id: 2
+                called: Housekeeping, Mrs. Olsen speaking.
+            -   id: 3
+                caller: This is Mrs. Pemberton in 102. There is a draft in this room. I require another blanket.
+            -   id: 4
+                called: Of course, Mrs. Pemberton. I'll send a maid up with one right away.
+            -   id: 5
+                caller: Wool, not cotton. And not the scratchy kind.
+            -   id: 6
+                called: Wool, not scratchy. Yes, ma'am.
+
+    pemb-pillows:
+        active: false
+        after: pemb-blanket
+        delay: 45
+        calling:
+            line: room102
+            person: pemberton
+        called:
+            line: housekeeping
+            person: housekeeper
+        request:
+            id: 1
+            text: Housekeeping again, operator.
+        conversation:
+            -   id: 2
+                called: Housekeeping.
+            -   id: 3
+                caller: Mrs. Olsen, the blanket is lovely. But now the pillows are wrong.
+            -   id: 4
+                called: Wrong, ma'am?
+            -   id: 5
+                caller: Too flat. I shall need seven more. Goose down. And one of them must be softer than the others.
+            -   id: 6
+                called: Seven pillows. One softer. I'll see what I can find.
+            -   id: 7
+                caller: I'll know which one it is, Mrs. Olsen. Don't think I won't.
+
+    pemb-towels:
+        active: false
+        after: pemb-pillows
+        delay: 45
+        calling:
+            line: room102
+            person: pemberton
+        called:
+            line: housekeeping
+            person: housekeeper
+        request:
+            id: 1
+            text: Operator, I need housekeeping. Again.
+        conversation:
+            -   id: 2
+                called: Housekeeping.
+            -   id: 3
+                caller: It's Mrs. Pemberton. I'm going to draw a bath and there are only four towels.
+            -   id: 4
+                called: That's our usual, ma'am. How many would you like?
+            -   id: 5
+                caller: Twelve. Warmed. Could someone iron them first? Towels are so much nicer ironed.
+            -   id: 6
+                called: Ironed towels. Yes, Mrs. Pemberton.
+            -   id: 7
+                caller: And have the girl stand outside the door and hand them in one at a time.
+
+    pemb-icebox:
+        active: false
+        after: pemb-towels
+        delay: 45
+        calling:
+            line: room102
+            person: pemberton
+        called:
+            line: roomservice
+            person: waiter
+        request:
+            id: 1
+            text: Room service, operator. Housekeeping is being difficult.
+        conversation:
+            -   id: 2
+                called: Room service.
+            -   id: 3
+                caller: The icebox in my room is empty. I want it stocked.
+            -   id: 4
+                called: Certainly, ma'am. Ginger ale, soda water, a few beers?
+            -   id: 5
+                caller: Champagne. Pickled herring. Four kinds of cheese, none of them yellow. And a jar of those little cocktail onions.
+            -   id: 6
+                called: I'm not sure we have cocktail onions, ma'am.
+            -   id: 7
+                caller: Then send a boy out for them. This is a hotel, isn't it?
+
+    pemb-canary:
+        active: false
+        after: pemb-icebox
+        delay: 45
+        calling:
+            line: room102
+            person: pemberton
+        called:
+            line: housekeeping
+            person: housekeeper
+        request:
+            id: 1
+            text: Housekeeping, please, operator. You know the way by now.
+        conversation:
+            -   id: 2
+                called: Housekeeping. Hello, Mrs. Pemberton.
+            -   id: 3
+                caller: Mrs. Olsen, it's terribly quiet in here. I'm lonely. I'd like a canary.
+            -   id: 4
+                called: A canary, ma'am? A bird?
+            -   id: 5
+                caller: A yellow one. In a gold cage. It should sing in the morning, but not before nine.
+            -   id: 6
+                called: We don't keep canaries, Mrs. Pemberton.
+            -   id: 7
+                caller: Then find one. Surely somebody in Ballard has a canary.
+
+    pemb-piano:
+        active: false
+        after: pemb-canary
+        delay: 45
+        calling:
+            line: room102
+            person: pemberton
+        called:
+            line: housekeeping
+            person: housekeeper
+        request:
+            id: 1
+            text: Operator, housekeeping. This is the last thing, I promise.
+        conversation:
+            -   id: 2
+                called: Housekeeping.
+            -   id: 3
+                caller: The canary won't sing without music. I want the grand piano from the lobby brought up to my room.
+            -   id: 4
+                called: The piano, ma'am? It weighs half a ton. It won't fit in the elevator.
+            -   id: 5
+                caller: Then take it up the stairs. I'm only on the first floor.
+            -   id: 6
+                called: Mrs. Pemberton, I am going to have to speak to the manager.
+            -   id: 7
+                caller: Splendid. Have him carry one end.
+
+    pemb-complaint:
+        active: false
+        after: pemb-piano
+        delay: 45
+        calling:
+            line: room102
+            person: pemberton
+        called:
+            line: frontdesk
+            person: desk_clerk
+        request:
+            id: 1
+            text: Get me the front desk, operator. I wish to complain.
+        conversation:
+            -   id: 2
+                called: Front desk.
+            -   id: 3
+                caller: This is Mrs. Pemberton in 102. I have never been so neglected in my life.
+            -   id: 4
+                called: I'm very sorry, ma'am. What seems to be the trouble?
+            -   id: 5
+                caller: No piano. A canary that won't sing. And the towels have gone cold.
+            -   id: 6
+                called: I'll send up the manager personally, Mrs. Pemberton.
+            -   id: 7
+                caller: Tell him to bring the canary. It likes company.
+
+    # Earl Dobbs sees the sights.
+    dobbs-concierge:
+        active: false
+        calling:
+            line: room105
+            person: dobbs
+        called:
+            line: concierge
+            person: concierge
+        request:
+            id: 1
+            text: Say, operator, can you get me that concierge fella?
+        conversation:
+            -   id: 2
+                called: Concierge. Fairweather speaking.
+            -   id: 3
+                caller: Earl Dobbs, room 105, from Omaha. First time in Seattle. What's there to see?
+            -   id: 4
+                called: Welcome, Mr. Dobbs. You might start with the Ballard Locks, just up the street. The boats go up and down like an elevator.
+            -   id: 5
+                caller: Swell. And what about that big tall tower with the restaurant on top that spins around?
+            -   id: 6
+                called: Ah. There is talk of one for a World's Fair, sir, but not until nineteen sixty-two. At the moment the tallest thing in town is the Smith Tower.
+            -   id: 7
+                caller: Nineteen sixty-two? Shoot. I'll be back in Omaha by Tuesday.
+            -   id: 8
+                called: Then go to the Pike Place Market. The fishmongers throw the salmon across the counter. It's quite a show.
+            -   id: 9
+                caller: They throw fish? Now that I have got to see.
+
+    dobbs-salmon:
+        active: false
+        after: dobbs-concierge
+        delay: 60
+        calling:
+            line: room105
+            person: dobbs
+        called:
+            line: bellcaptain
+            person: bellcaptain
+        request:
+            id: 1
+            text: Operator, gimme the bell captain, quick. I've got a situation here.
+        conversation:
+            -   id: 2
+                called: Bell captain.
+            -   id: 3
+                caller: This is Dobbs in 105. I went down to the market and a fella threw a salmon at me.
+            -   id: 4
+                called: They do that, sir.
+            -   id: 5
+                caller: Well, I caught it! So I had to buy it. Thirty pounds. It's in my bathtub.
+            -   id: 6
+                called: In the bathtub. Yes, sir. What would you like done with it?
+            -   id: 7
+                caller: Pack it in ice and ship it to Omaha. The fellas at the feed store will never believe this.
+            -   id: 8
+                called: I'll send a boy up with a bucket. And a mop.
+
+    dobbs-ferries:
+        active: false
+        calling:
+            line: room105
+            person: dobbs
+        called:
+            line: ferries
+            person: ferry_clerk
+        request:
+            id: 1
+            text: Operator, get me the ferry boats, would you? I don't know the number.
+        conversation:
+            -   id: 2
+                called: Washington State Ferries, Colman Dock.
+            -   id: 3
+                caller: Howdy. How do I get a boat over to that Bremerton?
+            -   id: 4
+                called: Every hour on the hour from Colman Dock, sir. An hour's ride.
+            -   id: 5
+                caller: An hour on a boat! I never been on a boat bigger than a rowboat. Will I get seasick?
+            -   id: 6
+                called: It's Puget Sound, mister, not the Atlantic. Stay out of the wind and have a cup of coffee in the galley.
+            -   id: 7
+                caller: Coffee on a boat. Isn't that something. Thanks, pal.
+
+    dobbs-rays:
+        active: false
+        calling:
+            line: room105
+            person: dobbs
+        called:
+            line: rays
+            person: rays_host
+        request:
+            id: 1
+            text: Operator, ring that Ray's Boathouse place for me.
+        conversation:
+            -   id: 2
+                called: Ray's.
+            -   id: 3
+                caller: Hi there. You got a table for one tonight? Name's Dobbs.
+            -   id: 4
+                called: Sure thing. Come on down whenever. Sit by the window and you can watch the sun go down over the Olympics.
+            -   id: 5
+                caller: The Olympics? Are they having those here?
+            -   id: 6
+                called: The mountains, pal. The mountains.
+            -   id: 7
+                caller: Oh. Well, I'll take a look at them too. Seven o'clock, then.
+
+    dobbs-stamp:
+        active: false
+        calling:
+            line: room105
+            person: dobbs
+        request:
+            id: 1
+            text: Operator? How much is a stamp for a postcard to Omaha?
+        conversation:
+            -   id: 2
+                caller: Three cents? That's all? Heck, I'll send thirty of 'em.
+            -   id: 3
+                caller: Is there a mailbox in the lobby, or do I got to walk somewhere?
+            -   id: 4
+                caller: Thanks a bunch. You folks sure are friendly out here.
+
+    dobbs-paramount:
+        active: false
+        calling:
+            line: room105
+            person: dobbs
+        called:
+            line: paramount
+            person: box_office
+        request:
+            id: 1
+            text: Operator, can you get me the Paramount Theatre?
+        conversation:
+            -   id: 2
+                called: Paramount box office.
+            -   id: 3
+                caller: Hello. What's playing tonight?
+            -   id: 4
+                called: North by Northwest. Cary Grant. Eight-fifteen.
+            -   id: 5
+                caller: What's it about?
+            -   id: 6
+                called: Some ad man gets mixed up with spies. Chased all over by a crop duster. Seventy-five cents.
+            -   id: 7
+                caller: A crop duster! We got those back home. Save me a seat, miss.
+
+    # Thornhill, still being taken for George Kaplan.
+    nbn-mother:
+        active: false
+        calling:
+            line: room403
+            person: thornhill
+        called:
+            line: operator
+            person: local_operator
+        request:
+            id: 1
+            text: Operator, get me long distance. New York.
+        conversation:
+            -   id: 2
+                called: Operator.
+            -   id: 3
+                called: Long distance.
+                person: operator
+                wait: true
+            -   id: 4
+                caller: New York City, please. Plaza 3-4400. Mrs. Clara Thornhill. Person to person.
+            -   id: 5
+                called: One moment, please. Go ahead, Seattle.
+                person: operator
+            -   id: 6
+                called: Roger? Is that you? Why are you calling from Seattle?
+                person: clara_thornhill
+            -   id: 7
+                caller: Mother, listen to me. Some people are trying to kill me. They think I'm a man named George Kaplan.
+            -   id: 8
+                called: Roger, have you been drinking?
+                person: clara_thornhill
+            -   id: 9
+                caller: Only what they poured down my throat, Mother.
+            -   id: 10
+                called: That's what you said last time. Call me when you're sober, dear.
+                person: clara_thornhill
+
+    nbn-police:
+        active: false
+        calling:
+            line: room403
+            person: thornhill
+        called:
+            line: police
+            person: sergeant
+        request:
+            id: 1
+            text: Operator, get me the police. It's urgent.
+        conversation:
+            -   id: 2
+                called: Police department. Sergeant Riley.
+            -   id: 3
+                caller: Sergeant, my name is Roger Thornhill. Two men kidnapped me, forced a quart of bourbon into me, and tried to drive me off a cliff.
+            -   id: 4
+                called: A quart of bourbon, you say?
+            -   id: 5
+                caller: Yes!
+            -   id: 6
+                called: And where are you now, Mr. Thornhill?
+            -   id: 7
+                caller: The Hotel Ballard. Room 403. They know where I am!
+            -   id: 8
+                called: Uh huh. Drink some coffee, Mr. Thornhill. We'll send somebody around in the morning.
+
+    police-nbn:
+        active: false
+        after: nbn-police
+        delay: 30
+        calling:
+            line: police
+            person: sergeant
+        called:
+            line: room403
+            person: thornhill
+        request:
+            id: 1
+            text: Seattle Police calling. Room 403, Mr. Thornhill.
+        conversation:
+            -   id: 2
+                called: Thornhill.
+            -   id: 3
+                caller: Sergeant Riley again. We checked on that house you told us about.
+            -   id: 4
+                called: And?
+            -   id: 5
+                caller: Nice lady lives there. Says she's never heard of you. Says you were at her dinner party and drank too much.
+            -   id: 6
+                called: That's a lie!
+            -   id: 7
+                caller: She also says you owe her for a broken vase. Good night, Mr. Thornhill.
+
+    nbn-bellcap:
+        active: false
+        calling:
+            line: room403
+            person: thornhill
+        called:
+            line: bellcaptain
+            person: bellcaptain
+        request:
+            id: 1
+            text: Bell captain, please.
+        conversation:
+            -   id: 2
+                called: Bell captain.
+            -   id: 3
+                caller: This is room 403. Has anybody been asking for me? Or for a Mr. George Kaplan?
+            -   id: 4
+                called: Couple of gents in gray suits, sir. Asked for Kaplan. I told them 403.
+            -   id: 5
+                caller: You told them what?
+            -   id: 6
+                called: That's the room he's registered in, sir. They tipped a dollar.
+            -   id: 7
+                caller: I'll give you five if you tell them I checked out.
+
+    desk-kaplan:
+        active: false
+        calling:
+            line: frontdesk
+            person: desk_clerk
+        called:
+            line: room403
+            person: thornhill
+        request:
+            id: 1
+            text: Operator, 403, please.
+        conversation:
+            -   id: 2
+                called: Yes?
+            -   id: 3
+                caller: Mr. Kaplan? Front desk. There's a message for you.
+            -   id: 4
+                called: I'm not Kaplan. My name is Thornhill.
+            -   id: 5
+                caller: It's addressed to Mr. Kaplan, room 403, sir. It says, the train leaves at nine. Burn this note.
+            -   id: 6
+                called: What train?
+            -   id: 7
+                caller: It doesn't say, sir. Shall I burn it for you?
+
+    nbn-lobby:
+        active: false
+        after: desk-kaplan
+        delay: 20
+        calling:
+            line: lobby
+            person: assassin
+        called:
+            line: room403
+            person: thornhill
+        request:
+            id: 1
+            text: Room 403. Mr. Kaplan.
+        conversation:
+            -   id: 2
+                called: Now who is it?
+            -   id: 3
+                caller: You received our message, Mr. Kaplan?
+            -   id: 4
+                called: I don't know anything about any train!
+            -   id: 5
+                caller: Then you will not mind if we come up and discuss it. We are in the lobby.
+            -   id: 6
+                called: I'm calling the police.
+            -   id: 7
+                caller: Please do. They were so helpful last time.
+
+    times-thornhill:
+        active: false
+        calling:
+            line: times
+            person: reporter
+        called:
+            line: room403
+            person: thornhill
+        request:
+            id: 1
+            text: Room 403, please. Joe Barrett, Seattle Times.
+        conversation:
+            -   id: 2
+                called: Hello?
+            -   id: 3
+                caller: Mr. Kaplan? Joe Barrett, Times. Word is you're some kind of secret agent.
+            -   id: 4
+                called: I am not Kaplan, I am not a secret agent, and I am in advertising.
+            -   id: 5
+                caller: That's exactly what a secret agent would say.
+            -   id: 6
+                called: Print one word of this and I'll sue you.
+            -   id: 7
+                caller: Thanks, Mr. Kaplan. Front page tomorrow.
+
+    # Harold Pike, vacuum cleaners.
+    pike-collect:
+        active: false
+        calling:
+            line: room204
+            person: pike
+        called:
+            line: operator
+            person: local_operator
+        request:
+            id: 1
+            text: Operator, I want to make a collect call. Long distance, to Chicago.
+        conversation:
+            -   id: 2
+                called: Operator.
+            -   id: 3
+                called: Long distance.
+                person: operator
+                wait: true
+            -   id: 4
+                caller: Chicago, Illinois. Whirlwind Vacuum Company. Mr. Gruber. Collect, from Harold Pike.
+            -   id: 5
+                called: One moment. I have a collect call from Mr. Harold Pike in Seattle. Will you accept the charges?
+                person: operator
+            -   id: 6
+                called: Pike? Collect? No, I will not.
+                person: gruber
+            -   id: 7
+                called: I'm sorry, sir. The party will not accept the charges.
+                person: operator
+            -   id: 8
+                caller: Tell him I sold forty units! Forty!
+            -   id: 9
+                called: Forty? Put him on. Put him on!
+                person: gruber
+
+    ld-pike:
+        active: false
+        calling:
+            line: operator
+            person: operator
+        called:
+            line: room204
+            person: pike
+        request:
+            id: 1
+            text: This is long distance. I have a call from Chicago for Mr. Harold Pike at the Hotel Ballard.
+        conversation:
+            -   id: 2
+                called: Pike here.
+            -   id: 3
+                caller: Go ahead, Chicago.
+            -   id: 4
+                caller: Pike! Gruber. How many units did you move this week?
+                person: gruber
+            -   id: 5
+                called: Well, Mr. Gruber, it's a slow week. It's been raining.
+            -   id: 6
+                caller: It always rains in Seattle, Pike. That's why they need vacuum cleaners. Mud!
+                person: gruber
+            -   id: 7
+                called: I'll sell ten by Friday. You have my word.
+            -   id: 8
+                caller: Your word and a nickel buys a cup of coffee. Ten by Friday.
+                person: gruber
+
+    pike-demo:
+        active: false
+        calling:
+            line: room204
+            person: pike
+        called:
+            line: housekeeping
+            person: housekeeper
+        request:
+            id: 1
+            text: Operator, connect me with housekeeping, please.
+        conversation:
+            -   id: 2
+                called: Housekeeping.
+            -   id: 3
+                caller: Good afternoon, ma'am. Harold Pike, room 204. How would you like to clean every carpet in this hotel in half the time?
+            -   id: 4
+                called: Is there something wrong with your room, sir?
+            -   id: 5
+                caller: Not a thing. I represent the Whirlwind Vacuum Company. Free demonstration, right in your lobby.
+            -   id: 6
+                called: We have eleven vacuum cleaners, Mr. Pike.
+            -   id: 7
+                caller: Eleven old ones. Let me show you the Whirlwind Deluxe. It picks up a bowling ball.
+            -   id: 8
+                called: Why would there be a bowling ball on the carpet? Good day, Mr. Pike.
+
+    taxi-pike:
+        active: false
+        after: pike-taxi
+        delay: 30
+        calling:
+            line: taxi
+            person: dispatcher
+        called:
+            line: room204
+            person: pike
+        request:
+            id: 1
+            text: Shilshole Cab. Room 204, please. Mr. Pike.
+        conversation:
+            -   id: 2
+                called: Pike.
+            -   id: 3
+                caller: Your cab's been at the front door ten minutes, Mr. Pike. Meter's running.
+            -   id: 4
+                called: Ten minutes? I went back upstairs for my sample case. It weighs forty pounds.
+            -   id: 5
+                caller: The driver says if you're not down in two minutes, he's leaving for the train without you.
+            -   id: 6
+                called: He can't leave for the train without me. I'm the one catching it!
+            -   id: 7
+                caller: Then you better hurry.
+
+    lobby-pike:
+        active: false
+        calling:
+            line: lobby
+            person: gunderson
+        called:
+            line: room204
+            person: pike
+        request:
+            id: 1
+            text: Operator, ring Mr. Harold Pike's room. I know he's staying here.
+        conversation:
+            -   id: 2
+                called: Harold Pike speaking.
+            -   id: 3
+                caller: Mr. Pike, this is Mrs. Gunderson. You sold me a Whirlwind Deluxe on Tuesday.
+            -   id: 4
+                called: Mrs. Gunderson! And how are you enjoying it?
+            -   id: 5
+                caller: It ate my curtains, Mr. Pike. And my cat is under the bed and won't come out.
+            -   id: 6
+                called: That's the suction, ma'am. That's how you know it's working.
+            -   id: 7
+                caller: I'm in the lobby with it. Come down and take it back.
+            -   id: 8
+                called: I, uh, I'm in the shower. Goodbye, Mrs. Gunderson.
+
+    pike-finch:
+        active: false
+        calling:
+            line: room204
+            person: pike
+        called:
+            line: room303
+            person: finch
+        request:
+            id: 1
+            text: Operator, ring room 303 for me.
+        conversation:
+            -   id: 2
+                called: Hello? Finch here.
+            -   id: 3
+                caller: Mr. Finch! Harold Pike, just down the hall. I see you're here with the Rotary.
+            -   id: 4
+                called: Yes. Do I know you?
+            -   id: 5
+                caller: Not yet. Tell me, Mr. Finch, do you ever worry about dust?
+            -   id: 6
+                called: Dust? I'm allergic to dust. I sneeze all night.
+            -   id: 7
+                caller: Then this is your lucky day. I'll be right over with the Whirlwind Deluxe.
+            -   id: 8
+                called: No, please, not tonight, I think I'm coming down with something.
+
+    # Mrs. Albright.
+    albright-pigalle:
+        active: false
+        calling:
+            line: room302
+            person: albright
+        called:
+            line: placepigalle
+            person: pigalle
+        request:
+            id: 1
+            text: Operator, would you ring Place Pigalle for me? It's that little French restaurant at the market.
+        conversation:
+            -   id: 2
+                called: Place Pigalle, bonsoir.
+            -   id: 3
+                caller: Good evening. I'd like a table for two tonight. Mrs. Albright.
+            -   id: 4
+                called: Mais oui, madame. Eight o'clock? By the window, you can see the ferries on the Sound.
+            -   id: 5
+                caller: Lovely. And is it very noisy? I've heard they throw fish out front.
+            -   id: 6
+                called: Only until six, madame. After that, the fish, they rest.
+            -   id: 7
+                caller: Thank goodness. Eight o'clock, then.
+            -   id: 8
+                called: A bientot, Madame Albright.
+
+    albright-pearls:
+        active: false
+        calling:
+            line: room302
+            person: albright
+        called:
+            line: housekeeping
+            person: housekeeper
+        request:
+            id: 1
+            text: Operator, housekeeping, please. Something dreadful has happened.
+        conversation:
+            -   id: 2
+                called: Housekeeping. Mrs. Olsen.
+            -   id: 3
+                caller: This is Mrs. Albright in 302. My pearls are gone. They were on the dresser this morning.
+            -   id: 4
+                called: Oh, dear. Have you looked in your handbag, Mrs. Albright?
+            -   id: 5
+                caller: Of course I have looked in my handbag. Do you think I'm a fool?
+            -   id: 6
+                called: And, pardon me, ma'am, around your neck?
+            -   id: 7
+                caller: Oh. Oh, my. Well. Thank you, Mrs. Olsen. We'll say no more about it.
+
+    albright-concierge:
+        active: false
+        calling:
+            line: room302
+            person: albright
+        called:
+            line: concierge
+            person: concierge
+        request:
+            id: 1
+            text: The concierge, please, operator.
+        conversation:
+            -   id: 2
+                called: Concierge.
+            -   id: 3
+                caller: Mr. Fairweather, it's Mrs. Albright. Is there a concert this week? Something with violins?
+            -   id: 4
+                called: The Seattle Symphony plays Friday at the Civic Auditorium, madam. Brahms.
+            -   id: 5
+                caller: Brahms. My late husband slept through Brahms every time.
+            -   id: 6
+                called: Then you'll have the armrest to yourself. Shall I get you a ticket?
+            -   id: 7
+                caller: Two, Mr. Fairweather. I may find somebody to sleep through it.
+
+    restaurant-albright:
+        active: false
+        calling:
+            line: restaurant
+            person: hostess
+        called:
+            line: room302
+            person: albright
+        request:
+            id: 1
+            text: Operator, room 302, please.
+        conversation:
+            -   id: 2
+                called: Yes?
+            -   id: 3
+                caller: Mrs. Albright? This is the Stoneburner. Your table is ready.
+            -   id: 4
+                called: My table? I didn't reserve a table.
+            -   id: 5
+                caller: A gentleman reserved it for you, ma'am. He said it was a surprise.
+            -   id: 6
+                called: A gentleman? What sort of gentleman?
+            -   id: 7
+                caller: Tall, with a moustache. He's already ordered the oysters.
+            -   id: 8
+                called: Tell him I'll be down in twenty minutes. Thirty. I'll need my pearls.
+
+    lobby-albright:
+        active: false
+        calling:
+            line: lobby
+            person: chester
+        called:
+            line: room302
+            person: albright
+        request:
+            id: 1
+            text: Operator, room 302, please. Mrs. Edith Albright. I'm her nephew.
+        conversation:
+            -   id: 2
+                called: Hello?
+            -   id: 3
+                caller: Aunt Edith! It's Chester! I'm down in the lobby. What a coincidence.
+            -   id: 4
+                called: Chester. You live in Spokane. What are you doing in Seattle?
+            -   id: 5
+                caller: Oh, a little business venture. Chinchillas. It can't miss. I only need two hundred dollars to get started.
+            -   id: 6
+                called: Chester, the last time it was parakeets.
+            -   id: 7
+                caller: Parakeets were ahead of their time, Aunt Edith. Can I come up?
+            -   id: 8
+                called: You may buy me lunch, Chester. With your own money.
+
+    # Betty and Jim Hale, on their honeymoon.
+    hale-mother:
+        active: false
+        calling:
+            line: room305
+            person: hale
+        called:
+            line: operator
+            person: local_operator
+        request:
+            id: 1
+            text: Operator, could I call my mother? She's in Boise. That's long distance, isn't it?
+        conversation:
+            -   id: 2
+                called: Operator.
+            -   id: 3
+                called: Long distance.
+                person: operator
+                wait: true
+            -   id: 4
+                caller: Boise, Idaho, please. Mrs. Harriet Dunn. Station to station is fine. The number is 3-7719.
+            -   id: 5
+                called: Thank you. One moment. Go ahead, please.
+                person: operator
+            -   id: 6
+                called: Hello? Betty? Is that you, sweetheart?
+                person: mrs_dunn
+            -   id: 7
+                caller: Mama! It's me! We're in Seattle and it's wonderful and Jim is wonderful and everything is wonderful!
+            -   id: 8
+                called: Are you eating? You sound thin.
+                person: mrs_dunn
+            -   id: 9
+                caller: Mama, you can't hear thin. I have to go, it's a dollar a minute. I love you!
+
+    hale-champagne:
+        active: false
+        calling:
+            line: room305
+            person: hale
+        called:
+            line: roomservice
+            person: waiter
+        request:
+            id: 1
+            text: Room service, please, operator.
+        conversation:
+            -   id: 2
+                called: Room service.
+            -   id: 3
+                caller: Hello! This is room 305. Could we have a bottle of champagne, please? We're on our honeymoon.
+            -   id: 4
+                called: Congratulations, ma'am. Any particular kind?
+            -   id: 5
+                caller: Oh, I don't know. The kind with bubbles.
+            -   id: 6
+                called: They all have bubbles, ma'am. I'll send up something nice. And two glasses.
+            -   id: 7
+                caller: And a pickle. Jim likes pickles. Is that funny?
+            -   id: 8
+                called: Not at all, ma'am. Champagne and a pickle.
+
+    hale-dnd:
+        active: false
+        calling:
+            line: room305
+            person: hale
+        called:
+            line: frontdesk
+            person: desk_clerk
+        request:
+            id: 1
+            text: The front desk, please, operator.
+        conversation:
+            -   id: 2
+                called: Front desk.
+            -   id: 3
+                caller: Hi, this is Mrs. Hale in 305. Mrs. Hale! I'm still getting used to that. Could you hold our calls?
+            -   id: 4
+                called: Certainly, Mrs. Hale. For how long?
+            -   id: 5
+                caller: Until, oh, Thursday?
+            -   id: 6
+                called: Thursday. Very good, ma'am. And the maid?
+            -   id: 7
+                caller: No maid either. Just champagne. And pickles.
+
+    housekeeping-hale:
+        active: false
+        calling:
+            line: housekeeping
+            person: housekeeper
+        called:
+            line: room305
+            person: jim_hale
+        request:
+            id: 1
+            text: Operator, ring 305 for me, would you?
+        conversation:
+            -   id: 2
+                called: Hello?
+            -   id: 3
+                caller: Mr. Hale, this is housekeeping. The girl says there's been a do not disturb sign on your door for three days.
+            -   id: 4
+                called: That's right.
+            -   id: 5
+                caller: We'd like to change the sheets, sir.
+            -   id: 6
+                called: Could you just slide some towels under the door?
+            -   id: 7
+                caller: Under the door. Yes, Mr. Hale. Congratulations, by the way.
+
+    hale-cans:
+        active: false
+        calling:
+            line: room305
+            person: jim_hale
+        called:
+            line: valet
+            person: valet
+        request:
+            id: 1
+            text: Operator, can you get me the fellow who parks the cars?
+        conversation:
+            -   id: 2
+                called: Valet.
+            -   id: 3
+                caller: This is Jim Hale, room 305. We came in the blue Ford. Could you take the tin cans off the back bumper?
+            -   id: 4
+                called: And the sign that says just married, sir?
+            -   id: 5
+                caller: Leave the sign. My wife likes the sign.
+            -   id: 6
+                called: And the old shoes tied to the aerial?
+            -   id: 7
+                caller: Those are my good shoes! My brother-in-law is a dead man.
+
+    pizza-hale:
+        active: false
+        after: hale-pizza
+        delay: 40
+        calling:
+            line: pizza
+            person: pizza_man
+        called:
+            line: room305
+            person: hale
+        request:
+            id: 1
+            text: Sunny Hill Pizza. Gimme room 305.
+        conversation:
+            -   id: 2
+                called: Hello?
+            -   id: 3
+                caller: Lady, it's the pizza place. Mushroom and cheese, right? My driver's out of mushrooms.
+            -   id: 4
+                called: Oh no. What have you got?
+            -   id: 5
+                caller: Anchovies. Lots of anchovies.
+            -   id: 6
+                called: Hold on. Jim! Do you like anchovies?
+            -   id: 7
+                caller: He's gonna like 'em. Thirty minutes.
+
+    hale-roses:
+        active: false
+        after: albright-florist
+        delay: 60
+        calling:
+            line: room305
+            person: hale
+        called:
+            line: room302
+            person: albright
+        request:
+            id: 1
+            text: Operator? Somebody sent us roses from room 302. Could you ring them?
+        conversation:
+            -   id: 2
+                called: Mrs. Albright speaking.
+            -   id: 3
+                caller: Hello! This is Betty Hale in 305. Did you send us a dozen white roses?
+            -   id: 4
+                called: I may have, dear. Do you like them?
+            -   id: 5
+                caller: They're beautiful! But we don't even know you.
+            -   id: 6
+                called: I saw you two in the elevator. I was married forty years, and I remember the elevator.
+            -   id: 7
+                caller: Oh, Mrs. Albright. Would you come have champagne with us?
+            -   id: 8
+                called: Heavens, no. You two have better things to do. Enjoy them.
+
+    # Nils Lindqvist, of the fishing boats.
+    canlis-lindqvist:
+        active: false
+        after: lindqvist-canlis
+        delay: 45
+        calling:
+            line: canlis
+            person: maitre_d
+        called:
+            line: room401
+            person: lindqvist
+        request:
+            id: 1
+            text: Good evening. Canlis calling for Mr. Nils Lindqvist, room 401.
+        conversation:
+            -   id: 2
+                called: Lindqvist.
+            -   id: 3
+                caller: Mr. Lindqvist, a small matter about your reservation. We do ask that gentlemen wear a jacket and tie.
+            -   id: 4
+                called: I have a jacket. It's a good one. Oilskin.
+            -   id: 5
+                caller: A dinner jacket, sir.
+            -   id: 6
+                called: I have been fishing forty years. My fish are on your menu. Maybe my fish come without a tie too.
+            -   id: 7
+                caller: Of course, Mr. Lindqvist. We'll find you a tie at the door.
+
+    lindqvist-rays:
+        active: false
+        calling:
+            line: room401
+            person: lindqvist
+        called:
+            line: rays
+            person: rays_host
+        request:
+            id: 1
+            text: Operator, Ray's Boathouse. Down by the marina.
+        conversation:
+            -   id: 2
+                called: Ray's, what can I do for you?
+            -   id: 3
+                caller: This is Nils Lindqvist. You buy my halibut. I want a table tonight, for six.
+            -   id: 4
+                called: Nils! Sure thing. Anybody dressing up?
+            -   id: 5
+                caller: Nobody is dressing up.
+            -   id: 6
+                called: Perfect. Come as you are. We'll put the halibut on.
+            -   id: 7
+                caller: Good. This is better than the fancy place.
+
+    lindqvist-weather:
+        active: false
+        calling:
+            line: room401
+            person: lindqvist
+        request:
+            id: 1
+            text: Operator, you look out the window? Is the fog on the Sound?
+        conversation:
+            -   id: 2
+                caller: Thick? Ya, I thought so. My boys want to go out at four.
+            -   id: 3
+                caller: No, they won't listen. They never listen. Could you ring me at three-thirty?
+            -   id: 4
+                caller: Thank you. You're a good girl. Tell your father he raised you right.
+
+    lindqvist-valet:
+        active: false
+        calling:
+            line: room401
+            person: lindqvist
+        called:
+            line: valet
+            person: valet
+        request:
+            id: 1
+            text: The valet, please.
+        conversation:
+            -   id: 2
+                called: Valet service.
+            -   id: 3
+                caller: My truck is in your garage. The green one. It smells of fish.
+            -   id: 4
+                called: Yes, sir. We noticed.
+            -   id: 5
+                caller: Bring it around at five tomorrow morning. And roll down the windows first.
+            -   id: 6
+                called: Five o'clock, windows down. Very good, sir.
+
+    lindqvist-times:
+        active: false
+        calling:
+            line: room401
+            person: lindqvist
+        called:
+            line: times
+            person: reporter
+        request:
+            id: 1
+            text: Get me the Seattle Times. I want to put in an advertisement.
+        conversation:
+            -   id: 2
+                called: Times, Barrett.
+            -   id: 3
+                caller: I want an advertisement. Deckhand wanted. Strong back. No complaining.
+            -   id: 4
+                called: Mister, this is the news desk. Classifieds is another number.
+            -   id: 5
+                caller: You are a newspaper. I am paying. Write it down.
+            -   id: 6
+                called: All right, all right. Deckhand wanted, strong back, no complaining. Anything else?
+            -   id: 7
+                caller: Must not get seasick. The last one got seasick.
+
+    # Miss Crane, schoolteacher.
+    crane-ferries:
+        active: false
+        calling:
+            line: room404
+            person: crane
+        called:
+            line: ferries
+            person: ferry_clerk
+        request:
+            id: 1
+            text: Operator, the ferry information office, please.
+        conversation:
+            -   id: 2
+                called: Ferries, Colman Dock.
+            -   id: 3
+                caller: Good morning. I wish to go to Victoria, in British Columbia. Is a passport required?
+            -   id: 4
+                called: No, ma'am. Just some identification. The Princess Marguerite leaves at eight.
+            -   id: 5
+                caller: And is Victoria really so very English? I've read that they serve tea at four o'clock sharp.
+            -   id: 6
+                called: Sharp as a tack, ma'am. You'll love it.
+            -   id: 7
+                caller: I shall bring my own cup. One can't be too careful.
+
+    crane-paramount:
+        active: false
+        calling:
+            line: room404
+            person: crane
+        called:
+            line: paramount
+            person: box_office
+            busy: true
+        request:
+            id: 1
+            text: Operator, would you ring the Paramount Theatre box office?
+        conversation:
+            -   id: 2
+                caller: Busy? Oh, dear. I suppose everyone wants to see that spy picture.
+            -   id: 3
+                caller: No, never mind. I have a book. It's safer.
+
+    crane-noise:
+        active: false
+        calling:
+            line: room404
+            person: crane
+        called:
+            line: frontdesk
+            person: desk_clerk
+        request:
+            id: 1
+            text: Operator, the front desk. I wish to report a disturbance.
+        conversation:
+            -   id: 2
+                called: Front desk.
+            -   id: 3
+                caller: This is Miss Crane in 404. There is shouting in 403. And something that sounded like furniture.
+            -   id: 4
+                called: I'm sorry, Miss Crane. That's Mr. Kaplan's room. Or Mr. Thornhill. We're not quite sure which.
+            -   id: 5
+                caller: Well, whoever he is, a man just climbed past my window. On the outside.
+            -   id: 6
+                called: On the outside, ma'am? We're on the fourth floor.
+            -   id: 7
+                caller: I am aware of which floor we are on, young man. Send someone.
+
+    lobby-crane:
+        active: false
+        calling:
+            line: lobby
+            person: eddie
+        called:
+            line: room404
+            person: crane
+        request:
+            id: 1
+            text: Operator, could you ring Miss Dorothy Crane? She was my teacher in Yakima.
+        conversation:
+            -   id: 2
+                called: Miss Crane speaking.
+            -   id: 3
+                caller: Miss Crane? It's Eddie Moran. From the fifth grade. I'm in the Navy now. I'm down in the lobby.
+            -   id: 4
+                called: Edward Moran. You put a frog in my desk drawer.
+            -   id: 5
+                caller: Yes, ma'am. I've felt bad about it for twelve years.
+            -   id: 6
+                called: Good. Wait there. I'll be down directly, and you may buy me a cup of tea.
+            -   id: 7
+                caller: Yes, Miss Crane. Thank you, Miss Crane.
+
+    crane-stoneburner:
+        active: false
+        calling:
+            line: room404
+            person: crane
+        called:
+            line: restaurant
+            person: hostess
+        request:
+            id: 1
+            text: The hotel dining room, please.
+        conversation:
+            -   id: 2
+                called: The Stoneburner, good evening.
+            -   id: 3
+                caller: Good evening. Do you serve anything plain? Boiled chicken, perhaps. No sauce.
+            -   id: 4
+                called: The chef could do a poached chicken breast, ma'am.
+            -   id: 5
+                caller: Poached, not boiled?
+            -   id: 6
+                called: It's very nearly the same, ma'am.
+            -   id: 7
+                caller: Very nearly. Well. I'll risk it. Six o'clock, a table for one, away from the band.
+
+    # Dr. Hollis, visiting surgeon.
+    hollis-swedish:
+        active: false
+        calling:
+            line: room101
+            person: hollis
+        called:
+            line: swedish
+            person: nurse
+        request:
+            id: 1
+            text: Operator, Swedish Hospital. Quickly.
+        conversation:
+            -   id: 2
+                called: Swedish Hospital.
+            -   id: 3
+                caller: This is Dr. Hollis. I'm operating at seven tomorrow. Is the patient prepared?
+            -   id: 4
+                called: Yes, Doctor. Nothing by mouth after midnight, as you ordered.
+            -   id: 5
+                caller: Good. And the instruments?
+            -   id: 6
+                called: Laid out and counted, Doctor. Twice.
+            -   id: 7
+                caller: Count them three times. I'll see you at six-thirty.
+
+    swedish-hollis:
+        active: false
+        after: hollis-swedish
+        delay: 30
+        calling:
+            line: swedish
+            person: nurse
+        called:
+            line: room101
+            person: hollis
+        request:
+            id: 1
+            text: Swedish Hospital calling Dr. Walter Hollis, room 101. It's urgent.
+        conversation:
+            -   id: 2
+                called: Hollis.
+            -   id: 3
+                caller: Doctor, the patient has eaten a ham sandwich.
+            -   id: 4
+                called: After midnight?
+            -   id: 5
+                caller: His wife brought it in, Doctor. He says he was starving.
+            -   id: 6
+                called: Then we operate at noon instead. And nobody brings him anything else. Not even a mint.
+
+    hollis-wakeup:
+        active: false
+        calling:
+            line: room101
+            person: hollis
+        request:
+            id: 1
+            text: Operator. I need to be woken at five sharp.
+        conversation:
+            -   id: 2
+                caller: Not five-oh-one. Five. I have a scalpel in my hand at seven.
+            -   id: 3
+                caller: And keep ringing until I answer. I sleep like the dead. Occupational hazard.
+
+    ld-hollis:
+        active: false
+        calling:
+            line: operator
+            person: operator
+        called:
+            line: room101
+            person: hollis
+        request:
+            id: 1
+            text: Long distance calling. Rochester, Minnesota, for Dr. Walter Hollis, at the Hotel Ballard.
+        conversation:
+            -   id: 2
+                called: This is Hollis.
+            -   id: 3
+                caller: Go ahead, Rochester.
+            -   id: 4
+                caller: Walter, it's Keller at the Mayo Clinic. We read your paper. The board would like you to come to Rochester.
+                person: dr_keller
+            -   id: 5
+                called: To visit?
+            -   id: 6
+                caller: To stay, Walter. Head of surgery. Think it over.
+                person: dr_keller
+            -   id: 7
+                called: Minnesota, in the winter? I'll think about it, Keller. From here, where it only rains.
+
+    times-hollis:
+        active: false
+        calling:
+            line: times
+            person: reporter
+        called:
+            line: room101
+            person: hollis
+        request:
+            id: 1
+            text: Room 101, please. Dr. Hollis. Seattle Times calling.
+        conversation:
+            -   id: 2
+                called: Hollis.
+            -   id: 3
+                caller: Doctor, Joe Barrett, Seattle Times. They say you can take out an appendix in eight minutes.
+            -   id: 4
+                called: Seven. Eight if the patient talks.
+            -   id: 5
+                caller: Can I watch?
+            -   id: 6
+                called: Only from the other side of the table, Mr. Barrett. Good night.
+
+    hollis-valet:
+        active: false
+        calling:
+            line: room101
+            person: hollis
+        called:
+            line: valet
+            person: valet
+        request:
+            id: 1
+            text: Valet, operator.
+        conversation:
+            -   id: 2
+                called: Valet service.
+            -   id: 3
+                caller: Room 101. I have a gray suit to be pressed. There is a black bag on the chair. Do not touch the bag.
+            -   id: 4
+                called: No, sir. What's in the bag, if I may ask?
+            -   id: 5
+                caller: You may not.
+            -   id: 6
+                called: The suit, not the bag. Yes, Doctor.
+
+    # Martha, who is a dog.
+    martha-walk:
+        active: false
+        calling:
+            line: room103
+            person: martha
+        called:
+            line: bellcaptain
+            person: bellcaptain
+        request:
+            id: 1
+            text: Bell captain. Now. Please. Now.
+        conversation:
+            -   id: 2
+                called: Bell captain.
+            -   id: 3
+                caller: This is room 103. I need to go out. Right now. It's very important.
+            -   id: 4
+                called: I'll send a boy with an umbrella, ma'am. Where are you headed?
+            -   id: 5
+                caller: The fire hydrant on the corner. And the other fire hydrant. And the tree.
+            -   id: 6
+                called: I'll send the boy with a leash, then.
+            -   id: 7
+                caller: Hurry. Hurry. Woof.
+
+    martha-mailman:
+        active: false
+        calling:
+            line: room103
+            person: martha
+        request:
+            id: 1
+            text: Operator. Has the mailman come yet today?
+        conversation:
+            -   id: 2
+                caller: Not yet? Good. I will be waiting for him.
+            -   id: 3
+                caller: No, I don't want my mail. I just want to bark at him.
+
+    martha-squirrel:
+        active: false
+        calling:
+            line: room103
+            person: martha
+        called:
+            line: frontdesk
+            person: desk_clerk
+        request:
+            id: 1
+            text: Front desk. I have a complaint.
+        conversation:
+            -   id: 2
+                called: Front desk. How can I help you?
+            -   id: 3
+                caller: There is a squirrel outside my window. He is looking at me.
+            -   id: 4
+                called: A squirrel, ma'am?
+            -   id: 5
+                caller: He has been looking at me for an hour. He thinks he is better than me.
+            -   id: 6
+                called: I'll have the gardener speak to him.
+            -   id: 7
+                caller: Thank you. Tell him I said grrr.
+
+    martha-cat:
+        active: false
+        calling:
+            line: room103
+            person: martha
+        request:
+            id: 1
+            text: Operator. Is it true there is a cat in this hotel?
+        conversation:
+            -   id: 2
+                caller: Which room? You can tell me. I only want to say hello.
+            -   id: 3
+                caller: You won't tell me? That's all right. I will find it with my nose.
+
+    martha-pizza:
+        active: false
+        calling:
+            line: room103
+            person: martha
+        called:
+            line: pizza
+            person: pizza_man
+        request:
+            id: 1
+            text: Operator. Get me the pizza place. The one that smells good.
+        conversation:
+            -   id: 2
+                called: Sunny Hill Pizza.
+            -   id: 3
+                caller: One large pizza, please. Only meat. No cheese, no crust, no tomatoes.
+            -   id: 4
+                called: Lady, that's just a pile of sausage.
+            -   id: 5
+                caller: Yes. A pile of sausage. Room 103, Hotel Ballard.
+            -   id: 6
+                called: Who am I talking to, anyhow?
+            -   id: 7
+                caller: Martha. Leave it on the floor.
+
+    housekeeping-martha:
+        active: false
+        calling:
+            line: housekeeping
+            person: housekeeper
+        called:
+            line: room103
+            person: martha
+        request:
+            id: 1
+            text: Operator, room 103, please.
+        conversation:
+            -   id: 2
+                called: Hello?
+            -   id: 3
+                caller: This is housekeeping. The maid is at your door, but she says there's a very large dog in there.
+            -   id: 4
+                called: That's me.
+            -   id: 5
+                caller: I beg your pardon?
+            -   id: 6
+                called: Tell her she can come in. I only bite the mailman. And I've never caught him.
+
+    # Mary Smith, who is being given everything.
+    marysmith-coffee:
+        active: false
+        calling:
+            line: imperialsuite
+            person: marysmith
+        called:
+            line: roomservice
+            person: waiter
+        request:
+            id: 1
+            text: Operator, can you get me the room service? I've never had a room service.
+        conversation:
+            -   id: 2
+                called: Room service.
+            -   id: 3
+                caller: Hello. This is the Imperial Suite. Could I have a cup of coffee and a doughnut, please?
+            -   id: 4
+                called: Just a coffee and a doughnut, madam? For the Imperial Suite?
+            -   id: 5
+                caller: Well, what do people up here usually have?
+            -   id: 6
+                called: Usually caviar, madam. And a magnum of champagne.
+            -   id: 7
+                caller: For breakfast? Oh, no, no. Just the doughnut. Two doughnuts. And how much is that? No, don't tell me.
+
+    marysmith-desk:
+        active: false
+        calling:
+            line: imperialsuite
+            person: marysmith
+        called:
+            line: frontdesk
+            person: desk_clerk
+        request:
+            id: 1
+            text: The front desk, please.
+        conversation:
+            -   id: 2
+                called: Front desk. Good morning, Miss Smith.
+            -   id: 3
+                caller: Look, there's been some kind of mistake. I can't pay for this room. I have seven dollars and a nickel.
+            -   id: 4
+                called: There is no charge, Miss Smith. The manager insists.
+            -   id: 5
+                caller: No charge? For the whole thing? With the bathtub the size of a swimming pool?
+            -   id: 6
+                called: Everything, Miss Smith. Is there anything else we can do for you?
+            -   id: 7
+                caller: Well, you could tell me why. Nobody tells me why!
+
+    bellcap-marysmith:
+        active: false
+        calling:
+            line: bellcaptain
+            person: bellcaptain
+        called:
+            line: imperialsuite
+            person: marysmith
+        request:
+            id: 1
+            text: Operator, the Imperial Suite, please.
+        conversation:
+            -   id: 2
+                called: Hello?
+            -   id: 3
+                caller: Miss Smith, bell captain. There's a fur coat down here for you. Sable. And eleven hat boxes.
+            -   id: 4
+                called: A fur coat? I didn't buy a fur coat.
+            -   id: 5
+                caller: Nobody said you bought it, miss. It says, compliments of a friend.
+            -   id: 6
+                called: What friend? I don't have that kind of friend!
+            -   id: 7
+                caller: You do now, miss. I'll send it up.
+
+    marysmith-car:
+        active: false
+        after: easyliving-v16
+        delay: 45
+        calling:
+            line: imperialsuite
+            person: marysmith
+        called:
+            line: valet
+            person: valet
+        request:
+            id: 1
+            text: Operator, the man who does the cars, please.
+        conversation:
+            -   id: 2
+                called: Valet.
+            -   id: 3
+                caller: This is Mary Smith. There's going to be an automobile delivered here. A great big black one. With two chauffeurs.
+            -   id: 4
+                called: It's here, miss. It's taking up the whole front of the hotel.
+            -   id: 5
+                caller: Well, can you put it somewhere? I don't know how to drive.
+            -   id: 6
+                called: The chauffeurs want to know where you'd like to go, miss.
+            -   id: 7
+                caller: Tell them to go get a sandwich. I'll pay. No, I won't, I only have seven dollars.
+
+    # Lorraine Vance, who sings at night and sleeps all day.
+    vance-wakeup:
+        active: false
+        calling:
+            line: room201
+            person: vance
+        request:
+            id: 1
+            text: Operator, honey? Would you give me a wake-up call?
+        conversation:
+            -   id: 2
+                caller: Four o'clock.
+            -   id: 3
+                caller: In the afternoon, sugar. Nobody in my line of work sees four in the morning from this side.
+            -   id: 4
+                caller: And ring it soft. I've got a headache you could park a car in.
+
+    vance-tea:
+        active: false
+        calling:
+            line: room201
+            person: vance
+        called:
+            line: roomservice
+            person: waiter
+        request:
+            id: 1
+            text: Room service, sweetie.
+        conversation:
+            -   id: 2
+                called: Room service.
+            -   id: 3
+                caller: This is Lorraine Vance, 201. I need hot tea with honey and lemon. Lots of honey. I sing tonight.
+            -   id: 4
+                called: Right away, Miss Vance. Anything to eat?
+            -   id: 5
+                caller: A soft-boiled egg. And a raw one, on the side.
+            -   id: 6
+                called: A raw egg, ma'am?
+            -   id: 7
+                caller: For the throat, darling. Don't ask. It works.
+
+    vance-pigalle:
+        active: false
+        calling:
+            line: room201
+            person: vance
+        called:
+            line: placepigalle
+            person: pigalle
+        request:
+            id: 1
+            text: Operator, get me Place Pigalle, would you, doll?
+        conversation:
+            -   id: 2
+                called: Place Pigalle, bonsoir.
+            -   id: 3
+                caller: Hello, this is Lorraine Vance. I need a table for two after my last show. Say, one in the morning?
+            -   id: 4
+                called: I am desolee, mademoiselle. The kitchen, it closes at ten.
+            -   id: 5
+                caller: Ten? What do people in this town do after ten?
+            -   id: 6
+                called: In Seattle, mademoiselle? They sleep.
+            -   id: 7
+                caller: Well, isn't that a crime. Make it Sunday lunch, then.
+
+    florist-vance:
+        active: false
+        calling:
+            line: florist
+            person: florist
+        called:
+            line: room201
+            person: vance
+        request:
+            id: 1
+            text: Harbor Florist calling. Room 201, please. Miss Lorraine Vance.
+        conversation:
+            -   id: 2
+                called: Mm. Hello?
+            -   id: 3
+                caller: Miss Vance, this is the Harbor Florist. We have four dozen red roses for you from a gentleman.
+            -   id: 4
+                called: Four dozen? Who from?
+            -   id: 5
+                caller: The card says, from a secret admirer on the U.S.S. Bremerton.
+            -   id: 6
+                called: A sailor. It's always a sailor. Send them up, honey, and put one in water for yourself.
+
+    lobby-vance:
+        active: false
+        after: florist-vance
+        delay: 45
+        calling:
+            line: lobby
+            person: admirer
+        called:
+            line: room201
+            person: vance
+        request:
+            id: 1
+            text: Operator, could you ring Miss Lorraine Vance? I sent her the roses.
+        conversation:
+            -   id: 2
+                called: Hello?
+            -   id: 3
+                caller: Miss Vance? I'm the fella who sent the roses. I heard you sing last night. I'm in the lobby.
+            -   id: 4
+                called: Well, aren't you sweet. How old are you, sailor?
+            -   id: 5
+                caller: Twenty, ma'am. Twenty-one in March.
+            -   id: 6
+                called: Then you come to the show tonight, honey, and bring your mother.
+            -   id: 7
+                caller: My mother? Yes, ma'am. She'd like that.
+
+    vance-bellcap:
+        active: false
+        calling:
+            line: room201
+            person: vance
+        called:
+            line: bellcaptain
+            person: bellcaptain
+        request:
+            id: 1
+            text: Operator, the bell captain, and step on it, will ya?
+        conversation:
+            -   id: 2
+                called: Bell captain.
+            -   id: 3
+                caller: Gus, it's Lorraine. My gown for tonight is still at the cleaners on Market Street, and I go on at nine.
+            -   id: 4
+                called: The blue one with the sequins?
+            -   id: 5
+                caller: That's the one. Send your fastest boy.
+            -   id: 6
+                called: I'll go myself, Miss Vance. Back in twenty minutes.
+            -   id: 7
+                caller: You're a doll, Gus. Two tickets at the door for you.
+
+    vance-concierge:
+        active: false
+        calling:
+            line: room201
+            person: vance
+        called:
+            line: concierge
+            person: concierge
+        request:
+            id: 1
+            text: The concierge, sugar.
+        conversation:
+            -   id: 2
+                called: Concierge, Fairweather.
+            -   id: 3
+                caller: Mr. Fairweather, my piano player ran off with a hat-check girl. I need a new one by nine o'clock.
+            -   id: 4
+                called: A pianist. By nine. Does he need to read music?
+            -   id: 5
+                caller: He needs to be sober, honey. Reading would be a bonus.
+            -   id: 6
+                called: I know just the man. He plays at a church in Ballard on Sundays.
+            -   id: 7
+                caller: A church organist? Well, I'll try anything once.
+
+    frontdesk-vance:
+        active: false
+        calling:
+            line: frontdesk
+            person: desk_clerk
+        called:
+            line: room201
+            person: vance
+        request:
+            id: 1
+            text: Operator, 201, please.
+        conversation:
+            -   id: 2
+                called: Whoever this is, it had better be good.
+            -   id: 3
+                caller: Front desk, Miss Vance. I'm sorry to wake you. It's two in the afternoon.
+            -   id: 4
+                called: That's what I said.
+            -   id: 5
+                caller: There are nine bouquets of flowers down here for you. The lobby looks like a funeral.
+            -   id: 6
+                called: Send them to the hospital, honey. Keep the cards. I like the cards.
+
+    # Colonel Beaumont.
+    beaumont-julep:
+        active: false
+        calling:
+            line: room205
+            person: beaumont
+        called:
+            line: roomservice
+            person: waiter
+        request:
+            id: 1
+            text: Operator, room service, if you please.
+        conversation:
+            -   id: 2
+                called: Room service.
+            -   id: 3
+                caller: Colonel Beaumont, room 205. I'd like a mint julep, sir. Properly made.
+            -   id: 4
+                called: A mint julep. I'll ask the bartender, Colonel.
+            -   id: 5
+                caller: Crushed ice, not cubes. Fresh mint, bruised, not torn. Kentucky bourbon, not that Canadian business.
+            -   id: 6
+                called: Bruised, not torn. Yes, sir.
+            -   id: 7
+                caller: And a silver cup. A julep in a glass is a crime against the Confederacy.
+
+    beaumont-times:
+        active: false
+        calling:
+            line: room205
+            person: beaumont
+        called:
+            line: times
+            person: reporter
+            busy: true
+        request:
+            id: 1
+            text: Operator, the Seattle Times. I wish to write a letter to the editor, by telephone.
+        conversation:
+            -   id: 2
+                caller: Busy? A newspaper, busy? What on earth are they doing that is more important than my letter?
+            -   id: 3
+                caller: Try them again in ten minutes. And tell them the Colonel is displeased.
+
+    beaumont-reveille:
+        active: false
+        calling:
+            line: room205
+            person: beaumont
+        request:
+            id: 1
+            text: Operator, I require waking at oh five hundred.
+        conversation:
+            -   id: 2
+                caller: That's five in the morning, young lady. Military time.
+            -   id: 3
+                caller: And if you'd be so kind, hum a few bars of reveille when I answer. It's how I was raised.
+            -   id: 4
+                caller: Splendid. Carry on.
+
+    valet-beaumont:
+        active: false
+        calling:
+            line: valet
+            person: valet
+        called:
+            line: room205
+            person: beaumont
+        request:
+            id: 1
+            text: Operator, ring 205, would you?
+        conversation:
+            -   id: 2
+                called: Beaumont here.
+            -   id: 3
+                caller: Colonel, this is the valet. There's a small scratch on your Cadillac's fender.
+            -   id: 4
+                called: A scratch? Who did it?
+            -   id: 5
+                caller: We're not sure, sir. The fella in the green truck with the fish smell was parked right next to it.
+            -   id: 6
+                called: Then have the fella in the green truck report to me at once. We shall settle this like gentlemen.
+            -   id: 7
+                caller: He left for his boat at five this morning, sir.
+
+    beaumont-pigalle:
+        active: false
+        calling:
+            line: room205
+            person: beaumont
+        called:
+            line: placepigalle
+            person: pigalle
+        request:
+            id: 1
+            text: Operator, connect me with Place Pigalle, the French establishment.
+        conversation:
+            -   id: 2
+                called: Place Pigalle, bonsoir.
+            -   id: 3
+                caller: Good evening, madam. Colonel Augustus Beaumont. A table for two at seven. Do you serve grits?
+            -   id: 4
+                called: Grits, monsieur? Non. We have a very nice omelette.
+            -   id: 5
+                caller: An omelette is merely an egg that has given up. Very well. Seven o'clock.
+            -   id: 6
+                called: And the name of your guest, Colonel?
+            -   id: 7
+                caller: A Mrs. Pemberton. Of Pasadena. She is, I am told, rather particular.
+            -   id: 8
+                called: Then we will not seat her by the fish.
+
+    beaumont-pemberton:
+        active: false
+        calling:
+            line: room205
+            person: beaumont
+        called:
+            line: room102
+            person: pemberton
+        request:
+            id: 1
+            text: Operator, ring room 102 for me, please. Mrs. Pemberton.
+        conversation:
+            -   id: 2
+                called: Yes? Who is it?
+            -   id: 3
+                caller: Mrs. Pemberton, Colonel Augustus Beaumont, of Savannah. We met at the elevator. You had a canary.
+            -   id: 4
+                called: I did not have a canary, Colonel. That was the whole trouble.
+            -   id: 5
+                caller: Then allow me to make amends for the hotel. Would you dine with me tonight? Place Pigalle.
+            -   id: 6
+                called: Is it drafty?
+            -   id: 7
+                caller: I shall personally stand between you and any draft, madam.
+            -   id: 8
+                called: Seven o'clock, Colonel. Wear a tie.
+
+    beaumont-sister:
+        active: false
+        calling:
+            line: room205
+            person: beaumont
+        called:
+            line: operator
+            person: local_operator
+        request:
+            id: 1
+            text: Operator, get me long distance, if you please. Savannah, Georgia.
+        conversation:
+            -   id: 2
+                called: Operator.
+            -   id: 3
+                called: Long distance.
+                person: operator
+                wait: true
+            -   id: 4
+                caller: Savannah, Georgia. Miss Lucinda Beaumont. Adams 2-3100. Person to person.
+            -   id: 5
+                called: One moment, please. Go ahead, please.
+                person: operator
+            -   id: 6
+                called: Augustus? Is that you? You sound as if you're at the bottom of a well.
+                person: lucinda
+            -   id: 7
+                caller: I am in Seattle, Lucinda. It is raining. It has been raining since Tuesday.
+            -   id: 8
+                called: I told you not to go. Are you eating properly?
+                person: lucinda
+            -   id: 9
+                caller: I have had salmon eleven times. And tonight, I am dining with a lady.
+            -   id: 10
+                called: A lady? Augustus Beaumont, you are sixty-eight years old.
+                person: lucinda
+            -   id: 11
+                caller: Sixty-seven, Lucinda. Good night.
+
+    restaurant-beaumont:
+        active: false
+        calling:
+            line: restaurant
+            person: hostess
+        called:
+            line: room205
+            person: beaumont
+        request:
+            id: 1
+            text: Operator, room 205, please.
+        conversation:
+            -   id: 2
+                called: Beaumont.
+            -   id: 3
+                caller: Colonel, this is the Stoneburner. The chef asked me to call. He has never made a pecan pie.
+            -   id: 4
+                called: Never? Then how does he sleep at night?
+            -   id: 5
+                caller: He'd like you to come down and tell him how, sir.
+            -   id: 6
+                called: Tell him I'm on my way. And have him hide the Canadian whiskey.
+
+    # Howard Finch, of the Rotary convention.
+    finch-wu:
+        active: false
+        calling:
+            line: room303
+            person: finch
+        called:
+            line: westernunion
+            person: telegraph_clerk
+        request:
+            id: 1
+            text: Operator, Western Union, please. I need to send a telegram.
+        conversation:
+            -   id: 2
+                called: Western Union.
+            -   id: 3
+                caller: Yes. To Mrs. Edna Finch, 412 Poplar Street, Walla Walla. Message follows.
+            -   id: 4
+                called: Go ahead.
+            -   id: 5
+                caller: Arrived safely stop. Throat scratchy stop. Possibly tonsils stop. Did I leave the iron on question mark.
+            -   id: 6
+                called: That's eighteen words. Ninety cents, charged to your room.
+            -   id: 7
+                caller: Ninety cents? Take out possibly.
+
+    wu-finch:
+        active: false
+        after: finch-wu
+        delay: 60
+        calling:
+            line: westernunion
+            person: telegraph_clerk
+        called:
+            line: room303
+            person: finch
+        request:
+            id: 1
+            text: Western Union. I have a telegram to read to Mr. Howard Finch, room 303.
+        conversation:
+            -   id: 2
+                called: Finch here.
+            -   id: 3
+                caller: Reply from Walla Walla, Mr. Finch. Shall I read it?
+            -   id: 4
+                called: Yes, please. Is it bad news?
+            -   id: 5
+                caller: Iron off stop. Tonsils removed nineteen thirty-one stop. Stop worrying stop. Edna.
+            -   id: 6
+                called: She's right. They were. I forgot.
+
+    finch-pharmacy:
+        active: false
+        calling:
+            line: room303
+            person: finch
+        called:
+            line: pharmacy
+            person: pharmacist
+        request:
+            id: 1
+            text: Operator, a drugstore. Any drugstore. The nearest one.
+        conversation:
+            -   id: 2
+                called: Ballard Pharmacy.
+            -   id: 3
+                caller: Yes, hello. Do you deliver? I need aspirin, cough drops, a thermometer, and a bottle of Bromo-Seltzer.
+            -   id: 4
+                called: We can send a boy. What seems to be the trouble?
+            -   id: 5
+                caller: I'm not sure. I ate a clam at lunch. I think it's disagreeing with me.
+            -   id: 6
+                called: How long ago was the clam?
+            -   id: 7
+                caller: Twenty minutes.
+            -   id: 8
+                called: Give it an hour, son. And drink a glass of water. That'll be two dollars and ten cents.
+
+    finch-badge:
+        active: false
+        calling:
+            line: room303
+            person: finch
+        called:
+            line: frontdesk
+            person: desk_clerk
+        request:
+            id: 1
+            text: The front desk, please. It's an emergency.
+        conversation:
+            -   id: 2
+                called: Front desk.
+            -   id: 3
+                caller: This is Howard Finch, room 303. I've lost my convention badge. They won't let me into the luncheon without it.
+            -   id: 4
+                called: Have you checked your jacket, sir?
+            -   id: 5
+                caller: Both jackets. And the bathtub. And under the bed.
+            -   id: 6
+                called: Mr. Finch, is it the badge that says, Hello, My Name Is Howard?
+            -   id: 7
+                caller: Yes!
+            -   id: 8
+                called: You're wearing it, sir. You came down for a newspaper ten minutes ago.
+
+    finch-wife:
+        active: false
+        calling:
+            line: room303
+            person: finch
+        called:
+            line: operator
+            person: local_operator
+        request:
+            id: 1
+            text: Operator, I'd like to call my wife in Walla Walla. I suppose that's long distance.
+        conversation:
+            -   id: 2
+                called: Operator.
+            -   id: 3
+                called: Long distance.
+                person: operator
+                wait: true
+            -   id: 4
+                caller: Walla Walla, please. Mrs. Edna Finch. The number is 6-2214. Station to station.
+            -   id: 5
+                called: One moment. Go ahead, please.
+                person: operator
+            -   id: 6
+                called: Hello?
+                person: edna_finch
+            -   id: 7
+                caller: Edna, it's Howard. I think I might have caught something on the train.
+            -   id: 8
+                called: Howard, you've had your temperature taken four times since Sunday. It's normal every time.
+                person: edna_finch
+            -   id: 9
+                caller: That's what worries me. Nobody is that normal.
+            -   id: 10
+                called: Go to your luncheon, Howard. This is costing us a dollar.
+                person: edna_finch
+
+    finch-hollis:
+        active: false
+        calling:
+            line: room303
+            person: finch
+        called:
+            line: room101
+            person: hollis
+        request:
+            id: 1
+            text: Operator, I heard there's a doctor staying in the hotel. Could you ring his room?
+        conversation:
+            -   id: 2
+                called: Hollis.
+            -   id: 3
+                caller: Doctor? My name is Finch, room 303. I'm sorry to bother you. I have a pain.
+            -   id: 4
+                called: Where?
+            -   id: 5
+                caller: Here. Well, you can't see. Sort of on the left. Or the middle. It moves around.
+            -   id: 6
+                called: Did you eat a clam today, Mr. Finch?
+            -   id: 7
+                caller: How did you know?
+            -   id: 8
+                called: I'm a surgeon, Mr. Finch. Go to sleep. If you die in the night, call me.
+
+    finch-lost:
+        active: false
+        calling:
+            line: room303
+            person: finch
+        request:
+            id: 1
+            text: Operator? Could you tell me which room the Rotary luncheon is in?
+        conversation:
+            -   id: 2
+                caller: The Stoneburner? That's the restaurant? Oh. I walked past it three times.
+            -   id: 3
+                caller: And is it drafty in there? I have a delicate chest.
+            -   id: 4
+                caller: Thank you. You've been very kind. Much kinder than my doctor.

@@ -42,6 +42,7 @@ class Speech:
     name: str          # "nbn-valet.3", the wav's base name
     seconds: float
     by: str            # "caller" or "called"
+    wait: bool = False # play only after the operator has spoken on that side (§4.6)
 
     @property
     def filename(self) -> str:
@@ -127,7 +128,7 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
     stations, outside = s.stations, s.outside
 
     def speech(u: Utterance, by: str) -> Speech:
-        return Speech(u.name, _wav_seconds(wav, u.name), by)
+        return Speech(u.name, _wav_seconds(wav, u.name), by, u.wait)
 
     scenes: dict[str, SceneDef] = {}
     people: dict[str, tuple[str, str]] = {}
@@ -140,8 +141,7 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
         to_line = called["line"] if called else ""
         conv = []
         for u in us[1:]:
-            by = "called" if (called and u.speaker == called.get("person")) else "caller"
-            conv.append(speech(u, by))
+            conv.append(speech(u, u.role))
         scenes[sid] = SceneDef(
             id=sid, shape=shape,
             from_line=calling["line"], to_line=to_line,

@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 18 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played*
+*Rev 19 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played*
 
 # 1. Overview
 
@@ -176,6 +176,18 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
 
+## 1.19 Changes in Rev 19
+
+— A conversation line may wait for the operator (§4.6), Mark's request, 2026-09-28. A long-distance call from the hotel goes through the local operator: the hotel operator dials 0, the local operator answers, the hotel operator asks for long distance, and only then does the long-distance operator come on and talk to the guest. Until now a scene with a called party played its conversation straight through once connected, so there was no place for the hotel operator to speak in the middle of one. A line marked `wait: true` plays only after the operator has spoken on that line's side of the call and stopped — the listen that calls to the operator and busy scenes already make before every line.
+
+— A conversation line may name its own speaker with `person:` (§4.6). The long-distance operator is not the local operator who answered, and neither is the party she rings, but all three speak on the same trunk. The line plays on its side of the call as before; `person:` changes only whose voice the TTS run uses, and it must be in the cast.
+
+— `after:` scenes may form a chain of any length (§4.4), Mark's request, 2026-09-28: a guest whose requests to housekeeping grow more absurd call by call is a story in five calls, in order. The loader refused a scene following one that itself follows another; that rule is gone. It now refuses a scene named in two `after:`s — both followers would be scheduled together, each would hold the guest, and each would wait forever for the other to let go — and a loop of `after:`s. The game program needed no change: a follower's own follower is scheduled when it ends, as any other.
+
+— `timeout` (§5) now also covers a `wait:` line the operator never speaks before. Considered and not adopted: a new scene shape for long distance. Two keys on a line cover it, and cover a guest handing the telephone to someone else as well.
+
+— Code consequence for Claude Code, made the same day: the shared loader allows chains of `after:`s and refuses two followers and loops; it checks both keys and rejects `wait:` where every line waits already, and on a line with neither `caller:` nor `called:`; the flows listen before a `wait:` line; the game program's tests cover a wait on the trunk and both rejections.
+
 # 2. Serving the Page
 
 nginx serves the page's files over HTTPS on 443 and reverse-proxies its MQTT connection, on the path `/mqtt`, to Mosquitto's WebSockets listener on loopback. The configuration, the certificate and the name are `mqtt.md` §9. The files:
@@ -268,13 +280,22 @@ Ranges, clamped by the game program and echoed as applied: `gap` 0–600s, `ramp
 
 **Replay.** The shuffle uses a seed chosen at game start. The seed and each deck's order go into the game's SQLite session record, not onto MQTT. The page is not told the order and does not need it.
 
-**Scenes that follow another.** An `after:` scene (script.yml, "Order") is never in the deck. It starts `delay` seconds after the scene it follows has ended, in either pacing, as long as that scene was **connected** (§4.3). If it wasn't — the operator never answered, or never put the call through — the `after:` scene is dropped and the log says so (Rev 2; Rev 1 started it whenever the earlier scene ended). It is part of the story, not a new deal: `nbn-trace` two seconds after `nbn-kaplan`, `hale-pizza` three minutes after `hale-busy`. From the moment it is scheduled until it starts, its lines and people count as busy for dealing. If any of them is still busy in another call when its delay runs out, it waits until all are free and then starts (Rev 3). It counts as a call. It has a call number, it counts in `started`, and it succeeds or fails like any other call. It does not reset the automatic schedule. The page shows a waiting `after:` scene in the log with its start time.
+**Scenes that follow another.** An `after:` scene (script.yml, "Order") is never in the deck. It starts `delay` seconds after the scene it follows has ended, in either pacing, as long as that scene was **connected** (§4.3). If it wasn't — the operator never answered, or never put the call through — the `after:` scene is dropped and the log says so (Rev 2; Rev 1 started it whenever the earlier scene ended). It is part of the story, not a new deal: `nbn-trace` two seconds after `nbn-kaplan`, `hale-pizza` three minutes after `hale-busy`. An `after:` scene may itself be followed, so a story can run to any number of calls; each scene has at most one follower, and the chain has no loop (Rev 19). From the moment it is scheduled until it starts, its lines and people count as busy for dealing. If any of them is still busy in another call when its delay runs out, it waits until all are free and then starts (Rev 3). It counts as a call. It has a call number, it counts in `started`, and it succeeds or fails like any other call. It does not reset the automatic schedule. The page shows a waiting `after:` scene in the log with its start time.
 
 At most eight calls are in progress at once — the number of call slots (§6.1). A call that would be a ninth is not started, and is treated like a scene that cannot be dealt.
 
 ## 4.5 Not Yet: Calls Before Connection
 
 Mark wants, later, a mode where a new call can arrive before the operator has connected the current one — the real pressure of a busy board. The likely form is a fixed interval, a new call every `n` seconds from the start of the last, bounded by the eight slots. It is one more value on `game/pace` and uses the same `gap`, `ramp`, `floor` and `jitter`. Not specified until it is wanted.
+
+## 4.6 Lines That Wait for the Operator, and Lines by Someone Else
+
+Two keys on a conversation line (Rev 19):
+
+- **`wait: true`** — the line plays only after the operator has spoken on that line's side of the call and stopped: a listen on the called circuit for a `called:` line, on the calling circuit for a `caller:` line, as in the calls to the operator. If she does not speak within the speak timeout, the call fails as `timeout` (§5). It is refused in a call to the operator and in a `busy: true` scene, where every line waits already.
+- **`person: <cast member>`** — the line is spoken by that person rather than by the scene's party on that side. It plays on the same circuit; only the voice changes.
+
+The long-distance call is the case they were made for. The hotel operator dials 0 on a trunk; the local operator (`called.person`) answers, "Operator"; the hotel operator asks for long distance; the next line, marked `wait: true` and `person:` the long-distance operator, answers "Long distance", and the guest talks to her. The party she rings can speak on the trunk too, with a `person:` of their own.
 
 # 5. Tallies
 
@@ -293,7 +314,7 @@ A failure is logged with its reason. The reasons at Rev 1:
 | `no answer` | The operator did not answer the calling line in time. |
 | `not connected` | The operator answered but did not connect the call in time — wrong station rung, number not dialled, or nothing done. |
 | `cut off` | A cord was pulled during the conversation — the calling or called line's `peer` went empty before the scene's end. |
-| `timeout` | The operator did not speak when a line was waiting for them (calls to the operator and busy scenes). |
+| `timeout` | The operator did not speak when a line was waiting for them (calls to the operator, busy scenes, and a `wait:` line, §4.6). |
 
 Timeouts are the game program's configuration, not the page's, at Rev 1: 60s to answer, 90s to connect after the request has played, 30s for the operator to speak. They are starting values for play-testing.
 
