@@ -1,0 +1,21 @@
+# KiCad
+
+Schematics and PCB layouts for the custom boards, KiCad 9. Opened in place on Linux
+and, through Syncthing, on Windows at `C:\s\sbgame\kicad`.
+
+| Folder | Board | Specification |
+|---|---|---|
+| `control/` | Ring generator and controller — the board as built, carrying the ESP32-POE-ISO | `docs/ring_generator.md`, `docs/control.md` |
+| `control2/` | The high-frequency-link generator alternative. Drawn, not adopted | `docs/ring_generator.md` §9.7 |
+| `stations/` | Station board, 8 strips; three are built | `docs/station_circuit.md`, `docs/station_schematic_guide.md` |
+| `trunks/` | Trunk board, 8 trunks; one is built | `docs/trunk_circuit.md`, `docs/trunk_schematic_guide.md` |
+| `lib/` | The custom symbol and footprint library, `switchboard` | `kicad_library_plan.xlsx` (in `~/s/game/`) |
+
+Every project's `sym-lib-table` and `fp-lib-table` reach the library as
+`${KIPRJMOD}/../lib/`. Keep them relative, and keep `lib/` beside the projects.
+
+Not tracked (`.gitignore`): `*-backups/`, `gerbers/`, the fab `.zip`s, `.kicad_prl`,
+ERC reports, lock, cache and autosave files. Plot the gerbers again from the
+`.kicad_pcb` to get them back.
+
+Front panels and other mechanical designs are in `../hardware/`.

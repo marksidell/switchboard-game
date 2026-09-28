@@ -283,7 +283,7 @@
 		(property ki_fp_filters "CP_*")
 		(path "/73f4e407-cadd-4b5a-8982-cdaa824cefc3")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -2.250241 -1.839)
@@ -1798,7 +1798,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/83533840-2f0c-4c5e-976b-9fc0558dc737")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.37 -1.37)
@@ -1961,7 +1961,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/4fda3dfc-4bd3-423b-9b6f-6b6ceb0a8437")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.37 -1.37)
@@ -2125,7 +2125,7 @@
 		(property ki_fp_filters "CONN10_B1110T001_TDK")
 		(path "/b6cfe889-3e4b-4d65-8d0b-7a099d0ae655")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -5.207 -3.9624)
@@ -2508,7 +2508,7 @@
 		)
 		(path "/6160ef62-f08c-46be-834e-16aea215d8f1")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -5.765 -3.05)
@@ -2767,7 +2767,7 @@
 		(property ki_fp_filters "TO?220*")
 		(path "/d0d0353a-1b45-40da-8712-643e8e36cf28")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -2.57 1.36)
@@ -3003,7 +3003,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/7a9ad1c7-afef-4ad7-a5a0-505237a6eba0")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.37 -1.37)
@@ -3166,7 +3166,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/7d4cef53-967f-49d0-8616-ccc45f16cac9")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.37 1.37)
@@ -3329,7 +3329,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/6125d73d-7ee5-44c1-b2d5-1d38ed6fd2d9")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -3529,7 +3529,7 @@
 		(property ki_fp_filters "TO-???* *_Diode_* *SingleDiode* D_*")
 		(path "/6aa79cfd-7c17-46c1-a74a-55cfe0f5f446")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.34 0)
@@ -3789,7 +3789,7 @@
 		(property ki_fp_filters "MountingHole*")
 		(path "/b4bbb5b5-4ef3-46e2-b342-0db78cf86440")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr exclude_from_pos_files exclude_from_bom)
 		(fp_circle
 			(center 0 0)
@@ -3890,7 +3890,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/2cde6e0d-1af1-4444-8fb3-0625d792db60")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -4064,7 +4064,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/ad93a280-6852-49cd-bfe9-30935daeb8f1")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -4238,7 +4238,7 @@
 		(property ki_fp_filters "DIP*W7.62mm* SSOP?14* TSSOP?14*")
 		(path "/d2374aee-282a-47d6-bc4b-ab8d44a26d8f")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.16 -1.33)
@@ -4584,7 +4584,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/1c5f83b3-7517-487c-b3ae-b0b2b071f892")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -4758,7 +4758,7 @@
 		(property ki_fp_filters "DIP*W7.62mm*")
 		(path "/efa39ff0-a3aa-4a6e-97f2-3c8e1ee0626b")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.16 -1.33)
@@ -5076,7 +5076,7 @@
 		(property ki_fp_filters "TO-???* *_Diode_* *SingleDiode* D_*")
 		(path "/433bfe88-9e6f-4c82-9962-f072106842a5")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 8.82 0)
@@ -5335,7 +5335,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/d3a6622d-5401-4c50-8b40-119c2f3b8c7d")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.44 0)
@@ -5509,7 +5509,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/ef2c1051-5c41-4f43-83e9-aeb3ad8d2f28")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.37 1.37)
@@ -5673,7 +5673,7 @@
 		(property ki_fp_filters "*Fuse*")
 		(path "/da959d72-d02e-4c31-9c4b-9f0e088a30b1")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -3.93 -4.627001)
@@ -5926,7 +5926,7 @@
 		(property ki_fp_filters "IND_BOURNS_RLB1314")
 		(path "/790029e4-9724-4466-8805-8ff7c5eaacad")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -3.8735 0)
@@ -6161,7 +6161,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/3b18b800-d10f-4c08-ac1e-a2828108e5d7")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -6335,7 +6335,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/51841850-5463-41ee-b404-a2bd2a377f29")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -6509,7 +6509,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/2dbec85b-9a5b-4388-aee3-e80c8e26c284")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -6683,7 +6683,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/3a32aed7-038c-4a42-87ba-8e383740917e")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.37 -1.37)
@@ -6846,7 +6846,7 @@
 		(property ki_fp_filters "Connector*:*_1x??_*")
 		(path "/ea82a847-e330-4c2a-9df0-2d85bf24a592")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.38 -1.38)
@@ -7114,7 +7114,7 @@
 		(property ki_fp_filters "SOIC*3.9x4.9mm*P1.27mm* DIP*W7.62mm*")
 		(path "/ea130cfd-cf8d-4c93-80f8-d6425514234a")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.16 -1.33)
@@ -7406,7 +7406,7 @@
 		(property ki_fp_filters "TerminalBlock*:*")
 		(path "/b6060bf1-6895-461b-a5de-4d81e64c3bd3")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -3.12 -4.12)
@@ -7815,7 +7815,7 @@
 		(property ki_fp_filters "SOIC*3.9x4.9mm*P1.27mm* DIP*W7.62mm*")
 		(path "/7074077f-44b4-438a-8491-8371c0d63946")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.16 -1.33)
@@ -8107,7 +8107,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/663018ac-0c2c-4390-badc-9c956a8eae91")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -8307,7 +8307,7 @@
 		(property ki_fp_filters "D*DO?41*")
 		(path "/b00748fc-6b50-4360-b098-6bffd0c8be0c")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.34 0)
@@ -8566,7 +8566,7 @@
 		(property ki_fp_filters "TO?220*")
 		(path "/ad5d71e2-2e26-45d3-aa51-33cb66c7519c")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -2.57 1.36)
@@ -8803,7 +8803,7 @@
 		(property ki_fp_filters "MountingHole*")
 		(path "/477c18f3-d269-4bc9-a7b2-2fd99b22c964")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr exclude_from_pos_files exclude_from_bom)
 		(fp_circle
 			(center 0 0)
@@ -8906,7 +8906,7 @@
 		(property ki_fp_filters "Connector*:*_1x??_*")
 		(path "/3de8097d-0af0-4eaf-be4f-f3b6caca7d42")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -3.84 0.77)
@@ -9318,7 +9318,7 @@
 		(property ki_fp_filters "CP_*")
 		(path "/fe4f73d7-4287-42d0-83aa-826940cc6550")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.79 -4.08)
@@ -11043,7 +11043,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/58eba92c-b879-4b72-bd5e-1f22eb63d120")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.44 0)
@@ -11217,7 +11217,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/97906e5a-fd5b-4a0c-9be9-706fc8f6e7e2")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -11392,7 +11392,7 @@
 		(property ki_fp_filters "IND_BOURNS_RLB1314")
 		(path "/256eed7c-c0e2-4bb3-88d1-523e85daffe7")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -3.8735 0)
@@ -11627,7 +11627,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/4f721928-f589-483e-876e-c2ed79dd9834")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -11802,7 +11802,7 @@
 		(property ki_fp_filters "MountingHole*")
 		(path "/f2fe621f-02d8-443b-b1ab-191a6a11c0c4")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr exclude_from_pos_files exclude_from_bom)
 		(fp_circle
 			(center 0 0)
@@ -11903,7 +11903,7 @@
 		(property ki_fp_filters "TerminalBlock*:*")
 		(path "/3510ee9f-89bf-44b7-ad0f-f5483569e7c3")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -2.22 -3.52)
@@ -12213,7 +12213,7 @@
 		(property ki_fp_filters "*Fuse*")
 		(path "/cac324d5-2f7e-4c97-a151-51a7468182c7")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -3.93 -4.627001)
@@ -12465,7 +12465,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/1145f5af-6622-426e-bdc1-85184ced7518")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -12678,7 +12678,7 @@
 		(property ki_fp_filters "DIP*W7.62mm*")
 		(path "/f5ccd403-ae78-49ab-b67e-38ecf0eb5783")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.16 -1.33)
@@ -12970,7 +12970,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/54ca7a7f-4a03-4246-a173-a44a96bffd3c")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.37 1.37)
@@ -13133,7 +13133,7 @@
 		(property ki_fp_filters "TerminalBlock*:*")
 		(path "/3437cd34-180b-4711-9b43-2765f07bdd7e")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -2.22 -3.52)
@@ -13443,7 +13443,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/41133399-3f92-4bd3-b26c-b9e4f82428c1")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -4.1402 -3.6322)
@@ -13669,7 +13669,7 @@
 		(property ki_fp_filters "DIP*W7.62mm*")
 		(path "/6b202b11-08af-4769-8d32-faeb81fbb91d")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.16 -1.33)
@@ -13913,7 +13913,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/3ae887da-585a-4792-8091-a440a75616ff")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -14087,7 +14087,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/99fca3da-a7ec-40f5-a652-f25994ef39fd")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -14261,7 +14261,7 @@
 		(property ki_fp_filters "CP_*")
 		(path "/892dc72a-2782-47e0-aad1-ebb36b0e0bdf")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.29 -3.23)
@@ -15776,7 +15776,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/c391a80a-dec7-42e7-9866-b15d2008cf46")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -15950,7 +15950,7 @@
 		(property ki_fp_filters "SOIC*3.9x4.9mm*P1.27mm* DIP*W7.62mm*")
 		(path "/cf7a0fee-0f6f-4f83-b859-8eb6e085b55b")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.16 -1.33)
@@ -16242,7 +16242,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/da45a1d3-1e7e-4d9d-8bd6-12ae9660d21b")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.37 -1.37)
@@ -16405,7 +16405,7 @@
 		(property ki_fp_filters "TO?220*")
 		(path "/b6d6fdc3-34e9-412b-b755-b076b177802b")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -2.57 1.36)
@@ -16641,7 +16641,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/c0228bd5-318f-4f61-a1cb-15c4389dc9c1")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 3.87 -1.37)
@@ -16804,7 +16804,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/c757a9e9-2c2c-4414-9b6f-68fdb2f0fafd")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -16978,7 +16978,7 @@
 		(property ki_fp_filters "SOIC*3.9x4.9mm*P1.27mm* DIP*W7.62mm*")
 		(path "/edff508f-6043-4efc-aa2f-c541d7135cd7")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.16 -1.33)
@@ -17270,7 +17270,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/ff6bb1bc-a12a-47ab-b736-c6de684a75e7")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -17444,7 +17444,7 @@
 		(property ki_fp_filters "D*DO?201AD*")
 		(path "/1ec44eb1-ab88-4db7-ae07-6c69f1c14e60")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 13.4 0)
@@ -17729,7 +17729,7 @@
 		(property ki_fp_filters "TO-???* *_Diode_* *SingleDiode* D_*")
 		(path "/288af0d8-0d0d-4fa3-b548-a4bb1a69fa3d")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 8.82 0)
@@ -17988,7 +17988,7 @@
 		(property ki_fp_filters "TerminalBlock*:*")
 		(path "/ae27c646-36c8-4dce-a168-c71f61502fc0")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -3.12 -4.12)
@@ -18397,7 +18397,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/005809d9-c904-4c49-a338-c2c1960dbf8d")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.37 -1.37)
@@ -18560,7 +18560,7 @@
 		(property ki_fp_filters "TO?220*")
 		(path "/41d24adb-98d9-4a2a-8323-8d3e35010108")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -2.57 1.36)
@@ -18797,7 +18797,7 @@
 		(property ki_fp_filters "*Fuse*")
 		(path "/0da60e8b-8d58-489b-a332-112e0f6bc452")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -3.93 -4.627001)
@@ -19049,7 +19049,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/fd85e238-7ab8-4b85-8efe-20b02bdde445")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 0.23 -1.07)
@@ -19238,7 +19238,7 @@
 		(property ki_fp_filters "D*DO?41*")
 		(path "/c3e5008e-0c9d-42a8-9162-2df69079a009")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.34 0)
@@ -19497,7 +19497,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/a14e4105-fa55-4684-b6c1-73a39e465c19")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.37 -1.37)
@@ -19660,7 +19660,7 @@
 		(property ki_fp_filters "CP_*")
 		(path "/c1118eef-9ab3-4039-b4bc-e5960aeb14a4")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -2.250241 -1.839)
@@ -21175,7 +21175,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/3c7757bd-c5a6-4a76-80f4-9ee09c33d062")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.37 -1.37)
@@ -21338,7 +21338,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/413613db-0383-4737-a940-8c1c32c82756")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.37 -1.37)
@@ -21527,7 +21527,7 @@
 		(property ki_fp_filters "TO-???* *_Diode_* *SingleDiode* D_*")
 		(path "/b0e3b39e-a9ac-4e88-b3d9-6d038c1ac22b")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.34 0)
@@ -21786,7 +21786,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/3e56c453-13d5-45d7-bd7e-d02e940fac0c")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.37 -1.37)
@@ -21949,7 +21949,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/00937f8d-b657-43e5-8e73-c65eb857c874")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -22123,7 +22123,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/9884e95a-23f2-4854-80c6-3a08bef223a1")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -22297,7 +22297,7 @@
 		(property ki_fp_filters "TO?220*")
 		(path "/a8451ab9-41ea-459e-9c79-30403db862f0")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -2.57 1.36)
@@ -22534,7 +22534,7 @@
 		(property ki_fp_filters "MountingHole*")
 		(path "/24ded33a-58c4-4453-8268-38b44cf061f5")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr exclude_from_pos_files exclude_from_bom)
 		(fp_circle
 			(center 0 0)
@@ -22635,7 +22635,7 @@
 		(property ki_fp_filters "TO?220*")
 		(path "/9b716d7c-e5ba-47e4-b0de-82237ddf8caf")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -2.57 1.36)
@@ -22871,7 +22871,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/cfeea545-2245-4c02-8154-95bb8ec5f01f")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.37 1.37)
@@ -23036,7 +23036,7 @@
 		(property ki_fp_filters "Converter*DCDC*TRACO*TSR?1*")
 		(path "/f11952af-f56a-410e-b9e4-352111ee2286")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 8.52 2.12)
@@ -23300,7 +23300,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/62d49ddf-d0ae-4210-aeb1-235edfcca667")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -23474,7 +23474,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/d35c3932-ede9-4356-ab9e-b54162c358cd")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 9.12 0)
@@ -23648,7 +23648,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/3e76a8f4-e8d3-4f21-8723-90264feb2f6b")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -23822,7 +23822,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/9f652740-fc6f-4003-a7cd-056d7d009269")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 9.12 0)
@@ -23995,7 +23995,7 @@
 		)
 		(path "/3ba9aa6f-c971-43ea-8c1d-cd0a565d3448")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.5875 -41.275)
@@ -24910,7 +24910,7 @@
 		(property ki_fp_filters "D*DO?41*")
 		(path "/d924894a-21c3-4d9f-90e3-e8e6ecdc9073")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.34 0)
@@ -25170,7 +25170,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/60d41128-0907-43fa-a1b0-871f92b3f6d8")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -4.1402 -3.6322)
@@ -25396,7 +25396,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/7c52d4a8-1ab3-4ffd-9547-4bd948e941b5")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.37 -1.37)
@@ -25559,7 +25559,7 @@
 		(property ki_fp_filters "DIP*W7.62mm*")
 		(path "/235385ea-043f-4a94-b526-88ec4dff98f4")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.16 -1.33)
@@ -25803,7 +25803,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/d5a35846-af76-48e0-bb0c-cfce0f7b7630")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 9.12 0)
@@ -25977,7 +25977,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/9827b5cc-8f7b-4988-912a-a25e38037292")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.37 -1.37)
@@ -26140,7 +26140,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/5f5795c0-9cfc-465f-bf11-53ee91df9325")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -26314,7 +26314,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/2aaaafba-3c11-4555-8a02-ba24b2ff2e29")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -26490,7 +26490,7 @@
 		(property ki_fp_filters "TO?92*")
 		(path "/01a90715-611e-4aa5-8428-0f64be575b8e")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -0.53 1.85)
@@ -26708,7 +26708,7 @@
 		(property ki_fp_filters "TO?220*")
 		(path "/71e5c06c-47bf-4d64-aa6d-b79637470fca")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -2.57 1.36)
@@ -26970,7 +26970,7 @@
 		(property ki_fp_filters "D*DO?41*")
 		(path "/43724bd5-db7a-4a9c-8c15-4061b1b11232")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.34 0)
@@ -27229,7 +27229,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/84180105-655b-4e21-976d-11a50e422c58")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.37 -1.37)
@@ -27392,7 +27392,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/3f4b2b93-9a3c-4358-a5aa-4b6e090f130a")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 3.87 -1.37)
@@ -27555,7 +27555,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/91504fc9-89d8-43ad-89a4-d525611f0b54")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.04 0)
@@ -27729,7 +27729,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/6525679f-c402-4345-86dc-dc16c7d6a731")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.37 -1.37)
@@ -27892,7 +27892,7 @@
 		(property ki_fp_filters "TO?220*")
 		(path "/520734d8-6e83-46ac-904c-37bce9ffa4f5")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -2.57 1.36)
@@ -28128,7 +28128,7 @@
 		(property ki_fp_filters "DIP*W7.62mm*")
 		(path "/735a075f-e416-4c87-851c-164774bcd858")
 		(sheetname "/")
-		(sheetfile "ring.kicad_sch")
+		(sheetfile "control.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start 1.16 -1.33)

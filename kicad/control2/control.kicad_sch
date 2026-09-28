@@ -12779,7 +12779,7 @@
 			(uuid "0bbe571c-b2ed-4a51-9320-1bab1fc28c5c")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "C6")
 					(unit 1)
@@ -12847,7 +12847,7 @@
 			(uuid "d1eb3b24-f0e9-4bc3-bbb2-44905ff1b980")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R9")
 					(unit 1)
@@ -12985,7 +12985,7 @@
 			(uuid "cf344eab-2ac1-45bb-995a-00803d868c3e")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "#PWR029")
 					(unit 1)
@@ -13055,7 +13055,7 @@
 			(uuid "8fc34ea8-c44e-4051-a1ef-1b959c9c8e97")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "F2")
 					(unit 1)
@@ -13121,7 +13121,7 @@
 			(uuid "eef5f090-8f4b-46fb-9e4e-691ac9c7f327")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "#PWR017")
 					(unit 1)
@@ -13190,7 +13190,7 @@
 			(uuid "9fb66e18-486b-4f16-ae47-e09a2a0e763d")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R13")
 					(unit 1)
@@ -13362,7 +13362,7 @@
 			(uuid "73956413-1d18-4b0d-bff5-e2120e1368cf")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R20")
 					(unit 1)
@@ -13564,7 +13564,7 @@
 			(uuid "6cae9d52-a4c8-4f69-80a1-75bf734b7f6b")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "#PWR04")
 					(unit 1)
@@ -13641,7 +13641,7 @@
 			(uuid "c37816f8-d55a-4c45-a317-b291d91aabc0")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "U13")
 					(unit 1)
@@ -13705,7 +13705,7 @@
 			)
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "H3")
 					(unit 1)
@@ -13999,7 +13999,7 @@
 			(uuid "50b8223e-e5c1-4ed1-a1ee-59ea89007354")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R1")
 					(unit 1)
@@ -14068,7 +14068,7 @@
 			(uuid "4538f205-8cab-4417-bdb2-e4ab1eaaddea")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R32")
 					(unit 1)
@@ -14204,7 +14204,7 @@
 			(uuid "8863a1b0-9a94-497c-94b7-fcb8538f5fe1")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "#PWR024")
 					(unit 1)
@@ -14343,7 +14343,7 @@
 			(uuid "0906a6b4-0bd6-4541-b296-8dd2e339a18e")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "J8")
 					(unit 1)
@@ -14409,7 +14409,7 @@
 			(uuid "4790d7ea-86cb-44ac-8d1e-a3449b923e08")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "#PWR010")
 					(unit 1)
@@ -14479,7 +14479,7 @@
 			(uuid "4e969e0f-f8c0-4c06-8f97-34053cab7c32")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "C16")
 					(unit 1)
@@ -14548,7 +14548,7 @@
 			(uuid "d8029d21-0845-4192-8710-ff572fd06eff")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R29")
 					(unit 1)
@@ -14617,7 +14617,7 @@
 			(uuid "e640b685-1661-4841-8ab3-61c48a65840a")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R31")
 					(unit 1)
@@ -14809,7 +14809,7 @@
 			(uuid "46e6a509-c6e7-456c-84a6-49062e57b2d2")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "C27")
 					(unit 1)
@@ -15133,7 +15133,7 @@
 			(uuid "9c5eb158-660d-4789-a433-190423dbb239")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R7")
 					(unit 1)
@@ -15273,7 +15273,7 @@
 			(uuid "e87c9d02-1042-44b1-838b-ef6f6f3e9763")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "C17")
 					(unit 1)
@@ -15343,7 +15343,7 @@
 			(uuid "2ee68c53-3a63-4d36-bd54-e422cd77f196")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "C23")
 					(unit 1)
@@ -15419,7 +15419,7 @@
 			(uuid "4f4aeed2-cba6-46db-bdb7-cd107230aa12")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "Q4")
 					(unit 1)
@@ -15485,7 +15485,7 @@
 			(uuid "cadcba52-4c54-477d-a60e-3f8f78a63dfd")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "#PWR020")
 					(unit 1)
@@ -15551,7 +15551,7 @@
 			(uuid "f572c580-6929-4ae7-b8f8-892eb40fb9b8")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "#PWR018")
 					(unit 1)
@@ -15743,7 +15743,7 @@
 			(uuid "cdf76bc2-92fa-43ad-8705-425fa2c55d23")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "D5")
 					(unit 1)
@@ -15895,7 +15895,7 @@
 			(uuid "f11d09ac-0218-4d5d-889b-e8ddb8bed330")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "#PWR08")
 					(unit 1)
@@ -15959,7 +15959,7 @@
 			)
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "H4")
 					(unit 1)
@@ -16094,7 +16094,7 @@
 			(uuid "a72f3631-5eed-49c4-950a-6c9742b82538")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R11")
 					(unit 1)
@@ -16163,7 +16163,7 @@
 			(uuid "450fd104-18f0-4884-9ffb-9ec94c5e6923")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "C15")
 					(unit 1)
@@ -16309,7 +16309,7 @@
 			(uuid "1db25dd5-0263-4e05-b3ce-a067dde2fc88")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "Q8")
 					(unit 1)
@@ -16375,7 +16375,7 @@
 			(uuid "220e3ac6-458d-4652-a310-654bc1b70dd9")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "#PWR030")
 					(unit 1)
@@ -16443,7 +16443,7 @@
 			(uuid "6fde6b1d-2218-4abf-be3a-1bfccf2972a6")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "C20")
 					(unit 1)
@@ -16511,7 +16511,7 @@
 			(uuid "94302ee7-51d5-492a-a845-afb6c72a059a")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R23")
 					(unit 1)
@@ -16681,7 +16681,7 @@
 			(uuid "ede77762-945a-4cdb-9e53-25e79ac08e63")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "#PWR09")
 					(unit 1)
@@ -16749,7 +16749,7 @@
 			(uuid "0e57b6c2-17a2-412e-904c-dd93ee13e2db")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R8")
 					(unit 1)
@@ -16884,7 +16884,7 @@
 			(uuid "02925363-a3a5-4d2c-a2cc-1565586f61fc")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "C26")
 					(unit 1)
@@ -16953,7 +16953,7 @@
 			(uuid "3017d34e-265c-4f9a-839f-2d5b21bec395")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R14")
 					(unit 1)
@@ -17172,7 +17172,7 @@
 			(uuid "fbc1d0df-e064-4fc0-a3df-f58874d86045")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "U1")
 					(unit 6)
@@ -17240,7 +17240,7 @@
 			(uuid "501d026e-f113-4116-be2f-a3eac2defb5f")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R17")
 					(unit 1)
@@ -17530,7 +17530,7 @@
 			(uuid "2400b73e-5157-41df-9f73-31e36a8df4d7")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "D2")
 					(unit 1)
@@ -17696,7 +17696,7 @@
 			(uuid "d13df08c-e68d-4105-85b8-3b9fb06760a4")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "U11")
 					(unit 1)
@@ -17772,7 +17772,7 @@
 			(uuid "e36fd379-6ccc-47b6-b343-a7435bd8d416")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "Q3")
 					(unit 1)
@@ -18000,7 +18000,7 @@
 			(uuid "da55f6f5-69ff-4b44-9648-f1d9d9b35787")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "L2")
 					(unit 1)
@@ -18066,7 +18066,7 @@
 			(uuid "f1e8b3be-ce79-4dbd-882f-9c4f15fed390")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "#FLG02")
 					(unit 1)
@@ -18136,7 +18136,7 @@
 			(uuid "be790bf9-f347-4337-b306-6938adff94fd")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "C25")
 					(unit 1)
@@ -18206,7 +18206,7 @@
 			(uuid "f5ca03ec-66e2-48ed-873a-3f00c1523b0f")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "C12")
 					(unit 1)
@@ -18272,7 +18272,7 @@
 			(uuid "fe25aacb-b0e1-4577-b3fe-af91ad4e9a56")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "#PWR027")
 					(unit 1)
@@ -18408,7 +18408,7 @@
 			(uuid "0bd95368-45d9-448d-96fe-7bb3daa28de3")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "C22")
 					(unit 1)
@@ -18606,7 +18606,7 @@
 			(uuid "c1ba4329-fd88-4e1a-8df7-ada49b5d4a9b")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "#PWR013")
 					(unit 1)
@@ -18674,7 +18674,7 @@
 			(uuid "6db48332-f42d-4fa7-b0bb-e67e0722cebf")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "C8")
 					(unit 1)
@@ -18744,7 +18744,7 @@
 			(uuid "8d572d76-3a1f-4878-8763-427365f6ebbe")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "C11")
 					(unit 1)
@@ -18880,7 +18880,7 @@
 			(uuid "c4535017-35cb-4780-8639-644381faca4b")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "#PWR019")
 					(unit 1)
@@ -18949,7 +18949,7 @@
 			(uuid "f23171b3-ec68-401e-b3f2-01a8de158fcc")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R30")
 					(unit 1)
@@ -19083,7 +19083,7 @@
 			(uuid "0f6ca273-3154-43ba-8fb3-389674f1bf95")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R10")
 					(unit 1)
@@ -19221,7 +19221,7 @@
 			(uuid "d0ad2f02-5569-4a50-80ab-35f0d0e60d4a")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R18")
 					(unit 1)
@@ -19355,7 +19355,7 @@
 			(uuid "826900cb-d9e3-43ec-91ae-32025ae44265")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R16")
 					(unit 1)
@@ -19431,7 +19431,7 @@
 			(uuid "c2e4ee6a-4996-4eae-a5c8-cc15539999a1")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "Q2")
 					(unit 1)
@@ -19566,7 +19566,7 @@
 			(uuid "6e9015c2-b2f3-41ca-bdea-6e9ffd59e641")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R6")
 					(unit 1)
@@ -19702,7 +19702,7 @@
 			(uuid "a2cc5115-634d-4f1e-9aba-b1bab1a3785b")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "C14")
 					(unit 1)
@@ -19768,7 +19768,7 @@
 			(uuid "ed5e9746-f150-4d35-962b-8169def5877b")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "#PWR015")
 					(unit 1)
@@ -19844,7 +19844,7 @@
 			(uuid "3f25c248-744e-407e-a9ce-e0d67700614b")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "Q6")
 					(unit 1)
@@ -19989,7 +19989,7 @@
 			(uuid "86e1cc99-0f5f-4d5a-b335-4e8fcd49601d")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R12")
 					(unit 1)
@@ -20058,7 +20058,7 @@
 			(uuid "65516df0-4fd4-42b9-b4ba-2662061e96ab")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "J6")
 					(unit 1)
@@ -20248,7 +20248,7 @@
 			(uuid "af03ce44-fcb1-4325-a1ca-9274ad0e50b5")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "D9")
 					(unit 1)
@@ -20336,7 +20336,7 @@
 			(uuid "e2b5b3fe-a988-4748-889c-6f6e1f944572")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "D3")
 					(unit 1)
@@ -20400,7 +20400,7 @@
 			)
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "H2")
 					(unit 1)
@@ -20469,7 +20469,7 @@
 			(uuid "6c09d3fc-c82f-4f48-beb4-f7370d0d5622")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "J7")
 					(unit 1)
@@ -20639,7 +20639,7 @@
 			(uuid "9c14fa1a-cf0d-4150-89e6-e7ac1c3f1ef2")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "Q7")
 					(unit 1)
@@ -20779,7 +20779,7 @@
 			(uuid "76e2164e-c28d-4fca-b831-b8dafe191741")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "C24")
 					(unit 1)
@@ -20845,7 +20845,7 @@
 			(uuid "c7fc56c4-c490-499c-aec7-18518e2bf4ce")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "#PWR014")
 					(unit 1)
@@ -20914,7 +20914,7 @@
 			(uuid "8068dd21-c54e-4a0e-a3e6-7c254057b830")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R19")
 					(unit 1)
@@ -21000,7 +21000,7 @@
 			(uuid "03f6fd90-5c44-427f-a657-b4a47fd8fae7")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "D8")
 					(unit 1)
@@ -21069,7 +21069,7 @@
 			(uuid "cdf5a32b-c63c-4fce-bff4-4ae27e52c844")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R28")
 					(unit 1)
@@ -21226,7 +21226,7 @@
 			(uuid "831d2b3f-e530-4124-ba12-8b4e121361a2")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "U5")
 					(unit 1)
@@ -21296,7 +21296,7 @@
 			(uuid "3dbd006a-9a16-4b30-aacb-04cfd7f2cac0")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "C21")
 					(unit 1)
@@ -21372,7 +21372,7 @@
 			(uuid "9c968981-e55a-4d35-856b-7b6cf1639f38")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "Q1")
 					(unit 1)
@@ -21438,7 +21438,7 @@
 			(uuid "4f96ddeb-4634-4d2d-a126-c2a339dc0ec9")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "#PWR016")
 					(unit 1)
@@ -21611,7 +21611,7 @@
 			(uuid "e12393c1-1668-47b7-9445-0300549577c2")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R5")
 					(unit 1)
@@ -21679,7 +21679,7 @@
 			(uuid "56df60b4-2b24-4603-a76b-f97717cd75b4")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R22")
 					(unit 1)
@@ -21748,7 +21748,7 @@
 			(uuid "db6e7e49-7970-4c6a-87ec-740f7aaeb463")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R4")
 					(unit 1)
@@ -21834,7 +21834,7 @@
 			(uuid "aa45e2ac-9a74-4a75-9d24-268caeae5746")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "D6")
 					(unit 1)
@@ -21902,7 +21902,7 @@
 			(uuid "30615e5f-62d3-49d8-bf52-76aed9e2ca8a")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "C9")
 					(unit 1)
@@ -21972,7 +21972,7 @@
 			(uuid "21b4be89-fb0e-48cb-a0ee-24d7cfab9b37")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "F3")
 					(unit 1)
@@ -22038,7 +22038,7 @@
 			(uuid "f870c519-2a76-4236-9158-c2e591b59f19")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "#PWR011")
 					(unit 1)
@@ -22127,7 +22127,7 @@
 			(uuid "59a0031a-340d-4b6a-9fd6-77297d8d1080")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "U6")
 					(unit 1)
@@ -22208,7 +22208,7 @@
 			(uuid "d4e69807-c98f-49f6-a6f9-39bd72af44d6")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "J3")
 					(unit 1)
@@ -22365,7 +22365,7 @@
 			(uuid "cce59362-099b-44fb-a4d1-7655d08313d5")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "C19")
 					(unit 1)
@@ -22769,7 +22769,7 @@
 			(uuid "ae3fde25-5e7b-496c-805e-a0b9f822c6d3")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "#FLG03")
 					(unit 1)
@@ -22835,7 +22835,7 @@
 			(uuid "b0c4d660-cb75-4ee9-9e10-ca25f5a27d09")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "#PWR05")
 					(unit 1)
@@ -22905,7 +22905,7 @@
 			(uuid "1dada735-cc44-4722-8125-4cc68b06da7a")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "C18")
 					(unit 1)
@@ -23045,7 +23045,7 @@
 			(uuid "a1123527-a3b3-4811-8b29-ad61f1844c7a")
 		)
 		(instances
-			(project "ring"
+			(project "control"
 				(path "/bd4a460d-a81a-42b5-b9f0-d86534e3c679"
 					(reference "R3")
 					(unit 1)
