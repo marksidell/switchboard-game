@@ -180,7 +180,7 @@ stations:
     bellcaptain:
         number: 7
     concierge:
-        nunmber: 8
+        number: 8
     room3:
         number: 9
     room100:
@@ -337,7 +337,7 @@ scenes:
                 called: Room service.
             -   id: 3
                 caller: Yeah, this is Pike in 214. Two eggs over easy, bacon, toast, and a pot of coffee.
-			   -   id: 4
+            -   id: 4
                 called: Two eggs over easy, bacon, toast, coffee. Anything else, sir?
             -   id: 5
                 caller: A newspaper, if you've got one.
@@ -556,7 +556,7 @@ scenes:
             -   id: 7
                 caller: Tell him to step on it. I've got a train to catch.
 
-    martha-roomservice
+    martha-roomservice:
         active: false
         calling:
             line: room3
