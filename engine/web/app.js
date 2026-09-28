@@ -392,8 +392,10 @@ function renderTop() {
   document.getElementById('v-jitter').textContent = jitter ? `${jitter}%` : '–';
   document.getElementById('v-gapnow').textContent = get('game/gap_now') || '–';
   const at = num('game/next_at');
+  // Nothing scheduled while a game runs is the schedule held up, not idle:
+  // auto waits for the latest call to connect, listen for the board to empty.
   document.getElementById('v-countdown').textContent =
-    at === null ? '–' : secs(at - hostNow());
+    at !== null ? secs(at - hostNow()) : running ? 'waiting' : '–';
 
   const t = { started: num('game/started') || 0, success: num('game/success') || 0,
               fail: num('game/fail') || 0 };

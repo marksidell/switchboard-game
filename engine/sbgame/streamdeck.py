@@ -75,9 +75,10 @@ PANEL = (33, 36, 43)
 INK = (232, 234, 240)
 DIM = (153, 160, 173)
 GREY = (70, 74, 82)
+REST = (92, 97, 107)
 OK = (56, 161, 105)
 DANGER = (197, 48, 48)
-AMBER = (183, 121, 31)
+VIOLET = (124, 92, 255)
 BLUE = (59, 110, 165)
 
 # The pacing key cycles in this order and shows all three, the echoed one lit
@@ -286,14 +287,15 @@ class Panel:
             x0 = i * SEG_W
             if i:
                 d.line((x0, 10, x0, STRIP_H - 10), fill=GREY, width=1)
-            # In listen the rest show auto's values, dim, as in manual (Rev 17).
+            # In listen the rest show auto's values, dimmer than manual's,
+            # since no dial reaches them (Rev 17, Rev 18).
             dl = self.dial(i) or DIALS[i]
             v = self.num(f"game/{dl.name}")
             active = not stale and self.auto() and self.dial(i) is not None
-            ink = INK if active else DIM
-            if stale:
-                ink = GREY
-            _text(d, (x0 + 14, 8), dl.name, 20, DIM if not stale else GREY)
+            resting = self.get("game/pace") == "listen" and self.dial(i) is None
+            ink = GREY if stale else REST if resting else INK if active else DIM
+            _text(d, (x0 + 14, 8), dl.name, 20,
+                  GREY if stale else REST if resting else DIM)
             shown = "–" if v is None else f"{v:g}{dl.unit}"
             _text(d, (x0 + 14, 34), shown, 44, ink)
             if dl.name == "gap" and self.running() and self.get("game/pace") == "auto":
@@ -337,7 +339,7 @@ class Panel:
         if self.running() and self.auto():
             at = self.num("game/next_at")
             sub = "waiting" if at is None else _secs(at - (time.time() + self.host_offset))
-        return _key("Next", sub or "Call", fill=AMBER if live else PANEL,
+        return _key("Next", sub or "Call", fill=VIOLET if live else PANEL,
                     ink=INK if live else GREY)
 
     def _tally(self, k: str) -> int:

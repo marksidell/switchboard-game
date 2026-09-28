@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 17 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played*
+*Rev 18 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played*
 
 # 1. Overview
 
@@ -169,6 +169,12 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 — Considered and not adopted: a separate set of all four for each pace. Eight values, with dials and steppers whose meaning changes with the pace, for three knobs listen has no use for.
 
 — In listen the first dial sets `pause` and the other three rest, dimmed and showing auto's values, as in manual (§7.4); the page shows one stepper, `pause`, in place of the four (§7.1). `mqtt.md` Rev 22 adds `game/pause` and `game/pause/set`, and the session record gains a `pause` column. Code consequence for Claude Code, made the same day.
+
+## 1.18 Changes in Rev 18
+
+— The page's countdown says "waiting" while a game runs in automatic pacing and no next call is scheduled — `next_at` empty, because in auto the latest call is not yet connected or ended, and in listen the board is not yet empty (§4.2) — and "–" when no game runs (§7.1), Mark's request, 2026-09-28. It said "–" in both. The deck's Next key already said "waiting" in that case; §7.4 now says so too. It is on the countdown rather than on the Next Call button because the button is hidden with the controls and the countdown is not.
+
+— The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
 
 # 2. Serving the Page
 
@@ -409,7 +415,7 @@ For an iPad in landscape, 1024 CSS pixels wide or more. Touch targets 44px or la
 - Start and Stop. Stop needs a second tap within 3s, because it ends a player's game.
 - Pacing: Manual | Automatic | Listen (Rev 16).
 - Next Call: large in manual pacing, small in automatic (auto or listen).
-- `gap`, `ramp`, `floor`, `jitter`, each with − and + steppers (5s, 1s, 1s, 10% steps; `jitter` Rev 12). Shown only in auto pacing, with `gap_now` and the countdown to `next_at` beside them. In listen, one stepper, `pause` (1s steps), and the countdown take their place (Rev 17).
+- `gap`, `ramp`, `floor`, `jitter`, each with − and + steppers (5s, 1s, 1s, 10% steps; `jitter` Rev 12). Shown only in auto pacing, with `gap_now` and the countdown to `next_at` beside them. In listen, one stepper, `pause` (1s steps), and the countdown take their place (Rev 17). The countdown reads "waiting" while a game runs and nothing is scheduled, and "–" when no game runs (Rev 18).
 - Tallies: started, handled, success, fail, success percentage.
 
 **Board.** Laid out as the switchboard is (Rev 5): station jacks in three rows of ten, and one row of ten trunk jacks below them. Rows run 1–10, 11–20, 21–30 from the top, left to right, until checked against the board (§10). Each tile is one jack, from the `board/` topics (§6.3).
@@ -477,13 +483,13 @@ It follows every rule of §7.2. It shows only what was echoed, and a press chang
 | 1 Start | "Start", lit while `run` is `"off"` | `run/set` `"on"`. Ignored while a game runs. |
 | 2 Stop | "Stop", lit while `run` is `"on"`; "Stop again" in red for 3s after a first press | Arms it. A second press within 3s publishes `run/set` `"off"`. |
 | 3 Pacing | "Manual", "Auto" and "Listen", one per line, the echoed `pace` lit (Rev 16) | `pace/set` with the next of the three in that order, wrapping from Listen to Manual. Absolute; counted from the last press while its echo is outstanding, and from the echo once it arrives or 1s after the press. |
-| 4 Next Call | "Next" over "Call", lit while a game runs; in automatic pacing, auto or listen, the countdown to `next_at` in place of "Call" | `next/set`, at QoS 0, guarded as §4.1: dark from the press until `started` changes, `game/error` is published, or 3s pass. |
+| 4 Next Call | "Next" over "Call", lit violet while a game runs (Rev 18); in automatic pacing, auto or listen, the countdown to `next_at` in place of "Call", or "waiting" while none is scheduled | `next/set`, at QoS 0, guarded as §4.1: dark from the press until `started` changes, `game/error` is published, or 3s pass. |
 | 5 Calls | `started` and in progress | nothing |
 | 6 Score | success and fail | nothing |
 | 7 Percent | success percentage of handled | nothing |
 | 8 Health | a lamp each for the game program, the controller and the audio program, red when offline or its heartbeat is 2.5s late; the whole key red while `game/error` is set | shows the last `game/error` on the strip again |
 
-**Dials**, left to right: `gap`, `ramp`, `floor`, `jitter`. One detent is one step of the page's stepper: 5s, 1s, 1s and 10%. A push does nothing at Rev 13. The strip segment above each dial shows its name and its echoed value, and above `gap` also `gap_now` while a game runs. The four are dimmed in manual pacing but still turn, so the values can be set before switching to auto. In listen the first dial sets `pause` instead, 1s a detent, and its segment reads `pause`; the other three are dimmed, show auto's values, and do nothing (Rev 17). A dial's pending target is dropped when the pace changes, since the dial may now set a different value.
+**Dials**, left to right: `gap`, `ramp`, `floor`, `jitter`. One detent is one step of the page's stepper: 5s, 1s, 1s and 10%. A push does nothing at Rev 13. The strip segment above each dial shows its name and its echoed value, and above `gap` also `gap_now` while a game runs. The four are dimmed in manual pacing but still turn, so the values can be set before switching to auto. In listen the first dial sets `pause` instead, 1s a detent, and its segment reads `pause`; the other three show auto's values, name and value both dimmer than manual's, and do nothing (Rev 17; dimmer Rev 18), so the one live dial stands out. A dial's pending target is dropped when the pace changes, since the dial may now set a different value.
 
 **Turning a dial.** The dial reports steps and the command is absolute, so the program keeps a target. The first detent starts the target at the echoed value; each detent adds a step to the target, clamped to the §4.3 range, and publishes it. The target is held while detents keep coming and is dropped when the echo equals it or 1s after the last detent, so a fast turn loses no steps and a value the game clamped differently — `floor` above `gap` — settles on the echo. A dial whose value has not been echoed yet does nothing.
 
