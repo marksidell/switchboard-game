@@ -571,7 +571,7 @@ scenes:
             -   id: 2
                 called: Room service.
             -   id: 3
-                caller: Hello, room service? This is room 3. I'd like to order 8 t-bone steaks, rare, no salad, a half-dozen pork chops, rack of lamb, with a side order of chikecn.
+                caller: Hello, room service? This is room 3. I'd like to order 8 t-bone steaks, rare, no salad, a half-dozen pork chops, rack of lamb, with a side order of chicken.
             -   id: 4
                 called: Will that be all, ma'am?
             -   id: 5
