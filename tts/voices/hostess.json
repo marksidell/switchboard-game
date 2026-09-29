@@ -1,0 +1,16 @@
+{
+  "person": "hostess",
+  "take": 1,
+  "seed": 1951,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: generic American, bright and professional. hostess at the Stoneburner, the hotel restaurant.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Operator, room 302, please. Mrs. Albright? This is the Stoneburner. Your table is ready.",
+  "sample_from": [
+    "restaurant-albright.1",
+    "restaurant-albright.3"
+  ],
+  "rate": 24000,
+  "seconds": 7.76,
+  "generate_seconds": 11.86,
+  "chosen_candidate": 1
+}

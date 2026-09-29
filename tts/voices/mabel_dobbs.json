@@ -1,0 +1,13 @@
+{
+  "person": "mabel_dobbs",
+  "take": 1,
+  "seed": 1951,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: Nebraska, plain-spoken and brisk. Mabel Dobbs, Earl's wife, who minds the feed store in Wahoo, Nebraska.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Earl? Is that you? Well, for heaven's sake. The hens are laying fine, the Hendersons paid their bill, and your mother called twice.",
+  "sample_from": [],
+  "rate": 24000,
+  "seconds": 7.68,
+  "generate_seconds": 13.47,
+  "chosen_candidate": 1
+}

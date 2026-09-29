@@ -1,0 +1,16 @@
+{
+  "person": "rays_host",
+  "take": 1,
+  "seed": 1951,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: Pacific Northwest, easygoing and casual. the fellow who answers the phone at Ray's Boathouse.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Ray's. Sure thing. Come on down whenever. Sit by the window and you can watch the sun go down over the Olympics.",
+  "sample_from": [
+    "dobbs-rays.2",
+    "dobbs-rays.4"
+  ],
+  "rate": 24000,
+  "seconds": 5.68,
+  "generate_seconds": 8.67,
+  "chosen_candidate": 1
+}

@@ -1,0 +1,16 @@
+{
+  "person": "pemberton",
+  "take": 1,
+  "seed": 1951,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: affected upper-class American, drawling and imperious. Mrs. Vivian Pemberton, wealthy widow from Pasadena, room 102; nothing is ever quite right.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Operator, housekeeping. At once, please. This is Mrs. Pemberton in 102. There is a draft in this room. I require another blanket.",
+  "sample_from": [
+    "pemb-blanket.1",
+    "pemb-blanket.3"
+  ],
+  "rate": 24000,
+  "seconds": 9.92,
+  "generate_seconds": 15.01,
+  "chosen_candidate": 1
+}

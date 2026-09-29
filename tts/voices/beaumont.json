@@ -1,0 +1,16 @@
+{
+  "person": "beaumont",
+  "take": 3,
+  "seed": 1953,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: Southern, booming, old-fashioned. Colonel Augustus Beaumont, retired, of Savannah, Georgia, room 205.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Operator, room service, if you please. Colonel Beaumont, room 205. I'd like a mint julep, sir. Properly made.",
+  "sample_from": [
+    "beaumont-julep.1",
+    "beaumont-julep.3"
+  ],
+  "rate": 24000,
+  "seconds": 9.12,
+  "generate_seconds": 13.87,
+  "chosen_candidate": 3
+}

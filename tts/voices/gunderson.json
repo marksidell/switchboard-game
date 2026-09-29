@@ -1,0 +1,16 @@
+{
+  "person": "gunderson",
+  "take": 1,
+  "seed": 1951,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: Scandinavian Ballard, indignant. Mrs. Gunderson, who bought a vacuum cleaner from Pike.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Operator, ring Mr. Harold Pike's room. I know he's staying here. Mr. Pike, this is Mrs. Gunderson. You sold me a Whirlwind Deluxe on Tuesday.",
+  "sample_from": [
+    "lobby-pike.1",
+    "lobby-pike.3"
+  ],
+  "rate": 24000,
+  "seconds": 10.24,
+  "generate_seconds": 15.78,
+  "chosen_candidate": 1
+}

@@ -1,0 +1,13 @@
+{
+  "person": "toll_a",
+  "take": 2,
+  "seed": 1952,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: Pacific Northwest, pleasant. a long distance toll operator on the route, answering with her town's name (Portland, Walla Walla).\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Portland. Thank you, I'm ringing them now. They don't answer, Seattle. Shall I try them again in an hour?",
+  "sample_from": [],
+  "rate": 24000,
+  "seconds": 6.24,
+  "generate_seconds": 9.56,
+  "chosen_candidate": 2
+}

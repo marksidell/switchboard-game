@@ -1,0 +1,13 @@
+{
+  "person": "bellcaptain",
+  "take": 3,
+  "seed": 1953,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: generic American, gravelly, seen it all. Gus, the bell captain.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Bell captain. I'll send a boy right up for your bags, sir. Anything else, you just call down and ask for Gus.",
+  "sample_from": [],
+  "rate": 24000,
+  "seconds": 7.2,
+  "generate_seconds": 11.0,
+  "chosen_candidate": 3
+}

@@ -1,0 +1,16 @@
+{
+  "person": "dobbs",
+  "take": 3,
+  "seed": 1953,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: Nebraska, loud and cheerful. Earl Dobbs, feed-store owner from Omaha on his first vacation, room 105.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Say, operator, can you get me that concierge fella? Earl Dobbs, room 105, from Omaha. First time in Seattle. What's there to see?",
+  "sample_from": [
+    "dobbs-concierge.1",
+    "dobbs-concierge.3"
+  ],
+  "rate": 24000,
+  "seconds": 8.0,
+  "generate_seconds": 12.17,
+  "chosen_candidate": 3
+}

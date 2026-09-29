@@ -58,6 +58,7 @@ audience hears them and is the only fair basis for choosing.
 | `manifest.py` | decides what needs regenerating, before anything is launched |
 | `process.py` | mono, trim, 16kHz, 300–3400Hz, level, 48kHz, 24-bit, then check and delete on failure |
 | `audition` | plays each cast member's three candidates and records the choice |
+| `scenes` | plays the active scenes on one Digiface channel, stopping where the operator speaks; `--batch` writes every scene, the operator's lines included, to `mp3/<scene>.mp3` |
 | `choose` | promotes the candidates named in `voices.yml` |
 | `aws/` | session machinery; `IAM-SETUP.md` is the credential and policy record |
 | `remote/` | what runs on the instance; `NOTES.md` holds the measured model facts |

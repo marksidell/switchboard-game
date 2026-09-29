@@ -1,0 +1,16 @@
+{
+  "person": "pigalle",
+  "take": 3,
+  "seed": 1953,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: French, charming but firm. reservationist at Place Pigalle.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Place Pigalle, bonsoir. Mais oui, madame. Eight o'clock? By the window, you can see the ferries on the Sound.",
+  "sample_from": [
+    "albright-pigalle.2",
+    "albright-pigalle.4"
+  ],
+  "rate": 24000,
+  "seconds": 6.72,
+  "generate_seconds": 10.27,
+  "chosen_candidate": 3
+}

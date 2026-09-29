@@ -129,6 +129,21 @@ async def main() -> int:
                           "                pause: a while\n", 1)),
             ("the old switchboard: key on a station",
              real.replace("        number: 1\n", "        number: 1\n        switchboard: 1\n", 1)),
+            ("operator: where the game does not wait for her (§4.7)",
+             real.replace("                caller: Yes, fast.\n",
+                          "                caller: Yes, fast.\n"
+                          "                operator: busy\n", 1)),
+            ("operator: naming no line under operator_lines:",
+             real.replace("            operator: internal-greeting\n",
+                          "            operator: good-morning\n", 1)),
+            ("an inline operator: line taking an id the scene uses",
+             real.replace("                    id: 5\n                    text: Three cents, sir.\n",
+                          "                    id: 2\n                    text: Three cents, sir.\n", 1)),
+            ("closing: in a call the operator is off the line at the end of",
+             real.replace("    nbn-valet:\n        active: true\n",
+                          "    nbn-valet:\n        active: true\n        closing: busy\n", 1)),
+            ("operator_lines: with no hotel_operator in the cast",
+             real.replace("    hotel_operator:\n", "    hotel_operator_gone:\n", 1)),
         ):
             (tmp / "bad.yml").write_text(text, encoding="utf-8")
             try:
@@ -137,6 +152,15 @@ async def main() -> int:
             except ScriptError as e:
                 check(True, f"rejects {what}")
                 print(f"        {e.failures[0]}")
+
+        gs = build("../script.yml", "../wav")
+        check(all(u.by != "operator" for sc in gs.scenes.values()
+                  for u in (sc.request, *sc.conversation)),
+              "the operator's own lines are never played (§4.7)")
+        check(gs.script.by_name()[gs.script.scene_lines("dobbs-stamp")[1].operator].text
+              == "Three cents, sir.", "an inline operator: line is found by name")
+        check(gs.script.by_name()[gs.script.closings["nbn-trace"]].text.startswith("From the house"),
+              "a closing: line is found by its scene")
 
         print("\n== active: an inactive scene needs no wavs and is never dealt (§4.4)")
         new = real.replace("\nscenes:\n", "\nscenes:\n"

@@ -1,0 +1,16 @@
+{
+  "person": "ferry_clerk",
+  "take": 2,
+  "seed": 1952,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: Pacific Northwest, salty. information clerk at the Washington State Ferries dock.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Washington State Ferries, Colman Dock. Every hour on the hour from Colman Dock, sir. An hour's ride.",
+  "sample_from": [
+    "dobbs-ferries.2",
+    "dobbs-ferries.4"
+  ],
+  "rate": 24000,
+  "seconds": 6.4,
+  "generate_seconds": 9.94,
+  "chosen_candidate": 2
+}

@@ -1,0 +1,13 @@
+{
+  "person": "ruth_seaver",
+  "take": 2,
+  "seed": 1952,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: Pacific Northwest, older, warm and chatty. Mrs. Ruth Seaver, Mrs. Albright's sister, in Portland.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Edith? Oh, I'm so glad you called back. I was down at the market, and then Mrs. Hanley stopped me on the stairs, and you know how she talks.",
+  "sample_from": [],
+  "rate": 24000,
+  "seconds": 8.96,
+  "generate_seconds": 15.64,
+  "chosen_candidate": 2
+}

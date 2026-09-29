@@ -1,0 +1,13 @@
+{
+  "person": "mrs_dunn",
+  "take": 3,
+  "seed": 1953,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: Idaho, warm and worried. Mrs. Dunn, Betty Hale's mother, in Boise.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Hello? Betty, is that you, sweetheart? Oh, it's so good to hear your voice. Your father sends his love.",
+  "sample_from": [],
+  "rate": 24000,
+  "seconds": 7.28,
+  "generate_seconds": 11.12,
+  "chosen_candidate": 3
+}

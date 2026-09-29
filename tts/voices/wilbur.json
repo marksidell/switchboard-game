@@ -1,0 +1,13 @@
+{
+  "person": "wilbur",
+  "take": 2,
+  "seed": 1952,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: Nebraska farm boy, slow and friendly. Wilbur, the boy who works the counter at Dobbs Feed and Seed in Wahoo.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Dobbs Feed and Seed, this is Wilbur. We got the laying mash in, and the chicken wire, and I think that's about all we got.",
+  "sample_from": [],
+  "rate": 24000,
+  "seconds": 7.44,
+  "generate_seconds": 12.87,
+  "chosen_candidate": 2
+}

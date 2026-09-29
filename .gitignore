@@ -27,6 +27,8 @@
 /tts/voices/candidates/
 /tts/voices/preview/
 /tts/raw/
+# tts/scenes --batch output
+/mp3/
 /tts/jobs.json
 
 # Python bytecode, and the metadata an editable install leaves behind.

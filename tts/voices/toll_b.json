@@ -1,0 +1,13 @@
+{
+  "person": "toll_b",
+  "take": 1,
+  "seed": 1951,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: Chicago, brisk. a long distance toll operator on the route, answering with her town's name (Chicago).\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Chicago. Go ahead, I have you. Ringing your party now. The circuits to the east are busy, please hold the line.",
+  "sample_from": [],
+  "rate": 24000,
+  "seconds": 6.72,
+  "generate_seconds": 10.4,
+  "chosen_candidate": 1
+}

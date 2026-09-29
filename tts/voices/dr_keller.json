@@ -1,0 +1,15 @@
+{
+  "person": "dr_keller",
+  "take": 2,
+  "seed": 1952,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: Minnesota, measured. Dr. Keller of the Mayo Clinic in Rochester, Minnesota.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Walter, it's Keller at the Mayo Clinic. We read your paper. The board would like you to come to Rochester.",
+  "sample_from": [
+    "ld-hollis.4"
+  ],
+  "rate": 24000,
+  "seconds": 6.0,
+  "generate_seconds": 9.24,
+  "chosen_candidate": 2
+}

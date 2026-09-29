@@ -1,0 +1,13 @@
+{
+  "person": "rate_operator",
+  "take": 2,
+  "seed": 1952,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: generic American, fast, flat, reading from a card. the long distance rate and route operator, who gives the route and the charge.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Rate and route. Chicago, New York, night person, two twenty-five. Portland direct, day station, eighty-five cents. Go ahead, Seattle.",
+  "sample_from": [],
+  "rate": 24000,
+  "seconds": 7.84,
+  "generate_seconds": 11.97,
+  "chosen_candidate": 2
+}

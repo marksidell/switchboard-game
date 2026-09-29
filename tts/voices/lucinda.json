@@ -1,0 +1,15 @@
+{
+  "person": "lucinda",
+  "take": 1,
+  "seed": 1951,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: Southern, genteel, sharp. Miss Lucinda Beaumont, the Colonel's sister, in Savannah.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Augustus? Is that you? You sound as if you're at the bottom of a well.",
+  "sample_from": [
+    "beaumont-sister.6"
+  ],
+  "rate": 24000,
+  "seconds": 4.32,
+  "generate_seconds": 6.68,
+  "chosen_candidate": 1
+}

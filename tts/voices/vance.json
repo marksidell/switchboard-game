@@ -1,0 +1,16 @@
+{
+  "person": "vance",
+  "take": 3,
+  "seed": 1953,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: sultry, low, a little sleepy. Miss Lorraine Vance, nightclub singer appearing downtown, room 201; sleeps till noon.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Operator, honey? Would you give me a wake-up call? Four o'clock.",
+  "sample_from": [
+    "vance-wakeup.1",
+    "vance-wakeup.2"
+  ],
+  "rate": 24000,
+  "seconds": 4.72,
+  "generate_seconds": 7.14,
+  "chosen_candidate": 3
+}

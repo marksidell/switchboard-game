@@ -1,0 +1,13 @@
+{
+  "person": "finch",
+  "take": 2,
+  "seed": 1952,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: generic American, nervous and fussy. Howard Finch, accountant at a Rotary convention, room 303; a hypochondriac.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Hello? This is Howard Finch, room three oh three. I'm terribly sorry to bother you, but I think I may be coming down with something.",
+  "sample_from": [],
+  "rate": 24000,
+  "seconds": 8.08,
+  "generate_seconds": 12.55,
+  "chosen_candidate": 2
+}

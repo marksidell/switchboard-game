@@ -1,0 +1,16 @@
+{
+  "person": "carsalesman",
+  "take": 3,
+  "seed": 1953,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: American, but attempts to sound sophisticated with a pseudo British accent. Salesman for the V16 Company of America.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Please connect me with your guest Mary Smith Do I have the pleasure of speaking with Mary Smith",
+  "sample_from": [
+    "easyliving-v16.1",
+    "easyliving-v16.3"
+  ],
+  "rate": 24000,
+  "seconds": 5.68,
+  "generate_seconds": 8.6,
+  "chosen_candidate": 3
+}

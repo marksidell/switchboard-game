@@ -1,0 +1,16 @@
+{
+  "person": "edna_finch",
+  "take": 1,
+  "seed": 1951,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: generic American, practical. Edna Finch, Howard's wife, in Walla Walla.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Hello? Howard, you've had your temperature taken four times since Sunday. It's normal every time.",
+  "sample_from": [
+    "finch-wife.6",
+    "finch-wife.8"
+  ],
+  "rate": 24000,
+  "seconds": 6.64,
+  "generate_seconds": 10.22,
+  "chosen_candidate": 1
+}

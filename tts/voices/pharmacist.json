@@ -1,0 +1,16 @@
+{
+  "person": "pharmacist",
+  "take": 2,
+  "seed": 1952,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: generic American, kindly, older. pharmacist at Ballard Pharmacy.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Ballard Pharmacy. We can send a boy. What seems to be the trouble?",
+  "sample_from": [
+    "finch-pharmacy.2",
+    "finch-pharmacy.4"
+  ],
+  "rate": 24000,
+  "seconds": 4.24,
+  "generate_seconds": 6.48,
+  "chosen_candidate": 2
+}

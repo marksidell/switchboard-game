@@ -1,0 +1,13 @@
+{
+  "person": "telegraph_clerk",
+  "take": 3,
+  "seed": 1953,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: generic American, clipped. counter clerk at Western Union.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Western Union. Go ahead with your message, sir. That's eighteen words, ninety cents, charged to your room.",
+  "sample_from": [],
+  "rate": 24000,
+  "seconds": 6.72,
+  "generate_seconds": 10.25,
+  "chosen_candidate": 3
+}

@@ -1,0 +1,15 @@
+{
+  "person": "eddie",
+  "take": 1,
+  "seed": 1951,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: generic American, young man, sheepish. Eddie Moran, a former pupil of Miss Crane, now in the Navy.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Operator, could you ring Miss Dorothy Crane? She was my teacher in Yakima.",
+  "sample_from": [
+    "lobby-crane.1"
+  ],
+  "rate": 24000,
+  "seconds": 4.24,
+  "generate_seconds": 6.52,
+  "chosen_candidate": 1
+}

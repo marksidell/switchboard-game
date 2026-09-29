@@ -1,0 +1,13 @@
+{
+  "person": "toll_d",
+  "take": 3,
+  "seed": 1953,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: Western, slow and friendly. a long distance toll operator on the route, answering with her town's name (Boise, Yakima, Atlanta).\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Boise. Well, hello there, Seattle. I'm ringing that number for you now. Nobody's picked up yet, give it a minute.",
+  "sample_from": [],
+  "rate": 24000,
+  "seconds": 7.28,
+  "generate_seconds": 11.1,
+  "chosen_candidate": 3
+}

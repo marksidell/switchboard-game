@@ -1,9 +1,16 @@
 # Which candidate to keep for each cast member (tts_task.md 5.4).
 # Written by tts/audition; tts/choose reads it.
 
+hotel_operator: 2
 thornhill: 2
 operator: 2
-assassin: 2
+local_operator: 3
+rate_operator: 2
+toll_a: 2
+toll_b: 1
+toll_c: 3
+toll_d: 3
+valerian: 2
 valet: 3
 pike: 2
 albright: 3
@@ -18,3 +25,37 @@ pizza_man: 3
 dispatcher: 1
 maitre_d: 3
 reporter: 3
+martha: 1
+marysmith: 1
+carsalesman: 3
+pemberton: 1
+dobbs: 3
+vance: 3
+beaumont: 3
+finch: 2
+jim_hale: 2
+housekeeper: 2
+bellcaptain: 3
+concierge: 1
+hostess: 1
+pigalle: 3
+rays_host: 1
+telegraph_clerk: 3
+pharmacist: 2
+box_office: 3
+ferry_clerk: 2
+sergeant: 2
+nurse: 1
+clara_thornhill: 1
+gruber: 1
+mrs_dunn: 3
+lucinda: 1
+edna_finch: 1
+ruth_seaver: 2
+mabel_dobbs: 1
+wilbur: 2
+dr_keller: 2
+gunderson: 1
+chester: 3
+admirer: 1
+eddie: 1

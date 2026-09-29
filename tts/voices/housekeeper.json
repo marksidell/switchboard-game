@@ -1,0 +1,16 @@
+{
+  "person": "housekeeper",
+  "take": 2,
+  "seed": 1952,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: Scandinavian Ballard, patient but tried. Mrs. Olsen, the head housekeeper.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Housekeeping, Mrs. Olsen speaking. Of course, Mrs. Pemberton. I'll send a maid up with one right away.",
+  "sample_from": [
+    "pemb-blanket.2",
+    "pemb-blanket.4"
+  ],
+  "rate": 24000,
+  "seconds": 6.8,
+  "generate_seconds": 10.39,
+  "chosen_candidate": 2
+}

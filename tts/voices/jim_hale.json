@@ -1,0 +1,13 @@
+{
+  "person": "jim_hale",
+  "take": 2,
+  "seed": 1952,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: generic American, young and eager. Jim Hale, Betty Hale's new husband, room 305.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Hello? This is Jim Hale, room three oh five. We just got married on Saturday, and my wife would like some champagne.",
+  "sample_from": [],
+  "rate": 24000,
+  "seconds": 6.4,
+  "generate_seconds": 9.75,
+  "chosen_candidate": 2
+}

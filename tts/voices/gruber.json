@@ -1,0 +1,13 @@
+{
+  "person": "gruber",
+  "take": 1,
+  "seed": 1951,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: Chicago, gruff. Mr. Gruber, Pike's sales manager at the Whirlwind Vacuum Company in Chicago.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Gruber here. Whirlwind Vacuum Company. I've got forty salesmen on the road and every one of them tells me it's raining.",
+  "sample_from": [],
+  "rate": 24000,
+  "seconds": 6.8,
+  "generate_seconds": 10.36,
+  "chosen_candidate": 1
+}

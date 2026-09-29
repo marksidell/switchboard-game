@@ -1,0 +1,361 @@
+#!/usr/bin/env python3
+"""Play the active scenes, one after another, on one Digiface channel.
+
+For hearing the script as the game will play it, without the game, the boards
+or the audio program; or, with --batch, for recording every scene whole. Walks the active scenes in script order. Before each
+scene it asks what next: <enter> for the next scene, r for the one just
+played again, or a scene id to play that one. Wherever the game would wait
+for the operator — to answer, to ring or dial, or to speak before a wait:
+line, a call to the operator's line or a busy scene's line — it asks for
+<enter> instead, showing the operator: line the script gives for that point
+(game_control.md 4.7). Ctrl-C stops the scene and goes back to the prompt.
+
+--batch plays nothing. It writes each scene, active or not, to
+<out>/<scene>.mp3: the same steps, with the operator's own lines — rendered in
+hotel_operator's voice as operator.<id> or <scene>.<id> — in the places the
+player would say them, a short beat between speakers, and the ringing or
+dialling as a pause. A scene missing a wav, or with a place the operator speaks
+and no operator: for it, is skipped and named. A call to the operator or a
+busy call ends with her closing: line, if it has one.
+
+Every line, both sides of the call, goes to one channel, zero-based index 0
+by default — circuit 1. pause: is silence; ringback: and the ring of an
+outside line are the 420Hz ringback of audio.md §8.2, and busy tone is its
+busy, both at the same −20dBFS peak.
+
+Audio path as tts/audition: the Digiface USB is ALSA card 1, 34 playback
+channels of S32_LE at 48kHz, docs/audio-io.md. The device must be free, so
+stop sbaudio first.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import subprocess
+import sys
+from pathlib import Path
+from typing import Iterator
+
+# Run under the project venv, as tts/audition does.
+_venv = Path(__file__).resolve().parent / ".venv" / "bin" / "python"
+if sys.prefix == sys.base_prefix and _venv.exists():
+    os.execv(str(_venv), [str(_venv), str(Path(__file__).resolve()), *sys.argv[1:]])
+
+import numpy as np
+import soundfile as sf
+import soxr
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from tts.script import DEFAULT_SCRIPT, Script, ScriptError, Utterance, load  # noqa: E402
+
+# By card id, not number: the numbers follow USB enumeration order and moved
+# on portland (the Digiface was card 1, then card 2). audio.md Rev 2.
+DEVICE = "hw:USB24306452"
+CHANNELS = 34
+RATE = 48000
+WAV = Path(__file__).resolve().parent.parent / "wav"
+
+# audio.md §8.2: carrier × (1 + m·sin(2π f_mod t)), m = 1, −20dBFS peak.
+TONE_PEAK = 10 ** (-20 / 20)
+TONES = {                    # carrier, modulation, on, off
+    "ringback": (420.0, 40.0, 2.0, 4.0),
+    "busy": (600.0, 120.0, 0.5, 0.5),
+}
+RING_OUT = 2.0               # flows.py: two seconds of ringback before the far end answers
+BUSY_FOR = 3.0               # how much busy tone to play before the operator goes back
+# --batch only: the beat between one speaker and the next, and the time the
+# operator takes to ring a station or dial a number.
+TURN = 0.4
+ROUTE = 1.5
+
+
+class Player:
+    """Builds each piece of a scene as 48kHz mono, and plays it or keeps it."""
+
+    def __init__(self, device: str, channel: int, gain_db: float) -> None:
+        self.device = device
+        self.channel = channel
+        self.gain = 10.0 ** (gain_db / 20.0)
+
+    def out(self, audio: np.ndarray) -> None:
+        audio = np.clip(audio * self.gain, -1.0, 1.0)
+        frame = np.zeros((len(audio), CHANNELS), dtype=np.int32)
+        frame[:, self.channel] = (audio * (2 ** 31 - 1)).astype(np.int32)
+        try:
+            subprocess.run(
+                ["aplay", "-D", self.device, "-t", "raw", "-f", "S32_LE",
+                 "-r", str(RATE), "-c", str(CHANNELS), "-q", "-"],
+                input=frame.tobytes(), check=True)
+        except FileNotFoundError:
+            sys.exit("aplay not found: install alsa-utils")
+        except subprocess.CalledProcessError as e:
+            if e.returncode < 0:          # killed by the Ctrl-C that stops the scene
+                raise KeyboardInterrupt from None
+            sys.exit(f"aplay failed ({e.returncode}). Is {self.device} free — sbaudio "
+                     f"stopped — and is the Digiface connected?")
+
+
+def wav_audio(path: Path) -> np.ndarray:
+    audio, rate = sf.read(str(path), always_2d=False, dtype="float64")
+    audio = np.asarray(audio)
+    if audio.ndim > 1:
+        audio = audio.mean(axis=1)
+    if rate != RATE:
+        audio = soxr.resample(audio, rate, RATE, quality="VHQ")
+    return audio
+
+
+def tone_audio(kind: str, seconds: float) -> np.ndarray:
+    carrier, mod, on, off = TONES[kind]
+    t = np.arange(int(seconds * RATE)) / RATE
+    audio = np.sin(2 * np.pi * carrier * t) * (1 + np.sin(2 * np.pi * mod * t)) / 2
+    return audio * TONE_PEAK * ((t % (on + off)) < on)     # cadence starts on
+
+
+def silence(seconds: float) -> np.ndarray:
+    return np.zeros(int(seconds * RATE))
+
+
+# A scene as the game runs it, one step at a time (flows.py):
+#   ("note", text)                        said on the terminal, nothing heard
+#   ("operator", what, Utterance | None)  the game waits for her; what she says, if written
+#   ("route", what)                       she rings the station or dials the number
+#   ("line", Utterance)                   a line played
+#   ("tone", kind, seconds), ("silence", seconds)
+Step = tuple
+
+
+def steps(raw: dict, lines: list[Utterance], script: Script) -> Iterator[Step]:
+    stations, outside = script.stations, script.outside
+    ops = script.by_name()
+    calling, called = raw["calling"], raw.get("called")
+    from_line = calling["line"]
+    to_line = called["line"] if called else ""
+    trunk_side = {"caller": from_line in outside, "called": to_line in outside}
+
+    def say(u: Utterance, what: str) -> Iterator[Step]:
+        if u.after_operator:
+            yield ("operator", what, ops.get(u.operator))
+        if u.pause:
+            yield ("note", f"… {u.pause:g}s pause")
+            yield ("silence", u.pause)
+        if u.ringback and trunk_side[u.role]:
+            yield ("note", f"… {u.ringback:g}s ringback")
+            yield ("tone", "ringback", u.ringback)
+        yield ("line", u)
+
+    request, conversation = lines[0], lines[1:]
+    closing = ops.get(script.closings.get(request.scene, ""))
+    yield ("note", f"{'rings' if from_line in outside else 'lamp lights'}: {from_line}")
+    yield from say(request, "operator answers")
+
+    if not called:
+        for u in conversation:
+            yield from say(u, "operator speaks")
+        if closing:
+            yield ("operator", "operator closes", closing)
+        yield ("note", "(caller hangs up)")
+        return
+
+    if to_line in stations:
+        yield ("route", f"operator rings {to_line}")
+    else:
+        yield ("route", f"operator dials {outside[to_line].get('number', '')} ({to_line})")
+    if called.get("busy"):
+        yield ("note", "… busy")
+        yield ("tone", "busy", BUSY_FOR)
+        for u in conversation:
+            yield from say(u, "operator speaks to the caller")
+        if closing:
+            yield ("operator", "operator closes", closing)
+        yield ("note", "(caller hangs up)")
+        return
+    if to_line in outside:
+        yield ("tone", "ringback", RING_OUT)
+    for u in conversation:
+        yield from say(u, f"operator speaks to the {'caller' if u.role == 'caller' else 'called party'}")
+    yield ("note", "(both hang up)")
+
+
+def show(u: Utterance) -> None:
+    indent = {"caller": "", "called": "    ", "operator": "  "}[u.role]
+    print(f"  {u.id:>3} {indent}{u.speaker}: {u.text}")
+
+
+def play_scene(raw: dict, lines: list[Utterance], script: Script, p: Player, wav: Path) -> None:
+    for step in steps(raw, lines, script):
+        kind = step[0]
+        if kind == "note":
+            print(f"    {step[1]}")
+        elif kind in ("operator", "route"):
+            said = step[2] if kind == "operator" else None
+            print(f"    ⏸  {step[1]}" + (f': "{said.text}"' if said else ""), end="")
+            input(" — <enter> ")
+        elif kind == "line":
+            show(step[1])
+            p.out(wav_audio(wav / step[1].filename))
+        elif kind == "tone":
+            p.out(tone_audio(step[1], step[2]))
+        elif kind == "silence":
+            p.out(silence(step[1]))
+
+
+def render_scene(raw: dict, lines: list[Utterance], script: Script, wav: Path) -> np.ndarray:
+    """The whole scene as one recording, the operator's lines in their places."""
+    parts: list[np.ndarray] = []
+    for step in steps(raw, lines, script):
+        kind = step[0]
+        if kind == "operator":
+            parts += [silence(TURN), wav_audio(wav / step[2].filename)]
+        elif kind == "route":
+            parts.append(silence(ROUTE))
+        elif kind == "line":
+            parts += [silence(TURN), wav_audio(wav / step[1].filename)]
+        elif kind == "tone":
+            parts.append(tone_audio(step[1], step[2]))
+        elif kind == "silence":
+            parts.append(silence(step[1]))
+    parts.append(silence(TURN))
+    return np.concatenate(parts)
+
+
+def needs(sid: str, lines: list[Utterance], script: Script, wav: Path) -> list[str]:
+    """What a recording of the scene still lacks: missing wavs, unwritten operator lines."""
+    ops = script.by_name()
+    out = [u.filename for u in lines if not (wav / u.filename).exists()]
+    for u in lines:
+        if not u.after_operator:
+            continue
+        if not u.operator:
+            out.append(f"operator: before {u.name}")
+        elif not (wav / ops[u.operator].filename).exists():
+            out.append(ops[u.operator].filename)
+    closing = script.closings.get(sid)
+    if closing and not (wav / f"{closing}.wav").exists():
+        out.append(f"{closing}.wav")
+    return out
+
+
+def batch(script: Script, wav: Path, out: Path, gain_db: float, only: list[str]) -> int:
+    out.mkdir(parents=True, exist_ok=True)
+    gain = 10.0 ** (gain_db / 20.0)
+    made, skipped = 0, []
+    for sid in only or list(script.scenes):
+        lines = script.scene_lines(sid)
+        lacking = needs(sid, lines, script, wav)
+        if lacking:
+            skipped.append((sid, lacking))
+            continue
+        audio = np.clip(render_scene(script.scenes[sid], lines, script, wav) * gain, -1.0, 1.0)
+        sf.write(str(out / f"{sid}.mp3"), audio, RATE, format="MP3")
+        print(f"{out / (sid + '.mp3')}  {len(audio) / RATE:.1f}s")
+        made += 1
+    for sid, lacking in skipped:
+        print(f"skipped {sid}: {len(lacking)} missing — {', '.join(lacking[:4])}"
+              + (" …" if len(lacking) > 4 else ""), file=sys.stderr)
+    print(f"{made} written to {out}/, {len(skipped)} skipped")
+    return 0 if made or not skipped else 1
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--script", default=DEFAULT_SCRIPT)
+    ap.add_argument("--wav", type=Path, default=WAV, help=f"directory of wavs (default {WAV})")
+    ap.add_argument("--device", default=DEVICE)
+    ap.add_argument("--channel", type=int, default=0, metavar="N",
+                    help=f"zero-based, as the driver indexes it, 0..{CHANNELS - 1} "
+                         f"(default 0, circuit 1; 32/33 are the headphone jack)")
+    ap.add_argument("--gain", type=float, default=0.0, help="dB, applied on the way out")
+    ap.add_argument("--from", dest="start", default="", metavar="SCENE",
+                    help="start at this scene rather than the first")
+    ap.add_argument("--batch", action="store_true",
+                    help="play nothing: write every scene, the operator's lines included, "
+                         "to <out>/<scene>.mp3")
+    ap.add_argument("--out", type=Path, default=Path("mp3"), help="--batch: where (default mp3/)")
+    ap.add_argument("--only", default="", metavar="SCENES",
+                    help="--batch: comma-separated scene ids, active or not (default every scene)")
+    args = ap.parse_args()
+
+    if not 0 <= args.channel < CHANNELS:
+        print(f"--channel {args.channel} is outside 0..{CHANNELS - 1}", file=sys.stderr)
+        return 1
+    try:
+        script = load(args.script)
+    except ScriptError as e:
+        print(f"{e.path}: {len(e.failures)} problem(s)", file=sys.stderr)
+        for f in e.failures:
+            print(f"  {f}", file=sys.stderr)
+        return 1
+
+    if args.batch:
+        only = [x for x in args.only.split(",") if x]
+        unknown = [x for x in only if x not in script.scenes]
+        if unknown:
+            print(f"not a scene: {', '.join(unknown)}", file=sys.stderr)
+            return 1
+        return batch(script, args.wav, args.out, args.gain, only)
+
+    scenes = script.active_scenes()
+    order = list(scenes)
+    lines = {sid: script.scene_lines(sid) for sid in order}
+    missing = [u.filename for sid in order for u in lines[sid] if not (args.wav / u.filename).exists()]
+    if missing:
+        print(f"{len(missing)} wav(s) missing from {args.wav}/: {', '.join(missing)}", file=sys.stderr)
+        return 1
+    if args.start and args.start not in scenes:
+        print(f"{args.start}: not an active scene", file=sys.stderr)
+        return 1
+
+    p = Player(args.device, args.channel, args.gain)
+    print(f"{len(order)} active scenes, through {args.device} channel index {args.channel}")
+
+    nxt = order.index(args.start) if args.start else 0
+    last: str | None = None
+    while True:
+        up = order[nxt] if nxt < len(order) else None
+        prompt = (f"\n[enter] {up}" if up else "\n[enter] quit — that was the last")
+        prompt += "   r repeat" if last else ""
+        try:
+            answer = input(f"{prompt}   <scene> play it   l list   q quit > ").strip()
+        except EOFError:
+            print()
+            return 0
+        if answer == "":
+            if up is None:
+                return 0
+            sid = up
+        elif answer == "r" and last:
+            sid = last
+        elif answer == "q":
+            return 0
+        elif answer == "l":
+            for i, s in enumerate(order):
+                print(f"  {'→' if i == nxt else ' '} {s}")
+            continue
+        elif answer in scenes:
+            sid = answer
+        else:
+            close = [s for s in order if answer in s]
+            print(f"  '{answer}'? " + (f"perhaps {', '.join(close)}" if close else "l lists the scenes"))
+            continue
+
+        raw = scenes[sid]
+        to = (raw.get("called") or {}).get("line", "the operator")
+        print(f"\n== {sid}: {raw['calling']['line']} → {to}"
+              f"{'  (busy)' if (raw.get('called') or {}).get('busy') else ''}"
+              f"{'  after ' + raw['after'] if raw.get('after') else ''}")
+        try:
+            play_scene(raw, lines[sid], script, p, args.wav)
+        except KeyboardInterrupt:
+            print("\n    (stopped)")
+        except EOFError:
+            print()
+            return 0
+        last = sid
+        nxt = order.index(sid) + 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

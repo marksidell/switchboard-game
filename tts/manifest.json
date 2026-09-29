@@ -268,7 +268,7 @@
   "nbn-kaplan.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "assassin",
+    "speaker": "valerian",
     "text_sha": "337620d049e0a064",
     "voice_sha": "34370347109da091"
   },
@@ -282,7 +282,7 @@
   "nbn-kaplan.3": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "assassin",
+    "speaker": "valerian",
     "text_sha": "85d6d1940835fcc7",
     "voice_sha": "34370347109da091"
   },
@@ -296,7 +296,7 @@
   "nbn-kaplan.5": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "assassin",
+    "speaker": "valerian",
     "text_sha": "0ef6962ebb50a2d7",
     "voice_sha": "34370347109da091"
   },

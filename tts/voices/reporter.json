@@ -11,6 +11,6 @@
   ],
   "rate": 24000,
   "seconds": 9.52,
-  "generate_seconds": 15.23,
+  "reconstructed": "2026-09-29: the generation run left this file empty; rebuilt from take 2's, which shares everything but take, seed and length",
   "chosen_candidate": 3
 }

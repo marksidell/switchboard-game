@@ -1,0 +1,16 @@
+{
+  "person": "concierge",
+  "take": 1,
+  "seed": 1951,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: polished, a touch continental. Mr. Fairweather, the hotel concierge; knows everybody.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Concierge. Fairweather speaking. Welcome, Mr. Dobbs. You might start with the Ballard Locks, just up the street. The boats go up and down like an elevator.",
+  "sample_from": [
+    "dobbs-concierge.2",
+    "dobbs-concierge.4"
+  ],
+  "rate": 24000,
+  "seconds": 8.4,
+  "generate_seconds": 12.84,
+  "chosen_candidate": 1
+}

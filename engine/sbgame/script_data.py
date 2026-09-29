@@ -136,7 +136,7 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
     people: dict[str, tuple[str, str]] = {}
     # Only active scenes are built, so an inactive one needs no wavs (§4.4).
     for sid, raw in s.active_scenes().items():
-        us = [u for u in s.utterances if u.scene == sid]
+        us = s.scene_lines(sid)          # the operator's own lines are not played
         req = us[0]
         calling, called = raw["calling"], raw.get("called")
         shape = _shape(raw, stations, outside)

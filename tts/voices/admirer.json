@@ -1,0 +1,16 @@
+{
+  "person": "admirer",
+  "take": 1,
+  "seed": 1951,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: generic American, young and smitten. a young sailor who heard Lorraine Vance sing last night.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Operator, could you ring Miss Lorraine Vance? I sent her the roses. Miss Vance? I'm the fella who sent the roses. I heard you sing last night. I'm in the lobby.",
+  "sample_from": [
+    "lobby-vance.1",
+    "lobby-vance.3"
+  ],
+  "rate": 24000,
+  "seconds": 10.16,
+  "generate_seconds": 15.63,
+  "chosen_candidate": 1
+}

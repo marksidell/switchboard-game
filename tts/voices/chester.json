@@ -1,0 +1,16 @@
+{
+  "person": "chester",
+  "take": 3,
+  "seed": 1953,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: generic American, young, wheedling. Chester, Mrs. Albright's nephew, always short of money.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Operator, room 302, please. Mrs. Edith Albright. I'm her nephew. Aunt Edith! It's Chester! I'm down in the lobby. What a coincidence.",
+  "sample_from": [
+    "lobby-albright.1",
+    "lobby-albright.3"
+  ],
+  "rate": 24000,
+  "seconds": 12.72,
+  "generate_seconds": 19.58,
+  "chosen_candidate": 3
+}

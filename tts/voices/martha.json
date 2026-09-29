@@ -1,0 +1,16 @@
+{
+  "person": "martha",
+  "take": 1,
+  "seed": 1951,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: A dog who can speak, with a deep dog-like voice. Martha the dog.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Connect me to room service. Hello, room service? This is room 103. I'd like to order 8 t-bone steaks, rare, no salad, a half-dozen pork chops, rack of lamb, with a side order of chicken.",
+  "sample_from": [
+    "martha-roomservice.1",
+    "martha-roomservice.3"
+  ],
+  "rate": 24000,
+  "seconds": 13.6,
+  "generate_seconds": 21.22,
+  "chosen_candidate": 1
+}

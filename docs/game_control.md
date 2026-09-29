@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 21 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played*
+*Rev 22 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played*
 
 # 1. Overview
 
@@ -176,6 +176,18 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
 
+## 1.22 Changes in Rev 22
+
+— script.yml says what the player says (§4.7), Mark's request, 2026-09-29: an `operator:` key on each line the game waits for the operator before, naming a line under a new top-level `operator_lines:`, or giving an id and text of the scene's own. Mark wants every scene as one recording, both halves of the conversation, which needs the operator's half written and rendered. The TTS run renders the lines in the voice of a new cast member, `hotel_operator` — `operator` in the cast is already the long-distance operator.
+
+— The game ignores them: the person at the board speaks them. An `operator:` is refused where the game does not wait for her, because there the next line would play over it; and one that names no line under `operator_lines:`, or whose inline id the scene already uses. It is optional: `python -m tts.script` counts the places still without one.
+
+— Considered and not adopted: operator lines as conversation entries of their own, beside `caller:` and `called:`. That is the more natural form to write, but it changes what the flows iterate over and would make `wait:` redundant with a preceding operator line. A key on the line it precedes changes nothing the game reads.
+
+— A scene-level `closing:`, in either form, for what she says after the last line (§4.7), Mark's request, the same day: without it a call to the operator ended on the guest's question. Refused in a call where she has left the line by the end — any but a call to the operator or a busy call. The 13 such scenes each have one of their own.
+
+— Code consequence for Claude Code, made the same day: the loader, the game program's exclusion of the operator's lines from a scene (`script_data.py`), tests of the five refusals, and `tts/scenes --batch`, which writes each scene to an mp3 with the operator's lines in their places. Every place in the 105 scenes has its `operator:`: four stock lines and 25 of the scenes' own.
+
 ## 1.21 Changes in Rev 21
 
 — `ringback:` is allowed on any line spoken on a trunk (§4.6), Mark's request, 2026-09-28: the called side of a call out, as in Rev 20, and now also the calling side of a call in. A long-distance operator who could not get through calls back when she has the party (script.yml, "Long distance"): the call rings in on a trunk, the hotel operator puts it through to the room, and only then does the far end ring — on the calling side. The loader's refusal now names a line spoken on a station, or in a scene where every line waits already.
@@ -316,6 +328,17 @@ Two keys on a conversation line (Rev 19):
 A line's own lead-in runs in that order: the wait, then the pause, then the ringback, then the line. A cord pulled during any of them cuts the call off, as during speech (§5).
 
 The long-distance call is the case they were made for. The hotel operator dials 0 on a trunk; the local operator (`called.person`) answers, "Operator"; the hotel operator asks for long distance; the next line, marked `wait: true` and `person:` the long-distance operator, answers "Long distance", and the guest talks to her. The party she rings can speak on the trunk too, with a `person:` of their own. So can each operator on the route: she asks the rate operator for the route and the charge, then rings through each toll center on it, each answering with its town's name after a `pause:`, and the party answers after a `ringback:`.
+
+## 4.7 What the Operator Says
+
+The player speaks for the hotel operator, and the game only listens for her. script.yml still says what she is expected to say (Rev 22), for recordings of whole scenes (`tts/scenes --batch`) and as a prompt:
+
+- **`operator_lines:`**, at the top level — stock lines by name, each with an `id:` and `text:`. The TTS run renders them in `hotel_operator`'s voice as `operator.<id>`, so no scene may be called `operator`.
+- **`operator: <name>`**, or **`operator:`** with an `id:` and `text:`, on the request or a conversation line — what she says just before that line. The inline form is one of the scene's utterances, `<scene>.<id>`, its id unique in the scene and permanent like any other.
+
+- **`closing:`**, on a scene, in either form — what she says after the last line, before the caller hangs up. Only in a call to the operator or a busy call: in any other she has left the line by the end.
+
+`operator:` is allowed only where the game waits for her to speak: the request, a `wait: true` line, and every line of a call to the operator or a busy call (§4.6). Both are optional. The game program never plays these lines and never needs their wavs.
 
 # 5. Tallies
 

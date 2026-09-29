@@ -1,0 +1,16 @@
+{
+  "person": "hotel_operator",
+  "take": 2,
+  "seed": 1952,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: generic American, warm and crisp. the Hotel Ballard's switchboard operator, a young woman, courteous and efficient.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "How may I connect your call? Hotel Ballard. How may I help you?",
+  "sample_from": [
+    "operator.1",
+    "operator.2"
+  ],
+  "rate": 24000,
+  "seconds": 4.24,
+  "generate_seconds": 7.48,
+  "chosen_candidate": 2
+}

@@ -1,0 +1,16 @@
+{
+  "person": "nurse",
+  "take": 1,
+  "seed": 1951,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: generic American, crisp. nurse at the switchboard of Swedish Hospital.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Swedish Hospital. Yes, Doctor. Nothing by mouth after midnight, as you ordered.",
+  "sample_from": [
+    "hollis-swedish.2",
+    "hollis-swedish.4"
+  ],
+  "rate": 24000,
+  "seconds": 5.68,
+  "generate_seconds": 8.83,
+  "chosen_candidate": 1
+}

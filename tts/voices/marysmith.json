@@ -1,0 +1,13 @@
+{
+  "person": "marysmith",
+  "take": 1,
+  "seed": 1951,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: A 1930s American woman in her early thirties. Husky, slightly raspy alto with a hint of nasal brightness. Speaks quickly and crisply, with a dry, wisecracking, working-girl edge. Her voice is a little unstable: on emotional or surprised words it cracks upward into a brief, high squeak, then drops back to the husky register. Tough on the surface, vulnerable underneath. Clear mid-Atlantic-leaning diction, not breathy or sultry.\n. Mary Smith in the film Easy Living.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Look, mister, I work for a living. I ride the bus and I eat at the automat, and nobody ever gave me anything before.",
+  "sample_from": [],
+  "rate": 24000,
+  "seconds": 8.08,
+  "generate_seconds": 12.85,
+  "chosen_candidate": 1
+}

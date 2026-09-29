@@ -1,0 +1,13 @@
+{
+  "person": "local_operator",
+  "take": 3,
+  "seed": 1953,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A female voice. Accent: generic American, flat and quick. the local telephone company operator who answers when the hotel operator dials 0.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Operator. What number are you calling? One moment, please, I'll give you long distance. Your party is on the line.",
+  "sample_from": [],
+  "rate": 24000,
+  "seconds": 6.4,
+  "generate_seconds": 9.74,
+  "chosen_candidate": 3
+}

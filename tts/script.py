@@ -16,7 +16,7 @@ carrying every failure found rather than only the first.
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Iterator
 
@@ -46,6 +46,15 @@ MIN_JACK, MAX_JACK = 1, 30
 # A conversation line's pause: and ringback:, in seconds (game_control.md 4.6).
 MAX_PAUSE, MAX_RINGBACK = 30, 30
 
+# The player's own lines (game_control.md 4.7, Rev 22). The game never plays
+# them — the person at the board says them — but the TTS run renders them in
+# this cast member's voice, for recordings of whole conversations
+# (tts/scenes --batch). `operator` in the cast is the long-distance operator.
+HOTEL_OPERATOR = "hotel_operator"
+# The stock lines under operator_lines: are named operator.<id>, as if they
+# were a scene of that name, so no scene may take it.
+OPERATOR_SCENE = "operator"
+
 
 def _seconds(v: object) -> float:
     """A pause: or ringback: that passed validation, else 0."""
@@ -69,7 +78,8 @@ class Utterance:
     id: int
     speaker: str
     text: str
-    # Which side of the call says it, "caller" or "called". Usually the scene's
+    # Which side of the call says it, "caller" or "called" — or "operator" for
+    # the player's own line, which the game never plays. Usually the scene's
     # party on that side is the speaker; a line's own person: overrides that.
     role: str = "caller"
     # wait: true — the game plays it only after the operator has spoken on
@@ -79,6 +89,12 @@ class Utterance:
     # before it, after any wait (game_control.md 4.6, Rev 20).
     pause: float = 0.0
     ringback: float = 0.0
+    # The game waits for the operator to speak before this line: the request,
+    # a wait: line, every line of a call to the operator or a busy call.
+    after_operator: bool = False
+    # What she says there, if the script gives it: the name of an operator
+    # line, operator.<id> or <scene>.<id>, else "" (game_control.md 4.7).
+    operator: str = ""
 
     @property
     def name(self) -> str:
@@ -101,6 +117,10 @@ class Script:
     # script.yml's jacks:, each {"jack": int, "label": str, "station": str | None}
     jacks: list[dict] = field(default_factory=list)
     utterances: list[Utterance] = field(default_factory=list)
+    # operator_lines: key -> the stock line's utterance (game_control.md 4.7)
+    operator_lines: dict[str, Utterance] = field(default_factory=dict)
+    # scene id -> the name of the operator line that closes it, if any
+    closings: dict[str, str] = field(default_factory=dict)
 
     def by_speaker(self) -> dict[str, list[Utterance]]:
         out: dict[str, list[Utterance]] = {p: [] for p in self.cast}
@@ -111,6 +131,13 @@ class Script:
     def active_scenes(self) -> dict[str, dict]:
         """The scenes the game plays: those marked `active: true`."""
         return {i: sc for i, sc in self.scenes.items() if sc.get("active") is True}
+
+    def scene_lines(self, scene_id: str) -> list[Utterance]:
+        """A scene's lines in order of play, request first, without the operator's."""
+        return [u for u in self.utterances if u.scene == scene_id and u.role != "operator"]
+
+    def by_name(self) -> dict[str, Utterance]:
+        return {u.name: u for u in self.utterances}
 
     def first_lines(self, person: str) -> list[Utterance]:
         """That person's lines in script order — session 1 samples from these."""
@@ -158,7 +185,7 @@ def _utterances_of(scene_id: str, scene: dict) -> Iterator[tuple[int | None, str
     """
     request = scene.get("request")
     if isinstance(request, dict):
-        yield request.get("id"), "caller", request.get("text", ""), "request", {}
+        yield request.get("id"), "caller", request.get("text", ""), "request", request
     conversation = scene.get("conversation") or []
     if isinstance(conversation, list):
         for i, line in enumerate(conversation):
@@ -194,6 +221,8 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
     both = sorted(set(stations) & set(outside))
     for name in both:
         bad(f"{name}", "is both a station and an outside entry")
+    if OPERATOR_SCENE in scenes:
+        bad(f"scenes.{OPERATOR_SCENE}", "is reserved for the names of operator_lines:")
     lines = set(stations) | set(outside)
 
     # --- station and outside numbering --------------------------------------
@@ -272,8 +301,42 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
         else:
             seen_outside[number] = name
 
-    # --- scenes --------------------------------------------------------------
+    # --- the operator's stock lines (game_control.md 4.7) ---------------------
     utterances: list[Utterance] = []
+    stock: dict[str, Utterance] = {}
+    op_lines = data.get("operator_lines") or {}
+    if not isinstance(op_lines, dict):
+        bad("operator_lines", "not a mapping")
+        op_lines = {}
+    if (op_lines or _any_operator_label(scenes)) and HOTEL_OPERATOR not in cast:
+        bad("cast", f"no {HOTEL_OPERATOR}, who speaks the operator's lines")
+    seen_stock: dict[int, str] = {}
+    for key, entry in op_lines.items():
+        at = f"operator_lines.{key}"
+        if not isinstance(entry, dict):
+            bad(at, "not a mapping")
+            continue
+        extra = sorted(set(entry) - {"id", "text"})
+        if extra:
+            bad(at, f"unknown key(s): {', '.join(map(str, extra))}")
+        uid, text = entry.get("id"), entry.get("text")
+        if not isinstance(uid, int) or isinstance(uid, bool):
+            bad(f"{at}.id", f"not an integer: {uid!r}")
+            continue
+        if uid in seen_stock:
+            bad(f"{at}.id", f"{uid} already used by {seen_stock[uid]}")
+            continue
+        seen_stock[uid] = str(key)
+        if not isinstance(text, str) or not text.strip():
+            bad(at, "empty text")
+            continue
+        u = Utterance(scene=OPERATOR_SCENE, id=uid, speaker=HOTEL_OPERATOR,
+                      text=text.strip(), role="operator")
+        stock[str(key)] = u
+        utterances.append(u)
+
+    # --- scenes --------------------------------------------------------------
+    closings: dict[str, str] = {}
     for scene_id, scene in scenes.items():
         if not isinstance(scene, dict):
             bad(f"scenes.{scene_id}", "not a mapping")
@@ -331,7 +394,7 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
                 bad(at, "not a mapping")
                 continue
             extra = sorted(set(line) - {"id", "caller", "called", "person", "wait",
-                                        "pause", "ringback"})
+                                        "pause", "ringback", "operator"})
             if extra:
                 bad(at, f"unknown key(s): {', '.join(map(str, extra))}")
             if "caller" in line and "called" in line:
@@ -358,7 +421,15 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
                     bad(f"{at}.ringback", "only on a line spoken on a trunk: a call's outside end")
             if "person" in line and line["person"] not in cast:
                 bad(f"{at}.person", f"{line['person']!r} is not in the cast")
+        req = scene.get("request")
+        if isinstance(req, dict):
+            extra = sorted(set(req) - {"id", "text", "operator"})
+            if extra:
+                bad(f"scenes.{scene_id}.request", f"unknown key(s): {', '.join(map(str, extra))}")
         seen_id: dict[int, str] = {}
+        # The operator's own lines in the scene come after its ids are known,
+        # since an inline one shares them.
+        labels: list[tuple[str, object, int]] = []   # where, operator: value, index into utterances
         for uid, role, text, where, raw in _utterances_of(scene_id, scene):
             at = f"scenes.{scene_id}.{where}"
             if not isinstance(uid, int) or isinstance(uid, bool):
@@ -377,15 +448,75 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
                 continue
             if raw.get("person") in cast:
                 speaker = raw["person"]
+            listens = where == "request" or raw.get("wait") is True or waits_anyway
             u = Utterance(scene=scene_id, id=uid, speaker=speaker, text=text.strip(),
                           role=role, wait=raw.get("wait") is True,
                           pause=_seconds(raw.get("pause")),
-                          ringback=_seconds(raw.get("ringback")))
+                          ringback=_seconds(raw.get("ringback")),
+                          after_operator=listens)
             why = name_problem(u.name)
             if why is not None:
                 bad(at, f"file name {u.name!r} is not usable: {why}")
                 continue
+            if "operator" in raw:
+                if not listens:
+                    bad(f"{at}.operator", "the game does not wait for the operator before "
+                        "this line: mark it wait: true, or drop operator:")
+                else:
+                    labels.append((at, raw["operator"], len(utterances)))
             utterances.append(u)
+
+        # operator: is a key under operator_lines:, or an inline {id, text}
+        # for a line only this scene needs. Inline lines are utterances of
+        # the scene, placed before the line they precede.
+        def resolve(at: str, label: object) -> tuple[Utterance | None, bool]:
+            """The operator line a label names, and whether it is the scene's own."""
+            if isinstance(label, str):
+                if label not in stock and label not in op_lines:
+                    bad(at, f"{label!r} is not under operator_lines:")
+                return stock.get(label), False
+            if not isinstance(label, dict):
+                bad(at, f"not a name under operator_lines: or an id and text: {label!r}")
+                return None, False
+            extra = sorted(set(label) - {"id", "text"})
+            if extra:
+                bad(at, f"unknown key(s): {', '.join(map(str, extra))}")
+            uid, text = label.get("id"), label.get("text")
+            if not isinstance(uid, int) or isinstance(uid, bool):
+                bad(f"{at}.id", f"not an integer: {uid!r}")
+                return None, False
+            if uid in seen_id:
+                bad(f"{at}.id", f"{uid} already used by {seen_id[uid]}")
+                return None, False
+            seen_id[uid] = at[len(f"scenes.{scene_id}."):]
+            if not isinstance(text, str) or not text.strip():
+                bad(at, "empty text")
+                return None, False
+            return Utterance(scene=scene_id, id=uid, speaker=HOTEL_OPERATOR,
+                             text=text.strip(), role="operator"), True
+
+        for at, label, i in reversed(labels):
+            op, own = resolve(f"{at}.operator", label)
+            if op is None:
+                continue
+            utterances[i] = replace(utterances[i], operator=op.name)
+            if own:
+                utterances.insert(i, op)
+
+        # closing: what she says after the last line, before she pulls the
+        # cord. Only where she is still on the line with the caller: a call to
+        # the operator, or a busy call (game_control.md 4.7).
+        if "closing" in scene:
+            at = f"scenes.{scene_id}.closing"
+            if not waits_anyway:
+                bad(at, "only in a call to the operator or a busy call: "
+                    "in any other the operator is off the line when it ends")
+            else:
+                op, own = resolve(at, scene["closing"])
+                if op is not None:
+                    closings[scene_id] = op.name
+                    if own:
+                        utterances.append(op)
 
         if not seen_id:
             bad(f"scenes.{scene_id}", "has no utterances")
@@ -416,7 +547,18 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
 
     return Script(path=path, setting=data.get("setting") or {}, cast=cast,
                   outside=outside, stations=stations, scenes=scenes,
-                  jacks=board, utterances=utterances)
+                  jacks=board, utterances=utterances, operator_lines=stock,
+                  closings=closings)
+
+
+def _any_operator_label(scenes: dict) -> bool:
+    for scene in scenes.values():
+        if not isinstance(scene, dict):
+            continue
+        lines = [scene.get("request")] + list(scene.get("conversation") or [])
+        if any(isinstance(x, dict) and "operator" in x for x in lines):
+            return True
+    return False
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -446,6 +588,12 @@ def main(argv: list[str] | None = None) -> int:
           f"({sum(1 for j in script.jacks if j['station'])} cabled)")
     if silent:
         print(f"cast with no lines: {', '.join(silent)}")
+    # operator: is optional; say where it is still to be written (4.7)
+    unsaid = [u for u in script.utterances if u.after_operator and not u.operator]
+    if unsaid:
+        print(f"{len(unsaid)} place(s) the operator speaks with no operator: line, "
+              f"in {len({u.scene for u in unsaid})} scene(s)"
+              + (": " + ", ".join(u.name for u in unsaid) if args.list else ""))
     return 0
 
 
