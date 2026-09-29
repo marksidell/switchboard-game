@@ -161,7 +161,7 @@ async def main() -> int:
               "the operator's own lines are never played (§4.7)")
         check(gs.script.by_name()[gs.script.scene_lines("dobbs-stamp")[1].operator].text
               == "Three cents, sir.", "an inline operator: line is found by name")
-        check(gs.script.by_name()[gs.script.closings["nbn-trace"]].text.startswith("From the house"),
+        check(gs.script.by_name()[gs.script.closings["nbn-trace"]].text.startswith("That call was from the lobby"),
               "a closing: line is found by its scene")
 
         print("\n== active: an inactive scene needs no wavs and is never dealt (§4.4)")

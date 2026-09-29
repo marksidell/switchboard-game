@@ -234,7 +234,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "operator",
-    "text_sha": "b6d1b154fd2cccde",
+    "text_sha": "326bf4b633eb915e",
     "voice_sha": "de0064007835d7a7"
   },
   "albright-portland.14": {
@@ -262,7 +262,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "albright",
-    "text_sha": "b335e273c80b7690",
+    "text_sha": "6ec749f5a0a43903",
     "voice_sha": "e92994696ef162d0"
   },
   "albright-portland.4": {
