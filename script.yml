@@ -313,21 +313,12 @@ cast:
         sex: male
         accent: Pacific Northwest, salty
         description: information clerk at the Washington State Ferries dock
-    sergeant:
-        sex: male
-        accent: Irish American, weary
-        description: desk sergeant at the Seattle Police
-        sample: Police department, Sergeant Riley speaking. All right, slow down, mister. Start from the beginning and tell me what happened.
     nurse:
         sex: female
         accent: generic American, crisp
         description: nurse at the switchboard of Swedish Hospital
 
     # Far away, reached by long distance, added 2026-09-28.
-    clara_thornhill:
-        sex: female
-        accent: New York, older, dry and skeptical
-        description: Clara Thornhill, Roger Thornhill's mother, in New York
     gruber:
         sex: male
         accent: Chicago, gruff
@@ -890,7 +881,7 @@ scenes:
     # operator for long distance, and the long-distance operator comes on.
     # Inactive until 8 is rendered; 2-7 are unchanged.
     albright-portland:
-        active: false
+        active: true
         calling:
             line: room302
             person: albright
@@ -950,7 +941,7 @@ scenes:
     # the operator rings the hotel on a trunk and the hotel operator puts the
     # call through to the room.
     portland-callback:
-        active: false
+        active: true
         after: albright-portland
         delay: 90
         calling:
@@ -1007,7 +998,7 @@ scenes:
                 caller: Tell him to step on it. I've got a train to catch.
 
     martha-roomservice:
-        active: false
+        active: true
         calling:
             line: room103
             person: martha
@@ -1033,7 +1024,7 @@ scenes:
                 caller: woof, woof, woof!
 
     easyliving-v16:
-        active: false
+        active: true
         calling:
             line: v16company
             person: carsalesman
@@ -1106,7 +1097,7 @@ scenes:
 
     # Mrs. Pemberton and housekeeping: seven calls, each after the last.
     pemb-blanket:
-        active: false
+        active: true
         calling:
             line: room102
             person: pemberton
@@ -1130,7 +1121,7 @@ scenes:
                 called: Wool, not scratchy. Yes, ma'am.
 
     pemb-pillows:
-        active: false
+        active: true
         after: pemb-blanket
         delay: 45
         calling:
@@ -1158,7 +1149,7 @@ scenes:
                 caller: I'll know which one it is, Mrs. Olsen. Don't think I won't.
 
     pemb-towels:
-        active: false
+        active: true
         after: pemb-pillows
         delay: 45
         calling:
@@ -1186,7 +1177,7 @@ scenes:
                 caller: And have the girl stand outside the door and hand them in one at a time.
 
     pemb-icebox:
-        active: false
+        active: true
         after: pemb-towels
         delay: 45
         calling:
@@ -1214,7 +1205,7 @@ scenes:
                 caller: Then send a boy out for them. This is a hotel, isn't it?
 
     pemb-canary:
-        active: false
+        active: true
         after: pemb-icebox
         delay: 45
         calling:
@@ -1242,7 +1233,7 @@ scenes:
                 caller: Then find one. Surely somebody in Ballard has a canary.
 
     pemb-piano:
-        active: false
+        active: true
         after: pemb-canary
         delay: 45
         calling:
@@ -1270,7 +1261,7 @@ scenes:
                 caller: Splendid. Have him carry one end.
 
     pemb-complaint:
-        active: false
+        active: true
         after: pemb-piano
         delay: 45
         calling:
@@ -1299,7 +1290,7 @@ scenes:
 
     # Earl Dobbs sees the sights.
     dobbs-concierge:
-        active: false
+        active: true
         calling:
             line: room105
             person: dobbs
@@ -1329,7 +1320,7 @@ scenes:
                 caller: They throw fish? Now that I have got to see.
 
     dobbs-salmon:
-        active: false
+        active: true
         after: dobbs-concierge
         delay: 60
         calling:
@@ -1359,7 +1350,7 @@ scenes:
                 called: I'll send a boy up with a bucket. And a mop.
 
     dobbs-ferries:
-        active: false
+        active: true
         calling:
             line: room105
             person: dobbs
@@ -1385,7 +1376,7 @@ scenes:
                 caller: Coffee on a boat. Isn't that something. Thanks, pal.
 
     dobbs-rays:
-        active: false
+        active: true
         calling:
             line: room105
             person: dobbs
@@ -1411,7 +1402,7 @@ scenes:
                 caller: Oh. Well, I'll take a look at them too. Seven o'clock, then.
 
     dobbs-stamp:
-        active: false
+        active: true
         calling:
             line: room105
             person: dobbs
@@ -1440,7 +1431,7 @@ scenes:
             text: You're very welcome, sir. Enjoy your stay.
 
     dobbs-omaha:
-        active: false
+        active: true
         calling:
             line: room105
             person: dobbs
@@ -1494,7 +1485,7 @@ scenes:
                 caller: Busy? In Omaha? Well, it is Saturday. Sure thing, I'll sit right here by the phone.
 
     dobbs-callback:
-        active: false
+        active: true
         after: dobbs-omaha
         delay: 75
         calling:
@@ -1560,7 +1551,7 @@ scenes:
                 person: mabel_dobbs
 
     dobbs-paramount:
-        active: false
+        active: true
         calling:
             line: room105
             person: dobbs
@@ -1585,250 +1576,9 @@ scenes:
             -   id: 7
                 caller: A crop duster! We got those back home. Save me a seat, miss.
 
-    # Thornhill, still being taken for George Kaplan.
-    nbn-mother:
-        active: false
-        calling:
-            line: room403
-            person: thornhill
-        called:
-            line: operator
-            person: local_operator
-        request:
-            id: 1
-            text: Operator, get me long distance. New York.
-            operator: internal-greeting
-        conversation:
-            -   id: 2
-                called: Operator.
-            -   id: 3
-                called: Long distance.
-                person: operator
-                wait: true
-                operator: long-distance-please
-            -   id: 4
-                caller: New York City, please. Plaza 3-4400. Mrs. Clara Thornhill. Person to person.
-            -   id: 11
-                called: Your name and number, please?
-                person: operator
-            -   id: 12
-                caller: Roger Thornhill. Hotel Ballard, Seattle, room 403. And please hurry.
-            -   id: 13
-                called: Rate operator? New York City. Route and night person rate from Seattle.
-                person: operator
-            -   id: 14
-                called: Chicago, New York. Night person, 2-2-5.
-                person: rate_operator
-                pause: 3
-            -   id: 15
-                called: Through Chicago.
-                person: operator
-            -   id: 16
-                called: Chicago.
-                person: toll_b
-                pause: 3
-            -   id: 17
-                called: New York.
-                person: operator
-            -   id: 18
-                called: New York.
-                person: toll_c
-                pause: 4
-            -   id: 19
-                called: New York, Plaza 3-4400. Mrs. Clara Thornhill. Seattle calling.
-                person: operator
-            -   id: 20
-                called: Ringing.
-                person: toll_c
-            -   id: 22
-                called: They're ringing your party now, Mr. Thornhill.
-                person: operator
-            -   id: 21
-                called: Hello?
-                person: clara_thornhill
-                ringback: 8
-            -   id: 5
-                called: Mrs. Clara Thornhill? Seattle, Washington, calling. Go ahead, please.
-                person: operator
-            -   id: 6
-                called: Roger? Is that you? Why are you calling from Seattle?
-                person: clara_thornhill
-            -   id: 7
-                caller: Mother, listen to me. Some people are trying to kill me. They think I'm a man named George Kaplan.
-            -   id: 8
-                called: Roger, have you been drinking?
-                person: clara_thornhill
-            -   id: 9
-                caller: Only what they poured down my throat, Mother.
-            -   id: 10
-                called: That's what you said last time. Call me when you're sober, dear.
-                person: clara_thornhill
-
-    nbn-police:
-        active: false
-        calling:
-            line: room403
-            person: thornhill
-        called:
-            line: police
-            person: sergeant
-        request:
-            id: 1
-            text: Operator, get me the police. It's urgent.
-            operator: internal-greeting
-        conversation:
-            -   id: 2
-                called: Police department. Sergeant Riley.
-            -   id: 3
-                caller: Sergeant, my name is Roger Thornhill. Two men kidnapped me, forced a quart of bourbon into me, and tried to drive me off a cliff.
-            -   id: 4
-                called: A quart of bourbon, you say?
-            -   id: 5
-                caller: Yes!
-            -   id: 6
-                called: And where are you now, Mr. Thornhill?
-            -   id: 7
-                caller: The Hotel Ballard. Room 403. They know where I am!
-            -   id: 8
-                called: Uh huh. Drink some coffee, Mr. Thornhill. We'll send somebody around in the morning.
-
-    police-nbn:
-        active: false
-        after: nbn-police
-        delay: 30
-        calling:
-            line: police
-            person: sergeant
-        called:
-            line: room403
-            person: thornhill
-        request:
-            id: 1
-            text: Seattle Police calling. Room 403, Mr. Thornhill.
-            operator: outside-greeting
-        conversation:
-            -   id: 2
-                called: Thornhill.
-            -   id: 3
-                caller: Sergeant Riley again. We checked on that house you told us about.
-            -   id: 4
-                called: And?
-            -   id: 5
-                caller: Nice lady lives there. Says she's never heard of you. Says you were at her dinner party and drank too much.
-            -   id: 6
-                called: That's a lie!
-            -   id: 7
-                caller: She also says you owe her for a broken vase. Good night, Mr. Thornhill.
-
-    nbn-bellcap:
-        active: false
-        calling:
-            line: room403
-            person: thornhill
-        called:
-            line: bellcaptain
-            person: bellcaptain
-        request:
-            id: 1
-            text: Bell captain, please.
-            operator: internal-greeting
-        conversation:
-            -   id: 2
-                called: Bell captain.
-            -   id: 3
-                caller: This is room 403. Has anybody been asking for me? Or for a Mr. George Kaplan?
-            -   id: 4
-                called: Couple of gents in gray suits, sir. Asked for Kaplan. I told them 403.
-            -   id: 5
-                caller: You told them what?
-            -   id: 6
-                called: That's the room he's registered in, sir. They tipped a dollar.
-            -   id: 7
-                caller: I'll give you five if you tell them I checked out.
-
-    desk-kaplan:
-        active: false
-        calling:
-            line: frontdesk
-            person: desk_clerk
-        called:
-            line: room403
-            person: thornhill
-        request:
-            id: 1
-            text: Operator, 403, please.
-            operator: internal-greeting
-        conversation:
-            -   id: 2
-                called: Yes?
-            -   id: 3
-                caller: Mr. Kaplan? Front desk. There's a message for you.
-            -   id: 4
-                called: I'm not Kaplan. My name is Thornhill.
-            -   id: 5
-                caller: It's addressed to Mr. Kaplan, room 403, sir. It says, the train leaves at nine. Burn this note.
-            -   id: 6
-                called: What train?
-            -   id: 7
-                caller: It doesn't say, sir. Shall I burn it for you?
-
-    nbn-lobby:
-        active: false
-        after: desk-kaplan
-        delay: 20
-        calling:
-            line: lobby
-            person: valerian
-        called:
-            line: room403
-            person: thornhill
-        request:
-            id: 1
-            text: Room 403. Mr. Kaplan.
-            operator: internal-greeting
-        conversation:
-            -   id: 2
-                called: Now who is it?
-            -   id: 3
-                caller: You received our message, Mr. Kaplan?
-            -   id: 4
-                called: I don't know anything about any train!
-            -   id: 5
-                caller: Then you will not mind if we come up and discuss it. We are in the lobby.
-            -   id: 6
-                called: I'm calling the police.
-            -   id: 7
-                caller: Please do. They were so helpful last time.
-
-    times-thornhill:
-        active: false
-        calling:
-            line: times
-            person: reporter
-        called:
-            line: room403
-            person: thornhill
-        request:
-            id: 1
-            text: Room 403, please. Joe Barrett, Seattle Times.
-            operator: outside-greeting
-        conversation:
-            -   id: 2
-                called: Hello?
-            -   id: 3
-                caller: Mr. Kaplan? Joe Barrett, Times. Word is you're some kind of secret agent.
-            -   id: 4
-                called: I am not Kaplan, I am not a secret agent, and I am in advertising.
-            -   id: 5
-                caller: That's exactly what a secret agent would say.
-            -   id: 6
-                called: Print one word of this and I'll sue you.
-            -   id: 7
-                caller: Thanks, Mr. Kaplan. Front page tomorrow.
-
     # Harold Pike, vacuum cleaners.
     pike-collect:
-        active: false
+        active: true
         calling:
             line: room204
             person: pike
@@ -1889,7 +1639,7 @@ scenes:
                 person: gruber
 
     ld-pike:
-        active: false
+        active: true
         calling:
             line: operator
             person: operator
@@ -1920,7 +1670,7 @@ scenes:
                 person: gruber
 
     pike-demo:
-        active: false
+        active: true
         calling:
             line: room204
             person: pike
@@ -1948,7 +1698,7 @@ scenes:
                 called: Why would there be a bowling ball on the carpet? Good day, Mr. Pike.
 
     taxi-pike:
-        active: false
+        active: true
         after: pike-taxi
         delay: 30
         calling:
@@ -1976,7 +1726,7 @@ scenes:
                 caller: Then you better hurry.
 
     lobby-pike:
-        active: false
+        active: true
         calling:
             line: lobby
             person: gunderson
@@ -2004,7 +1754,7 @@ scenes:
                 called: I, uh, I'm in the shower. Goodbye, Mrs. Gunderson.
 
     pike-finch:
-        active: false
+        active: true
         calling:
             line: room204
             person: pike
@@ -2033,7 +1783,7 @@ scenes:
 
     # Mrs. Albright.
     albright-pigalle:
-        active: false
+        active: true
         calling:
             line: room302
             person: albright
@@ -2061,7 +1811,7 @@ scenes:
                 called: A bientot, Madame Albright.
 
     albright-pearls:
-        active: false
+        active: true
         calling:
             line: room302
             person: albright
@@ -2087,7 +1837,7 @@ scenes:
                 caller: Oh. Oh, my. Well. Thank you, Mrs. Olsen. We'll say no more about it.
 
     albright-concierge:
-        active: false
+        active: true
         calling:
             line: room302
             person: albright
@@ -2113,7 +1863,7 @@ scenes:
                 caller: Two, Mr. Fairweather. I may find somebody to sleep through it.
 
     restaurant-albright:
-        active: false
+        active: true
         calling:
             line: restaurant
             person: hostess
@@ -2141,7 +1891,7 @@ scenes:
                 called: Tell him I'll be down in twenty minutes. Thirty. I'll need my pearls.
 
     lobby-albright:
-        active: false
+        active: true
         calling:
             line: lobby
             person: chester
@@ -2170,7 +1920,7 @@ scenes:
 
     # Betty and Jim Hale, on their honeymoon.
     hale-mother:
-        active: false
+        active: true
         calling:
             line: room305
             person: hale
@@ -2249,7 +1999,7 @@ scenes:
                 caller: Mama, you can't hear thin. I have to go, it's a dollar a minute. I love you!
 
     hale-champagne:
-        active: false
+        active: true
         calling:
             line: room305
             person: hale
@@ -2277,7 +2027,7 @@ scenes:
                 called: Not at all, ma'am. Champagne and a pickle.
 
     hale-dnd:
-        active: false
+        active: true
         calling:
             line: room305
             person: hale
@@ -2303,7 +2053,7 @@ scenes:
                 caller: No maid either. Just champagne. And pickles.
 
     housekeeping-hale:
-        active: false
+        active: true
         calling:
             line: housekeeping
             person: housekeeper
@@ -2329,7 +2079,7 @@ scenes:
                 caller: Under the door. Yes, Mr. Hale. Congratulations, by the way.
 
     hale-cans:
-        active: false
+        active: true
         calling:
             line: room305
             person: jim_hale
@@ -2355,7 +2105,7 @@ scenes:
                 caller: Those are my good shoes! My brother-in-law is a dead man.
 
     pizza-hale:
-        active: false
+        active: true
         after: hale-pizza
         delay: 40
         calling:
@@ -2383,7 +2133,7 @@ scenes:
                 caller: He's gonna like 'em. Thirty minutes.
 
     hale-roses:
-        active: false
+        active: true
         after: albright-florist
         delay: 60
         calling:
@@ -2414,7 +2164,7 @@ scenes:
 
     # Nils Lindqvist, of the fishing boats.
     canlis-lindqvist:
-        active: false
+        active: true
         after: lindqvist-canlis
         delay: 45
         calling:
@@ -2442,7 +2192,7 @@ scenes:
                 caller: Of course, Mr. Lindqvist. We'll find you a tie at the door.
 
     lindqvist-rays:
-        active: false
+        active: true
         calling:
             line: room401
             person: lindqvist
@@ -2468,7 +2218,7 @@ scenes:
                 caller: Good. This is better than the fancy place.
 
     lindqvist-weather:
-        active: false
+        active: true
         calling:
             line: room401
             person: lindqvist
@@ -2497,7 +2247,7 @@ scenes:
             text: I'll tell him, Mr. Lindqvist. Good night.
 
     lindqvist-valet:
-        active: false
+        active: true
         calling:
             line: room401
             person: lindqvist
@@ -2521,7 +2271,7 @@ scenes:
                 called: Five o'clock, windows down. Very good, sir.
 
     lindqvist-times:
-        active: false
+        active: true
         calling:
             line: room401
             person: lindqvist
@@ -2548,7 +2298,7 @@ scenes:
 
     # Miss Crane, schoolteacher.
     crane-ferries:
-        active: false
+        active: true
         calling:
             line: room404
             person: crane
@@ -2574,7 +2324,7 @@ scenes:
                 caller: I shall bring my own cup. One can't be too careful.
 
     crane-paramount:
-        active: false
+        active: true
         calling:
             line: room404
             person: crane
@@ -2600,7 +2350,7 @@ scenes:
             text: Very good, Miss Crane. Enjoy your book.
 
     crane-noise:
-        active: false
+        active: true
         calling:
             line: room404
             person: crane
@@ -2626,7 +2376,7 @@ scenes:
                 caller: I am aware of which floor we are on, young man. Send someone.
 
     lobby-crane:
-        active: false
+        active: true
         calling:
             line: lobby
             person: eddie
@@ -2652,7 +2402,7 @@ scenes:
                 caller: Yes, Miss Crane. Thank you, Miss Crane.
 
     crane-stoneburner:
-        active: false
+        active: true
         calling:
             line: room404
             person: crane
@@ -2679,7 +2429,7 @@ scenes:
 
     # Dr. Hollis, visiting surgeon.
     hollis-swedish:
-        active: false
+        active: true
         calling:
             line: room101
             person: hollis
@@ -2705,7 +2455,7 @@ scenes:
                 caller: Count them three times. I'll see you at six-thirty.
 
     swedish-hollis:
-        active: false
+        active: true
         after: hollis-swedish
         delay: 30
         calling:
@@ -2731,7 +2481,7 @@ scenes:
                 called: Then we operate at noon instead. And nobody brings him anything else. Not even a mint.
 
     hollis-wakeup:
-        active: false
+        active: true
         calling:
             line: room101
             person: hollis
@@ -2755,7 +2505,7 @@ scenes:
             text: I'll keep ringing, Doctor. Good night.
 
     ld-hollis:
-        active: false
+        active: true
         calling:
             line: operator
             person: operator
@@ -2783,7 +2533,7 @@ scenes:
                 called: Minnesota, in the winter? I'll think about it, Keller. From here, where it only rains.
 
     times-hollis:
-        active: false
+        active: true
         calling:
             line: times
             person: reporter
@@ -2807,7 +2557,7 @@ scenes:
                 called: Only from the other side of the table, Mr. Barrett. Good night.
 
     hollis-valet:
-        active: false
+        active: true
         calling:
             line: room101
             person: hollis
@@ -2832,7 +2582,7 @@ scenes:
 
     # Martha, who is a dog.
     martha-walk:
-        active: false
+        active: true
         calling:
             line: room103
             person: martha
@@ -2858,7 +2608,7 @@ scenes:
                 caller: Hurry. Hurry. Woof.
 
     martha-mailman:
-        active: false
+        active: true
         calling:
             line: room103
             person: martha
@@ -2882,7 +2632,7 @@ scenes:
             text: I see. Well, good luck, ma'am.
 
     martha-squirrel:
-        active: false
+        active: true
         calling:
             line: room103
             person: martha
@@ -2908,7 +2658,7 @@ scenes:
                 caller: Thank you. Tell him I said grrr.
 
     martha-cat:
-        active: false
+        active: true
         calling:
             line: room103
             person: martha
@@ -2932,7 +2682,7 @@ scenes:
             text: Oh, dear.
 
     martha-pizza:
-        active: false
+        active: true
         calling:
             line: room103
             person: martha
@@ -2958,7 +2708,7 @@ scenes:
                 caller: Martha. Leave it on the floor.
 
     housekeeping-martha:
-        active: false
+        active: true
         calling:
             line: housekeeping
             person: housekeeper
@@ -2983,7 +2733,7 @@ scenes:
 
     # Mary Smith, who is being given everything.
     marysmith-coffee:
-        active: false
+        active: true
         calling:
             line: imperialsuite
             person: marysmith
@@ -3009,7 +2759,7 @@ scenes:
                 caller: For breakfast? Oh, no, no. Just the doughnut. Two doughnuts. And how much is that? No, don't tell me.
 
     marysmith-desk:
-        active: false
+        active: true
         calling:
             line: imperialsuite
             person: marysmith
@@ -3035,7 +2785,7 @@ scenes:
                 caller: Well, you could tell me why. Nobody tells me why!
 
     bellcap-marysmith:
-        active: false
+        active: true
         calling:
             line: bellcaptain
             person: bellcaptain
@@ -3061,7 +2811,7 @@ scenes:
                 caller: You do now, miss. I'll send it up.
 
     marysmith-car:
-        active: false
+        active: true
         after: easyliving-v16
         delay: 45
         calling:
@@ -3090,7 +2840,7 @@ scenes:
 
     # Lorraine Vance, who sings at night and sleeps all day.
     vance-wakeup:
-        active: false
+        active: true
         calling:
             line: room201
             person: vance
@@ -3119,7 +2869,7 @@ scenes:
             text: Soft as a whisper, Miss Vance.
 
     vance-tea:
-        active: false
+        active: true
         calling:
             line: room201
             person: vance
@@ -3145,7 +2895,7 @@ scenes:
                 caller: For the throat, darling. Don't ask. It works.
 
     vance-pigalle:
-        active: false
+        active: true
         calling:
             line: room201
             person: vance
@@ -3171,7 +2921,7 @@ scenes:
                 caller: Well, isn't that a crime. Make it Sunday lunch, then.
 
     florist-vance:
-        active: false
+        active: true
         calling:
             line: florist
             person: florist
@@ -3195,7 +2945,7 @@ scenes:
                 called: A sailor. It's always a sailor. Send them up, honey, and put one in water for yourself.
 
     lobby-vance:
-        active: false
+        active: true
         after: florist-vance
         delay: 45
         calling:
@@ -3223,7 +2973,7 @@ scenes:
                 caller: My mother? Yes, ma'am. She'd like that.
 
     vance-bellcap:
-        active: false
+        active: true
         calling:
             line: room201
             person: vance
@@ -3249,7 +2999,7 @@ scenes:
                 caller: You're a doll, Gus. Two tickets at the door for you.
 
     vance-concierge:
-        active: false
+        active: true
         calling:
             line: room201
             person: vance
@@ -3275,7 +3025,7 @@ scenes:
                 caller: A church organist? Well, I'll try anything once.
 
     frontdesk-vance:
-        active: false
+        active: true
         calling:
             line: frontdesk
             person: desk_clerk
@@ -3300,7 +3050,7 @@ scenes:
 
     # Colonel Beaumont.
     beaumont-julep:
-        active: false
+        active: true
         calling:
             line: room205
             person: beaumont
@@ -3326,7 +3076,7 @@ scenes:
                 caller: And a silver cup. A julep in a glass is a crime against the Confederacy.
 
     beaumont-times:
-        active: false
+        active: true
         calling:
             line: room205
             person: beaumont
@@ -3352,7 +3102,7 @@ scenes:
             text: I'll ring you when I have them, Colonel.
 
     beaumont-reveille:
-        active: false
+        active: true
         calling:
             line: room205
             person: beaumont
@@ -3381,7 +3131,7 @@ scenes:
             text: Good night, Colonel.
 
     valet-beaumont:
-        active: false
+        active: true
         calling:
             line: valet
             person: valet
@@ -3407,7 +3157,7 @@ scenes:
                 caller: He left for his boat at five this morning, sir.
 
     beaumont-pigalle:
-        active: false
+        active: true
         calling:
             line: room205
             person: beaumont
@@ -3435,7 +3185,7 @@ scenes:
                 called: Then we will not seat her by the fish.
 
     beaumont-pemberton:
-        active: false
+        active: true
         calling:
             line: room205
             person: beaumont
@@ -3463,7 +3213,7 @@ scenes:
                 called: Seven o'clock, Colonel. Wear a tie.
 
     beaumont-sister:
-        active: false
+        active: true
         calling:
             line: room205
             person: beaumont
@@ -3555,7 +3305,7 @@ scenes:
                 caller: Three dollars and forty cents, to be told I am old. Carry on.
 
     restaurant-beaumont:
-        active: false
+        active: true
         calling:
             line: restaurant
             person: hostess
@@ -3580,7 +3330,7 @@ scenes:
 
     # Howard Finch, of the Rotary convention.
     finch-wu:
-        active: false
+        active: true
         calling:
             line: room303
             person: finch
@@ -3606,7 +3356,7 @@ scenes:
                 caller: Ninety cents? Take out possibly.
 
     wu-finch:
-        active: false
+        active: true
         after: finch-wu
         delay: 60
         calling:
@@ -3632,7 +3382,7 @@ scenes:
                 called: She's right. They were. I forgot.
 
     finch-pharmacy:
-        active: false
+        active: true
         calling:
             line: room303
             person: finch
@@ -3660,7 +3410,7 @@ scenes:
                 called: Give it an hour, son. And drink a glass of water. That'll be two dollars and ten cents.
 
     finch-badge:
-        active: false
+        active: true
         calling:
             line: room303
             person: finch
@@ -3688,7 +3438,7 @@ scenes:
                 called: You're wearing it, sir. You came down for a newspaper ten minutes ago.
 
     finch-wife:
-        active: false
+        active: true
         calling:
             line: room303
             person: finch
@@ -3767,7 +3517,7 @@ scenes:
                 caller: Ninety-five cents to be told I'm normal. Edna was right.
 
     finch-hollis:
-        active: false
+        active: true
         calling:
             line: room303
             person: finch
@@ -3795,7 +3545,7 @@ scenes:
                 called: I'm a surgeon, Mr. Finch. Go to sleep. If you die in the night, call me.
 
     finch-lost:
-        active: false
+        active: true
         calling:
             line: room303
             person: finch
