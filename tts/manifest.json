@@ -1,4 +1,53 @@
 {
+  "albright-concierge.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "69521b4ccf19d4bf",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "albright-concierge.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "concierge",
+    "text_sha": "a9780862da871431",
+    "voice_sha": "eed64d0e55970166"
+  },
+  "albright-concierge.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "d3de773c4ba4a9f7",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "albright-concierge.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "concierge",
+    "text_sha": "f2c9d0343cff0404",
+    "voice_sha": "eed64d0e55970166"
+  },
+  "albright-concierge.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "d09f029b7413a42e",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "albright-concierge.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "concierge",
+    "text_sha": "683b9139018ce6c5",
+    "voice_sha": "eed64d0e55970166"
+  },
+  "albright-concierge.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "eedead26de53a1ba",
+    "voice_sha": "e92994696ef162d0"
+  },
   "albright-florist.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
@@ -17,14 +66,14 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "albright",
-    "text_sha": "11f5fb3a2ba1e9bc",
+    "text_sha": "98d8da52b4791f50",
     "voice_sha": "e92994696ef162d0"
   },
   "albright-florist.4": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "florist",
-    "text_sha": "965fbe7aa2fe0213",
+    "text_sha": "f23175db261ec527",
     "voice_sha": "6e832f0610984adb"
   },
   "albright-florist.5": {
@@ -48,12 +97,159 @@
     "text_sha": "84a540938cf1d788",
     "voice_sha": "e92994696ef162d0"
   },
+  "albright-pearls.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "f7449e1fb5d734bc",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "albright-pearls.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "72e8645b4b70f667",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "albright-pearls.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "aba4c0673988edfd",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "albright-pearls.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "c23fc2d0963ca17f",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "albright-pearls.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "efcfdd5cea653e73",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "albright-pearls.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "640806ed131d4519",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "albright-pearls.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "00da6a3739dd9278",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "albright-pigalle.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "a9e8b4d7a5b90cb5",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "albright-pigalle.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pigalle",
+    "text_sha": "50e737a9ca3e7c12",
+    "voice_sha": "b59db541e9d5d3c9"
+  },
+  "albright-pigalle.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "f12ebdd524ae870a",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "albright-pigalle.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pigalle",
+    "text_sha": "9728e9d1921602fd",
+    "voice_sha": "b59db541e9d5d3c9"
+  },
+  "albright-pigalle.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "6702619872ca9361",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "albright-pigalle.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pigalle",
+    "text_sha": "8888d4032e160761",
+    "voice_sha": "b59db541e9d5d3c9"
+  },
+  "albright-pigalle.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "e647ca2f272c91ba",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "albright-pigalle.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pigalle",
+    "text_sha": "98efd8ee35e8a08e",
+    "voice_sha": "b59db541e9d5d3c9"
+  },
   "albright-portland.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "albright",
     "text_sha": "d91142f2a6f98796",
     "voice_sha": "e92994696ef162d0"
+  },
+  "albright-portland.10": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "rate_operator",
+    "text_sha": "f2c4da10a5c1b3bb",
+    "voice_sha": "2da5292b7fbf4329"
+  },
+  "albright-portland.11": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "f703aaf79ed6569f",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "albright-portland.12": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "toll_a",
+    "text_sha": "f703aaf79ed6569f",
+    "voice_sha": "131bf4d3305f3878"
+  },
+  "albright-portland.13": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "b6d1b154fd2cccde",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "albright-portland.14": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "toll_a",
+    "text_sha": "f49b5fa35a5abadd",
+    "voice_sha": "131bf4d3305f3878"
+  },
+  "albright-portland.15": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "toll_a",
+    "text_sha": "bbeef7c4f7191b8b",
+    "voice_sha": "131bf4d3305f3878"
   },
   "albright-portland.2": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -87,7 +283,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "operator",
-    "text_sha": "ece0ca4487fb12c2",
+    "text_sha": "4a1032413dd80f87",
     "voice_sha": "de0064007835d7a7"
   },
   "albright-portland.7": {
@@ -96,6 +292,741 @@
     "speaker": "albright",
     "text_sha": "8e0e5416942a7c61",
     "voice_sha": "e92994696ef162d0"
+  },
+  "albright-portland.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "local_operator",
+    "text_sha": "91a1734d66aef4fc",
+    "voice_sha": "93a2e2b04171b239"
+  },
+  "albright-portland.9": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "b20a02e1fc7579d0",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "beaumont-julep.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "ad9437675dd41a23",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-julep.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "waiter",
+    "text_sha": "e0a6e5194be87dce",
+    "voice_sha": "ef07bd57df8eed9f"
+  },
+  "beaumont-julep.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "df04f70a8ba6fa98",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-julep.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "waiter",
+    "text_sha": "b44fc15792f1f205",
+    "voice_sha": "ef07bd57df8eed9f"
+  },
+  "beaumont-julep.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "c95c36ce6b36035d",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-julep.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "waiter",
+    "text_sha": "bba08c30464904bb",
+    "voice_sha": "ef07bd57df8eed9f"
+  },
+  "beaumont-julep.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "e2e99b0877b97bf8",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-pemberton.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "6b2861d41db20373",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-pemberton.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "ba706744508d7cd9",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "beaumont-pemberton.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "8af7d736865ef565",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-pemberton.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "a24ec49ba34a090b",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "beaumont-pemberton.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "ae6d457eb3af8613",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-pemberton.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "668682ef91571aab",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "beaumont-pemberton.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "693fd6ac3dc0a220",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-pemberton.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "3019e5e4914ea3db",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "beaumont-pigalle.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "b0be143e48ccf422",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-pigalle.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pigalle",
+    "text_sha": "50e737a9ca3e7c12",
+    "voice_sha": "b59db541e9d5d3c9"
+  },
+  "beaumont-pigalle.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "db244afde7cd5f93",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-pigalle.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pigalle",
+    "text_sha": "92bd2d97f7bc8c07",
+    "voice_sha": "b59db541e9d5d3c9"
+  },
+  "beaumont-pigalle.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "6592a466d4e6c7c0",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-pigalle.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pigalle",
+    "text_sha": "8e98eb64825597cf",
+    "voice_sha": "b59db541e9d5d3c9"
+  },
+  "beaumont-pigalle.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "9d51b096259055a1",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-pigalle.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pigalle",
+    "text_sha": "900a13eb93367850",
+    "voice_sha": "b59db541e9d5d3c9"
+  },
+  "beaumont-reveille.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "250fb52ddf7555b5",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-reveille.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "2cc229c2764e6639",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-reveille.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "c9c9f857843f286b",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-reveille.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "0b875a199bb20703",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-reveille.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "f86076bbb6a654d0",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "beaumont-reveille.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "1bfda2d4e38082a4",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "beaumont-reveille.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "f701091175912342",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "beaumont-reveille.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "3da24f0043f230ee",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "beaumont-sister.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "677af5a9b9ce16ff",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-sister.10": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lucinda",
+    "text_sha": "def7ac552c3d6c28",
+    "voice_sha": "2569df73cdf5ae2f"
+  },
+  "beaumont-sister.11": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "eed47ddd39c4d3b2",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-sister.12": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "53e85c44e9a6a925",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "beaumont-sister.13": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "82c95eaaeb7190ed",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-sister.14": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "5895a567d062bcc6",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "beaumont-sister.15": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "rate_operator",
+    "text_sha": "e60f6e959ed75e28",
+    "voice_sha": "2da5292b7fbf4329"
+  },
+  "beaumont-sister.16": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "629cd7028b9165aa",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "beaumont-sister.17": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "toll_b",
+    "text_sha": "d86f0046083fcc98",
+    "voice_sha": "ac283a8d16125278"
+  },
+  "beaumont-sister.18": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "0cd6d6a0a4ed183b",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "beaumont-sister.19": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "toll_d",
+    "text_sha": "0cd6d6a0a4ed183b",
+    "voice_sha": "df8a638a8982774d"
+  },
+  "beaumont-sister.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "local_operator",
+    "text_sha": "91a1734d66aef4fc",
+    "voice_sha": "93a2e2b04171b239"
+  },
+  "beaumont-sister.20": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "9e786153d20f8263",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "beaumont-sister.21": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "toll_c",
+    "text_sha": "9e786153d20f8263",
+    "voice_sha": "ff0430f4b7d7ce1e"
+  },
+  "beaumont-sister.22": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "9dcbc270e6b91b7a",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "beaumont-sister.23": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "toll_c",
+    "text_sha": "ffdd134861154324",
+    "voice_sha": "ff0430f4b7d7ce1e"
+  },
+  "beaumont-sister.24": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lucinda",
+    "text_sha": "0da72197e898ebe1",
+    "voice_sha": "2569df73cdf5ae2f"
+  },
+  "beaumont-sister.25": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "968d5f09344f05b9",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "beaumont-sister.27": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "d43bdb19e80c960a",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "beaumont-sister.28": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "2130d3f4af1b1191",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-sister.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "8eed26c8f1f3d9fd",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "beaumont-sister.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "4f984f22a8e528ce",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-sister.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "43adcf09494407b1",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "beaumont-sister.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lucinda",
+    "text_sha": "0b129b8380ffe7d9",
+    "voice_sha": "2569df73cdf5ae2f"
+  },
+  "beaumont-sister.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "12462b9011c793c5",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-sister.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lucinda",
+    "text_sha": "c286ea6154167c39",
+    "voice_sha": "2569df73cdf5ae2f"
+  },
+  "beaumont-sister.9": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "5681fb0543d2f703",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-times.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "d5d108f0ca9e6d18",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-times.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "7e1c4bf8030c42fe",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-times.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "17f1d479856884c5",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "beaumont-times.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "be41be7ac5940a52",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "beaumont-times.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "a8384fb851b549d8",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "bellcap-marysmith.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "bellcaptain",
+    "text_sha": "37facc6709117cee",
+    "voice_sha": "fca126ddb00be043"
+  },
+  "bellcap-marysmith.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "0da72197e898ebe1",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "bellcap-marysmith.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "bellcaptain",
+    "text_sha": "6a54c063f457686f",
+    "voice_sha": "fca126ddb00be043"
+  },
+  "bellcap-marysmith.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "29c42f59cf1e5914",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "bellcap-marysmith.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "bellcaptain",
+    "text_sha": "38761d5cb0e705f9",
+    "voice_sha": "fca126ddb00be043"
+  },
+  "bellcap-marysmith.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "804d54e250f4a792",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "bellcap-marysmith.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "bellcaptain",
+    "text_sha": "a27aea0b80e024a8",
+    "voice_sha": "fca126ddb00be043"
+  },
+  "canlis-lindqvist.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "maitre_d",
+    "text_sha": "2ee236a5da5d568b",
+    "voice_sha": "73096e23c057f5e5"
+  },
+  "canlis-lindqvist.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lindqvist",
+    "text_sha": "2ae420266aa0c6be",
+    "voice_sha": "618937de1a22a50a"
+  },
+  "canlis-lindqvist.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "maitre_d",
+    "text_sha": "12101a4c337c8890",
+    "voice_sha": "73096e23c057f5e5"
+  },
+  "canlis-lindqvist.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lindqvist",
+    "text_sha": "3f5f38bb5bd0a121",
+    "voice_sha": "618937de1a22a50a"
+  },
+  "canlis-lindqvist.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "maitre_d",
+    "text_sha": "1129869a97c716f2",
+    "voice_sha": "73096e23c057f5e5"
+  },
+  "canlis-lindqvist.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lindqvist",
+    "text_sha": "a409377159fe199f",
+    "voice_sha": "618937de1a22a50a"
+  },
+  "canlis-lindqvist.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "maitre_d",
+    "text_sha": "90f4966d9f460f8d",
+    "voice_sha": "73096e23c057f5e5"
+  },
+  "crane-ferries.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "crane",
+    "text_sha": "d141778c62de00c5",
+    "voice_sha": "0de8f6ca1a8afb2f"
+  },
+  "crane-ferries.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "ferry_clerk",
+    "text_sha": "98b49a664dad5cff",
+    "voice_sha": "7c5270fd105cdb61"
+  },
+  "crane-ferries.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "crane",
+    "text_sha": "b4056d3e6298a900",
+    "voice_sha": "0de8f6ca1a8afb2f"
+  },
+  "crane-ferries.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "ferry_clerk",
+    "text_sha": "cd15c13e42227c66",
+    "voice_sha": "7c5270fd105cdb61"
+  },
+  "crane-ferries.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "crane",
+    "text_sha": "6aa8b2af70d97ddd",
+    "voice_sha": "0de8f6ca1a8afb2f"
+  },
+  "crane-ferries.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "ferry_clerk",
+    "text_sha": "1342b6dd92179aac",
+    "voice_sha": "7c5270fd105cdb61"
+  },
+  "crane-ferries.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "crane",
+    "text_sha": "ce202c1b647bb71d",
+    "voice_sha": "0de8f6ca1a8afb2f"
+  },
+  "crane-noise.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "crane",
+    "text_sha": "56151bed59f6b22b",
+    "voice_sha": "0de8f6ca1a8afb2f"
+  },
+  "crane-noise.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "854500996e9a159d",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "crane-noise.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "crane",
+    "text_sha": "dec932a5cd33a79a",
+    "voice_sha": "0de8f6ca1a8afb2f"
+  },
+  "crane-noise.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "59e5b067126bc080",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "crane-noise.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "crane",
+    "text_sha": "ea98ff2a143ed4a0",
+    "voice_sha": "0de8f6ca1a8afb2f"
+  },
+  "crane-noise.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "c9fc543c00046a80",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "crane-noise.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "crane",
+    "text_sha": "6bdf11af78f09576",
+    "voice_sha": "0de8f6ca1a8afb2f"
+  },
+  "crane-paramount.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "crane",
+    "text_sha": "ae17b7149cb0c743",
+    "voice_sha": "0de8f6ca1a8afb2f"
+  },
+  "crane-paramount.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "crane",
+    "text_sha": "71ffe58e6cb23857",
+    "voice_sha": "0de8f6ca1a8afb2f"
+  },
+  "crane-paramount.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "crane",
+    "text_sha": "55c92adc529d0bb3",
+    "voice_sha": "0de8f6ca1a8afb2f"
+  },
+  "crane-paramount.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "c0bb6d4d1ccef92b",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "crane-paramount.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "6298e4636b54ad27",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "crane-stoneburner.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "crane",
+    "text_sha": "aa1b8216eca8a4b8",
+    "voice_sha": "0de8f6ca1a8afb2f"
+  },
+  "crane-stoneburner.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hostess",
+    "text_sha": "a22c45e258de52be",
+    "voice_sha": "9ff435b333e39d41"
+  },
+  "crane-stoneburner.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "crane",
+    "text_sha": "48a151be2e28a952",
+    "voice_sha": "0de8f6ca1a8afb2f"
+  },
+  "crane-stoneburner.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hostess",
+    "text_sha": "18200ee4547b7bf8",
+    "voice_sha": "9ff435b333e39d41"
+  },
+  "crane-stoneburner.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "crane",
+    "text_sha": "6224e2d71250c61d",
+    "voice_sha": "0de8f6ca1a8afb2f"
+  },
+  "crane-stoneburner.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hostess",
+    "text_sha": "b198b980781d5541",
+    "voice_sha": "9ff435b333e39d41"
+  },
+  "crane-stoneburner.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "crane",
+    "text_sha": "a03e3d8e69d344f0",
+    "voice_sha": "0de8f6ca1a8afb2f"
   },
   "crane-wakeup.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -108,14 +1039,28 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "crane",
-    "text_sha": "011882a34812d034",
+    "text_sha": "fc90530b8c55e259",
     "voice_sha": "0de8f6ca1a8afb2f"
+  },
+  "crane-wakeup.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "3f5ad87ab8185622",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "crane-wakeup.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "bb596ef6bf922356",
+    "voice_sha": "16619c235a8d72ff"
   },
   "desk-hollis.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "desk_clerk",
-    "text_sha": "ca2500ed86a8ba6c",
+    "text_sha": "64b622ba12fd7e0f",
     "voice_sha": "2a891ba79a329173"
   },
   "desk-hollis.2": {
@@ -153,6 +1098,1273 @@
     "text_sha": "26f8c1608db1645f",
     "voice_sha": "8e9f0d0d026986dd"
   },
+  "dobbs-callback.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "00605dbd20d0bb4d",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "dobbs-callback.10": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "wilbur",
+    "text_sha": "c605917b6775aac9",
+    "voice_sha": "438931b101c94f0d"
+  },
+  "dobbs-callback.11": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "d40b093a8506b6ff",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "dobbs-callback.12": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "wilbur",
+    "text_sha": "e366e06313add493",
+    "voice_sha": "438931b101c94f0d"
+  },
+  "dobbs-callback.13": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "e8c1f20d00f933a3",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "dobbs-callback.14": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "mabel_dobbs",
+    "text_sha": "3975fd04313b000c",
+    "voice_sha": "80e048ebbc15aa67"
+  },
+  "dobbs-callback.15": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "672887f9fe1189d5",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "dobbs-callback.16": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "3663502b5a52b1b6",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-callback.17": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "mabel_dobbs",
+    "text_sha": "d0848a25d822e0f4",
+    "voice_sha": "80e048ebbc15aa67"
+  },
+  "dobbs-callback.18": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "dbbf14478b6281a7",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-callback.19": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "mabel_dobbs",
+    "text_sha": "0570fe68f6b0d4f6",
+    "voice_sha": "80e048ebbc15aa67"
+  },
+  "dobbs-callback.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "72da589268045a4e",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-callback.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "f0e13f97f4cb8fe3",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "dobbs-callback.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "toll_b",
+    "text_sha": "fd6e7ac2831c73b0",
+    "voice_sha": "ac283a8d16125278"
+  },
+  "dobbs-callback.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "c0c7a0cf353e8a8b",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "dobbs-callback.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "toll_c",
+    "text_sha": "c0c7a0cf353e8a8b",
+    "voice_sha": "ff0430f4b7d7ce1e"
+  },
+  "dobbs-callback.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "81ca5b1b469cda63",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "dobbs-callback.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "toll_c",
+    "text_sha": "ee9beafc2bbdfad9",
+    "voice_sha": "ff0430f4b7d7ce1e"
+  },
+  "dobbs-callback.9": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "5763e1724d1dcc76",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "dobbs-concierge.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "d35d899b625856ec",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-concierge.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "concierge",
+    "text_sha": "24160d4c4f59e897",
+    "voice_sha": "eed64d0e55970166"
+  },
+  "dobbs-concierge.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "381fccf5fccff9a8",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-concierge.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "concierge",
+    "text_sha": "7f9d19e7cfad95f4",
+    "voice_sha": "eed64d0e55970166"
+  },
+  "dobbs-concierge.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "43fbb840fdae516d",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-concierge.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "concierge",
+    "text_sha": "f3457534fca305e3",
+    "voice_sha": "eed64d0e55970166"
+  },
+  "dobbs-concierge.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "6aae3e21b6fd620a",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-concierge.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "concierge",
+    "text_sha": "61939a5ad048aa57",
+    "voice_sha": "eed64d0e55970166"
+  },
+  "dobbs-concierge.9": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "758aae942aa7f783",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-ferries.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "953e58de52c12f8c",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-ferries.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "ferry_clerk",
+    "text_sha": "8d6669a6c3834c74",
+    "voice_sha": "7c5270fd105cdb61"
+  },
+  "dobbs-ferries.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "51ca67190352cd40",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-ferries.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "ferry_clerk",
+    "text_sha": "d419a6b26509e36b",
+    "voice_sha": "7c5270fd105cdb61"
+  },
+  "dobbs-ferries.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "d6bfea4451e1fdb2",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-ferries.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "ferry_clerk",
+    "text_sha": "12e0f93b13c2cd9f",
+    "voice_sha": "7c5270fd105cdb61"
+  },
+  "dobbs-ferries.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "b480d52e88aab60f",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-omaha.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "4c01b2348656763f",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-omaha.10": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "toll_d",
+    "text_sha": "2a3a67fcd0d0024b",
+    "voice_sha": "df8a638a8982774d"
+  },
+  "dobbs-omaha.11": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "fd6e7ac2831c73b0",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "dobbs-omaha.12": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "toll_d",
+    "text_sha": "895fa537ac5bfd0e",
+    "voice_sha": "df8a638a8982774d"
+  },
+  "dobbs-omaha.13": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "0dbf16afdc6582a2",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "dobbs-omaha.14": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "37ad4e9d0505a219",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-omaha.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "local_operator",
+    "text_sha": "91a1734d66aef4fc",
+    "voice_sha": "93a2e2b04171b239"
+  },
+  "dobbs-omaha.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "8eed26c8f1f3d9fd",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "dobbs-omaha.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "0cdb56b92c59987a",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-omaha.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "53e85c44e9a6a925",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "dobbs-omaha.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "a2b6dc6660d792fb",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-omaha.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "0bbb5f8169614a7f",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "dobbs-omaha.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "rate_operator",
+    "text_sha": "719f65e014111b89",
+    "voice_sha": "2da5292b7fbf4329"
+  },
+  "dobbs-omaha.9": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "bf7b0c253099ef97",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "dobbs-paramount.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "2ab27a09ea75e251",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-paramount.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "box_office",
+    "text_sha": "837b18949a6816da",
+    "voice_sha": "60dee70fa36a730c"
+  },
+  "dobbs-paramount.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "9c8da17ec445a61b",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-paramount.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "box_office",
+    "text_sha": "ff82d5d81c47cffa",
+    "voice_sha": "60dee70fa36a730c"
+  },
+  "dobbs-paramount.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "0752465b8ccf0316",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-paramount.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "box_office",
+    "text_sha": "bcb31c6c79b9b007",
+    "voice_sha": "60dee70fa36a730c"
+  },
+  "dobbs-paramount.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "285aa13649c5e091",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-rays.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "68dee76f67f44a1f",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-rays.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "rays_host",
+    "text_sha": "98f7c7f231408859",
+    "voice_sha": "7cfa8f2cd159b1c3"
+  },
+  "dobbs-rays.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "f6cf875e4f4c846a",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-rays.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "rays_host",
+    "text_sha": "e7d66c292cfde18f",
+    "voice_sha": "7cfa8f2cd159b1c3"
+  },
+  "dobbs-rays.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "55568f14330f935c",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-rays.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "rays_host",
+    "text_sha": "8cf425b32e5f32b8",
+    "voice_sha": "7cfa8f2cd159b1c3"
+  },
+  "dobbs-rays.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "6a2e71767f09789e",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-salmon.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "fd1fa4c00cd1a45b",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-salmon.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "bellcaptain",
+    "text_sha": "d41da619041ceb8b",
+    "voice_sha": "fca126ddb00be043"
+  },
+  "dobbs-salmon.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "f137e252431faed3",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-salmon.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "bellcaptain",
+    "text_sha": "9b6b14e8f03ead22",
+    "voice_sha": "fca126ddb00be043"
+  },
+  "dobbs-salmon.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "1e70ac00c2556e31",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-salmon.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "bellcaptain",
+    "text_sha": "de9251079265ef5d",
+    "voice_sha": "fca126ddb00be043"
+  },
+  "dobbs-salmon.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "1600196590cf1b70",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-salmon.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "bellcaptain",
+    "text_sha": "5dd776684edc0034",
+    "voice_sha": "fca126ddb00be043"
+  },
+  "dobbs-stamp.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "b4072e95326510c8",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-stamp.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "2304e970fcb98a53",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-stamp.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "7345687147a208c4",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-stamp.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dobbs",
+    "text_sha": "8eb2415874ba8c48",
+    "voice_sha": "58c7e54e3905abd0"
+  },
+  "dobbs-stamp.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "98417f02796ac819",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "dobbs-stamp.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "c904b79dd0804e2c",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "dobbs-stamp.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "f15cb53185e2ff95",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "dobbs-stamp.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "f97fa2ea296e9965",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "easyliving-v16.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "carsalesman",
+    "text_sha": "8ec7a3a0b5581ed5",
+    "voice_sha": "f30baafe57c8da8f"
+  },
+  "easyliving-v16.10": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "d519af70e1d26378",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "easyliving-v16.11": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "carsalesman",
+    "text_sha": "d3429786d3f92a66",
+    "voice_sha": "f30baafe57c8da8f"
+  },
+  "easyliving-v16.12": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "f40d5470e1b1caa7",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "easyliving-v16.13": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "carsalesman",
+    "text_sha": "c4fd2df9725a6078",
+    "voice_sha": "f30baafe57c8da8f"
+  },
+  "easyliving-v16.14": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "62da480a9d2774c8",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "easyliving-v16.15": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "carsalesman",
+    "text_sha": "3f215963d1d7116c",
+    "voice_sha": "f30baafe57c8da8f"
+  },
+  "easyliving-v16.16": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "8dc32f65d06974e1",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "easyliving-v16.17": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "carsalesman",
+    "text_sha": "2a5c8baf355d1753",
+    "voice_sha": "f30baafe57c8da8f"
+  },
+  "easyliving-v16.18": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "e93a5c1315898107",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "easyliving-v16.19": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "carsalesman",
+    "text_sha": "cc38b371ffd41c15",
+    "voice_sha": "f30baafe57c8da8f"
+  },
+  "easyliving-v16.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "3666c4b638e164e1",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "easyliving-v16.20": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "71e08adcb5d44b6d",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "easyliving-v16.21": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "carsalesman",
+    "text_sha": "9b1f0041770d749f",
+    "voice_sha": "f30baafe57c8da8f"
+  },
+  "easyliving-v16.22": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "227494a9e89c014d",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "easyliving-v16.23": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "carsalesman",
+    "text_sha": "14341c25e862af09",
+    "voice_sha": "f30baafe57c8da8f"
+  },
+  "easyliving-v16.24": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "92770677362afaf4",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "easyliving-v16.25": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "carsalesman",
+    "text_sha": "f193f3385df222d8",
+    "voice_sha": "f30baafe57c8da8f"
+  },
+  "easyliving-v16.26": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "4c8ca310c66255e2",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "easyliving-v16.27": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "carsalesman",
+    "text_sha": "000270b37e2c7d53",
+    "voice_sha": "f30baafe57c8da8f"
+  },
+  "easyliving-v16.28": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "6fc9643f487ef1a8",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "easyliving-v16.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "carsalesman",
+    "text_sha": "628c69800748d38e",
+    "voice_sha": "f30baafe57c8da8f"
+  },
+  "easyliving-v16.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "deca5655e8356523",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "easyliving-v16.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "carsalesman",
+    "text_sha": "b7538e9f2d4c9b6c",
+    "voice_sha": "f30baafe57c8da8f"
+  },
+  "easyliving-v16.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "3d4c89925338fb05",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "easyliving-v16.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "carsalesman",
+    "text_sha": "796b67b75bd1ea3d",
+    "voice_sha": "f30baafe57c8da8f"
+  },
+  "easyliving-v16.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "9efb1f70661b6365",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "easyliving-v16.9": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "carsalesman",
+    "text_sha": "29bb7d05f2114fdc",
+    "voice_sha": "f30baafe57c8da8f"
+  },
+  "finch-badge.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "219bee997c2f23d8",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-badge.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "854500996e9a159d",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "finch-badge.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "b0d7b44de84188bb",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-badge.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "674e5b325787164a",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "finch-badge.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "fde7a1ec6ca13797",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-badge.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "43cf04c5a328be2d",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "finch-badge.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "8aff5108a050bcfa",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-badge.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "19773447b51c3ca6",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "finch-hollis.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "d21c818a6b3bc950",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-hollis.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "02f295030949a3fb",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "finch-hollis.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "c88af46583933c9c",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-hollis.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "91f45115c34f7dcf",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "finch-hollis.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "05987b797b2eb9a7",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-hollis.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "f415b894d64e67c0",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "finch-hollis.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "ab9da4d56d09918f",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-hollis.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "5522ca22125a0564",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "finch-lost.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "bed8a3a8881ed52e",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-lost.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "f5b0229152ed3be4",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-lost.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "809fb3fcb53c72fe",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-lost.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "03699e3b92aedb37",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-lost.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "1eb1e88d55018f14",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "finch-lost.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "3e671c14fa0be020",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "finch-lost.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "16195021429a4b66",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "finch-lost.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "8b5045771270337d",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "finch-pharmacy.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "a4c0f0b7e8df711b",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-pharmacy.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pharmacist",
+    "text_sha": "6ba55e3c78641999",
+    "voice_sha": "d4a94626f552e8e7"
+  },
+  "finch-pharmacy.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "a31e721adc6879e5",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-pharmacy.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pharmacist",
+    "text_sha": "bcc01eb0517b3731",
+    "voice_sha": "d4a94626f552e8e7"
+  },
+  "finch-pharmacy.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "cdf788f73a6c7112",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-pharmacy.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pharmacist",
+    "text_sha": "c9cdaf54e1f934ee",
+    "voice_sha": "d4a94626f552e8e7"
+  },
+  "finch-pharmacy.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "c48a76e6447cbb9d",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-pharmacy.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pharmacist",
+    "text_sha": "030c6063aefb2cf0",
+    "voice_sha": "d4a94626f552e8e7"
+  },
+  "finch-wife.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "2f52dd999b71dc01",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-wife.10": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "edna_finch",
+    "text_sha": "7774ce6a6e8a5286",
+    "voice_sha": "be8bf0fb10e685b3"
+  },
+  "finch-wife.11": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "0d4f8f1ad6499af4",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "finch-wife.12": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "905868acdcdea947",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-wife.13": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "9263ce1cf37e8fc9",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "finch-wife.14": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "rate_operator",
+    "text_sha": "3d5587fe88bd52c2",
+    "voice_sha": "2da5292b7fbf4329"
+  },
+  "finch-wife.15": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "a50a45d34d21ae03",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "finch-wife.16": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "toll_d",
+    "text_sha": "4420f5655e631df2",
+    "voice_sha": "df8a638a8982774d"
+  },
+  "finch-wife.17": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "177f8d9c9046c17a",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "finch-wife.18": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "toll_a",
+    "text_sha": "177f8d9c9046c17a",
+    "voice_sha": "131bf4d3305f3878"
+  },
+  "finch-wife.19": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "e2cdb124045241ab",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "finch-wife.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "local_operator",
+    "text_sha": "91a1734d66aef4fc",
+    "voice_sha": "93a2e2b04171b239"
+  },
+  "finch-wife.20": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "toll_a",
+    "text_sha": "ffdd134861154324",
+    "voice_sha": "131bf4d3305f3878"
+  },
+  "finch-wife.21": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "75b5d2cc2109d21d",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-wife.22": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "2e72312ee9685bbc",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "finch-wife.23": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "b88a6acfef124f2c",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-wife.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "8eed26c8f1f3d9fd",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "finch-wife.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "8b08a56492fad83f",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-wife.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "672887f9fe1189d5",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "finch-wife.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "edna_finch",
+    "text_sha": "0da72197e898ebe1",
+    "voice_sha": "be8bf0fb10e685b3"
+  },
+  "finch-wife.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "d06dde6174c71b5a",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-wife.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "edna_finch",
+    "text_sha": "fdf5809d1c53a83b",
+    "voice_sha": "be8bf0fb10e685b3"
+  },
+  "finch-wife.9": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "28cb45d6df74c28c",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-wu.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "5067256f75d3e2e0",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-wu.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "telegraph_clerk",
+    "text_sha": "67679c581c921508",
+    "voice_sha": "5bd68c7a51da664a"
+  },
+  "finch-wu.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "7bea9a8aaaf076e2",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-wu.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "telegraph_clerk",
+    "text_sha": "56824f6b49ea45c3",
+    "voice_sha": "5bd68c7a51da664a"
+  },
+  "finch-wu.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "d02b3895b2efffe7",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "finch-wu.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "telegraph_clerk",
+    "text_sha": "fdcf7bbec5ca408e",
+    "voice_sha": "5bd68c7a51da664a"
+  },
+  "finch-wu.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "0e8e5fb401ae8df3",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "florist-vance.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "florist",
+    "text_sha": "77a865bf1316857b",
+    "voice_sha": "6e832f0610984adb"
+  },
+  "florist-vance.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "7ef52a9926ce1a69",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "florist-vance.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "florist",
+    "text_sha": "8335bd18e39c2f9e",
+    "voice_sha": "6e832f0610984adb"
+  },
+  "florist-vance.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "8eaee04d911bd288",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "florist-vance.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "florist",
+    "text_sha": "b2914761f9f79aca",
+    "voice_sha": "6e832f0610984adb"
+  },
+  "florist-vance.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "20c0b4f9fba19fe4",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "frontdesk-vance.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "03ef1337b7e89c7d",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "frontdesk-vance.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "2c6d8a54812b1ab4",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "frontdesk-vance.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "b0da54131cd20920",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "frontdesk-vance.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "59c9c399f838d2e2",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "frontdesk-vance.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "1e5ec68feafac37c",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "frontdesk-vance.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "20d9ea0f45a9e286",
+    "voice_sha": "d83bd039a976148b"
+  },
   "hale-busy.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
@@ -167,11 +2379,326 @@
     "text_sha": "ac3c5d9fa0ac47d6",
     "voice_sha": "b27d27d5a98678fa"
   },
+  "hale-busy.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "41daf9c01bed6fd1",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "hale-cans.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "jim_hale",
+    "text_sha": "745f1c8df49cb697",
+    "voice_sha": "ef009f5ee9418ac0"
+  },
+  "hale-cans.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "valet",
+    "text_sha": "f125a6b46764ca6d",
+    "voice_sha": "998d77d4a381a2bc"
+  },
+  "hale-cans.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "jim_hale",
+    "text_sha": "18eb7fa45937e38c",
+    "voice_sha": "ef009f5ee9418ac0"
+  },
+  "hale-cans.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "valet",
+    "text_sha": "804313d0031c22ff",
+    "voice_sha": "998d77d4a381a2bc"
+  },
+  "hale-cans.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "jim_hale",
+    "text_sha": "ecabda17b2db69ef",
+    "voice_sha": "ef009f5ee9418ac0"
+  },
+  "hale-cans.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "valet",
+    "text_sha": "37e49e90a41dbc33",
+    "voice_sha": "998d77d4a381a2bc"
+  },
+  "hale-cans.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "jim_hale",
+    "text_sha": "aa37eea3f02fa40a",
+    "voice_sha": "ef009f5ee9418ac0"
+  },
+  "hale-champagne.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hale",
+    "text_sha": "75cd8ac45445620d",
+    "voice_sha": "b27d27d5a98678fa"
+  },
+  "hale-champagne.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "waiter",
+    "text_sha": "e0a6e5194be87dce",
+    "voice_sha": "ef07bd57df8eed9f"
+  },
+  "hale-champagne.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hale",
+    "text_sha": "b8ebcd7a72236ca5",
+    "voice_sha": "b27d27d5a98678fa"
+  },
+  "hale-champagne.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "waiter",
+    "text_sha": "c31e597d2a33e1db",
+    "voice_sha": "ef07bd57df8eed9f"
+  },
+  "hale-champagne.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hale",
+    "text_sha": "9fa9b4961ea986be",
+    "voice_sha": "b27d27d5a98678fa"
+  },
+  "hale-champagne.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "waiter",
+    "text_sha": "67c20492e8c6262e",
+    "voice_sha": "ef07bd57df8eed9f"
+  },
+  "hale-champagne.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hale",
+    "text_sha": "7a5f285a6023ce9e",
+    "voice_sha": "b27d27d5a98678fa"
+  },
+  "hale-champagne.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "waiter",
+    "text_sha": "b547d1ce4600335a",
+    "voice_sha": "ef07bd57df8eed9f"
+  },
+  "hale-dnd.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hale",
+    "text_sha": "7ba5f38f2e18000f",
+    "voice_sha": "b27d27d5a98678fa"
+  },
+  "hale-dnd.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "854500996e9a159d",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "hale-dnd.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hale",
+    "text_sha": "2130bb202559c03d",
+    "voice_sha": "b27d27d5a98678fa"
+  },
+  "hale-dnd.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "c0046a88a3868b0d",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "hale-dnd.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hale",
+    "text_sha": "c2b53cb941a8c653",
+    "voice_sha": "b27d27d5a98678fa"
+  },
+  "hale-dnd.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "0f410b3d4dda8389",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "hale-dnd.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hale",
+    "text_sha": "40d355ccf2d887aa",
+    "voice_sha": "b27d27d5a98678fa"
+  },
+  "hale-mother.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hale",
+    "text_sha": "4fe3c649e4ba7375",
+    "voice_sha": "b27d27d5a98678fa"
+  },
+  "hale-mother.10": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "0d4f8f1ad6499af4",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "hale-mother.11": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hale",
+    "text_sha": "506ce6a0277ef803",
+    "voice_sha": "b27d27d5a98678fa"
+  },
+  "hale-mother.12": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "ee82100f10c73948",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "hale-mother.13": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "rate_operator",
+    "text_sha": "ee9a3477c1492cbd",
+    "voice_sha": "2da5292b7fbf4329"
+  },
+  "hale-mother.14": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "208f94d7c020bd6d",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "hale-mother.15": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "toll_a",
+    "text_sha": "f703aaf79ed6569f",
+    "voice_sha": "131bf4d3305f3878"
+  },
+  "hale-mother.16": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "202f9ca128ac9e42",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "hale-mother.17": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "toll_d",
+    "text_sha": "202f9ca128ac9e42",
+    "voice_sha": "df8a638a8982774d"
+  },
+  "hale-mother.18": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "e7e02d6b6d6afda7",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "hale-mother.19": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "toll_d",
+    "text_sha": "ffdd134861154324",
+    "voice_sha": "df8a638a8982774d"
+  },
+  "hale-mother.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "local_operator",
+    "text_sha": "91a1734d66aef4fc",
+    "voice_sha": "93a2e2b04171b239"
+  },
+  "hale-mother.20": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "mrs_dunn",
+    "text_sha": "0da72197e898ebe1",
+    "voice_sha": "6f5dd2a36ef040be"
+  },
+  "hale-mother.21": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "944896300dafbdb6",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "hale-mother.22": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "e1f62efca65734ca",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "hale-mother.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "8eed26c8f1f3d9fd",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "hale-mother.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hale",
+    "text_sha": "19e0e536a463ad9d",
+    "voice_sha": "b27d27d5a98678fa"
+  },
+  "hale-mother.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "672887f9fe1189d5",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "hale-mother.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "mrs_dunn",
+    "text_sha": "ac94e9f7e16cc574",
+    "voice_sha": "6f5dd2a36ef040be"
+  },
+  "hale-mother.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hale",
+    "text_sha": "7f4468cae2d11025",
+    "voice_sha": "b27d27d5a98678fa"
+  },
+  "hale-mother.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "mrs_dunn",
+    "text_sha": "339ca813249279b7",
+    "voice_sha": "6f5dd2a36ef040be"
+  },
+  "hale-mother.9": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hale",
+    "text_sha": "a53ba59f2df5edf5",
+    "voice_sha": "b27d27d5a98678fa"
+  },
   "hale-pizza.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "hale",
-    "text_sha": "c3e7e09a0b3856fe",
+    "text_sha": "dc8b2c7a68034384",
     "voice_sha": "b27d27d5a98678fa"
   },
   "hale-pizza.2": {
@@ -185,14 +2712,14 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "hale",
-    "text_sha": "4a61952d8fb607e6",
+    "text_sha": "13873027a8e005a5",
     "voice_sha": "b27d27d5a98678fa"
   },
   "hale-pizza.4": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "pizza_man",
-    "text_sha": "2bcc53c0b5929faa",
+    "text_sha": "7157799b9c829bc9",
     "voice_sha": "8b714d667abe2292"
   },
   "hale-pizza.5": {
@@ -215,6 +2742,391 @@
     "speaker": "hale",
     "text_sha": "4bf5c45f11522dc5",
     "voice_sha": "b27d27d5a98678fa"
+  },
+  "hale-roses.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hale",
+    "text_sha": "46da72cbaed41bc9",
+    "voice_sha": "b27d27d5a98678fa"
+  },
+  "hale-roses.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "a929f3a17c4f21bf",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "hale-roses.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hale",
+    "text_sha": "af8e4fc7689e9a13",
+    "voice_sha": "b27d27d5a98678fa"
+  },
+  "hale-roses.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "01ba1eca35d754b1",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "hale-roses.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hale",
+    "text_sha": "d453616275f98900",
+    "voice_sha": "b27d27d5a98678fa"
+  },
+  "hale-roses.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "24af89e05decddee",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "hale-roses.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hale",
+    "text_sha": "b8471c1f5a85bed2",
+    "voice_sha": "b27d27d5a98678fa"
+  },
+  "hale-roses.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "deaebabf2a09a01b",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "hollis-swedish.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "3a1cd0a77c93e489",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "hollis-swedish.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "nurse",
+    "text_sha": "8e08ddb28ee0be93",
+    "voice_sha": "fa993911803b462b"
+  },
+  "hollis-swedish.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "8b63808f80329d49",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "hollis-swedish.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "nurse",
+    "text_sha": "d28f77d20041da2e",
+    "voice_sha": "fa993911803b462b"
+  },
+  "hollis-swedish.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "52e5d3f66feb4354",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "hollis-swedish.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "nurse",
+    "text_sha": "26c955af7af3af17",
+    "voice_sha": "fa993911803b462b"
+  },
+  "hollis-swedish.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "1a0e209613f61180",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "hollis-valet.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "c160c6ca1230f7a8",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "hollis-valet.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "valet",
+    "text_sha": "1a77ebfd2c38cc46",
+    "voice_sha": "998d77d4a381a2bc"
+  },
+  "hollis-valet.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "57656882cbf098c0",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "hollis-valet.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "valet",
+    "text_sha": "fb95d962acd101b0",
+    "voice_sha": "998d77d4a381a2bc"
+  },
+  "hollis-valet.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "852005306a4d9fd6",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "hollis-valet.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "valet",
+    "text_sha": "ca6872c21496c902",
+    "voice_sha": "998d77d4a381a2bc"
+  },
+  "hollis-wakeup.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "f7c554fe29c72d8f",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "hollis-wakeup.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "f2635c4b5f8b35ea",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "hollis-wakeup.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "b52cd60cb349ac18",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "hollis-wakeup.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "e7a011eb67e95a99",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "hollis-wakeup.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "b8a9906d3e491661",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "hollis-wakeup.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "85fbb8f79fdc6fbc",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "housekeeping-hale.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "1022e18025ac6ba0",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "housekeeping-hale.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "jim_hale",
+    "text_sha": "0da72197e898ebe1",
+    "voice_sha": "ef009f5ee9418ac0"
+  },
+  "housekeeping-hale.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "c0fdef9dfb86c5e9",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "housekeeping-hale.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "jim_hale",
+    "text_sha": "644e298d89f966a7",
+    "voice_sha": "ef009f5ee9418ac0"
+  },
+  "housekeeping-hale.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "a39f4481e77924bf",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "housekeeping-hale.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "jim_hale",
+    "text_sha": "ad78d14ce3a79e74",
+    "voice_sha": "ef009f5ee9418ac0"
+  },
+  "housekeeping-hale.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "16efa59ccd99f897",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "housekeeping-martha.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "0398ec7c7e87d2ce",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "housekeeping-martha.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "0da72197e898ebe1",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "housekeeping-martha.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "e55ac474b89aa7e1",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "housekeeping-martha.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "c1cff3dbff6bfce2",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "housekeeping-martha.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "a12561ecbe5b317a",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "housekeeping-martha.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "a38d009738297340",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "ld-hollis.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "fc8d4b1d043841fb",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "ld-hollis.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "6f0ecb53822d6585",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "ld-hollis.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "3d5cc14e29558e00",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "ld-hollis.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dr_keller",
+    "text_sha": "a604b5099ac456d9",
+    "voice_sha": "1a5e2559bb3b0bb3"
+  },
+  "ld-hollis.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "d88338e311020a9d",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "ld-hollis.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dr_keller",
+    "text_sha": "7fa9ff0f0c7d32e4",
+    "voice_sha": "1a5e2559bb3b0bb3"
+  },
+  "ld-hollis.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "3a613b1096169e30",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "ld-pike.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "f7327dc2ce148ee7",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "ld-pike.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pike",
+    "text_sha": "75606ed3e4a23232",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "ld-pike.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "13f1473c7e526c63",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "ld-pike.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "gruber",
+    "text_sha": "b2d3eaee3897aae9",
+    "voice_sha": "b67daab211109e82"
+  },
+  "ld-pike.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pike",
+    "text_sha": "044ba9ec84f3391a",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "ld-pike.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "gruber",
+    "text_sha": "10f8014c795e915a",
+    "voice_sha": "b67daab211109e82"
+  },
+  "ld-pike.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pike",
+    "text_sha": "e2d33242324a90aa",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "ld-pike.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "gruber",
+    "text_sha": "16c982b3509b1002",
+    "voice_sha": "b67daab211109e82"
   },
   "lindqvist-canlis.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -265,11 +3177,844 @@
     "text_sha": "5b3a1d40e26feb89",
     "voice_sha": "618937de1a22a50a"
   },
+  "lindqvist-rays.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lindqvist",
+    "text_sha": "e251717f8db794f3",
+    "voice_sha": "618937de1a22a50a"
+  },
+  "lindqvist-rays.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "rays_host",
+    "text_sha": "568de8e62af80922",
+    "voice_sha": "7cfa8f2cd159b1c3"
+  },
+  "lindqvist-rays.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lindqvist",
+    "text_sha": "e74f20366a97fcb3",
+    "voice_sha": "618937de1a22a50a"
+  },
+  "lindqvist-rays.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "rays_host",
+    "text_sha": "694cacb626850187",
+    "voice_sha": "7cfa8f2cd159b1c3"
+  },
+  "lindqvist-rays.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lindqvist",
+    "text_sha": "6aac94c65dd55180",
+    "voice_sha": "618937de1a22a50a"
+  },
+  "lindqvist-rays.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "rays_host",
+    "text_sha": "d36f6bcc4031f019",
+    "voice_sha": "7cfa8f2cd159b1c3"
+  },
+  "lindqvist-rays.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lindqvist",
+    "text_sha": "daa25f256b88ee3d",
+    "voice_sha": "618937de1a22a50a"
+  },
+  "lindqvist-times.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lindqvist",
+    "text_sha": "7049a37bac3f31b4",
+    "voice_sha": "618937de1a22a50a"
+  },
+  "lindqvist-times.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "reporter",
+    "text_sha": "6e91979f1b4a259c",
+    "voice_sha": "662ddddbd3a3a73d"
+  },
+  "lindqvist-times.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lindqvist",
+    "text_sha": "9ffde4c422d91fe9",
+    "voice_sha": "618937de1a22a50a"
+  },
+  "lindqvist-times.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "reporter",
+    "text_sha": "1e9c502ab2a87645",
+    "voice_sha": "662ddddbd3a3a73d"
+  },
+  "lindqvist-times.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lindqvist",
+    "text_sha": "f431aaf017d3d499",
+    "voice_sha": "618937de1a22a50a"
+  },
+  "lindqvist-times.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "reporter",
+    "text_sha": "70a291040481c5a2",
+    "voice_sha": "662ddddbd3a3a73d"
+  },
+  "lindqvist-times.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lindqvist",
+    "text_sha": "f3031b9ec47508d6",
+    "voice_sha": "618937de1a22a50a"
+  },
+  "lindqvist-valet.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lindqvist",
+    "text_sha": "4e75a06b3ccb66fd",
+    "voice_sha": "618937de1a22a50a"
+  },
+  "lindqvist-valet.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "valet",
+    "text_sha": "1a77ebfd2c38cc46",
+    "voice_sha": "998d77d4a381a2bc"
+  },
+  "lindqvist-valet.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lindqvist",
+    "text_sha": "b170e17d91ca2763",
+    "voice_sha": "618937de1a22a50a"
+  },
+  "lindqvist-valet.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "valet",
+    "text_sha": "62c0ded11c68d704",
+    "voice_sha": "998d77d4a381a2bc"
+  },
+  "lindqvist-valet.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lindqvist",
+    "text_sha": "54edc4dc86ff741a",
+    "voice_sha": "618937de1a22a50a"
+  },
+  "lindqvist-valet.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "valet",
+    "text_sha": "f8879c460ac402b2",
+    "voice_sha": "998d77d4a381a2bc"
+  },
+  "lindqvist-weather.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lindqvist",
+    "text_sha": "0f98e8a73a11073a",
+    "voice_sha": "618937de1a22a50a"
+  },
+  "lindqvist-weather.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lindqvist",
+    "text_sha": "765f563fe245e2b3",
+    "voice_sha": "618937de1a22a50a"
+  },
+  "lindqvist-weather.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lindqvist",
+    "text_sha": "8ae2eef032210215",
+    "voice_sha": "618937de1a22a50a"
+  },
+  "lindqvist-weather.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "lindqvist",
+    "text_sha": "1d19f3fc31f2dd46",
+    "voice_sha": "618937de1a22a50a"
+  },
+  "lindqvist-weather.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "5eec0fb3acddc0d6",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "lindqvist-weather.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "5c70c5601984c793",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "lindqvist-weather.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "4ad65cc3f672059e",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "lindqvist-weather.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "801766f2b1554081",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "lobby-albright.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "chester",
+    "text_sha": "b2fa200cfb4e7a21",
+    "voice_sha": "7e08da2e34ae1c8f"
+  },
+  "lobby-albright.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "0da72197e898ebe1",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "lobby-albright.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "chester",
+    "text_sha": "0a132d910d01c49c",
+    "voice_sha": "7e08da2e34ae1c8f"
+  },
+  "lobby-albright.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "f33d66f165a17428",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "lobby-albright.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "chester",
+    "text_sha": "82551bc7e3dd01a7",
+    "voice_sha": "7e08da2e34ae1c8f"
+  },
+  "lobby-albright.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "af06318a5a26e560",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "lobby-albright.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "chester",
+    "text_sha": "84b06573334f67c3",
+    "voice_sha": "7e08da2e34ae1c8f"
+  },
+  "lobby-albright.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "0e380d09d3f1cd01",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "lobby-crane.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "eddie",
+    "text_sha": "85d75a8f7e4ef383",
+    "voice_sha": "8eaa032015572b02"
+  },
+  "lobby-crane.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "crane",
+    "text_sha": "aa55273da926609e",
+    "voice_sha": "0de8f6ca1a8afb2f"
+  },
+  "lobby-crane.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "eddie",
+    "text_sha": "c85a0fd1cc86be1c",
+    "voice_sha": "8eaa032015572b02"
+  },
+  "lobby-crane.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "crane",
+    "text_sha": "457883e2e2590136",
+    "voice_sha": "0de8f6ca1a8afb2f"
+  },
+  "lobby-crane.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "eddie",
+    "text_sha": "fcfda708c52ff8a3",
+    "voice_sha": "8eaa032015572b02"
+  },
+  "lobby-crane.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "crane",
+    "text_sha": "1ad72240267064f1",
+    "voice_sha": "0de8f6ca1a8afb2f"
+  },
+  "lobby-crane.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "eddie",
+    "text_sha": "42723f45a3f80ca6",
+    "voice_sha": "8eaa032015572b02"
+  },
+  "lobby-pike.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "gunderson",
+    "text_sha": "e957943cc5fc51c6",
+    "voice_sha": "856351ed947ecf08"
+  },
+  "lobby-pike.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pike",
+    "text_sha": "8570051425f6a8f7",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "lobby-pike.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "gunderson",
+    "text_sha": "b777cf03bc9a7e3d",
+    "voice_sha": "856351ed947ecf08"
+  },
+  "lobby-pike.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pike",
+    "text_sha": "cadeced5baa97e46",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "lobby-pike.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "gunderson",
+    "text_sha": "05330ff915844e54",
+    "voice_sha": "856351ed947ecf08"
+  },
+  "lobby-pike.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pike",
+    "text_sha": "7bc11c1977d9382b",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "lobby-pike.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "gunderson",
+    "text_sha": "ba14bf0eb329ce39",
+    "voice_sha": "856351ed947ecf08"
+  },
+  "lobby-pike.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pike",
+    "text_sha": "f41c0ceab70cc9b1",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "lobby-vance.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "admirer",
+    "text_sha": "994a11473cdd7ec9",
+    "voice_sha": "e835386bb8b3eda3"
+  },
+  "lobby-vance.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "0da72197e898ebe1",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "lobby-vance.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "admirer",
+    "text_sha": "9f0172cd1028607b",
+    "voice_sha": "e835386bb8b3eda3"
+  },
+  "lobby-vance.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "6fcc153a96e3e98a",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "lobby-vance.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "admirer",
+    "text_sha": "da5afa36427e28c9",
+    "voice_sha": "e835386bb8b3eda3"
+  },
+  "lobby-vance.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "0c94b35dfa004e86",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "lobby-vance.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "admirer",
+    "text_sha": "b4b39649b0a891a9",
+    "voice_sha": "e835386bb8b3eda3"
+  },
+  "martha-cat.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "8bd979c825dda293",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-cat.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "a8b2fac60e0c6a15",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-cat.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "143a3ef7a1f2f395",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-cat.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "87cea2e7476963c7",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "martha-cat.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "e638186d3d522059",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "martha-cat.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "3481f2bd24c5a43a",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "martha-mailman.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "163fc3d337972748",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-mailman.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "06305cf5524e3089",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-mailman.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "3b8e5a0903b86b2c",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-mailman.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "f6ef2a1ffde7414e",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "martha-mailman.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "8715928452de4ce3",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "martha-mailman.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "24fd28a7e073aeb8",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "martha-pizza.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "0e108264f9c48054",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-pizza.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pizza_man",
+    "text_sha": "9c5017bc8afb523e",
+    "voice_sha": "8b714d667abe2292"
+  },
+  "martha-pizza.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "34cf0f810a4fe6d2",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-pizza.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pizza_man",
+    "text_sha": "fee0c3769959d4ee",
+    "voice_sha": "8b714d667abe2292"
+  },
+  "martha-pizza.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "282426546c6ca9ed",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-pizza.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pizza_man",
+    "text_sha": "2d859676033c388e",
+    "voice_sha": "8b714d667abe2292"
+  },
+  "martha-pizza.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "73d0d4ed5473da3c",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-roomservice.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "d9ea9815bd345a87",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-roomservice.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "waiter",
+    "text_sha": "e0a6e5194be87dce",
+    "voice_sha": "ef07bd57df8eed9f"
+  },
+  "martha-roomservice.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "bc37d9cd21d64712",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-roomservice.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "waiter",
+    "text_sha": "b7f5fa3cbc63b2cc",
+    "voice_sha": "ef07bd57df8eed9f"
+  },
+  "martha-roomservice.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "bd2347cfbe2634d3",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-roomservice.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "waiter",
+    "text_sha": "15eb6ea1c31df6d5",
+    "voice_sha": "ef07bd57df8eed9f"
+  },
+  "martha-roomservice.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "722fd2559580c0d2",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-squirrel.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "e437401a8254d8a8",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-squirrel.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "c8a3bbbbbe1fefee",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "martha-squirrel.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "36b6b7ece0717192",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-squirrel.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "e13d2ae7cd403ee2",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "martha-squirrel.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "b4c8535e910bfa70",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-squirrel.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "183bb6b29701148d",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "martha-squirrel.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "98fbc8536ba871b5",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-walk.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "23e57cea896bbdb0",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-walk.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "bellcaptain",
+    "text_sha": "d41da619041ceb8b",
+    "voice_sha": "fca126ddb00be043"
+  },
+  "martha-walk.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "d748a258665f02cf",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-walk.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "bellcaptain",
+    "text_sha": "207e110f5e6b7117",
+    "voice_sha": "fca126ddb00be043"
+  },
+  "martha-walk.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "8e9e881d62a00e56",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "martha-walk.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "bellcaptain",
+    "text_sha": "284be57573fc4e42",
+    "voice_sha": "fca126ddb00be043"
+  },
+  "martha-walk.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "martha",
+    "text_sha": "bd84db058dc2a58f",
+    "voice_sha": "836ad4fb56ab66c9"
+  },
+  "marysmith-car.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "c5cf17e5c319a597",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "marysmith-car.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "valet",
+    "text_sha": "f125a6b46764ca6d",
+    "voice_sha": "998d77d4a381a2bc"
+  },
+  "marysmith-car.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "a7b45ec57f44a576",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "marysmith-car.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "valet",
+    "text_sha": "2e559952310327c1",
+    "voice_sha": "998d77d4a381a2bc"
+  },
+  "marysmith-car.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "fcedfe2c2e746f78",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "marysmith-car.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "valet",
+    "text_sha": "e4db6f4e1ddb7692",
+    "voice_sha": "998d77d4a381a2bc"
+  },
+  "marysmith-car.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "bc9fe26e03221bf7",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "marysmith-coffee.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "cef3699ecbfd85f9",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "marysmith-coffee.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "waiter",
+    "text_sha": "e0a6e5194be87dce",
+    "voice_sha": "ef07bd57df8eed9f"
+  },
+  "marysmith-coffee.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "5f806fde135465d3",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "marysmith-coffee.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "waiter",
+    "text_sha": "74c04a2390ffe314",
+    "voice_sha": "ef07bd57df8eed9f"
+  },
+  "marysmith-coffee.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "f9facab6e295b6a8",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "marysmith-coffee.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "waiter",
+    "text_sha": "9338f0a3bd73d695",
+    "voice_sha": "ef07bd57df8eed9f"
+  },
+  "marysmith-coffee.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "e9e9528a434b2d40",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "marysmith-desk.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "fdbbdf9255ab9830",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "marysmith-desk.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "073d0e317abdddcb",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "marysmith-desk.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "455775936c816397",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "marysmith-desk.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "4c5e2f1a8f15961c",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "marysmith-desk.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "c48960f42d76981d",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
+  "marysmith-desk.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "fb49bccf9474a867",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "marysmith-desk.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "7b56bab45b5f3747",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
   "nbn-kaplan.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "valerian",
-    "text_sha": "337620d049e0a064",
+    "text_sha": "591c31c867a29952",
     "voice_sha": "34370347109da091"
   },
   "nbn-kaplan.2": {
@@ -283,29 +4028,57 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "valerian",
-    "text_sha": "85d6d1940835fcc7",
+    "text_sha": "1c71f21ddf30d30b",
     "voice_sha": "34370347109da091"
   },
   "nbn-kaplan.4": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "thornhill",
-    "text_sha": "80495816f7f22157",
+    "text_sha": "b7f28b09afe41628",
     "voice_sha": "d45f4ae78ad69cd4"
   },
   "nbn-kaplan.5": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "valerian",
-    "text_sha": "0ef6962ebb50a2d7",
+    "text_sha": "78c1a97ffd7367de",
     "voice_sha": "34370347109da091"
+  },
+  "nbn-kaplan.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "thornhill",
+    "text_sha": "5737457a51c2cfd4",
+    "voice_sha": "d45f4ae78ad69cd4"
+  },
+  "nbn-kaplan.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "valerian",
+    "text_sha": "a84603f65ffc02ef",
+    "voice_sha": "34370347109da091"
+  },
+  "nbn-kaplan.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "thornhill",
+    "text_sha": "aaf2190772534df7",
+    "voice_sha": "d45f4ae78ad69cd4"
   },
   "nbn-trace.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "thornhill",
-    "text_sha": "93c6ffd26341a741",
+    "text_sha": "59c079d937fb1514",
     "voice_sha": "d45f4ae78ad69cd4"
+  },
+  "nbn-trace.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "aa934b0ef312fbcc",
+    "voice_sha": "16619c235a8d72ff"
   },
   "nbn-valet.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -325,7 +4098,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "thornhill",
-    "text_sha": "1854b828ea8cafa7",
+    "text_sha": "9da065be44486d24",
     "voice_sha": "d45f4ae78ad69cd4"
   },
   "nbn-valet.4": {
@@ -353,8 +4126,372 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "thornhill",
-    "text_sha": "ee4643a5b245fe33",
+    "text_sha": "270ce2fed313daf1",
     "voice_sha": "d45f4ae78ad69cd4"
+  },
+  "operator.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "40e000c65ea9064b",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "operator.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "974abc7104eb3074",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "operator.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "55b514bbe2968fa8",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "operator.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "a0255f2364b2cab0",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "pemb-blanket.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "e372762577779c1e",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-blanket.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "af877b792d39424a",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "pemb-blanket.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "7eeaa6bb15a2051e",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-blanket.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "3fbf569184398987",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "pemb-blanket.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "0211181004d767be",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-blanket.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "61dba0508ad71832",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "pemb-canary.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "50e6cf8a7d24a0a5",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-canary.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "ce0b4a412a91121b",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "pemb-canary.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "f81fecd3f5553641",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-canary.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "abb708a5ec88c474",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "pemb-canary.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "c92a732c9718c401",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-canary.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "a5b560791f2752ec",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "pemb-canary.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "5ba2979fb3af424a",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-complaint.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "35a73f2c37197998",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-complaint.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "854500996e9a159d",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "pemb-complaint.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "3c61f755a3b77e9f",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-complaint.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "e19c73df830508f5",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "pemb-complaint.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "bbc3d6b3fa9f3263",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-complaint.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "desk_clerk",
+    "text_sha": "92d6d11f0b68d704",
+    "voice_sha": "2a891ba79a329173"
+  },
+  "pemb-complaint.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "cf06a1bfcf323936",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-icebox.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "9cc1bbc7d64da718",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-icebox.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "waiter",
+    "text_sha": "e0a6e5194be87dce",
+    "voice_sha": "ef07bd57df8eed9f"
+  },
+  "pemb-icebox.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "24c6664365457021",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-icebox.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "waiter",
+    "text_sha": "562bcb43c5ffbc3d",
+    "voice_sha": "ef07bd57df8eed9f"
+  },
+  "pemb-icebox.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "738ba174ad42013d",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-icebox.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "waiter",
+    "text_sha": "d0f2cba036ba9d0c",
+    "voice_sha": "ef07bd57df8eed9f"
+  },
+  "pemb-icebox.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "4ef0bb28fb3d941d",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-piano.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "76d8c91284b816d6",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-piano.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "d7b069d3240447a0",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "pemb-piano.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "8c6bdc01db696356",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-piano.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "969aa72b530d5613",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "pemb-piano.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "a0770d691d8b826f",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-piano.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "f8cb526f8b3ae650",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "pemb-piano.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "a5cf50e01a747a9d",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-pillows.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "95e71da1ed58868e",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-pillows.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "d7b069d3240447a0",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "pemb-pillows.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "bd973ba67bc76ec7",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-pillows.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "0969224d87902ebd",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "pemb-pillows.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "c0ef7491fc8cf78e",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-pillows.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "661b46ae10b0b390",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "pemb-pillows.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "0b03c33fb4088daf",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-towels.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "602ba46182a97215",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-towels.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "d7b069d3240447a0",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "pemb-towels.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "1ec831dd212c6864",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-towels.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "b5d38e1154f73ffa",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "pemb-towels.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "96fcc15ff6da584f",
+    "voice_sha": "c0d65bbbe2a1933e"
+  },
+  "pemb-towels.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "d5e41dbae1781a85",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "pemb-towels.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pemberton",
+    "text_sha": "382513c216f2e2fb",
+    "voice_sha": "c0d65bbbe2a1933e"
   },
   "pike-breakfast.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -374,7 +4511,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "pike",
-    "text_sha": "14127e857fc7432f",
+    "text_sha": "bec20755b4579cbc",
     "voice_sha": "a8807f00109b66da"
   },
   "pike-breakfast.4": {
@@ -404,6 +4541,230 @@
     "speaker": "pike",
     "text_sha": "0880594d087aef2a",
     "voice_sha": "a8807f00109b66da"
+  },
+  "pike-collect.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pike",
+    "text_sha": "1701d21401b35e71",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "pike-collect.10": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "d3b590bc5ec2e771",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "pike-collect.11": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "rate_operator",
+    "text_sha": "2c70c9a29102e04b",
+    "voice_sha": "2da5292b7fbf4329"
+  },
+  "pike-collect.12": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "d86f0046083fcc98",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "pike-collect.13": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "toll_b",
+    "text_sha": "d86f0046083fcc98",
+    "voice_sha": "ac283a8d16125278"
+  },
+  "pike-collect.14": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "4257533c2f29b957",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "pike-collect.15": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "toll_b",
+    "text_sha": "ffdd134861154324",
+    "voice_sha": "ac283a8d16125278"
+  },
+  "pike-collect.16": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "gruber",
+    "text_sha": "c1b92391a149fa1e",
+    "voice_sha": "b67daab211109e82"
+  },
+  "pike-collect.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "local_operator",
+    "text_sha": "91a1734d66aef4fc",
+    "voice_sha": "93a2e2b04171b239"
+  },
+  "pike-collect.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "8eed26c8f1f3d9fd",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "pike-collect.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1951,
+    "speaker": "pike",
+    "text_sha": "8e1070352415b32a",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "pike-collect.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "694e0c75fc25a3eb",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "pike-collect.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "gruber",
+    "text_sha": "2b96e4bbdaca8a76",
+    "voice_sha": "b67daab211109e82"
+  },
+  "pike-collect.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "d32daeb6a5dbd023",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "pike-collect.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pike",
+    "text_sha": "e7b562af2f7a4c50",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "pike-collect.9": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "gruber",
+    "text_sha": "92f86dac6e0efb24",
+    "voice_sha": "b67daab211109e82"
+  },
+  "pike-demo.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pike",
+    "text_sha": "637f0781d45deba5",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "pike-demo.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "d7b069d3240447a0",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "pike-demo.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pike",
+    "text_sha": "7a1389ddf48c6035",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "pike-demo.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "93b4829c4bdee9a8",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "pike-demo.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pike",
+    "text_sha": "a43cbd6af1c80d45",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "pike-demo.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "16ac4d0322880068",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "pike-demo.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pike",
+    "text_sha": "6ad62aab344e175c",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "pike-demo.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "9804c50ff8f13ff0",
+    "voice_sha": "4728e91795e03cf6"
+  },
+  "pike-finch.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pike",
+    "text_sha": "0fbca4bc045f71d9",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "pike-finch.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "eb011a9a4eb46fdb",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "pike-finch.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pike",
+    "text_sha": "5dea9e4666286b8b",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "pike-finch.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "8c8b45a4cf95b383",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "pike-finch.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pike",
+    "text_sha": "bd9f226ad1e8c4e4",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "pike-finch.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "6942460d23ff7ace",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "pike-finch.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pike",
+    "text_sha": "ccb6ecf3edadd1a9",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "pike-finch.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "b7d21f5e30dedfdb",
+    "voice_sha": "70a782614f26cdb1"
   },
   "pike-taxi.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -454,11 +4815,340 @@
     "text_sha": "52648f05fbfd27c6",
     "voice_sha": "a8807f00109b66da"
   },
+  "pizza-hale.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pizza_man",
+    "text_sha": "4f41dbee62454626",
+    "voice_sha": "8b714d667abe2292"
+  },
+  "pizza-hale.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hale",
+    "text_sha": "0da72197e898ebe1",
+    "voice_sha": "b27d27d5a98678fa"
+  },
+  "pizza-hale.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pizza_man",
+    "text_sha": "0eea405be50479a7",
+    "voice_sha": "8b714d667abe2292"
+  },
+  "pizza-hale.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hale",
+    "text_sha": "1022fa489a2bf1b9",
+    "voice_sha": "b27d27d5a98678fa"
+  },
+  "pizza-hale.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pizza_man",
+    "text_sha": "f94c3bb75f379254",
+    "voice_sha": "8b714d667abe2292"
+  },
+  "pizza-hale.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hale",
+    "text_sha": "8e88b3e250ac6163",
+    "voice_sha": "b27d27d5a98678fa"
+  },
+  "pizza-hale.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pizza_man",
+    "text_sha": "1e50ec4b9181131e",
+    "voice_sha": "8b714d667abe2292"
+  },
+  "portland-callback.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "0717a2c6b7145b7c",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "portland-callback.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "48376c6e6cd49c22",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "portland-callback.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "operator",
+    "text_sha": "867e84a605b43d1a",
+    "voice_sha": "de0064007835d7a7"
+  },
+  "portland-callback.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "ruth_seaver",
+    "text_sha": "34b00227652d5b9c",
+    "voice_sha": "810b7216e3499e48"
+  },
+  "portland-callback.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "74470b757a07b1f2",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "portland-callback.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "ruth_seaver",
+    "text_sha": "76258963f301bf55",
+    "voice_sha": "810b7216e3499e48"
+  },
+  "portland-callback.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "6f00b03c5208cf01",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "restaurant-albright.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hostess",
+    "text_sha": "a6c63daacfc990e7",
+    "voice_sha": "9ff435b333e39d41"
+  },
+  "restaurant-albright.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "b8b7cfdf4758ef90",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "restaurant-albright.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hostess",
+    "text_sha": "ebddaa3cd060de06",
+    "voice_sha": "9ff435b333e39d41"
+  },
+  "restaurant-albright.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "2c00075f88033e97",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "restaurant-albright.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hostess",
+    "text_sha": "610490ed6ba36cbd",
+    "voice_sha": "9ff435b333e39d41"
+  },
+  "restaurant-albright.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "f19f9529041ba543",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "restaurant-albright.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hostess",
+    "text_sha": "61ca46277058dc92",
+    "voice_sha": "9ff435b333e39d41"
+  },
+  "restaurant-albright.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "albright",
+    "text_sha": "e258ac757c3a2659",
+    "voice_sha": "e92994696ef162d0"
+  },
+  "restaurant-beaumont.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hostess",
+    "text_sha": "c919e13f26cafc38",
+    "voice_sha": "9ff435b333e39d41"
+  },
+  "restaurant-beaumont.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "511c5956851d7987",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "restaurant-beaumont.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hostess",
+    "text_sha": "9434959e1c84195f",
+    "voice_sha": "9ff435b333e39d41"
+  },
+  "restaurant-beaumont.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "e6a8c917008a82d0",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "restaurant-beaumont.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hostess",
+    "text_sha": "e1fc1da4558ff682",
+    "voice_sha": "9ff435b333e39d41"
+  },
+  "restaurant-beaumont.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "e89d498663fac259",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "swedish-hollis.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "nurse",
+    "text_sha": "9ced60e0518a0a8f",
+    "voice_sha": "fa993911803b462b"
+  },
+  "swedish-hollis.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "02f295030949a3fb",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "swedish-hollis.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "nurse",
+    "text_sha": "8bd2a66ceb00f286",
+    "voice_sha": "fa993911803b462b"
+  },
+  "swedish-hollis.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "ea45abdedf2a888b",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "swedish-hollis.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "nurse",
+    "text_sha": "db30f5c66fe6b02d",
+    "voice_sha": "fa993911803b462b"
+  },
+  "swedish-hollis.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "28f7dfdd2d6ac262",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "taxi-pike.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dispatcher",
+    "text_sha": "e602b04217178727",
+    "voice_sha": "e5d3da4c299a36de"
+  },
+  "taxi-pike.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pike",
+    "text_sha": "e02862dc6866d897",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "taxi-pike.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dispatcher",
+    "text_sha": "5ddb6541b66f7465",
+    "voice_sha": "e5d3da4c299a36de"
+  },
+  "taxi-pike.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pike",
+    "text_sha": "0107d05e9c10f57a",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "taxi-pike.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dispatcher",
+    "text_sha": "2ca9576f49231570",
+    "voice_sha": "e5d3da4c299a36de"
+  },
+  "taxi-pike.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pike",
+    "text_sha": "98e04a40523ac7c4",
+    "voice_sha": "a8807f00109b66da"
+  },
+  "taxi-pike.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "dispatcher",
+    "text_sha": "53b1e223467d3d47",
+    "voice_sha": "e5d3da4c299a36de"
+  },
+  "times-hollis.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "reporter",
+    "text_sha": "27e71f2f5875685d",
+    "voice_sha": "662ddddbd3a3a73d"
+  },
+  "times-hollis.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "02f295030949a3fb",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "times-hollis.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "reporter",
+    "text_sha": "50a64bec1273b671",
+    "voice_sha": "662ddddbd3a3a73d"
+  },
+  "times-hollis.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "25c111815007ad1b",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
+  "times-hollis.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "reporter",
+    "text_sha": "320310bda7a054ff",
+    "voice_sha": "662ddddbd3a3a73d"
+  },
+  "times-hollis.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hollis",
+    "text_sha": "c959ee5d6df77ff5",
+    "voice_sha": "8e9f0d0d026986dd"
+  },
   "times-pike.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "reporter",
-    "text_sha": "f18a50eca5c8e6a7",
+    "text_sha": "fe8ef4b75740e6d5",
     "voice_sha": "662ddddbd3a3a73d"
   },
   "times-pike.2": {
@@ -495,5 +5185,348 @@
     "speaker": "pike",
     "text_sha": "539c562438d826f3",
     "voice_sha": "a8807f00109b66da"
+  },
+  "valet-beaumont.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "valet",
+    "text_sha": "be693ffa34703ff4",
+    "voice_sha": "998d77d4a381a2bc"
+  },
+  "valet-beaumont.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "9bf53a440f4aa660",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "valet-beaumont.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "valet",
+    "text_sha": "196810c18b17b82d",
+    "voice_sha": "998d77d4a381a2bc"
+  },
+  "valet-beaumont.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "894c791d130e2f24",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "valet-beaumont.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "valet",
+    "text_sha": "3cf204069e2a317b",
+    "voice_sha": "998d77d4a381a2bc"
+  },
+  "valet-beaumont.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "beaumont",
+    "text_sha": "41437d2623e25d1a",
+    "voice_sha": "c2d92a0fe0febf55"
+  },
+  "valet-beaumont.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "valet",
+    "text_sha": "6c20d0706176205c",
+    "voice_sha": "998d77d4a381a2bc"
+  },
+  "vance-bellcap.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "8e1b5172cc61abbb",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "vance-bellcap.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "bellcaptain",
+    "text_sha": "d41da619041ceb8b",
+    "voice_sha": "fca126ddb00be043"
+  },
+  "vance-bellcap.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "e06dd3f26b701ebd",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "vance-bellcap.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "bellcaptain",
+    "text_sha": "e24be77ee6f71851",
+    "voice_sha": "fca126ddb00be043"
+  },
+  "vance-bellcap.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "bbf053e5a9206338",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "vance-bellcap.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "bellcaptain",
+    "text_sha": "087bf48aae5865c0",
+    "voice_sha": "fca126ddb00be043"
+  },
+  "vance-bellcap.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "d587f044c4a9a699",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "vance-concierge.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "b40d4e6cfa201ae6",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "vance-concierge.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "concierge",
+    "text_sha": "78216051943c30c2",
+    "voice_sha": "eed64d0e55970166"
+  },
+  "vance-concierge.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "a80d48dc88818b10",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "vance-concierge.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "concierge",
+    "text_sha": "698ce0c330355385",
+    "voice_sha": "eed64d0e55970166"
+  },
+  "vance-concierge.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "09a5265d4c45f922",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "vance-concierge.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "concierge",
+    "text_sha": "45da0293c9e4b9b9",
+    "voice_sha": "eed64d0e55970166"
+  },
+  "vance-concierge.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "6c1d6926a1d3dfff",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "vance-pigalle.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "fca496311b11401b",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "vance-pigalle.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pigalle",
+    "text_sha": "50e737a9ca3e7c12",
+    "voice_sha": "b59db541e9d5d3c9"
+  },
+  "vance-pigalle.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "b8cfd696c2aa2521",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "vance-pigalle.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pigalle",
+    "text_sha": "6a3a71c5e0d48183",
+    "voice_sha": "b59db541e9d5d3c9"
+  },
+  "vance-pigalle.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "073f96ed6220d8ae",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "vance-pigalle.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "pigalle",
+    "text_sha": "e43bcc723a1e8998",
+    "voice_sha": "b59db541e9d5d3c9"
+  },
+  "vance-pigalle.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "046866b21b7ee209",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "vance-tea.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "5913d7e6248ee5d8",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "vance-tea.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "waiter",
+    "text_sha": "e0a6e5194be87dce",
+    "voice_sha": "ef07bd57df8eed9f"
+  },
+  "vance-tea.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "72313ff2dc1aebbd",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "vance-tea.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "waiter",
+    "text_sha": "a52e7d78d49da2c7",
+    "voice_sha": "ef07bd57df8eed9f"
+  },
+  "vance-tea.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "54e92647b74401cd",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "vance-tea.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "waiter",
+    "text_sha": "8c1d01a045ce5bbb",
+    "voice_sha": "ef07bd57df8eed9f"
+  },
+  "vance-tea.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "b4f63ae842adee44",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "vance-wakeup.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "6701af35e216f88b",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "vance-wakeup.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "d8ce209d8c0cbc46",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "vance-wakeup.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "9b299a09cea9307f",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "vance-wakeup.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "vance",
+    "text_sha": "998eadc0bb639d62",
+    "voice_sha": "d83bd039a976148b"
+  },
+  "vance-wakeup.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "0818f4abe7d58df5",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "vance-wakeup.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "c6a91055718b8207",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "vance-wakeup.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "43572842a31bcdb6",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "vance-wakeup.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "03c61c1a0887388b",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "wu-finch.1": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "telegraph_clerk",
+    "text_sha": "bc9bf0300f25bcde",
+    "voice_sha": "5bd68c7a51da664a"
+  },
+  "wu-finch.2": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "ee9259cff5426a06",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "wu-finch.3": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "telegraph_clerk",
+    "text_sha": "d79ee641c7831f80",
+    "voice_sha": "5bd68c7a51da664a"
+  },
+  "wu-finch.4": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "22a30ec2db3111eb",
+    "voice_sha": "70a782614f26cdb1"
+  },
+  "wu-finch.5": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "telegraph_clerk",
+    "text_sha": "6f88c3ceea2d6b59",
+    "voice_sha": "5bd68c7a51da664a"
+  },
+  "wu-finch.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "finch",
+    "text_sha": "f5c5959967bad73d",
+    "voice_sha": "70a782614f26cdb1"
   }
 }
