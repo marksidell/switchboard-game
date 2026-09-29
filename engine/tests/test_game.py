@@ -115,7 +115,7 @@ async def main() -> int:
              real.replace("                called: Valet service.\n",
                           "                called: Valet service.\n"
                           "                person: nobody\n", 1)),
-            ("ringback: on a caller: line",
+            ("ringback: on a station's line",
              real.replace("                caller: Yes, fast.\n",
                           "                caller: Yes, fast.\n"
                           "                ringback: 5\n", 1)),

@@ -286,6 +286,16 @@ async def main() -> int:
     check("off" in tones[i + 1:], f"ringback, then off, on the trunk: {tones}")
     check(took >= D * 8, f"both waits taken: {took:.2f}s")
 
+    print("\n== ringback: on the calling side of a call in (§4.6, Rev 21)")
+    h = Harness(scene(Shape.OUTSIDE_TO_STATION, from_line="operator", from_station=None,
+                      to_line="room105", to_station=2,
+                      conversation=(speech("t.2", "called"),
+                                    Speech("t.3", D * 3, "caller", ringback=D * 3))))
+    r = await h.run(outside_to_station, incoming_operator, 3)
+    check(r.ok, "succeeds")
+    tones = [v for k, v in h.link.sent if k == "trunk/3/tone/set"]
+    check(tones[:2] == ["ringback", "off"], f"rang the incoming trunk, then stopped: {tones}")
+
     print("\n== the operator dials a wrong number, releases, and redials")
     h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
                       dial="275-4101"))

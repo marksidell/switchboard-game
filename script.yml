@@ -45,7 +45,13 @@
 #     town's name, the last one ringing the number. The party she rings
 #     speaks with a person: too. pause: gives each operator on the route a
 #     moment to come on the line, and ringback: lets the audience hear the far
-#     end ring before the party answers. A call coming in from long distance is heard
+#     end ring before the party answers. The long-distance operator may ask
+#     the hotel operator whether to charge the room, and her next line is
+#     marked wait:. A guest who asked for the time and charges hears them
+#     from her when the call ends, unasked.
+#     When the circuits are busy she calls back: a following scene rings the
+#     hotel on a trunk from outside line operator, and the hotel operator puts
+#     the call through to the room. A call coming in from long distance is heard
 #     from the last operator on its route only.
 #
 # A beat before a line (game_control.md 4.6):
@@ -319,6 +325,21 @@ cast:
         sex: female
         accent: generic American, practical
         description: Edna Finch, Howard's wife, in Walla Walla
+    ruth_seaver:
+        sex: female
+        accent: Pacific Northwest, older, warm and chatty
+        description: Mrs. Ruth Seaver, Mrs. Albright's sister, in Portland
+        sample: Edith? Oh, I'm so glad you called back. I was down at the market, and then Mrs. Hanley stopped me on the stairs, and you know how she talks.
+    mabel_dobbs:
+        sex: female
+        accent: Nebraska, plain-spoken and brisk
+        description: Mabel Dobbs, Earl's wife, who minds the feed store in Wahoo, Nebraska
+        sample: Earl? Is that you? Well, for heaven's sake. The hens are laying fine, the Hendersons paid their bill, and your mother called twice.
+    wilbur:
+        sex: male
+        accent: Nebraska farm boy, slow and friendly
+        description: Wilbur, the boy who works the counter at Dobbs Feed and Seed in Wahoo
+        sample: Dobbs Feed and Seed, this is Wilbur. We got the laying mash in, and the chicken wire, and I think that's about all we got.
     dr_keller:
         sex: male
         accent: Minnesota, measured
@@ -846,6 +867,38 @@ scenes:
             -   id: 7
                 caller: Yes, please. In about an hour.
 
+    # Long distance calls back when it has the party (game_control.md 4.4):
+    # the operator rings the hotel on a trunk and the hotel operator puts the
+    # call through to the room.
+    portland-callback:
+        active: false
+        after: albright-portland
+        delay: 90
+        calling:
+            line: operator
+            person: operator
+        called:
+            line: room302
+            person: albright
+        request:
+            id: 1
+            text: Hotel Ballard? This is long distance. I have your Portland call for Mrs. Edith Albright, room 302. Her party is on the line now.
+        conversation:
+            -   id: 2
+                called: Hello? This is Mrs. Albright.
+            -   id: 3
+                caller: Mrs. Albright? I have Mrs. Ruth Seaver in Portland. Go ahead, please.
+            -   id: 4
+                caller: Edith? Oh, I'm so glad you called back. I was out at the market when you rang before.
+                person: ruth_seaver
+            -   id: 5
+                called: Ruth, dear. I'm in Seattle, at the Hotel Ballard. I sent roses to a honeymoon couple.
+            -   id: 6
+                caller: You did what? To strangers? Edith, you're getting sentimental in your old age.
+                person: ruth_seaver
+            -   id: 7
+                called: I'm getting sentimental at a dollar a minute, Ruth. I'll write you a long letter.
+
     # From the lobby house phone, outgoing.
     pike-taxi:
         active: true
@@ -1279,6 +1332,123 @@ scenes:
             -   id: 4
                 caller: Thanks a bunch. You folks sure are friendly out here.
 
+    dobbs-omaha:
+        active: false
+        calling:
+            line: room105
+            person: dobbs
+        called:
+            line: operator
+            person: local_operator
+        request:
+            id: 1
+            text: Operator, I want to call home. Long distance. Nebraska.
+        conversation:
+            -   id: 2
+                called: Operator.
+            -   id: 3
+                called: Long distance.
+                person: operator
+                wait: true
+            -   id: 4
+                caller: Wahoo, Nebraska. That's near Omaha. Mrs. Mabel Dobbs, at Dobbs Feed and Seed. The number is 23-J. Person to person.
+            -   id: 5
+                called: Your name and number, please?
+                person: operator
+            -   id: 6
+                caller: Earl Dobbs. Hotel Ballard, room 105.
+            -   id: 7
+                called: Rate operator? Wahoo, Nebraska. Route and day person rate from Seattle.
+                person: operator
+            -   id: 8
+                called: Salt Lake, Omaha, Wahoo. Day person, 2-3-0.
+                person: rate_operator
+                pause: 3
+            -   id: 9
+                called: Through Salt Lake.
+                person: operator
+            -   id: 10
+                called: Salt Lake.
+                person: toll_d
+                pause: 3
+            -   id: 11
+                called: Omaha.
+                person: operator
+            -   id: 12
+                called: Salt Lake here. All circuits to Omaha are busy, Seattle. Try again in a few minutes.
+                person: toll_d
+                pause: 4
+            -   id: 13
+                called: Mr. Dobbs, all the lines to Omaha are busy just now. I'll call you back as soon as I have your party.
+                person: operator
+            -   id: 14
+                caller: Busy? In Omaha? Well, it is Saturday. Sure thing, I'll sit right here by the phone.
+
+    dobbs-callback:
+        active: false
+        after: dobbs-omaha
+        delay: 75
+        calling:
+            line: operator
+            person: operator
+        called:
+            line: room105
+            person: dobbs
+        request:
+            id: 1
+            text: Hotel Ballard? Long distance. I'm ready with the Wahoo, Nebraska call for Mr. Earl Dobbs, room 105.
+        conversation:
+            -   id: 2
+                called: Dobbs here!
+            -   id: 3
+                caller: Mr. Dobbs? I have a circuit to Omaha now. One moment.
+            -   id: 4
+                caller: Omaha.
+                person: toll_b
+                pause: 3
+            -   id: 5
+                caller: Wahoo.
+                person: operator
+            -   id: 6
+                caller: Wahoo.
+                person: toll_c
+                pause: 3
+            -   id: 7
+                caller: Wahoo, 23-J. Mrs. Mabel Dobbs. Seattle calling.
+                person: operator
+            -   id: 8
+                caller: Ringing 23-J.
+                person: toll_c
+            -   id: 9
+                caller: They're ringing your party now, Mr. Dobbs.
+            -   id: 10
+                caller: Dobbs Feed and Seed, Wilbur speaking.
+                person: wilbur
+                ringback: 8
+            -   id: 11
+                caller: Mrs. Mabel Dobbs, please. Seattle, Washington, calling.
+            -   id: 12
+                caller: Seattle? Mabel's out back with the chickens. Hang on, I'll holler.
+                person: wilbur
+            -   id: 13
+                caller: Waiting on your party, Mr. Dobbs.
+            -   id: 14
+                caller: Earl? Is that you? What in the world are you calling for?
+                person: mabel_dobbs
+                pause: 8
+            -   id: 15
+                caller: Here is your party. Go ahead, please.
+            -   id: 16
+                called: Mabel! You'll never guess. A fella at the market threw a salmon at me, and I caught it!
+            -   id: 17
+                caller: Earl Dobbs, this is costing two dollars. Did you call to tell me about a fish?
+                person: mabel_dobbs
+            -   id: 18
+                called: Thirty pounds, Mabel! It's in the bathtub.
+            -   id: 19
+                caller: Then you'd better take a shower at the Y. Goodbye, Earl.
+                person: mabel_dobbs
+
     dobbs-paramount:
         active: false
         calling:
@@ -1357,6 +1527,9 @@ scenes:
             -   id: 20
                 called: Ringing.
                 person: toll_c
+            -   id: 22
+                called: They're ringing your party now, Mr. Thornhill.
+                person: operator
             -   id: 21
                 called: Hello?
                 person: clara_thornhill
@@ -1890,9 +2063,13 @@ scenes:
                 person: operator
             -   id: 11
                 caller: Oh! The Hotel Ballard, room 305. Mrs. James Hale. Mrs. Hale!
+            -   id: 21
+                called: Hotel? Is this to be charged to the room?
+                person: operator
             -   id: 12
                 called: Rate operator? Boise, Idaho. Route and day station rate from Seattle.
                 person: operator
+                wait: true
             -   id: 13
                 called: Portland, Boise. Day station, 1-1-5.
                 person: rate_operator
@@ -3050,7 +3227,7 @@ scenes:
                 called: Your name and number, please?
                 person: operator
             -   id: 13
-                caller: Colonel Augustus Beaumont. The Hotel Ballard, room 205.
+                caller: Colonel Augustus Beaumont. The Hotel Ballard, room 205. And I shall want the time and charges.
             -   id: 14
                 called: Rate operator? Savannah, Georgia. Route and night person rate from Seattle.
                 person: operator
@@ -3085,6 +3262,9 @@ scenes:
             -   id: 23
                 called: Ringing.
                 person: toll_c
+            -   id: 25
+                called: They're ringing your party now, Colonel.
+                person: operator
             -   id: 24
                 called: Hello?
                 person: lucinda
@@ -3107,6 +3287,11 @@ scenes:
                 person: lucinda
             -   id: 11
                 caller: Sixty-seven, Lucinda. Good night.
+            -   id: 27
+                called: Seattle? Time and charges for room 205. Six minutes. Three dollars and forty cents.
+                person: operator
+            -   id: 28
+                caller: Three dollars and forty cents, to be told I am old. Carry on.
 
     restaurant-beaumont:
         active: false
@@ -3260,7 +3445,7 @@ scenes:
                 called: And your number, please?
                 person: operator
             -   id: 12
-                caller: Hotel Ballard, room 303. Howard Finch. Is this going to be very expensive?
+                caller: Hotel Ballard, room 303. Howard Finch. And would you give me the time and charges afterward? I'm on an expense account.
             -   id: 13
                 called: Rate operator? Walla Walla, Washington. Route and day station rate from Seattle.
                 person: operator
@@ -3305,6 +3490,13 @@ scenes:
             -   id: 10
                 called: Go to your luncheon, Howard. This is costing us a dollar.
                 person: edna_finch
+            -   id: 21
+                caller: Yes, Edna. Goodbye.
+            -   id: 22
+                called: Seattle? Time and charges on room 303. Three minutes. Ninety-five cents.
+                person: operator
+            -   id: 23
+                caller: Ninety-five cents to be told I'm normal. Edna was right.
 
     finch-hollis:
         active: false

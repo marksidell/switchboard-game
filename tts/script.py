@@ -349,11 +349,13 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
                     if not isinstance(v, (int, float)) or isinstance(v, bool) or not 0 < v <= top:
                         bad(f"{at}.{key}", f"not a number of seconds above 0 and up to {top}: {v!r}")
             if "ringback" in line:
-                # Ringback is a trunk tone: it can only be heard on the far end
-                # of an outgoing call, before that end speaks.
-                far = called_party.get("line") if isinstance(called_party, dict) else None
-                if "called" not in line or far not in outside or waits_anyway:
-                    bad(f"{at}.ringback", "only on a called: line of a call to an outside line")
+                # Ringback is a trunk tone: it can only be heard on a line spoken
+                # on a trunk — the called side of a call out, or the calling side
+                # of a call in (game_control.md 4.6, Rev 21).
+                side = called_party if "called" in line else scene.get("calling")
+                on = side.get("line") if isinstance(side, dict) else None
+                if on not in outside or waits_anyway:
+                    bad(f"{at}.ringback", "only on a line spoken on a trunk: a call's outside end")
             if "person" in line and line["person"] not in cast:
                 bad(f"{at}.person", f"{line['person']!r} is not in the cast")
         seen_id: dict[int, str] = {}

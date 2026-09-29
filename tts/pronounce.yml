@@ -34,6 +34,7 @@
 "3-7719": three, seven seven one nine
 "2-3100": two, thirty-one hundred
 "6-2214": six, two two one four
+"23-J": twenty-three J
 
 # The rate operator's charges, read as digits.
 "8-5": eight five
@@ -42,6 +43,7 @@
 "2-1-0": two one oh
 "2-2-5": two two five
 "2-4-0": two four oh
+"2-3-0": two three oh
 
 # Names the model is likely to mangle. Only the ones that are genuinely
 # ambiguous — Ballard, Seattle, Portland and Oregon it will already know.
@@ -55,3 +57,4 @@
 "bientot": bee-an-TOE
 "Beaumont": BO-mont
 "Gruber": GROO-ber
+"Wahoo": WAH-hoo
