@@ -9,18 +9,39 @@
 # Keys are matched as whole words, longest first, so "284-1187" is taken before
 # "284" would be.
 
-# Room and station numbers, as a 1950s speaker says them.
-"100": one hundred
-"214": two fourteen
-"308": three oh eight
-"463": four sixty-three
-"512": five twelve
-"601": six oh one
-"715": seven fifteen
-"822": eight twenty-two
+# Room numbers, as a 1950s speaker says them. The rooms were renumbered to
+# the board's jacks on 2026-09-28; the old ones are gone from the script.
+"101": one oh one
+"102": one oh two
+"103": one oh three
+"105": one oh five
+"201": two oh one
+"204": two oh four
+"205": two oh five
+"302": three oh two
+"303": three oh three
+"305": three oh five
+"401": four oh one
+"403": four oh three
+"404": four oh four
+"412": four twelve
 
-# Telephone numbers, digit by digit with the exchange split off.
+# Telephone numbers, digit by digit with the exchange split off; round
+# hundreds and thousands as an operator says them.
 "284-1187": two eight four, one one eight seven
+"3-4400": three, forty-four hundred
+"4-2000": four, two thousand
+"3-7719": three, seven seven one nine
+"2-3100": two, thirty-one hundred
+"6-2214": six, two two one four
+
+# The rate operator's charges, read as digits.
+"8-5": eight five
+"9-5": nine five
+"1-1-5": one one five
+"2-1-0": two one oh
+"2-2-5": two two five
+"2-4-0": two four oh
 
 # Names the model is likely to mangle. Only the ones that are genuinely
 # ambiguous — Ballard, Seattle, Portland and Oregon it will already know.
@@ -29,3 +50,8 @@
 "Shilshole": SHIL-shole
 "Seaver": SEE-ver
 "Nils": Nils
+"Pigalle": pee-GAHL
+"desolee": day-zo-LAY
+"bientot": bee-an-TOE
+"Beaumont": BO-mont
+"Gruber": GROO-ber

@@ -58,6 +58,12 @@ def sample_text(script: Script, person: str) -> tuple[str, list[Utterance]]:
     exact string back as the reference transcript for voice cloning, so it is
     recorded beside every candidate rather than recomputed.
     """
+    # A cast entry's own sample: wins. Some parts are a word or two a line —
+    # a toll operator answering "Portland." — which is too little speech to
+    # judge a voice by, or to clone one from in session 2.
+    own = (script.cast.get(person) or {}).get("sample")
+    if own:
+        return " ".join(str(own).split()), []
     lines = script.first_lines(person)
     if not lines:
         raise ValueError(f"{person} has no lines in the script")

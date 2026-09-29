@@ -43,6 +43,14 @@ MIN_STATION, MAX_STATION = 1, 22
 # when he recables, so it lives in script.yml's jacks: rather than here.
 MIN_JACK, MAX_JACK = 1, 30
 
+# A conversation line's pause: and ringback:, in seconds (game_control.md 4.6).
+MAX_PAUSE, MAX_RINGBACK = 30, 30
+
+
+def _seconds(v: object) -> float:
+    """A pause: or ringback: that passed validation, else 0."""
+    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 else 0.0
+
 
 class ScriptError(Exception):
     """Validation failed. `failures` lists every problem found, in order."""
@@ -67,6 +75,10 @@ class Utterance:
     # wait: true — the game plays it only after the operator has spoken on
     # that side and stopped (game_control.md 4.6).
     wait: bool = False
+    # Seconds of silence before it, and seconds of ringback on the trunk
+    # before it, after any wait (game_control.md 4.6, Rev 20).
+    pause: float = 0.0
+    ringback: float = 0.0
 
     @property
     def name(self) -> str:
@@ -318,7 +330,8 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
             if not isinstance(line, dict):
                 bad(at, "not a mapping")
                 continue
-            extra = sorted(set(line) - {"id", "caller", "called", "person", "wait"})
+            extra = sorted(set(line) - {"id", "caller", "called", "person", "wait",
+                                        "pause", "ringback"})
             if extra:
                 bad(at, f"unknown key(s): {', '.join(map(str, extra))}")
             if "caller" in line and "called" in line:
@@ -330,6 +343,17 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
                     bad(f"{at}.wait", f"not true/false: {line['wait']!r}")
                 elif line["wait"] and waits_anyway:
                     bad(f"{at}.wait", "every line of a call to the operator or a busy call waits already")
+            for key, top in (("pause", MAX_PAUSE), ("ringback", MAX_RINGBACK)):
+                if key in line:
+                    v = line[key]
+                    if not isinstance(v, (int, float)) or isinstance(v, bool) or not 0 < v <= top:
+                        bad(f"{at}.{key}", f"not a number of seconds above 0 and up to {top}: {v!r}")
+            if "ringback" in line:
+                # Ringback is a trunk tone: it can only be heard on the far end
+                # of an outgoing call, before that end speaks.
+                far = called_party.get("line") if isinstance(called_party, dict) else None
+                if "called" not in line or far not in outside or waits_anyway:
+                    bad(f"{at}.ringback", "only on a called: line of a call to an outside line")
             if "person" in line and line["person"] not in cast:
                 bad(f"{at}.person", f"{line['person']!r} is not in the cast")
         seen_id: dict[int, str] = {}
@@ -352,7 +376,9 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
             if raw.get("person") in cast:
                 speaker = raw["person"]
             u = Utterance(scene=scene_id, id=uid, speaker=speaker, text=text.strip(),
-                          role=role, wait=raw.get("wait") is True)
+                          role=role, wait=raw.get("wait") is True,
+                          pause=_seconds(raw.get("pause")),
+                          ringback=_seconds(raw.get("ringback")))
             why = name_problem(u.name)
             if why is not None:
                 bad(at, f"file name {u.name!r} is not usable: {why}")

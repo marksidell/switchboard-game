@@ -150,6 +150,8 @@ Describe voices by their qualities only. A prompt never names a real person or a
 
 Each candidate speaks the character's first scripted line, so Mark judges the voice on something it will actually say. If that line is under about five seconds, append the character's next line. Record the exact sample text next to each candidate; session 2 needs it as the reference transcript.
 
+A cast entry may carry `sample:`, which is used instead (2026-09-28). Some parts are a word or two a line — a long-distance toll operator answering with her town's name — and even two of them are a second of speech: too little to judge a voice by, or to clone one from. The sample is written for the character and need not be a line in any scene.
+
 ## 5.3 Output
 
 - Three candidates per cast member, different seeds: `tts/voices/candidates/<person>.<k>.wav` for k = 1–3, plus `<person>.<k>.json` holding the prompt, sample text, seed and model id. 17 cast members is 51 clips.

@@ -43,6 +43,8 @@ class Speech:
     seconds: float
     by: str            # "caller" or "called"
     wait: bool = False # play only after the operator has spoken on that side (§4.6)
+    pause: float = 0.0     # seconds of silence first (§4.6, Rev 20)
+    ringback: float = 0.0  # seconds of ringback on the trunk first (§4.6, Rev 20)
 
     @property
     def filename(self) -> str:
@@ -128,7 +130,7 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
     stations, outside = s.stations, s.outside
 
     def speech(u: Utterance, by: str) -> Speech:
-        return Speech(u.name, _wav_seconds(wav, u.name), by, u.wait)
+        return Speech(u.name, _wav_seconds(wav, u.name), by, u.wait, u.pause, u.ringback)
 
     scenes: dict[str, SceneDef] = {}
     people: dict[str, tuple[str, str]] = {}

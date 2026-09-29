@@ -115,6 +115,18 @@ async def main() -> int:
              real.replace("                called: Valet service.\n",
                           "                called: Valet service.\n"
                           "                person: nobody\n", 1)),
+            ("ringback: on a caller: line",
+             real.replace("                caller: Yes, fast.\n",
+                          "                caller: Yes, fast.\n"
+                          "                ringback: 5\n", 1)),
+            ("ringback: in a call between stations",
+             real.replace("                called: Valet service.\n",
+                          "                called: Valet service.\n"
+                          "                ringback: 5\n", 1)),
+            ("a pause: that is not a number of seconds",
+             real.replace("                called: Valet service.\n",
+                          "                called: Valet service.\n"
+                          "                pause: a while\n", 1)),
             ("the old switchboard: key on a station",
              real.replace("        number: 1\n", "        number: 1\n        switchboard: 1\n", 1)),
         ):

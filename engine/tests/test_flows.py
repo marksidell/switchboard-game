@@ -270,6 +270,22 @@ async def main() -> int:
     listens = [k for k, _ in h.link.sent if k.endswith("/listen/set")]
     check(listens.count("trunk/3/listen/set") == 1, f"listened once on the trunk: {listens}")
 
+    print("\n== a line with pause: and ringback: (§4.6, Rev 20)")
+    h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="operator", to_station=None,
+                      dial="0",
+                      conversation=(speech("t.2", "called"),
+                                    Speech("t.3", D * 3, "called", pause=D * 4),
+                                    Speech("t.4", D * 3, "called", ringback=D * 4),
+                                    speech("t.5", "caller"))))
+    t0 = asyncio.get_running_loop().time()
+    r = await h.run(station_to_outside, lambda hh: outgoing_operator(hh, "0"))
+    took = asyncio.get_running_loop().time() - t0
+    check(r.ok, "succeeds")
+    tones = [v for k, v in h.link.sent if k == "trunk/3/tone/set"]
+    i = max(i for i, v in enumerate(tones) if v == "ringback")
+    check("off" in tones[i + 1:], f"ringback, then off, on the trunk: {tones}")
+    check(took >= D * 8, f"both waits taken: {took:.2f}s")
+
     print("\n== the operator dials a wrong number, releases, and redials")
     h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
                       dial="275-4101"))

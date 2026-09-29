@@ -107,6 +107,32 @@ async def _play(ctx: Ctx, circuit: str, sp: Speech, abort_if) -> None:
     await say(ctx.b, ctx.hw, circuit, sp.name, sp.seconds, abort_if=abort_if)
 
 
+async def _hold(ctx: Ctx, seconds: float, abort_if) -> None:
+    """Let `seconds` pass, unless abort_if comes true first (Abandoned)."""
+    try:
+        await ctx.b.wait_until(lambda b: False, seconds, abort_if=abort_if)
+    except TimeoutError:
+        pass
+
+
+async def _lead_in(ctx: Ctx, circuit: str, sp: Speech, abort_if) -> None:
+    """A line's pause: and ringback: (§4.6, Rev 20), after any wait.
+
+    The pause is silence: the next operator on the route taking the call, a
+    party walking to the telephone. Ringback is the far end ringing, heard on
+    the trunk, and stops before the line that answers it.
+    """
+    if sp.pause:
+        await _hold(ctx, sp.pause, abort_if)
+    if sp.ringback and circuit.startswith("trunk/"):
+        n = int(circuit.split("/")[1])
+        await ctx.hw.tone(n, "ringback")
+        try:
+            await _hold(ctx, sp.ringback, abort_if)
+        finally:
+            await _quietly(ctx.hw.tone(n, "off"))
+
+
 async def _wait_for_right_station(ctx: Ctx, want: int, deadline: float) -> None:
     """Wait until the operator rings the wanted station (§5).
 
@@ -193,6 +219,7 @@ async def _converse(ctx: Ctx, caller: str, called: str) -> None:
         where = caller if line.by == "caller" else called
         if line.wait:
             await hear(ctx.b, ctx.hw, where, ctx.cfg.speak_timeout, abort_if=broken)
+        await _lead_in(ctx, where, line, broken)
         await _play(ctx, where, line, broken)
 
 
@@ -336,6 +363,7 @@ async def busy_scene(ctx: Ctx) -> Outcome:
         try:
             for line in ctx.scene.conversation:
                 await hear(ctx.b, ctx.hw, caller, ctx.cfg.speak_timeout, abort_if=gone)
+                await _lead_in(ctx, caller, line, gone)
                 await _play(ctx, caller, line, gone)
         except TimeoutError:
             return Outcome(False, Reason.TIMEOUT)
@@ -430,6 +458,7 @@ async def to_operator(ctx: Ctx) -> Outcome:
         try:
             for line in ctx.scene.conversation:
                 await hear(ctx.b, ctx.hw, caller, ctx.cfg.speak_timeout, abort_if=gone)
+                await _lead_in(ctx, caller, line, gone)
                 await _play(ctx, caller, line, gone)
         except TimeoutError:
             return Outcome(False, Reason.TIMEOUT)

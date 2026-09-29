@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 19 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played*
+*Rev 20 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played*
 
 # 1. Overview
 
@@ -176,6 +176,16 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
 
+## 1.20 Changes in Rev 20
+
+— Two more keys on a conversation line, `pause:` and `ringback:` (§4.6), Mark's request, 2026-09-28. Rev 19's long-distance call runs through a chain of operators — the rate operator, then each toll center on the route answering with its town's name — as the 1950s calls did. Played back to back, the chain is a gabble; the real ones had a beat at each step while the next operator came on, and the far end rang before anyone answered. `pause:` is that beat, silence before the line; `ringback:` is ringback tone on the trunk before the line, the far end ringing.
+
+— `ringback:` is refused anywhere but a `called:` line of a call to an outside line: ringback is a trunk tone, and only there is the called side a trunk. Both are refused unless a number of seconds above 0 and at most 30.
+
+— Considered and not adopted: a gap between every pair of lines, set once for the game. It would slow every conversation, and the beats that matter are particular ones.
+
+— Code consequence for Claude Code, made the same day: the loader and the flows; the game program's tests cover both keys and the three refusals.
+
 ## 1.19 Changes in Rev 19
 
 — A conversation line may wait for the operator (§4.6), Mark's request, 2026-09-28. A long-distance call from the hotel goes through the local operator: the hotel operator dials 0, the local operator answers, the hotel operator asks for long distance, and only then does the long-distance operator come on and talk to the guest. Until now a scene with a called party played its conversation straight through once connected, so there was no place for the hotel operator to speak in the middle of one. A line marked `wait: true` plays only after the operator has spoken on that line's side of the call and stopped — the listen that calls to the operator and busy scenes already make before every line.
@@ -294,8 +304,12 @@ Two keys on a conversation line (Rev 19):
 
 - **`wait: true`** — the line plays only after the operator has spoken on that line's side of the call and stopped: a listen on the called circuit for a `called:` line, on the calling circuit for a `caller:` line, as in the calls to the operator. If she does not speak within the speak timeout, the call fails as `timeout` (§5). It is refused in a call to the operator and in a `busy: true` scene, where every line waits already.
 - **`person: <cast member>`** — the line is spoken by that person rather than by the scene's party on that side. It plays on the same circuit; only the voice changes.
+- **`pause: <seconds>`** (Rev 20) — silence before the line, up to 30s.
+- **`ringback: <seconds>`** (Rev 20) — ringback tone on the trunk before the line, up to 30s, stopped as the line starts. Only on a `called:` line of a call to an outside line.
 
-The long-distance call is the case they were made for. The hotel operator dials 0 on a trunk; the local operator (`called.person`) answers, "Operator"; the hotel operator asks for long distance; the next line, marked `wait: true` and `person:` the long-distance operator, answers "Long distance", and the guest talks to her. The party she rings can speak on the trunk too, with a `person:` of their own.
+A line's own lead-in runs in that order: the wait, then the pause, then the ringback, then the line. A cord pulled during any of them cuts the call off, as during speech (§5).
+
+The long-distance call is the case they were made for. The hotel operator dials 0 on a trunk; the local operator (`called.person`) answers, "Operator"; the hotel operator asks for long distance; the next line, marked `wait: true` and `person:` the long-distance operator, answers "Long distance", and the guest talks to her. The party she rings can speak on the trunk too, with a `person:` of their own. So can each operator on the route: she asks the rate operator for the route and the charge, then rings through each toll center on it, each answering with its town's name after a `pause:`, and the party answers after a `ringback:`.
 
 # 5. Tallies
 
