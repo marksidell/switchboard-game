@@ -1662,7 +1662,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "marysmith",
-    "text_sha": "d519af70e1d26378",
+    "text_sha": "18a8101fe21e3fd1",
     "voice_sha": "f71a6d34c480a1f5"
   },
   "easyliving-v16.11": {
@@ -1690,7 +1690,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "marysmith",
-    "text_sha": "62da480a9d2774c8",
+    "text_sha": "68bb181ca91bf4ee",
     "voice_sha": "f71a6d34c480a1f5"
   },
   "easyliving-v16.15": {
@@ -1767,7 +1767,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "marysmith",
-    "text_sha": "92770677362afaf4",
+    "text_sha": "498b68dd92bf02e3",
     "voice_sha": "f71a6d34c480a1f5"
   },
   "easyliving-v16.25": {
@@ -1805,6 +1805,20 @@
     "text_sha": "628c69800748d38e",
     "voice_sha": "f30baafe57c8da8f"
   },
+  "easyliving-v16.30": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "carsalesman",
+    "text_sha": "a8f18d38a4fab74c",
+    "voice_sha": "f30baafe57c8da8f"
+  },
+  "easyliving-v16.31": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "5bf768fe80d44c50",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
   "easyliving-v16.4": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
@@ -1830,7 +1844,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "carsalesman",
-    "text_sha": "796b67b75bd1ea3d",
+    "text_sha": "570a6f70c292a536",
     "voice_sha": "f30baafe57c8da8f"
   },
   "easyliving-v16.8": {
@@ -1844,7 +1858,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "carsalesman",
-    "text_sha": "29bb7d05f2114fdc",
+    "text_sha": "0306f817f010de07",
     "voice_sha": "f30baafe57c8da8f"
   },
   "finch-badge.1": {

@@ -1067,13 +1067,17 @@ scenes:
             -   id: 6
                 called: You want to what?
             -   id: 7
-                caller: We want to provide you with a V-16 motorcar free of charge. Have you driven one?
+                caller: We want to provide you with a V-16 motorcar free of charge. Did you ever drive one?
             -   id: 8
                 called: Did I ever what? Oh, no. Of course I've never driven one. No. No, we had a Saxon.
             -   id: 9
-                caller: Ah, well, the V-16 is far superior to a Saxon, and we want you to have the pleasure of owning one.
+                caller: Ah, well, the V-16 is far superior to a Saxon.
             -   id: 10
-                called: Well, I suppose they are different. Well, what do you want to do that for? Oh, well... I'll take your word for it.
+                called: Well, I suppose they are different.
+            -   id: 30
+                caller: And we want you have the car as long as you wish.
+            -   id: 31
+                called: Well, what do you want to do that for? Oh, well... I'll take your word for it.
             -   id: 11
                 caller: May we deliver the automobile to the hotel?
             -   id: 12
@@ -1081,7 +1085,7 @@ scenes:
             -   id: 13
                 caller: We are sure you'll find many uses for it.
             -   id: 14
-                called: Oh, but, mister, you...
+                called: Oh, but, mister, you don't understand.
             -   id: 15
                 caller: We will have it delivered immediately.
             -   id: 16
@@ -1101,7 +1105,7 @@ scenes:
             -   id: 23
                 caller: What color do you prefer?
             -   id: 24
-                called: Pink, well...
+                called: Pink... well...
             -   id: 25
                 caller: I'm sorry, the V-16 is not available in pink.
             -   id: 26
