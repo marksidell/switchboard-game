@@ -11,7 +11,7 @@ telephone band is how the audience hears these, and a voice that is lovely at
 full bandwidth can disappear at 3.4kHz. --raw is there for comparison, not for
 choosing.
 
-Audio path, from docs/audio-io.md: the Digiface USB is ALSA card 1 with 34
+Audio path, from docs/audio-io.md: the Digiface USB, card id USB24306452, with 34
 playback channels of S32_LE at 48kHz, and the headphone jack is the last pair,
 zero-based indices 32 and 33. So each clip is placed into a 34-channel frame
 with silence everywhere else and handed to aplay.
@@ -42,7 +42,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tts.prompt import sample_text, voice_prompt          # noqa: E402
 from tts.script import DEFAULT_SCRIPT, ScriptError, load  # noqa: E402
 
-DEVICE = "hw:1"
+# By card id, not number: the numbers follow USB enumeration order and moved
+# on portland (the Digiface was card 1, then card 2). audio.md Rev 2.
+DEVICE = "hw:USB24306452"
 CHANNELS = 34            # the Digiface's playback count
 PHONES = (32, 33)        # zero-based, the headphone jack — one-based 33/34
 MAX_CIRCUIT = 32         # one-based; the circuits are 1..32, the jack is beyond them
@@ -81,7 +83,8 @@ def play(path: Path, device: str, gain_db: float,
     except FileNotFoundError:
         sys.exit("aplay not found: install alsa-utils")
     except subprocess.CalledProcessError as e:
-        sys.exit(f"aplay failed ({e.returncode}). Is {device} free, and is the "
+        sys.exit(f"aplay failed ({e.returncode}). Is {device} free — sbaudio holds "
+                 f"it while it runs (sudo systemctl stop sbaudio) — and is the "
                  f"Digiface connected? docs/audio-io.md has the device notes.")
 
 
