@@ -114,7 +114,8 @@ class Script:
     outside: dict[str, dict]
     stations: dict[str, dict]
     scenes: dict[str, dict]
-    # script.yml's jacks:, each {"jack": int, "label": str, "station": str | None}
+    # script.yml's jacks:, each {"jack": int, "label": str, "station": str | None,
+    # "guest": str | None}
     jacks: list[dict] = field(default_factory=list)
     utterances: list[Utterance] = field(default_factory=list)
     # operator_lines: key -> the stock line's utterance (game_control.md 4.7)
@@ -256,7 +257,7 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
         if not isinstance(entry, dict):
             bad(at, "not a mapping")
             continue
-        extra = sorted(set(entry) - {"jack", "label", "station"})
+        extra = sorted(set(entry) - {"jack", "label", "station", "guest"})
         if extra:
             bad(at, f"unknown key(s): {', '.join(map(str, extra))}")
         jack = entry.get("jack")
@@ -279,8 +280,12 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
                 bad(f"{at}.station", f"{station} is already on jack {jack_of[station]}")
             else:
                 jack_of[station] = jack
+        guest = entry.get("guest")
+        if guest is not None and (not isinstance(guest, str) or not guest.strip()):
+            bad(f"{at}.guest", f"empty or not text: {guest!r}")
         board.append({"jack": jack, "label": label.strip() if isinstance(label, str) else "",
-                      "station": station})
+                      "station": station,
+                      "guest": guest.strip() if isinstance(guest, str) and guest.strip() else None})
     for name in stations:
         if name not in jack_of:
             bad(f"stations.{name}", "on no jack: name it as station: under jacks: (game_control.md 6.3)")

@@ -105,6 +105,8 @@ async def main() -> int:
              spare.replace("jack: 30", "jack: 1", 1)),
             ("a jack with no label",
              spare.replace('        label: "Garage"\n', "", 1)),
+            ("a jack with an empty guest:",
+             spare.replace('label: "Garage"\n', 'label: "Garage"\n        guest: ""\n', 1)),
             ("a jack naming no station",
              spare.replace('label: "Garage"\n', 'label: "Garage"\n        station: attic\n', 1)),
             ("wait: in a call to the operator",

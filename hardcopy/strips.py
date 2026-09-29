@@ -50,24 +50,26 @@ for r, jacks in enumerate(rows):
     if jacks is None:
         continue
     cr.set_source_rgb(0, 0, 0)
+    # One size per strip: the largest, up to SIZE, at which every label fits.
+    def lim(i):
+        return 0.78 * IN if i in (0, 9) else MAX_W   # end jacks sit 0.375in from the edge
+    cr.set_font_size(SIZE)
+    k = min([1.0] + [lim(i) / cr.text_extents(labels[j]).x_advance
+                     for i, j in enumerate(jacks) if labels.get(j)])
+    cr.set_font_size(SIZE * k)
+    if k < 1:
+        print(f"jacks {jacks.start}-{jacks.stop - 1}: {SIZE * k:.2f} pt")
     for i, j in enumerate(jacks):
         text = labels.get(j, "")
         if not text:
             continue
         ext = cr.text_extents(text)
-        lim = 0.78 * IN if i in (0, 9) else MAX_W   # end jacks sit 0.375in from the edge
-        sx = min(1.0, lim / ext.x_advance)
         cx = x0 + MARGIN + i * PITCH
-        half = ext.x_advance * sx / 2
+        half = ext.x_advance / 2
         edge = 0.06 * IN                     # keep the end labels on the strip
         cx = min(max(cx, x0 + edge + half), x0 + STRIP_W - edge - half)
-        base = y + STRIP_H / 2 + cap / 2
-        cr.save()
-        cr.translate(cx, base); cr.scale(sx, 1)
-        cr.move_to(-ext.x_advance / 2, 0); cr.show_text(text)
-        cr.restore()
-        if sx < 1:
-            print(f"jack {j} {text!r}: condensed to {sx:.0%}")
+        base = y + STRIP_H / 2 + cap * k / 2
+        cr.move_to(cx - half, base); cr.show_text(text)
 
 # scale check
 cr.set_source_rgb(0, 0, 0); cr.set_line_width(0.5)

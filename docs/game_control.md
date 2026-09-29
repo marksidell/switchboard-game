@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 22 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played*
+*Rev 23 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack*
 
 # 1. Overview
 
@@ -175,6 +175,14 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 — The page's countdown says "waiting" while a game runs in automatic pacing and no next call is scheduled — `next_at` empty, because in auto the latest call is not yet connected or ended, and in listen the board is not yet empty (§4.2) — and "–" when no game runs (§7.1), Mark's request, 2026-09-28. It said "–" in both. The deck's Next key already said "waiting" in that case; §7.4 now says so too. It is on the countdown rather than on the Next Call button because the button is hidden with the controls and the countdown is not.
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
+
+## 1.23 Changes in Rev 23
+
+— A station jack may carry `guest:`, the name of whoever is staying in the room at that jack (§6.3), Mark's decision, 2026-09-29. It is typed on the operator's guest list card, `hardcopy/cards.py`. The card had worked out each guest's room from the scenes, which put a guest on whichever line they called from — Mr. Pike on the lobby house phone as well as in 204 — and took the names from a table of its own. The jack is where the room is, so the guest goes there too. It is left out for an unoccupied room and for a jack that is not a room.
+
+— The game does not read it. The loader refuses an empty one.
+
+— Code consequence for Claude Code, made the same day: the loader accepts the key and checks it, `test_game.py` tests the refusal, and `hardcopy/cards.py` builds the guest list from it.
 
 ## 1.22 Changes in Rev 22
 
@@ -423,17 +431,18 @@ jacks:
     -   jack: 23            # the switchboard jack, 1-30
         label: "463"        # the text on the board at that jack
         station: room463    # the station cabled to it
+        guest: "Mr. Earl Dobbs"   # who is staying there; left out if nobody is
     -   jack: 24
         label: "465"        # labelled on the board, nothing cabled: no station:
 ```
 
-(Illustrative. The real assignments are Mark's.) A station entry carries `number:` and nothing about the board. Trunk circuit n is cabled to trunk jack n for n = 1–8, fixed, and trunk jacks 9 and 10 carry nothing. No trunk jack has a label. A station jack that `jacks:` does not list has no circuit and no label.
+(Illustrative. The real assignments are Mark's.) A station entry carries `number:` and nothing about the board. Trunk circuit n is cabled to trunk jack n for n = 1–8, fixed, and trunk jacks 9 and 10 carry nothing. No trunk jack has a label. A station jack that `jacks:` does not list has no circuit and no label. `guest:` is for the operator's guest list card and the game does not read it (Rev 23).
 
 The script.yml loader rejects the file, and the game program refuses to start, if:
 
-- `jacks:` is missing or empty, or an item has a key other than `jack:`, `label:` and `station:`;
+- `jacks:` is missing or empty, or an item has a key other than `jack:`, `label:`, `station:` and `guest:`;
 - an item's `jack:` is not an integer from 1 to 30, or is the same as another item's;
-- an item lacks `label:`, or its label is empty;
+- an item lacks `label:`, or its label is empty, or it has a `guest:` that is empty (Rev 23);
 - an item's `station:` is not a station entry, or names a station another item already names;
 - a station entry is named by no item in `jacks:`, or carries any key but `number:` — a file still in Rev 7's form, with `switchboard:` and `label:` on its stations, fails with a message saying where they went, rather than drawing a board with no labels;
 - a station's `number:` is outside 1–22, or the same number as another entry (the loader's existing check);

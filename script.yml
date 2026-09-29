@@ -397,34 +397,36 @@ operator_lines:
 
 # Locations reached via public trunks, like local businesses.
 # The number is what the operator must dial. Quoted so it stays a string.
+# Its first three digits are a 1958 Seattle exchange (hardcopy/seattle-exchanges.csv):
+# 783 is SUnset 3, and the operator's card prints it SU3-2250.
 #
 outside:
     operator:
         number: "0"
         description: public telephone operator
     pizza:
-        number: "275-4101"
+        number: "784-4101"
         description: Sunny Hill Pizza in Loyal Heights
     canlis:
-        number: "275-5678"
+        number: "283-5678"
         description: fine dining restaurant
     florist:
         number: "783-2250"
         description: Harbor Florist
     taxi:
-        number: "632-1400"
+        number: "782-1400"
         description: Shilshole Cab
     times:
-        number: "524-3000"
+        number: "622-3000"
         description: The Seattle Times newspaper
     v16company:
-        number: "942-1792"
+        number: "624-1792"
         description: The V16 Company of America
     rays:
-        number: "642-5000"
+        number: "784-5000"
         description: Ray's Boathouse, a popular restaurant for tourists, on a dock near Shilshole Marina
     placepigalle:
-        number: "942-7068"
+        number: "623-7068"
         description: Place Pigalle, a venerable French restaurant at Pike Place, behind where they throw the fish
     westernunion:
         number: "682-6200"
@@ -436,10 +438,10 @@ outside:
         number: "682-1414"
         description: Paramount Theatre box office
     ferries:
-        number: "464-6400"
+        number: "622-6400"
         description: Washington State Ferries information, Colman Dock
     police:
-        number: "583-2111"
+        number: "623-2111"
         description: Seattle Police
     swedish:
         number: "322-5100"
@@ -502,6 +504,10 @@ stations:
 #     station: the station above whose circuit is cabled to this jack.
 #              Leave it out for a jack with nothing cabled: the page still
 #              draws it, labelled, as if it were working.
+#     guest:   who is staying in the room at this jack, as typed on the
+#              operator's guest list card (hardcopy/cards.py). Leave it out
+#              for an unoccupied room or a jack that is not a room. The game
+#              does not read it.
 # Every station must be on exactly one jack. A jack not listed here is drawn
 # as an empty outline.
 #
@@ -534,27 +540,33 @@ jacks:
         label: "Maintenance"
         station:
     -   jack: 10
-        label: "penthouse"
+        label: "Penthouse"
         station: imperialsuite
+        guest: "Miss Mary Smith"
 
     -   jack: 11
         label: "101"
         station: room101
+        guest: "Dr. Walter Hollis"
     -   jack: 12
         label: "102"
         station: room102
+        guest: "Mrs. Vivian Pemberton"
     -   jack: 13
         label: "103"
         station: room103
+        guest: "Holmgren Family"
     -   jack: 14
         label: "104"
         station:
     -   jack: 15
         label: "105"
         station: room105
+        guest: "Mr. Earl Dobbs"
     -   jack: 16
         label: "201"
         station: room201
+        guest: "Miss Lorraine Vance"
     -   jack: 17
         label: "202"
         station:
@@ -564,9 +576,11 @@ jacks:
     -   jack: 19
         label: "204"
         station: room204
+        guest: "Mr. Harold Pike"
     -   jack: 20
         label: "205"
         station: room205
+        guest: "Col. Augustus Beaumont"
 
     -   jack: 21
         label: "301"
@@ -574,27 +588,33 @@ jacks:
     -   jack: 22
         label: "302"
         station: room302
+        guest: "Mrs. Edith Albright"
     -   jack: 23
         label: "303"
         station: room303
+        guest: "Mr. Howard Finch"
     -   jack: 24
         label: "304"
         station:
     -   jack: 25
         label: "305"
         station: room305
+        guest: "Mr. & Mrs. Jim Hale"
     -   jack: 26
         label: "401"
         station: room401
+        guest: "Mr. Nils Lindqvist"
     -   jack: 27
         label: "402"
         station:
     -   jack: 28
         label: "403"
         station: room403
+        guest: "Mr. Roger Thornhill"
     -   jack: 29
         label: "404"
         station: room404
+        guest: "Miss Dorothy Crane"
     -   jack: 30
         label: "405"
         station:
@@ -901,7 +921,7 @@ scenes:
                 wait: true
                 operator: long-distance-please
             -   id: 3
-                caller: I'd like to call Portland, Oregon. Person to person, to Mrs. Ruth Seaver. The number is 284-1187.
+                caller: I'd like to call Portland, Oregon. Person to person, to Mrs. Ruth Seaver. The number is Atwater 4-1187.
             -   id: 4
                 called: And your name, please?
                 person: operator
@@ -922,7 +942,7 @@ scenes:
                 person: toll_a
                 pause: 3
             -   id: 13
-                called: Portland, 284-1187. Mrs. Ruth Seaver. Seattle calling.
+                called: Portland, Atwater 4-1187. Mrs. Ruth Seaver. Seattle calling.
                 person: operator
             -   id: 14
                 called: Thank you. Ringing.
