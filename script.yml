@@ -124,6 +124,15 @@ cast:
         sex: male
         accent: mid-Atlantic, suave
         description: Roger Thornhill, a 1950s New York advertising man; smooth and quick, a little impatient
+        # voice: replaces the description built from sex, accent and
+        # description, word for word (tts/prompt.py). Qualities only: it never
+        # names a real person (tts_task.md 5.1).
+        voice: >
+            A man in his early fifties with a light, warm baritone and a
+            transatlantic accent: clipped consonants, soft r's, a lilting,
+            sing-song rise and fall. Quick, witty and charming, with a touch
+            of amused exasperation; the polish of a 1950s film leading man.
+            Natural, conversational telephone speech, 1950s.
     operator:
         sex: female
         accent: generic American
