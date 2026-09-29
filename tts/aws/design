@@ -93,6 +93,11 @@ fi
 
 echo "=== designing voices ==="
 mkdir -p "$OUT"
+# Start from an empty ~/candidates. The baked image was saved with the
+# first session's candidates in it, reporter.3.json among them caught empty
+# mid-write, and copying the whole folder back put that stale set over the
+# local one on every run. Only what this run designs comes back.
+$SSH ubuntu@"$PUBLIC_IP" "rm -rf ~/candidates"
 $SSH ubuntu@"$PUBLIC_IP" "~/tts-venv/bin/python ~/tts/remote/design_voices.py \
     --script ~/script.yml --out ~/candidates --takes $TAKES ${ONLY:+--only $ONLY}"
 

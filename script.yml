@@ -654,6 +654,8 @@ scenes:
                 called: Twenty minutes, sir.
             -   id: 7
                 caller: Twenty minutes? Fine. OK. 403.
+            -   id: 8
+                called: Twenty minutes, sir. Very good.
 
     nbn-kaplan:
         active: true
@@ -730,6 +732,10 @@ scenes:
                 called: Right away, sir. About twenty minutes.
             -   id: 7
                 caller: Make it fifteen and there's a quarter in it for you.
+            -   id: 8
+                called: Fifteen it is, Mr. Pike.
+            -   id: 9
+                caller: Good man.
 
     # Outgoing. The guest does not know the number, so the operator must look it up.
     albright-florist:
@@ -757,6 +763,8 @@ scenes:
                 called: Very good, ma'am. They'll be there this afternoon.
             -   id: 7
                 caller: Thank you, dear.
+            -   id: 8
+                called: Thank you, Mrs. Albright. Goodbye.
 
     # Outgoing, busy. The operator must go back and tell the caller.
     hale-busy:
@@ -804,6 +812,8 @@ scenes:
                 caller: So it's true.
             -   id: 6
                 called: No comment. And don't call here again.
+            -   id: 7
+                caller: Thanks, Mr. Pike. That's all I needed.
 
     # Call to the operator. Asks for a wake-up call.
     crane-wakeup:
@@ -880,6 +890,8 @@ scenes:
                 called: Thirty-five. Best I can do.
             -   id: 7
                 caller: All right. Thank you!
+            -   id: 8
+                called: Thirty-five minutes. And congratulations, you two.
 
     # Station to station, from the staff side.
     desk-hollis:
@@ -905,6 +917,8 @@ scenes:
                 caller: Yes, sir.
             -   id: 6
                 called: And don't let anyone sign for it but me.
+            -   id: 7
+                caller: Nobody but you, Doctor. Good night.
 
     # Outgoing long distance: the hotel operator dials 0, asks the local
     # operator for long distance, and the long-distance operator comes on.
@@ -965,6 +979,9 @@ scenes:
                 person: operator
             -   id: 7
                 caller: Yes, please. In about an hour.
+            -   id: 16
+                called: Very well, Mrs. Albright. I'll ring you in an hour.
+                person: operator
 
     # Long distance calls back when it has the party (game_control.md 4.4):
     # the operator rings the hotel on a trunk and the hotel operator puts the
@@ -998,6 +1015,11 @@ scenes:
                 person: ruth_seaver
             -   id: 7
                 called: I'm getting sentimental at a dollar a minute, Ruth. I'll write you a long letter.
+            -   id: 8
+                caller: Make it a short one, Edith. Stamps cost money. Goodbye, dear.
+                person: ruth_seaver
+            -   id: 9
+                called: Goodbye, Ruth.
 
     # From the lobby house phone, outgoing.
     pike-taxi:
@@ -1025,6 +1047,8 @@ scenes:
                 called: Ten minutes, Mr. Pike.
             -   id: 7
                 caller: Tell him to step on it. I've got a train to catch.
+            -   id: 8
+                called: He'll be out front, Mr. Pike.
 
     martha-roomservice:
         active: true
@@ -1152,6 +1176,8 @@ scenes:
                 caller: Wool, not cotton. And not the scratchy kind.
             -   id: 6
                 called: Wool, not scratchy. Yes, ma'am.
+            -   id: 7
+                caller: And warm it first. Good night, Mrs. Olsen.
 
     pemb-pillows:
         active: true
@@ -1180,6 +1206,8 @@ scenes:
                 called: Seven pillows. One softer. I'll see what I can find.
             -   id: 7
                 caller: I'll know which one it is, Mrs. Olsen. Don't think I won't.
+            -   id: 8
+                called: Yes, Mrs. Pemberton. Good night.
 
     pemb-towels:
         active: true
@@ -1208,6 +1236,8 @@ scenes:
                 called: Ironed towels. Yes, Mrs. Pemberton.
             -   id: 7
                 caller: And have the girl stand outside the door and hand them in one at a time.
+            -   id: 8
+                called: One at a time. Yes, Mrs. Pemberton.
 
     pemb-icebox:
         active: true
@@ -1236,6 +1266,8 @@ scenes:
                 called: I'm not sure we have cocktail onions, ma'am.
             -   id: 7
                 caller: Then send a boy out for them. This is a hotel, isn't it?
+            -   id: 8
+                called: Yes, ma'am. I'll send a boy.
 
     pemb-canary:
         active: true
@@ -1264,6 +1296,8 @@ scenes:
                 called: We don't keep canaries, Mrs. Pemberton.
             -   id: 7
                 caller: Then find one. Surely somebody in Ballard has a canary.
+            -   id: 8
+                called: I'll ask around, ma'am. Goodbye.
 
     pemb-piano:
         active: true
@@ -1292,6 +1326,8 @@ scenes:
                 called: Mrs. Pemberton, I am going to have to speak to the manager.
             -   id: 7
                 caller: Splendid. Have him carry one end.
+            -   id: 8
+                called: Yes, Mrs. Pemberton.
 
     pemb-complaint:
         active: true
@@ -1320,6 +1356,8 @@ scenes:
                 called: I'll send up the manager personally, Mrs. Pemberton.
             -   id: 7
                 caller: Tell him to bring the canary. It likes company.
+            -   id: 8
+                called: I'll tell him, ma'am. Good day.
 
     # Earl Dobbs sees the sights.
     dobbs-concierge:
@@ -1351,6 +1389,10 @@ scenes:
                 called: Then go to the Pike Place Market. The fishmongers throw the salmon across the counter. It's quite a show.
             -   id: 9
                 caller: They throw fish? Now that I have got to see.
+            -   id: 10
+                called: They do, sir. Enjoy the market.
+            -   id: 11
+                caller: Thanks, pal!
 
     dobbs-salmon:
         active: true
@@ -1381,6 +1423,8 @@ scenes:
                 caller: Pack it in ice and ship it to Omaha. The fellas at the feed store will never believe this.
             -   id: 8
                 called: I'll send a boy up with a bucket. And a mop.
+            -   id: 9
+                caller: Thanks, pal. And a lemon, if you got one.
 
     dobbs-ferries:
         active: true
@@ -1407,6 +1451,8 @@ scenes:
                 called: It's Puget Sound, mister, not the Atlantic. Stay out of the wind and have a cup of coffee in the galley.
             -   id: 7
                 caller: Coffee on a boat. Isn't that something. Thanks, pal.
+            -   id: 8
+                called: Enjoy the ride, mister.
 
     dobbs-rays:
         active: true
@@ -1433,6 +1479,8 @@ scenes:
                 called: The mountains, pal. The mountains.
             -   id: 7
                 caller: Oh. Well, I'll take a look at them too. Seven o'clock, then.
+            -   id: 8
+                called: Seven o'clock, Mr. Dobbs. See you then.
 
     dobbs-stamp:
         active: true
@@ -1516,6 +1564,9 @@ scenes:
                 person: operator
             -   id: 14
                 caller: Busy? In Omaha? Well, it is Saturday. Sure thing, I'll sit right here by the phone.
+            -   id: 15
+                called: Thank you, Mr. Dobbs. I'll ring you the minute I have Omaha.
+                person: operator
 
     dobbs-callback:
         active: true
@@ -1608,6 +1659,8 @@ scenes:
                 called: Some ad man gets mixed up with spies. Chased all over by a crop duster. Seventy-five cents.
             -   id: 7
                 caller: A crop duster! We got those back home. Save me a seat, miss.
+            -   id: 8
+                called: Enjoy the show, sir.
 
     # Harold Pike, vacuum cleaners.
     pike-collect:
@@ -1670,6 +1723,8 @@ scenes:
             -   id: 9
                 called: Forty? Put him on. Put him on!
                 person: gruber
+            -   id: 17
+                caller: Mr. Gruber? It's Pike. Forty units, sir, and I'm just getting warmed up.
 
     ld-pike:
         active: true
@@ -1701,6 +1756,8 @@ scenes:
             -   id: 8
                 caller: Your word and a nickel buys a cup of coffee. Ten by Friday.
                 person: gruber
+            -   id: 9
+                called: Ten by Friday. Goodbye, Mr. Gruber.
 
     pike-demo:
         active: true
@@ -1757,6 +1814,8 @@ scenes:
                 called: He can't leave for the train without me. I'm the one catching it!
             -   id: 7
                 caller: Then you better hurry.
+            -   id: 8
+                called: I'm coming, I'm coming!
 
     lobby-pike:
         active: true
@@ -1813,6 +1872,8 @@ scenes:
                 caller: Then this is your lucky day. I'll be right over with the Whirlwind Deluxe.
             -   id: 8
                 called: No, please, not tonight, I think I'm coming down with something.
+            -   id: 9
+                caller: Tomorrow, then. Good night, Mr. Finch.
 
     # Mrs. Albright.
     albright-pigalle:
@@ -1868,6 +1929,8 @@ scenes:
                 called: And, pardon me, ma'am, around your neck?
             -   id: 7
                 caller: Oh. Oh, my. Well. Thank you, Mrs. Olsen. We'll say no more about it.
+            -   id: 8
+                called: Of course, ma'am. Good day.
 
     albright-concierge:
         active: true
@@ -1894,6 +1957,8 @@ scenes:
                 called: Then you'll have the armrest to yourself. Shall I get you a ticket?
             -   id: 7
                 caller: Two, Mr. Fairweather. I may find somebody to sleep through it.
+            -   id: 8
+                called: Two tickets, Mrs. Albright. Very good.
 
     restaurant-albright:
         active: true
@@ -1922,6 +1987,8 @@ scenes:
                 caller: Tall, with a moustache. He's already ordered the oysters.
             -   id: 8
                 called: Tell him I'll be down in twenty minutes. Thirty. I'll need my pearls.
+            -   id: 9
+                caller: Very good, Mrs. Albright. I'll tell him.
 
     lobby-albright:
         active: true
@@ -1950,6 +2017,8 @@ scenes:
                 caller: Parakeets were ahead of their time, Aunt Edith. Can I come up?
             -   id: 8
                 called: You may buy me lunch, Chester. With your own money.
+            -   id: 9
+                caller: Yes, Aunt Edith. I'll be right up.
 
     # Betty and Jim Hale, on their honeymoon.
     hale-mother:
@@ -2030,6 +2099,9 @@ scenes:
                 person: mrs_dunn
             -   id: 9
                 caller: Mama, you can't hear thin. I have to go, it's a dollar a minute. I love you!
+            -   id: 23
+                called: I love you too, baby. Eat something!
+                person: mrs_dunn
 
     hale-champagne:
         active: true
@@ -2058,6 +2130,8 @@ scenes:
                 caller: And a pickle. Jim likes pickles. Is that funny?
             -   id: 8
                 called: Not at all, ma'am. Champagne and a pickle.
+            -   id: 9
+                caller: Thank you!
 
     hale-dnd:
         active: true
@@ -2084,6 +2158,8 @@ scenes:
                 called: Thursday. Very good, ma'am. And the maid?
             -   id: 7
                 caller: No maid either. Just champagne. And pickles.
+            -   id: 8
+                called: Champagne and pickles. Very good, ma'am.
 
     housekeeping-hale:
         active: true
@@ -2110,6 +2186,8 @@ scenes:
                 called: Could you just slide some towels under the door?
             -   id: 7
                 caller: Under the door. Yes, Mr. Hale. Congratulations, by the way.
+            -   id: 8
+                called: Thanks! Goodbye!
 
     hale-cans:
         active: true
@@ -2136,6 +2214,8 @@ scenes:
                 called: And the old shoes tied to the aerial?
             -   id: 7
                 caller: Those are my good shoes! My brother-in-law is a dead man.
+            -   id: 8
+                called: I'll untie them for you, sir.
 
     pizza-hale:
         active: true
@@ -2164,6 +2244,8 @@ scenes:
                 called: Hold on. Jim! Do you like anchovies?
             -   id: 7
                 caller: He's gonna like 'em. Thirty minutes.
+            -   id: 8
+                called: Thank you! Bye!
 
     hale-roses:
         active: true
@@ -2194,6 +2276,8 @@ scenes:
                 caller: Oh, Mrs. Albright. Would you come have champagne with us?
             -   id: 8
                 called: Heavens, no. You two have better things to do. Enjoy them.
+            -   id: 9
+                caller: Thank you, Mrs. Albright. For everything.
 
     # Nils Lindqvist, of the fishing boats.
     canlis-lindqvist:
@@ -2223,6 +2307,8 @@ scenes:
                 called: I have been fishing forty years. My fish are on your menu. Maybe my fish come without a tie too.
             -   id: 7
                 caller: Of course, Mr. Lindqvist. We'll find you a tie at the door.
+            -   id: 8
+                called: Ya, ya. See you tonight.
 
     lindqvist-rays:
         active: true
@@ -2249,6 +2335,8 @@ scenes:
                 called: Perfect. Come as you are. We'll put the halibut on.
             -   id: 7
                 caller: Good. This is better than the fancy place.
+            -   id: 8
+                called: We'll see you tonight, sir.
 
     lindqvist-weather:
         active: true
@@ -2302,6 +2390,8 @@ scenes:
                 caller: Bring it around at five tomorrow morning. And roll down the windows first.
             -   id: 6
                 called: Five o'clock, windows down. Very good, sir.
+            -   id: 7
+                caller: Good. Thank you.
 
     lindqvist-times:
         active: true
@@ -2328,6 +2418,8 @@ scenes:
                 called: All right, all right. Deckhand wanted, strong back, no complaining. Anything else?
             -   id: 7
                 caller: Must not get seasick. The last one got seasick.
+            -   id: 8
+                called: Must not get seasick. Got it. It'll run Thursday.
 
     # Miss Crane, schoolteacher.
     crane-ferries:
@@ -2355,6 +2447,8 @@ scenes:
                 called: Sharp as a tack, ma'am. You'll love it.
             -   id: 7
                 caller: I shall bring my own cup. One can't be too careful.
+            -   id: 8
+                called: Enjoy Victoria, ma'am.
 
     crane-paramount:
         active: true
@@ -2407,6 +2501,8 @@ scenes:
                 called: On the outside, ma'am? We're on the fourth floor.
             -   id: 7
                 caller: I am aware of which floor we are on, young man. Send someone.
+            -   id: 8
+                called: Right away, ma'am.
 
     lobby-crane:
         active: true
@@ -2459,6 +2555,10 @@ scenes:
                 called: It's very nearly the same, ma'am.
             -   id: 7
                 caller: Very nearly. Well. I'll risk it. Six o'clock, a table for one, away from the band.
+            -   id: 8
+                called: Six o'clock, a table for one, away from the band. Very good, Miss Crane.
+            -   id: 9
+                caller: Thank you. Good evening.
 
     # Dr. Hollis, visiting surgeon.
     hollis-swedish:
@@ -2486,6 +2586,8 @@ scenes:
                 called: Laid out and counted, Doctor. Twice.
             -   id: 7
                 caller: Count them three times. I'll see you at six-thirty.
+            -   id: 8
+                called: Three times, Doctor. Good night.
 
     swedish-hollis:
         active: true
@@ -2512,6 +2614,8 @@ scenes:
                 caller: His wife brought it in, Doctor. He says he was starving.
             -   id: 6
                 called: Then we operate at noon instead. And nobody brings him anything else. Not even a mint.
+            -   id: 7
+                caller: Not even a mint. Yes, Doctor. Good night.
 
     hollis-wakeup:
         active: true
@@ -2564,6 +2668,9 @@ scenes:
                 person: dr_keller
             -   id: 7
                 called: Minnesota, in the winter? I'll think about it, Keller. From here, where it only rains.
+            -   id: 8
+                caller: Don't think too long, Walter. Goodbye.
+                person: dr_keller
 
     times-hollis:
         active: true
@@ -2612,6 +2719,8 @@ scenes:
                 caller: You may not.
             -   id: 6
                 called: The suit, not the bag. Yes, Doctor.
+            -   id: 7
+                caller: Pressed by six, if you please.
 
     # Martha, who is a dog.
     martha-walk:
@@ -2739,6 +2848,8 @@ scenes:
                 called: Who am I talking to, anyhow?
             -   id: 7
                 caller: Martha. Leave it on the floor.
+            -   id: 8
+                called: Sure thing, Martha. Thirty minutes.
 
     housekeeping-martha:
         active: true
@@ -2763,6 +2874,8 @@ scenes:
                 caller: I beg your pardon?
             -   id: 6
                 called: Tell her she can come in. I only bite the mailman. And I've never caught him.
+            -   id: 7
+                caller: Yes, ma'am. I'll tell her.
 
     # Mary Smith, who is being given everything.
     marysmith-coffee:
@@ -2790,6 +2903,8 @@ scenes:
                 called: Usually caviar, madam. And a magnum of champagne.
             -   id: 7
                 caller: For breakfast? Oh, no, no. Just the doughnut. Two doughnuts. And how much is that? No, don't tell me.
+            -   id: 8
+                called: Two doughnuts. Very good, madam.
 
     marysmith-desk:
         active: true
@@ -2816,6 +2931,8 @@ scenes:
                 called: Everything, Miss Smith. Is there anything else we can do for you?
             -   id: 7
                 caller: Well, you could tell me why. Nobody tells me why!
+            -   id: 8
+                called: I'm afraid I couldn't say, Miss Smith. Good day.
 
     bellcap-marysmith:
         active: true
@@ -2842,6 +2959,8 @@ scenes:
                 called: What friend? I don't have that kind of friend!
             -   id: 7
                 caller: You do now, miss. I'll send it up.
+            -   id: 8
+                called: Well, all right. Thank you, I guess.
 
     marysmith-car:
         active: true
@@ -2870,6 +2989,8 @@ scenes:
                 called: The chauffeurs want to know where you'd like to go, miss.
             -   id: 7
                 caller: Tell them to go get a sandwich. I'll pay. No, I won't, I only have seven dollars.
+            -   id: 8
+                called: I'll tell them, miss.
 
     # Lorraine Vance, who sings at night and sleeps all day.
     vance-wakeup:
@@ -2926,6 +3047,8 @@ scenes:
                 called: A raw egg, ma'am?
             -   id: 7
                 caller: For the throat, darling. Don't ask. It works.
+            -   id: 8
+                called: Very good, Miss Vance.
 
     vance-pigalle:
         active: true
@@ -2952,6 +3075,8 @@ scenes:
                 called: In Seattle, mademoiselle? They sleep.
             -   id: 7
                 caller: Well, isn't that a crime. Make it Sunday lunch, then.
+            -   id: 8
+                called: Sunday lunch, mademoiselle. A bientot.
 
     florist-vance:
         active: true
@@ -2976,6 +3101,8 @@ scenes:
                 caller: The card says, from a secret admirer on the U.S.S. Bremerton.
             -   id: 6
                 called: A sailor. It's always a sailor. Send them up, honey, and put one in water for yourself.
+            -   id: 7
+                caller: Thank you, Miss Vance. Right away.
 
     lobby-vance:
         active: true
@@ -3004,6 +3131,8 @@ scenes:
                 called: Then you come to the show tonight, honey, and bring your mother.
             -   id: 7
                 caller: My mother? Yes, ma'am. She'd like that.
+            -   id: 8
+                called: Swell. See you tonight, honey.
 
     vance-bellcap:
         active: true
@@ -3030,6 +3159,8 @@ scenes:
                 called: I'll go myself, Miss Vance. Back in twenty minutes.
             -   id: 7
                 caller: You're a doll, Gus. Two tickets at the door for you.
+            -   id: 8
+                called: Thank you, Miss Vance!
 
     vance-concierge:
         active: true
@@ -3056,6 +3187,8 @@ scenes:
                 called: I know just the man. He plays at a church in Ballard on Sundays.
             -   id: 7
                 caller: A church organist? Well, I'll try anything once.
+            -   id: 8
+                called: I'll send him round this afternoon, Miss Vance.
 
     frontdesk-vance:
         active: true
@@ -3080,6 +3213,8 @@ scenes:
                 caller: There are nine bouquets of flowers down here for you. The lobby looks like a funeral.
             -   id: 6
                 called: Send them to the hospital, honey. Keep the cards. I like the cards.
+            -   id: 7
+                caller: Yes, Miss Vance.
 
     # Colonel Beaumont.
     beaumont-julep:
@@ -3107,6 +3242,8 @@ scenes:
                 called: Bruised, not torn. Yes, sir.
             -   id: 7
                 caller: And a silver cup. A julep in a glass is a crime against the Confederacy.
+            -   id: 8
+                called: A silver cup. Yes, Colonel.
 
     beaumont-times:
         active: true
@@ -3188,6 +3325,8 @@ scenes:
                 called: Then have the fella in the green truck report to me at once. We shall settle this like gentlemen.
             -   id: 7
                 caller: He left for his boat at five this morning, sir.
+            -   id: 8
+                called: Confound it. Then I shall write to the Governor.
 
     beaumont-pigalle:
         active: true
@@ -3216,6 +3355,8 @@ scenes:
                 caller: A Mrs. Pemberton. Of Pasadena. She is, I am told, rather particular.
             -   id: 8
                 called: Then we will not seat her by the fish.
+            -   id: 9
+                caller: Seven o'clock, then. Good day, sir.
 
     beaumont-pemberton:
         active: true
@@ -3244,6 +3385,8 @@ scenes:
                 caller: I shall personally stand between you and any draft, madam.
             -   id: 8
                 called: Seven o'clock, Colonel. Wear a tie.
+            -   id: 9
+                caller: A tie. Of course, madam. Until seven.
 
     beaumont-sister:
         active: true
@@ -3360,6 +3503,8 @@ scenes:
                 caller: He'd like you to come down and tell him how, sir.
             -   id: 6
                 called: Tell him I'm on my way. And have him hide the Canadian whiskey.
+            -   id: 7
+                caller: Yes, Colonel.
 
     # Howard Finch, of the Rotary convention.
     finch-wu:
@@ -3387,6 +3532,8 @@ scenes:
                 called: That's eighteen words. Ninety cents, charged to your room.
             -   id: 7
                 caller: Ninety cents? Take out possibly.
+            -   id: 8
+                called: Possibly, out. Eighty-five cents, Mr. Finch.
 
     wu-finch:
         active: true
@@ -3413,6 +3560,8 @@ scenes:
                 caller: Iron off stop. Tonsils removed nineteen thirty-one stop. Stop worrying stop. Edna.
             -   id: 6
                 called: She's right. They were. I forgot.
+            -   id: 7
+                caller: Very good, sir. Good night.
 
     finch-pharmacy:
         active: true
@@ -3441,6 +3590,8 @@ scenes:
                 caller: Twenty minutes.
             -   id: 8
                 called: Give it an hour, son. And drink a glass of water. That'll be two dollars and ten cents.
+            -   id: 9
+                caller: Thank you. I'll drink the water.
 
     finch-badge:
         active: true
@@ -3469,6 +3620,8 @@ scenes:
                 caller: Yes!
             -   id: 8
                 called: You're wearing it, sir. You came down for a newspaper ten minutes ago.
+            -   id: 9
+                caller: Oh. So I am. Thank you.
 
     finch-wife:
         active: true

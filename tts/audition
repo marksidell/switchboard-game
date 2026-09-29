@@ -53,7 +53,6 @@ RATE = 48000
 PREVIEW = Path("tts/voices/preview")
 CANDIDATES = Path("tts/voices/candidates")
 CHOICES = Path("tts/voices.yml")
-TAKES = 3
 
 
 def play(path: Path, device: str, gain_db: float,
@@ -180,7 +179,10 @@ def main() -> int:
             print(f"  currently chosen: {choices[person]}")
         print()
 
-        available = [k for k in range(1, TAKES + 1) if (src / f"{person}.{k}.wav").exists()]
+        # However many takes there are: three by default, more when a person
+        # has been designed again with tts/aws/design --takes N.
+        available = sorted(int(p.stem.rsplit(".", 1)[1]) for p in src.glob(f"{person}.*.wav")
+                           if p.stem.rsplit(".", 1)[1].isdigit())
         if not available:
             print(f"  no clips for {person} in {src}/ — skipping")
             i += 1
@@ -195,7 +197,7 @@ def main() -> int:
         play_all()
 
         while True:
-            answer = input(f"\n  {person}: [1-{TAKES}] keep  [r] all again  "
+            answer = input(f"\n  {person}: [1-{max(available)}] keep  [r] all again  "
                            f"[p<n>] play one  [s] skip  [b] back  [q] quit > ").strip().lower()
             if answer in {str(k) for k in available}:
                 choices[person] = int(answer)
