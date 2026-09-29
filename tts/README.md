@@ -68,7 +68,7 @@ audience hears them and is the only fair basis for choosing.
 **Nothing is left running.** `aws/teardown` terminates every instance tagged
 `project=sbgame-tts`, the session scripts call it from a trap that fires on
 success, error and Ctrl-C, and every instance is launched with
-`shutdown -h +120` and terminate-on-shutdown. All three layers are required by
+`shutdown -h +240` (four hours; two until 2026-09-29) and terminate-on-shutdown. All three layers are required by
 `tts_task.md` §4.4, and all three have now fired in anger.
 
 **`process.py` gates on a transform, not on audio.md §7.2's meter.** That meter

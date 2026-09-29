@@ -57,7 +57,7 @@ teardown() {
     local rc=$?
     set +e
     if [ "$KEEP" = 1 ] && [ -n "$INSTANCE_ID" ] && [ "$rc" = 0 ]; then
-        printf '\n--keep: leaving %s running. It self-terminates 2 hours after boot.\n' "$INSTANCE_ID"
+        printf '\n--keep: leaving %s running. It self-terminates %s minutes after boot.\n' "$INSTANCE_ID" "$SELF_TERMINATE_MIN"
         printf '  ssh -i %s ubuntu@%s\n  tts/aws/teardown when finished\n' "$KEY_FILE" "$PUBLIC_IP"
         exit $rc
     fi

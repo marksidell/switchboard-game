@@ -116,7 +116,7 @@ Nothing in it can touch IAM, S3, or any instance not tagged `project=sbgame-tts`
 
 Three layers, all required:
 
-1. **Launch with** `--instance-initiated-shutdown-behavior terminate`, and user data that runs `shutdown -h +120` at boot. If everything else fails, the instance terminates itself two hours after it starts.
+1. **Launch with** `--instance-initiated-shutdown-behavior terminate`, and user data that runs `shutdown -h +240` at boot. If everything else fails, the instance terminates itself four hours after it starts. (Two hours, `+120`, until 2026-09-29, Mark's change: the full script's render, 736 lines, may need more than that, and a session cut off by this layer loses all its lines, since they are copied back only at the end.)
 2. **Every session script tears down in a trap** — on success, on error and on Ctrl-C. Teardown terminates every running instance tagged `project=sbgame-tts`, not just the one this run thinks it started.
 3. **`tts/aws/teardown`** runs the same teardown by hand, and **`tts/aws/status`** lists anything tagged `project=sbgame-tts` that is running, with its launch time. Run status at the end of every session and print the result.
 
