@@ -4,12 +4,12 @@
 hotel_operator: 2
 thornhill: 4
 operator: 2
-local_operator: 3
-rate_operator: 2
-toll_a: 2
+local_operator: 2
+rate_operator: 3
+toll_a: 1
 toll_b: 1
-toll_c: 3
-toll_d: 3
+toll_c: 1
+toll_d: 1
 valerian: 2
 valet: 3
 pike: 2

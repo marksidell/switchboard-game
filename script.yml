@@ -49,6 +49,12 @@
 #     the hotel operator whether to charge the room, and her next line is
 #     marked wait:. A guest who asked for the time and charges hears them
 #     from her when the call ends, unasked.
+#     After a call a guest placed has ended, she rings the hotel back with
+#     the time and charges so the room can be billed: a following scene, a
+#     call to the operator from outside line operator whose request is the
+#     room, the time and the charge, said once, with no conversation, so she
+#     hangs up without waiting (game_control.md 4.6, Rev 24). Not for collect
+#     calls, or calls placed to a guest from outside.
 #     When the circuits are busy she calls back: a following scene rings the
 #     hotel on a trunk from outside line operator, and the hotel operator puts
 #     the call through to the room. A call coming in from long distance is heard
@@ -113,6 +119,9 @@ setting:
 
 # The cast of characters
 #
+# recorded: <performer> on an entry means a person performs the part: its
+# lines are recorded with tts/record, never rendered (tts_task.md 6.4).
+#
 cast:
     # The part the player plays. Her lines are under operator_lines: and in
     # the scenes' operator: keys, rendered only for recordings of whole scenes.
@@ -142,31 +151,54 @@ cast:
         accent: generic American, flat and quick
         description: the local telephone company operator who answers when the hotel operator dials 0
         sample: Operator. What number are you calling? One moment, please, I'll give you long distance. Your party is on the line.
+        voice: >
+            A young woman of about twenty with a high, bright voice, quick
+            and a little bored, clipping her words short. Natural,
+            conversational telephone speech, 1950s.
     rate_operator:
         sex: female
         accent: generic American, fast, flat, reading from a card
         description: the long distance rate and route operator, who gives the route and the charge
         sample: Rate and route. Chicago, New York, night person, two twenty-five. Portland direct, day station, eighty-five cents. Go ahead, Seattle.
+        voice: >
+            A woman in her fifties with a low, husky contralto, dry and
+            flat, reading figures off a card in an even monotone. Natural,
+            conversational telephone speech, 1950s.
     toll_a:
         sex: female
         accent: Pacific Northwest, pleasant
         description: a long distance toll operator on the route, answering with her town's name (Portland, Walla Walla)
         sample: Portland. Thank you, I'm ringing them now. They don't answer, Seattle. Shall I try them again in an hour?
+        voice: >
+            A woman in her forties with a soft, warm, unhurried voice and a
+            gentle Pacific Northwest manner. Natural, conversational
+            telephone speech, 1950s.
     toll_b:
         sex: female
         accent: Chicago, brisk
         description: a long distance toll operator on the route, answering with her town's name (Chicago)
         sample: Chicago. Go ahead, I have you. Ringing your party now. The circuits to the east are busy, please hold the line.
+        voice: >
+            A woman in her thirties, brisk, businesslike and loud, with a
+            hard Chicago edge. Natural, conversational telephone speech,
+            1950s.
     toll_c:
         sex: female
         accent: East Coast, crisp and nasal
         description: a long distance toll operator on the route, answering with her town's name (New York, Savannah)
         sample: New York. Just a moment, Seattle, I'm ringing. The line is busy, will you wait? Your party is answering now.
+        voice: >
+            A woman in her late twenties with a sharp, nasal, very fast New
+            York snap. Natural, conversational telephone speech, 1950s.
     toll_d:
         sex: female
         accent: Western, slow and friendly
         description: a long distance toll operator on the route, answering with her town's name (Boise, Yakima, Atlanta)
         sample: Boise. Well, hello there, Seattle. I'm ringing that number for you now. Nobody's picked up yet, give it a minute.
+        voice: >
+            A woman in her sixties with a slow, gravelly voice and a
+            friendly Western drawl. Natural, conversational telephone
+            speech, 1950s.
     valerian:
         sex: male
         accent: sinister foreign
@@ -645,7 +677,7 @@ scenes:
             -   id: 2
                 called: Valet service.
             -   id: 3
-                caller: Valet? This is room 403. How quickly can you get a suit sponged and pressed?
+                caller: Valet? This is, uh, room 403. How quickly can you get a suit sponged and pressed?
             -   id: 4
                 called: Do you want fast service?
             -   id: 5
@@ -655,7 +687,7 @@ scenes:
             -   id: 7
                 caller: Twenty minutes? Fine. OK. 403.
             -   id: 8
-                called: Twenty minutes, sir. Very good.
+                called: We'll send someone up right away.
 
     nbn-kaplan:
         active: true
@@ -685,7 +717,7 @@ scenes:
             -   id: 7
                 caller: >
                     Of course not. You answer is telephone, and you live in his hotel room,
-                    and yet you are not Mr. Kaplan. Nevertheless, we are pleased to find you in.
+                    and yet you are not Mr. Kaplan. Nevertheless, we are pleased to find you, in.
             -   id: 8
                 called: Hello? Hello?
 
@@ -717,7 +749,7 @@ scenes:
             person: waiter
         request:
             id: 1
-            text: Room service, please.
+            text: Room service please.
             operator: internal-greeting
         conversation:
             -   id: 2
@@ -1016,10 +1048,27 @@ scenes:
             -   id: 7
                 called: I'm getting sentimental at a dollar a minute, Ruth. I'll write you a long letter.
             -   id: 8
-                caller: Make it a short one, Edith. Stamps cost money. Goodbye, dear.
+                caller: Make it a short one Edith. Stamps cost money. Goodbye, dear.
                 person: ruth_seaver
             -   id: 9
                 called: Goodbye, Ruth.
+
+    # The long-distance operator rings back with the time and charges, once,
+    # and hangs up (game_control.md 4.6, Rev 24).
+    tc-albright:
+        active: true
+        after: portland-callback
+        delay: 60
+        calling:
+            line: operator
+            person: operator
+        request:
+            id: 1
+            text: Hotel Ballard? Long distance. Time and charges on room 302. Portland, Oregon. Four minutes. One dollar and ten cents.
+            operator: outside-greeting
+        closing:
+            id: 2
+            text: Room 302, four minutes, one dollar and... Operator? Oh, dear.
 
     # From the lobby house phone, outgoing.
     pike-taxi:
@@ -1048,7 +1097,7 @@ scenes:
             -   id: 7
                 caller: Tell him to step on it. I've got a train to catch.
             -   id: 8
-                called: He'll be out front, Mr. Pike.
+                called: He'll be out front Mr. Pike.
 
     martha-roomservice:
         active: true
@@ -1197,7 +1246,7 @@ scenes:
             -   id: 2
                 called: Housekeeping.
             -   id: 3
-                caller: Mrs. Olsen, the blanket is lovely. But now the pillows are wrong.
+                caller: Mrs. Olsen, the blanket is lovely. But now the pillows are wrong!
             -   id: 4
                 called: Wrong, ma'am?
             -   id: 5
@@ -1225,7 +1274,7 @@ scenes:
             operator: internal-greeting
         conversation:
             -   id: 2
-                called: Housekeeping.
+                called: This is housekeeping.
             -   id: 3
                 caller: It's Mrs. Pemberton. I'm going to draw a bath and there are only four towels.
             -   id: 4
@@ -1235,7 +1284,7 @@ scenes:
             -   id: 6
                 called: Ironed towels. Yes, Mrs. Pemberton.
             -   id: 7
-                caller: And have the girl stand outside the door and hand them in one at a time.
+                caller: And have the girl stand outside the door and hand them in, one at a time.
             -   id: 8
                 called: One at a time. Yes, Mrs. Pemberton.
 
@@ -1634,6 +1683,23 @@ scenes:
                 caller: Then you'd better take a shower at the Y. Goodbye, Earl.
                 person: mabel_dobbs
 
+    # The long-distance operator rings back with the time and charges, once,
+    # and hangs up (game_control.md 4.6, Rev 24).
+    tc-dobbs:
+        active: true
+        after: dobbs-callback
+        delay: 60
+        calling:
+            line: operator
+            person: operator
+        request:
+            id: 1
+            text: Hotel Ballard? Long distance. Time and charges on room 105. Wahoo, Nebraska. Three minutes. Two dollars and thirty cents.
+            operator: outside-greeting
+        closing:
+            id: 2
+            text: Room 105, three minutes, two thirty. Thank you.
+
     dobbs-paramount:
         active: true
         calling:
@@ -1700,7 +1766,7 @@ scenes:
                 person: toll_b
                 pause: 3
             -   id: 14
-                called: Chicago, Mohawk 4-2000. Mr. Gruber. Seattle calling, collect.
+                called: Chicago, Mohawk 4-2000. Mr. Gruber. Seattle calling collect.
                 person: operator
             -   id: 15
                 called: Ringing.
@@ -1710,7 +1776,7 @@ scenes:
                 person: gruber
                 ringback: 6
             -   id: 5
-                called: Mr. Gruber? I have a collect call from Mr. Harold Pike in Seattle. Will you accept the charges?
+                called: Mr. Gruber, I have a collect call from Mr. Harold Pike in Seattle. Will you accept the charges?
                 person: operator
             -   id: 6
                 called: Pike? Collect? No, I will not.
@@ -1805,7 +1871,7 @@ scenes:
             -   id: 2
                 called: Pike.
             -   id: 3
-                caller: Your cab's been at the front door ten minutes, Mr. Pike. Meter's running.
+                caller: Your cab's been at the front door for ten minutes, Mr. Pike. Meter's running!
             -   id: 4
                 called: Ten minutes? I went back upstairs for my sample case. It weighs forty pounds.
             -   id: 5
@@ -1873,7 +1939,7 @@ scenes:
             -   id: 8
                 called: No, please, not tonight, I think I'm coming down with something.
             -   id: 9
-                caller: Tomorrow, then. Good night, Mr. Finch.
+                caller: Tomorrow, then! Good night, Mr. Finch.
 
     # Mrs. Albright.
     albright-pigalle:
@@ -1956,7 +2022,7 @@ scenes:
             -   id: 6
                 called: Then you'll have the armrest to yourself. Shall I get you a ticket?
             -   id: 7
-                caller: Two, Mr. Fairweather. I may find somebody to sleep through it.
+                caller: Two, Mr. Fairweather. I may find somebody to sleep through it with me.
             -   id: 8
                 called: Two tickets, Mrs. Albright. Very good.
 
@@ -1974,7 +2040,7 @@ scenes:
             operator: internal-greeting
         conversation:
             -   id: 2
-                called: Yes?
+                called: Hello? Yes?
             -   id: 3
                 caller: Mrs. Albright? This is the Stoneburner. Your table is ready.
             -   id: 4
@@ -1986,7 +2052,7 @@ scenes:
             -   id: 7
                 caller: Tall, with a moustache. He's already ordered the oysters.
             -   id: 8
-                called: Tell him I'll be down in twenty minutes. Thirty. I'll need my pearls.
+                called: Tell him I'll be down in twenty minutes. No, thirty. I'll need my pearls.
             -   id: 9
                 caller: Very good, Mrs. Albright. I'll tell him.
 
@@ -2102,6 +2168,23 @@ scenes:
             -   id: 23
                 called: I love you too, baby. Eat something!
                 person: mrs_dunn
+
+    # The long-distance operator rings back with the time and charges, once,
+    # and hangs up (game_control.md 4.6, Rev 24).
+    tc-hale:
+        active: true
+        after: hale-mother
+        delay: 60
+        calling:
+            line: operator
+            person: operator
+        request:
+            id: 1
+            text: Hotel Ballard? Long distance. Time and charges on room 305. Boise, Idaho. Three minutes. One dollar and fifteen cents.
+            operator: outside-greeting
+        closing:
+            id: 2
+            text: Room 305, three minutes, a dollar fifteen. Thank you, operator.
 
     hale-champagne:
         active: true
@@ -3060,7 +3143,7 @@ scenes:
             person: pigalle
         request:
             id: 1
-            text: Operator, get me Place Pigalle, would you, doll?
+            text: Operator, get me Plass Peegalle, would you, doll?
             operator: internal-greeting
         conversation:
             -   id: 2
@@ -3068,7 +3151,7 @@ scenes:
             -   id: 3
                 caller: Hello, this is Lorraine Vance. I need a table for two after my last show. Say, one in the morning?
             -   id: 4
-                called: I am desolee, mademoiselle. The kitchen, it closes at ten.
+                called: Je suis desolee, mademoiselle. The kitchen closes at ten.
             -   id: 5
                 caller: Ten? What do people in this town do after ten?
             -   id: 6
@@ -3326,7 +3409,7 @@ scenes:
             -   id: 7
                 caller: He left for his boat at five this morning, sir.
             -   id: 8
-                called: Confound it. Then I shall write to the Governor.
+                called: Con found it! Then I shall write to the Governor!
 
     beaumont-pigalle:
         active: true
@@ -3480,6 +3563,23 @@ scenes:
             -   id: 28
                 caller: Three dollars and forty cents, and just to be told I am old. Carry on.
 
+    # The long-distance operator rings back with the time and charges, once,
+    # and hangs up (game_control.md 4.6, Rev 24).
+    tc-beaumont:
+        active: true
+        after: beaumont-sister
+        delay: 60
+        calling:
+            line: operator
+            person: operator
+        request:
+            id: 1
+            text: Hotel Ballard? Long distance. Time and charges on room 205. Savannah, Georgia. Six minutes. Three dollars and forty cents.
+            operator: outside-greeting
+        closing:
+            id: 2
+            text: Room 205, six minutes, three dollars and... Hello? Operator?
+
     restaurant-beaumont:
         active: true
         calling:
@@ -3500,7 +3600,7 @@ scenes:
             -   id: 4
                 called: Never? Then how does he sleep at night?
             -   id: 5
-                caller: He'd like you to come down and tell him how, sir.
+                caller: He'd like you to come down and tell him how to make one, sir.
             -   id: 6
                 called: Tell him I'm on my way. And have him hide the Canadian whiskey.
             -   id: 7
@@ -3701,6 +3801,23 @@ scenes:
                 person: operator
             -   id: 23
                 caller: Ninety-five cents to be told I'm normal. Edna was right.
+
+    # The long-distance operator rings back with the time and charges, once,
+    # and hangs up (game_control.md 4.6, Rev 24).
+    tc-finch:
+        active: true
+        after: finch-wife
+        delay: 60
+        calling:
+            line: operator
+            person: operator
+        request:
+            id: 1
+            text: Hotel Ballard? Long distance. Time and charges on room 303. Walla Walla. Three minutes. Ninety-five cents.
+            operator: outside-greeting
+        closing:
+            id: 2
+            text: Ninety-five cents, room 303. Got it.
 
     finch-hollis:
         active: true

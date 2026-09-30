@@ -1,13 +1,13 @@
 {
   "person": "toll_c",
-  "take": 3,
-  "seed": 1953,
+  "take": 1,
+  "seed": 1951,
   "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
-  "instruct": "A female voice. Accent: East Coast, crisp and nasal. a long distance toll operator on the route, answering with her town's name (New York, Savannah).\nNatural, conversational telephone speech, 1950s.",
+  "instruct": "A woman in her late twenties with a sharp, nasal, very fast New York snap. Natural, conversational telephone speech, 1950s.",
   "sample_text": "New York. Just a moment, Seattle, I'm ringing. The line is busy, will you wait? Your party is answering now.",
   "sample_from": [],
   "rate": 24000,
-  "seconds": 6.32,
-  "generate_seconds": 9.72,
-  "chosen_candidate": 3
+  "seconds": 6.8,
+  "generate_seconds": 12.29,
+  "chosen_candidate": 1
 }

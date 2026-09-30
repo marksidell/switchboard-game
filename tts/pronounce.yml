@@ -68,15 +68,15 @@ speakers:
     # The reservationist at Place Pigalle, in her French (Mark, 2026-09-29).
     # The guests say "Place Pigalle" their own way, by the general entry.
     pigalle:
-        "Place Pigalle": plahss pee-GAHL
+        "Place Pigalle": plahss pig-GAHL
         "bonsoir": bohn-SWAHR
         # Whole, so its "a" is spoken "ah", not as a letter.
-        "a bientot": ah byahn-TOH
-        "bientot": byahn-TOH
+        "a bientot": ah byenn-TOH
+        "bientot": byehn-TOH
         "mais oui": may WEE
         "madame": mah-DAHM
-        "mademoiselle": mahd-mwah-ZELL
-        "monsieur": muh-SYUR
+        "mademoiselle": mad-mwah-ZELL
+        "monsieur": me-SYUR
         "non": nohn
         "desolee": day-zoh-LAY
     # Lindqvist's Swedish "ja", long and open. Miss Vance's "will ya?" is
