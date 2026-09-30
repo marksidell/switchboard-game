@@ -218,6 +218,13 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
         if not isinstance(value, dict) or not value:
             bad(key, "missing or empty")
 
+    # --- recorded parts (tts_task.md 6.4): recorded: names a performer -------
+    for name, entry in cast.items():
+        if isinstance(entry, dict) and "recorded" in entry:
+            r = entry["recorded"]
+            if not isinstance(r, str) or not r.strip():
+                bad(f"cast.{name}.recorded", "must name the performer")
+
     # --- lines: a name is a station or an outside entry, and never both -----
     both = sorted(set(stations) & set(outside))
     for name in both:

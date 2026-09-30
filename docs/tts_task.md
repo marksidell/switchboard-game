@@ -146,6 +146,16 @@ Keep the template in one place so Mark can edit it. If a cast entry has an optio
 
 Describe voices by their qualities only. A prompt never names a real person or asks for an imitation of one.
 
+**Private build only — two reference recordings from film** (Mark, 2026-09-30). In the build Mark keeps for himself, `tts/voices/thornhill.wav` and `tts/voices/marysmith.wav` are not designed voices but short recordings from *North by Northwest* and *Easy Living*, with their transcripts as `sample_text`, so that those two characters are cloned from the actors. That build is never shown publicly. **Before any public showing** both are restored to their designed voices and every line they speak is rendered again:
+
+```sh
+git log --oneline -- tts/voices/thornhill.wav tts/voices/marysmith.wav   # the last designed commit
+git checkout <that commit> -- tts/voices/thornhill.* tts/voices/marysmith.*
+tts/aws/generate --dry          # every Thornhill and Mary Smith line, "reference voice changed"
+```
+
+The designed voices, Thornhill's take 4 and Mary Smith's take 1, are in the repository's history before 2026-09-30. Until then, run `tts/choose` with `--only`, naming the people just re-designed: without it, `choose` promotes a candidate for every cast member and would put designed voices back over the two recordings. Nothing else in the cast is modelled on a real person, and the prompts rule above still holds for every voice designed.
+
 ## 5.2 The Sample Text
 
 Each candidate speaks the character's first scripted line, so Mark judges the voice on something it will actually say. If that line is under about five seconds, append the character's next line. Record the exact sample text next to each candidate; session 2 needs it as the reference transcript.
@@ -207,6 +217,19 @@ speakers:
 
 `--only <scene-id>[.<utterance-id>],…` forces those, with a new seed, for lines Mark wants another take of.
 
+## 6.4 Recorded Parts — `tts/record`
+
+Added 2026-09-30, Mark's request. A part can be performed by a person rather than generated: `recorded: <performer>` on the cast entry, the performer's name, with their agreement (below). Every line that cast member speaks is then recorded, not rendered.
+
+- **Never rendered.** The planning step (§6.3) skips a recorded part's lines entirely, so a performer's take can never be overwritten by a render, and a recorded part needs no reference voice.
+- **Takes.** One file per line, `tts/recorded/<scene-id>.<utterance-id>.wav`, any rate, mono or stereo. Committed, like the chosen voices: a performance cannot be regenerated. `tts/recorded/takes.json` records for each take the performer, the date and a hash of the line's text as it was read — the script's own text, not the pronunciation substitution of §6.2, since a performer reads the script and says it as they say it.
+- **Processed like any line.** §7 takes a take in `tts/recorded/` in place of a file of the same name in `tts/raw/`, and runs it through the same steps, so a performer's line reaches the telephone band at the same level as a generated one. A recorded line with no take yet keeps whatever is in `wav/` — the rendered line from before the part was recorded — until one is made.
+- **Edits.** A line whose text has changed since its take is a **re-take**: `tts/record --status` lists the lines to record and the re-takes, and the planning step reports their count. Nothing about a re-take is automatic; the old take plays until the new one replaces it.
+
+`tts/record` records on this host, one line at a time: it shows the line and the one before it, Enter starts and Enter stops, it plays the take back, and the take is kept or redone. It records from the desktop's default input, or with `--input N` from the Digiface's input N — the driver opens all 32 inputs and the tool keeps the one named — and plays takes back on output N, the same channel strip, unless `--channel` names another output. The take is played back as the audience will hear it, trimmed of the silence before and after speech and levelled and band-limited by §7, with its peak level and a warning if it clipped or came in too quiet; the kept file is the whole recording, and the trim is applied again whenever lines are processed. It skips lines already taken, so a session can stop and resume. For a performer recording elsewhere, `--print` writes their lines as a numbered script with the file name to save each one under, and `--import <dir>` brings those files in, converting any format ffmpeg reads.
+
+**Performers.** `tts/recorded/PERFORMERS.md` lists who performs which part and that they agreed to their voice being used in the game. A public showing uses a recorded part only if that file says its performer agreed to it.
+
 # 7. Local Processing — `tts/process.py`
 
 Runs on the GEEKOM (or any machine), no GPU. Raw files in, delivered files out. Kept separate from generation because it will be tuned and rerun, and none of that should need a GPU.
@@ -222,6 +245,8 @@ For each raw file, in order:
 7. **Check** the written file: 48000Hz, mono, name per §2, and energy above 5.5kHz below −60dBFS, measured the way audio.md §7.2 describes. Delete the file and report it if any check fails.
 
 No other effects. The period character comes from the real handset and the real switchboard, not from processing.
+
+A take in `tts/recorded/` (§6.4) is processed in place of a file of the same name in `tts/raw/`.
 
 Afterwards, report:
 
@@ -254,6 +279,11 @@ tts/
     preview/             band-limited candidates — not committed
     <person>.wav/.json   chosen reference voices — commit these
   raw/                   session 2 output — not committed
+  record                 records, prints and imports performers' takes (§6.4)
+  recorded/
+    <scene>.<id>.wav     performers' takes — commit these
+    takes.json           who, when, and from what text
+    PERFORMERS.md        who performs which part, and their agreement
 wav/                     delivered files
 ```
 

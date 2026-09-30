@@ -18,6 +18,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from tts.pronounce import load_table, substitute, unknown_speakers
+from tts.recorded import performers, status
 from tts.script import Script, Utterance
 
 DEFAULT_MANIFEST = Path("tts/manifest.json")
@@ -80,8 +81,11 @@ def plan(script: Script, *, voices: Path = VOICES, wav_dir: Path = Path("wav"),
     manifest = {} if manifest is None else manifest
     only = only or set()
     jobs: list[Job] = []
+    recorded = performers(script)       # §6.4: never rendered
 
     for u in script.utterances:
+        if u.speaker in recorded:
+            continue
         spoken = substitute(u.text, speaker=u.speaker)
         t_sha = text_hash(spoken)
         ref_wav = voices / f"{u.speaker}.wav"
@@ -183,6 +187,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"… and {len(jobs) - 10} more")
     print(f"\n{len(jobs)} of {len(script.utterances)} to generate: "
           + ", ".join(f"{n} {r}" for r, n in why.most_common()))
+    lines = status(script)
+    if lines:
+        s = Counter(l.state for l in lines)
+        print(f"recorded parts (tts_task.md 6.4), not generated: {len(lines)} lines, "
+              f"{s['ok']} taken, {s['to record']} to record, {s['re-take']} re-take"
+              + ("  — tts/record --status" if s["to record"] or s["re-take"] else ""))
     return 0
 
 

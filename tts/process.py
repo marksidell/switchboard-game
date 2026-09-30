@@ -234,6 +234,8 @@ def main(argv: list[str] | None = None) -> int:
 
     p = argparse.ArgumentParser(description="Band-limit raw TTS output into deliverable wavs.")
     p.add_argument("--raw", type=Path, default=Path("tts/raw"), help="input directory")
+    p.add_argument("--recorded", type=Path, default=Path("tts/recorded"),
+                   help="performers' takes, which win over --raw (tts_task.md 6.4)")
     p.add_argument("--out", type=Path, default=Path("wav"), help="output directory")
     p.add_argument("--script", type=Path, default=DEFAULT_SCRIPT)
     p.add_argument("--rms", type=float, default=TARGET_RMS_DBFS, help="target speech level, dBFS")
@@ -254,7 +256,10 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
     wanted = {s for s in args.only.split(",") if s}
-    sources = sorted(args.raw.glob("*.wav"))
+    # §6.4: a performer's take is processed in place of a file of the same name.
+    by_name = {s.stem: s for s in args.raw.glob("*.wav")}
+    by_name.update({s.stem: s for s in args.recorded.glob("*.wav")})
+    sources = sorted(by_name.values(), key=lambda s: s.stem)
     if wanted:
         sources = [s for s in sources if s.stem in wanted]
     if not sources:
@@ -289,6 +294,11 @@ def main(argv: list[str] | None = None) -> int:
         orphan = sorted(delivered - expected)
         if missing:
             print(f"no delivered file for {len(missing)}: {', '.join(missing)}")
+        from tts.recorded import status as recorded_status
+        pending = [l for l in recorded_status(script, recorded=args.recorded) if l.state != "ok"]
+        if pending:
+            print(f"recorded parts: {len(pending)} line(s) still to record or re-take, "
+                  f"playing their earlier file until then — tts/record --status")
         if orphan:
             print(f"in {args.out}/ but in no scene, {len(orphan)}: {', '.join(orphan)}")
         print(f"{len(delivered)} delivered, {len(expected)} utterances in the script")

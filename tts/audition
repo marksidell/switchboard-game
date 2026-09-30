@@ -33,58 +33,16 @@ _venv = Path(__file__).resolve().parent / ".venv" / "bin" / "python"
 if sys.prefix == sys.base_prefix and _venv.exists():
     os.execv(str(_venv), [str(_venv), str(Path(__file__).resolve()), *sys.argv[1:]])
 
-import numpy as np
-import soundfile as sf
-import soxr
-
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tts.prompt import sample_text, voice_prompt          # noqa: E402
 from tts.script import DEFAULT_SCRIPT, ScriptError, load  # noqa: E402
+from tts.playback import DEVICE, MAX_CIRCUIT, PHONES, play  # noqa: E402
 
-# By card id, not number: the numbers follow USB enumeration order and moved
-# on portland (the Digiface was card 1, then card 2). audio.md Rev 2.
-DEVICE = "hw:USB24306452"
-CHANNELS = 34            # the Digiface's playback count
-PHONES = (32, 33)        # zero-based, the headphone jack — one-based 33/34
-MAX_CIRCUIT = 32         # one-based; the circuits are 1..32, the jack is beyond them
-RATE = 48000
 
 PREVIEW = Path("tts/voices/preview")
 CANDIDATES = Path("tts/voices/candidates")
 CHOICES = Path("tts/voices.yml")
-
-
-def play(path: Path, device: str, gain_db: float,
-         channels: tuple[int, ...] = PHONES) -> None:
-    """Send one clip to the given zero-based channels, silence on the rest."""
-    audio, rate = sf.read(str(path), always_2d=False, dtype="float64")
-    audio = np.asarray(audio)
-    if audio.ndim > 1:
-        audio = audio.mean(axis=1)
-    if rate != RATE:
-        audio = soxr.resample(audio, rate, RATE, quality="VHQ")
-    audio = audio * (10.0 ** (gain_db / 20.0))
-    np.clip(audio, -1.0, 1.0, out=audio)
-
-    frame = np.zeros((len(audio), CHANNELS), dtype=np.int32)
-    # S32_LE carrying 24 bits left-justified in the 32-bit word; full scale is
-    # the top of the int32 range and the device ignores the low byte.
-    samples = (audio * (2 ** 31 - 1)).astype(np.int32)
-    for ch in channels:
-        frame[:, ch] = samples
-
-    try:
-        subprocess.run(
-            ["aplay", "-D", device, "-t", "raw", "-f", "S32_LE",
-             "-r", str(RATE), "-c", str(CHANNELS), "-q", "-"],
-            input=frame.tobytes(), check=True)
-    except FileNotFoundError:
-        sys.exit("aplay not found: install alsa-utils")
-    except subprocess.CalledProcessError as e:
-        sys.exit(f"aplay failed ({e.returncode}). Is {device} free — sbaudio holds "
-                 f"it while it runs (sudo systemctl stop sbaudio) — and is the "
-                 f"Digiface connected? docs/audio-io.md has the device notes.")
 
 
 def read_choices(path: Path) -> dict[str, int]:

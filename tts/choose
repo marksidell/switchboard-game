@@ -45,6 +45,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--candidates", type=Path, default=CANDIDATES)
     p.add_argument("--out", type=Path, default=CHOSEN)
     p.add_argument("--script", default=DEFAULT_SCRIPT)
+    # Promote only these, leaving every other reference voice as it is: after
+    # re-designing a few, and so a hand-placed reference is not overwritten
+    # (tts_task.md 5.1, the private build's two film recordings).
+    p.add_argument("--only", default="", help="comma-separated cast keys")
     args = p.parse_args(argv)
 
     try:
@@ -75,8 +79,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {f}", file=sys.stderr)
         return 1
 
+    only = {o for o in args.only.split(",") if o}
+    unknown = only - set(script.cast)
+    if unknown:
+        print(f"  --only names {', '.join(sorted(unknown))}, not in the cast", file=sys.stderr)
+        return 1
     copied = 0
     for person, k in choices.items():
+        if only and person not in only:
+            continue
         src = args.candidates / f"{person}.{k}.wav"
         meta = args.candidates / f"{person}.{k}.json"
         if not src.exists():

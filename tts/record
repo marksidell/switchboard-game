@@ -1,0 +1,370 @@
+#!/usr/bin/env python3
+"""Record the lines of a part performed by a person (tts_task.md 6.4).
+
+A cast member with `recorded: <performer>` in script.yml is performed, not
+rendered. This records their lines one at a time on this host: it shows the
+line and the one before it, Enter starts recording and Enter stops, it plays
+the take back, and the take is kept or done again. Kept takes go to
+tts/recorded/<scene>.<id>.wav, and tts/recorded/takes.json notes who read
+which text when. Lines already taken are skipped, so a session can stop and
+resume; a line edited since its take comes up again as a re-take.
+
+    tts/record --status                  what each recorded part still needs
+    tts/record --only pigalle --input 7  record her lines here, mic on input 7,
+                                         takes played back on output 7
+    tts/record --print --only pigalle    a numbered script, for recording elsewhere
+    tts/record --import ~/takes          bring those files in, named as printed
+
+tts.process then puts the takes through the same telephone band as every
+generated line. Capture is from ALSA's default source (the desktop's chosen
+microphone), or with --input N from the Digiface's input N; playback is on the
+Digiface, as in tts/audition, so sbaudio must be stopped for either.
+
+Each take is played back as the audience will hear it — trimmed of the silence
+before and after, levelled and band-limited by tts.process — with its level,
+and a warning if it clipped or came in too quiet. --raw-playback plays the
+take as recorded instead. The kept take is the whole recording; the trim is
+applied again whenever the lines are processed.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+# Run under the project venv whatever interpreter started this; see tts/audition.
+_venv = Path(__file__).resolve().parent / ".venv" / "bin" / "python"
+if sys.prefix == sys.base_prefix and _venv.exists():
+    os.execv(str(_venv), [str(_venv), str(Path(__file__).resolve()), *sys.argv[1:]])
+
+import numpy as np
+import soundfile as sf
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from tts.playback import DEVICE, out_channels, play                     # noqa: E402
+from tts.process import process_file                                    # noqa: E402
+from tts.recorded import (RECORDED, load_takes, note_take,              # noqa: E402
+                          performers, save_takes, status)
+from tts.script import DEFAULT_SCRIPT, Script, ScriptError, Utterance, load  # noqa: E402
+
+AUDIO_SUFFIXES = {".wav", ".flac", ".ogg", ".mp3", ".aif", ".aiff", ".m4a", ".aac", ".caf"}
+
+
+def before(script: Script, u: Utterance) -> list[str]:
+    """What is said just before this line, for the performer's cue."""
+    lines = [x for x in script.utterances if x.scene == u.scene]
+    i = next(k for k, x in enumerate(lines) if x.name == u.name)
+    return [f"{x.speaker}: {x.text.strip()}" for x in lines[max(0, i - 2):i]]
+
+
+def pick(script: Script, only: set[str], redo: bool):
+    lines = status(script)
+    if only:
+        lines = [l for l in lines if l.utterance.speaker in only]
+    return lines if redo else [l for l in lines if l.state != "ok"]
+
+
+# ---- --status ---------------------------------------------------------------
+
+def show_status(script: Script, only: set[str]) -> int:
+    who = performers(script)
+    if not who:
+        print("no recorded parts: give a cast entry recorded: <performer> (tts_task.md 6.4)")
+        return 0
+    lines = status(script)
+    for person, performer in sorted(who.items()):
+        if only and person not in only:
+            continue
+        mine = [l for l in lines if l.utterance.speaker == person]
+        todo = [l for l in mine if l.state != "ok"]
+        print(f"{person} ({performer}): {len(mine) - len(todo)} of {len(mine)} taken")
+        for l in todo:
+            print(f"    {l.state:<9} {l.utterance.name:<22} {l.utterance.text.strip()[:70]}")
+    return 0
+
+
+# ---- --print ----------------------------------------------------------------
+
+def print_script(script: Script, only: set[str], redo: bool, out: Path | None) -> int:
+    lines = pick(script, only, redo)
+    if not lines:
+        print("nothing to record")
+        return 0
+    text = ["# Lines to record", "",
+            "One file per line, named exactly as shown (for example `nbn-valet.3.wav`).",
+            "Say each line as the character would, in character; the line before it",
+            "is there for the cue. A quiet room, close to the microphone, no music.",
+            "Any common format is fine; WAV or FLAC is best.", ""]
+    performer = ""
+    for n, l in enumerate(lines, 1):
+        if l.performer != performer:
+            performer = l.performer
+            text += [f"## {performer} — {l.utterance.speaker}", ""]
+        u = l.utterance
+        cue = before(script, u)
+        text.append(f"{n}. **{u.name}.wav**" + (f"  _(re-take: the line has changed)_" if l.state == "re-take" else ""))
+        for c in cue:
+            text.append(f"   - _{c}_")
+        text.append(f"   - **{u.text.strip()}**")
+        text.append("")
+    body = "\n".join(text) + "\n"
+    if out:
+        out.write_text(body, encoding="utf-8")
+        print(f"{len(lines)} lines written to {out}")
+    else:
+        print(body)
+    return 0
+
+
+# ---- --import ---------------------------------------------------------------
+
+def read_any(src: Path, dest: Path) -> str:
+    """Copy src to dest as WAV. Returns "" or why it could not."""
+    try:
+        data, rate = sf.read(str(src), always_2d=False)
+        sf.write(str(dest), data, rate, subtype="PCM_24")
+        return ""
+    except Exception:
+        pass
+    if shutil.which("ffmpeg") is None:
+        return f"{src.suffix} needs ffmpeg to convert (sudo apt install ffmpeg)"
+    r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(src), str(dest)],
+                       capture_output=True, text=True)
+    return "" if r.returncode == 0 else f"ffmpeg: {r.stderr.strip()[:120]}"
+
+
+def import_takes(script: Script, src_dir: Path) -> int:
+    who = performers(script)
+    by_name = script.by_name()
+    takes = load_takes()
+    RECORDED.mkdir(parents=True, exist_ok=True)
+    kept = refused = 0
+    for f in sorted(src_dir.iterdir()):
+        if f.suffix.lower() not in AUDIO_SUFFIXES:
+            continue
+        u = by_name.get(f.stem)
+        if u is None:
+            print(f"  {f.name}: not a line in the script — named as printed?")
+            refused += 1
+            continue
+        if u.speaker not in who:
+            print(f"  {f.name}: {u.speaker} is not a recorded part")
+            refused += 1
+            continue
+        why = read_any(f, RECORDED / f"{u.name}.wav")
+        if why:
+            print(f"  {f.name}: {why}")
+            refused += 1
+            continue
+        note_take(takes, u, who[u.speaker])
+        kept += 1
+    save_takes(takes)
+    print(f"{kept} take(s) imported to {RECORDED}/, {refused} refused")
+    return 1 if refused else 0
+
+
+# ---- recording --------------------------------------------------------------
+
+DIGIFACE_INPUTS = 32               # the Digiface's capture count (audio-io.md)
+
+
+class Recorder:
+    """A take from ALSA's default source, or from one Digiface input: the
+    Digiface is opened for all 32, as the driver requires, and input N kept."""
+
+    def __init__(self, capture: str, rate: int, fmt: str, digiface: str,
+                 input_ch: int | None) -> None:
+        self.capture, self.rate, self.fmt = capture, rate, fmt
+        self.digiface, self.input = digiface, input_ch
+
+    def _command(self, path: Path) -> list[str]:
+        if self.input is None:
+            return ["arecord", "-q", "-D", self.capture, "-f", self.fmt, "-r", str(self.rate),
+                    "-c", "1", "-t", "wav", str(path)]
+        return ["arecord", "-q", "-D", self.digiface, "-f", "S32_LE", "-r", "48000",
+                "-c", str(DIGIFACE_INPUTS), "-t", "raw", str(path.with_suffix(".raw"))]
+
+    def take(self, path: Path) -> bool:
+        """Enter to start, Enter to stop. False if arecord would not run."""
+        try:
+            proc = subprocess.Popen(self._command(path), stderr=subprocess.PIPE, text=True)
+        except FileNotFoundError:
+            sys.exit("arecord not found: install alsa-utils")
+        input("  ● recording — Enter to stop ")
+        proc.send_signal(signal.SIGINT)
+        try:
+            _, err = proc.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            err = "arecord did not stop"
+        where = self.capture if self.input is None else f"{self.digiface} input {self.input}"
+        raw = path.with_suffix(".raw")
+        if proc.returncode not in (0, 1, -signal.SIGINT) or not (path.exists() or raw.exists()):
+            print(f"  arecord failed on {where}: {(err or '').strip()[:160]}")
+            return False
+        if self.input is not None:
+            frames = np.fromfile(raw, dtype="<i4")
+            frames = frames[: len(frames) - len(frames) % DIGIFACE_INPUTS]
+            one = frames.reshape(-1, DIGIFACE_INPUTS)[:, self.input - 1] / 2.0 ** 31
+            sf.write(str(path), one, 48000, subtype="PCM_24")
+            raw.unlink()
+        return True
+
+
+def report(path: Path) -> None:
+    """The take's level, and whether it is usable."""
+    x, _ = sf.read(str(path), always_2d=False)
+    x = np.asarray(x, dtype="float64")
+    if x.ndim > 1:
+        x = x.mean(axis=1)
+    peak = float(np.max(np.abs(x))) if x.size else 0.0
+    pk = 20 * np.log10(peak) if peak > 0 else float("-inf")
+    note = ("  CLIPPED — back off the gain and record again" if pk > -0.5
+            else "  too quiet — raise the gain, or move closer" if pk < -30
+            else "")
+    print(f"  take: {len(x) / sf.info(str(path)).samplerate:.1f}s, peak {pk:.1f} dBFS{note}")
+
+
+def record(script: Script, only: set[str], redo: bool, args) -> int:
+    lines = pick(script, only, redo)
+    if not lines:
+        print("nothing to record — every recorded line has a current take")
+        return 0
+    chans = out_channels(args.channel)
+    rec = Recorder(args.capture, args.rate, args.format, args.device, args.input)
+    takes = load_takes()
+    RECORDED.mkdir(parents=True, exist_ok=True)
+    work = Path(tempfile.mkdtemp(prefix="sbgame-take-"))
+    tmp = work / "take.wav"
+    source = (f"ALSA {args.capture!r}" if args.input is None
+              else f"{args.device} input {args.input}")
+    print(f"recording from {source}, playing back on {args.device} "
+          f"{'the headphone jack' if args.channel is None else f'channel {args.channel}'}")
+    print(f"{len(lines)} line(s) to record\n")
+
+    i = 0
+    while 0 <= i < len(lines):
+        l = lines[i]
+        u = l.utterance
+        print("=" * 72)
+        print(f"{u.name}   {u.speaker} ({l.performer})   {i + 1} of {len(lines)}"
+              + ("   RE-TAKE: the line has changed" if l.state == "re-take" else ""))
+        for c in before(script, u):
+            print(f"    {c}")
+        print(f"\n  » {u.text.strip()}\n")
+        a = input("  [Enter] record  [s] skip  [b] back  [q] quit > ").strip().lower()
+        if a == "q":
+            break
+        if a == "s":
+            i += 1
+            continue
+        if a == "b":
+            i = max(0, i - 1)
+            continue
+        if not rec.take(tmp):
+            continue
+        report(tmp)
+        # As the audience hears it: tts.process's trim, level and band (§7).
+        heard = tmp
+        if not args.raw_playback:
+            r = process_file(tmp, work / f"{u.name}.wav")
+            if r.ok and r.dst is not None:
+                heard = r.dst
+                print(f"  on the line: {r.seconds:.1f}s after trimming, speech at {r.rms_db:.1f} dBFS")
+            else:
+                print(f"  (processing refused it: {r.note}; playing it as recorded)")
+        while True:
+            try:
+                play(heard, args.device, args.gain, chans)
+            except SystemExit as e:
+                print(f"  (playback: {e})")
+            a = input("  [k] keep  [r] record again  [p] play again  [s] skip  [q] quit > ").strip().lower()
+            if a == "p":
+                continue
+            if a == "k":
+                shutil.move(str(tmp), RECORDED / f"{u.name}.wav")
+                note_take(takes, u, l.performer)
+                save_takes(takes)
+                print(f"  kept: {RECORDED}/{u.name}.wav")
+                i += 1
+            elif a == "r":
+                pass                                    # the same line again
+            elif a == "s":
+                i += 1
+            else:
+                i = len(lines) if a == "q" else i
+            break
+    left = len(pick(script, only, False))
+    print(f"\n{left} line(s) still to record. `tts/.venv/bin/python -m tts.process` "
+          f"puts the takes on the line.")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("--script", default=DEFAULT_SCRIPT)
+    p.add_argument("--only", default="", help="comma-separated cast keys (default: every recorded part)")
+    p.add_argument("--redo", action="store_true", help="include lines that already have a current take")
+    p.add_argument("--status", action="store_true", help="list what each recorded part still needs")
+    p.add_argument("--print", dest="print_", action="store_true",
+                   help="write the lines to record as a numbered script")
+    p.add_argument("--out", type=Path, help="--print: write to this file")
+    p.add_argument("--import", dest="import_", type=Path, metavar="DIR",
+                   help="bring in takes named <scene>.<id>.<ext>")
+    p.add_argument("--capture", default="default", help="ALSA capture device (default: the desktop's)")
+    p.add_argument("--input", type=int, metavar="N",
+                   help="record from the Digiface's input N, one-based (1-32), instead")
+    p.add_argument("--raw-playback", action="store_true",
+                   help="play each take as recorded, not as the audience will hear it")
+    p.add_argument("--rate", type=int, default=48000)
+    p.add_argument("--format", default="S16_LE", help="arecord sample format (S16_LE)")
+    p.add_argument("--device", default=DEVICE, help="playback device, the Digiface")
+    p.add_argument("--channel", type=int, metavar="N",
+                   help="play back on one-based output N (default: the --input channel's "
+                        "own output, or the headphone jack without --input)")
+    p.add_argument("--gain", type=float, default=0.0, help="playback gain, dB")
+    args = p.parse_args(argv)
+
+    try:
+        script = load(args.script)
+    except ScriptError as e:
+        for f in e.failures:
+            print(f"  {f}", file=sys.stderr)
+        return 1
+    only = {o for o in args.only.split(",") if o}
+    who = performers(script)
+    unknown = only - set(who)
+    if unknown:
+        print(f"--only names {', '.join(sorted(unknown))}, not a recorded part "
+              f"(recorded: in script.yml's cast)", file=sys.stderr)
+        return 1
+    # Mic in and playback out on the same channel strip, unless told otherwise.
+    if args.channel is None and args.input is not None:
+        args.channel = args.input
+    try:
+        out_channels(args.channel)
+    except ValueError as e:
+        print(e, file=sys.stderr)
+        return 1
+    if args.input is not None and not 1 <= args.input <= DIGIFACE_INPUTS:
+        print(f"--input {args.input} is outside 1..{DIGIFACE_INPUTS}", file=sys.stderr)
+        return 1
+
+    if args.status:
+        return show_status(script, only)
+    if args.print_:
+        return print_script(script, only, args.redo, args.out)
+    if args.import_:
+        return import_takes(script, args.import_)
+    return record(script, only, args.redo, args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
