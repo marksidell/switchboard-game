@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 23 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack*
+*Rev 25 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built*
 
 # 1. Overview
 
@@ -176,6 +176,26 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
 
+## 1.25 Changes in Rev 25
+
+— Diagnostics from the page (§7.5), Mark's request, 2026-09-30, for bring-up and for finding a fault at the board. A station's panel takes it off-hook and plays a 1kHz tone, a run of speech, or feeds its receive channel to the loudspeaker; a trunk's panel rings it, and plays tone, speech or loudspeaker the same way; a new Tools button opens the same three for the operator tap. Each is a toggle. They run whether or not a game is running, and are kept apart from the calls: a circuit in a call refuses a test, and a circuit under test is busy for dealing (§4.4). Stop ends them all (§3). Voice on the tap needs the audio program to play a file there, which it did not; audio.md Rev 10 adds it.
+
+— A chosen next scene (§4.8). A long press on Next Call lists the scenes; the one chosen is the next dealt. `game/scenes` and `game/queue` are new, with `game/queue/set`. §10's open item "Start a named scene" is closed by it.
+
+— The game fitted to the circuits built (§6.5): the game program's configuration, and two command-line options, say how many stations and trunks exist. A scene that needs a station beyond the first `stations`, or an outside line when `trunks` is 0, is left out with the scenes that follow it; calls ring in and go out only on the first `trunks` trunks. `game/stations` and `game/trunks` say what was set, so the page offers tests only on circuits that exist.
+
+— Code consequence for Claude Code, made the same day: the game program, the page, the access list (mqtt.md Rev 23), the configuration file, and the audio program (audio.md Rev 10).
+
+## 1.24 Changes in Rev 24
+
+— A call to the operator may ring in on a trunk (§4.3, §4.6), Mark's request, 2026-09-30. Its calling line is an outside name and it has no `called:`: the game rings a free trunk, as for a call in to a room, and the operator answers it with her listening key. The rest is as for a call to the operator from a room: the request plays after she has spoken, it is connected when the request has played, and any conversation lines each wait for her. A call with a request and no conversation hangs up as soon as the request has played, without waiting for her to answer it.
+
+— It is for the long-distance operator's time and charges. After a long-distance call a guest placed is over, the long-distance operator rings the hotel with the time and the charge, once, so that the hotel can put it on the room bill, and hangs up (§4.6). Peter at the museum had it from a guest who worked as a hotel clerk: if you did not have your pencil ready you had missed it, and the hotel could not charge the room. Five scenes gain one, each an `after:` of the call it bills. A collect call, and a call placed by someone outside to a guest, are not billed to the hotel and have none. A guest who asked for time and charges still hears them from her at the end of the call as well.
+
+— An unanswered one fails as `no answer`, as any unanswered call does (§5); whether she wrote the figures down is not something the game can know.
+
+— Code consequence for Claude Code, made the same day: the game picks a free trunk for such a call as it does for a call in to a room, and the call-to-the-operator flow rings it. `test_game.py` covers it.
+
 ## 1.23 Changes in Rev 23
 
 — A station jack may carry `guest:`, the name of whoever is staying in the room at that jack (§6.3), Mark's decision, 2026-09-29. It is typed on the operator's guest list card, `hardcopy/cards.py`. The card had worked out each guest's room from the scenes, which put a guest on whichever line they called from — Mr. Pike on the lobby house phone as well as in 204 — and took the names from a table of its own. The jack is where the room is, so the guest goes there too. It is left out for an unoccupied room and for a jack that is not a room.
@@ -250,7 +270,7 @@ A game is one player's turn. It begins with `game/run/set` `"on"` and ends with 
 
 **Start.** Accepted only while `run` is `"off"`; while running it is ignored. The tallies are zeroed (§5), the call number restarts at 1, the gap returns to its configured value (§4.3), the deck is shuffled (§4.4), the loudspeaker's source is set to the tap (§6.4), and `run` reads `"on"`. In automatic pacing, auto or listen, the first call starts at once; in manual pacing nothing happens until the page asks for a call. A game is one session in the game program's SQLite log.
 
-**Stop.** Every call in progress is torn down at once: stations on-hook, trunk ring off, every file and tone stopped, every listen cancelled; every `after:` scene that was waiting is dropped; the call slots clear (§6.1); the loudspeaker's source goes back to the tap (§6.4). `run` reads `"off"`. Calls torn down this way are neither successes nor failures (§5). The tallies stay as they were until the next start, so the player can see the score.
+**Stop.** Every call in progress is torn down at once: stations on-hook, trunk ring off, every file and tone stopped, every listen cancelled; every `after:` scene that was waiting is dropped; the call slots clear (§6.1); the loudspeaker's source goes back to the tap (§6.4). `run` reads `"off"`. Calls torn down this way are neither successes nor failures (§5). Every diagnostic running is ended too (§7.5, Rev 25), and a chosen next scene is forgotten (§4.8). The tallies stay as they were until the next start, so the player can see the score.
 
 **Losing a client.** If the controller or the audio program goes down during a game — `ctl/status` or `ctl/audio_status` offline, or two missed `esp_heartbeat`s (`mqtt.md` §8) — the game program does what Stop does and logs why, and `run` reads `"off"`. The player is not charged for the calls it abandons. It does not restart the game when the client returns; that is Mark's decision, from the page.
 
@@ -287,7 +307,7 @@ A call is **connected** at the point where the operator's routing work is done:
 | To a station, from a station or a trunk | the called station answers — the game takes it off-hook after ring arrives |
 | To an outside line | the called party answers on the trunk after ringback |
 | To an outside line marked `busy: true` | busy tone starts on the trunk |
-| To the operator (no `called:`) | the request has finished playing |
+| To the operator (no `called:`), from a room or rung in on a trunk (Rev 24) | the request has finished playing |
 
 These are the milestones the game program must expose to the scheduler. How it reaches each one — which listens, which timeouts — is the game program's flow and not this document's.
 
@@ -320,6 +340,10 @@ Ranges, clamped by the game program and echoed as applied: `gap` 0–600s, `ramp
 
 At most eight calls are in progress at once — the number of call slots (§6.1). A call that would be a ninth is not started, and is treated like a scene that cannot be dealt.
 
+## 4.8 A Chosen Next Scene
+
+Rev 25. A long press on Next Call lists every scene that could be dealt — the active ones without `after:`, within the circuits fitted (§6.5) — from `game/scenes`, one id per line. Choosing one publishes `game/queue/set` with its id; the game program echoes it on `game/queue`. The next call dealt, by Next Call or by the automatic schedule, is that scene rather than the deck's, if its lines and people are free; it is then taken out of the current deck, so it does not come round again until the reshuffle, and `game/queue` goes empty. If they are not free, the call is dealt from the deck as usual and the choice stays for the call after. `game/queue/set` with an empty payload clears the choice. It may be made while no game is running, and the first call of the next game is then that scene; Stop forgets it. An id that is not in `game/scenes` is refused on `game/error`.
+
 ## 4.5 Not Yet: Calls Before Connection
 
 Mark wants, later, a mode where a new call can arrive before the operator has connected the current one — the real pressure of a busy board. The likely form is a fixed interval, a new call every `n` seconds from the start of the last, bounded by the eight slots. It is one more value on `game/pace` and uses the same `gap`, `ramp`, `floor` and `jitter`. Not specified until it is wanted.
@@ -336,6 +360,8 @@ Two keys on a conversation line (Rev 19):
 A line's own lead-in runs in that order: the wait, then the pause, then the ringback, then the line. A cord pulled during any of them cuts the call off, as during speech (§5).
 
 The long-distance call is the case they were made for. The hotel operator dials 0 on a trunk; the local operator (`called.person`) answers, "Operator"; the hotel operator asks for long distance; the next line, marked `wait: true` and `person:` the long-distance operator, answers "Long distance", and the guest talks to her. The party she rings can speak on the trunk too, with a `person:` of their own. So can each operator on the route: she asks the rate operator for the route and the charge, then rings through each toll center on it, each answering with its town's name after a `pause:`, and the party answers after a `ringback:`.
+
+**Time and charges** (Rev 24). When a long-distance call a guest placed has ended, the long-distance operator rings the hotel to report what it cost: a call to the operator rung in on a trunk (§4.3), an `after:` of the call it bills. Its request is the whole of it — the room, the time and the charge — and it has no conversation, so the far end hangs up as soon as she has said it, whether or not the hotel operator was ready to write it down. It is not repeated. Collect calls, and calls placed from outside to a guest, have none.
 
 ## 4.7 What the Operator Says
 
@@ -458,6 +484,10 @@ The game program publishes the map retained under `board/` (`mqtt.md` §6.1): ea
 
 Recabling a station circuit to a different jack moves its `station:` from one item in `jacks:` to another. The labels stay with the jacks, and nothing else changes.
 
+## 6.5 The Circuits Fitted
+
+Rev 25. The switchboard is being built a board at a time, so the game program is told how many circuits exist: `stations` and `trunks` in its configuration file, each overridden by `--stations` and `--trunks` on its command line. Stations are the first `stations` of 1–22 and trunks the first `trunks` of 1–8; the defaults are all of them. A scene is left out of the game if its calling or called line is a station numbered above `stations`, or if it needs an outside line and `trunks` is 0; an `after:` scene following one that is left out is left out as well, down the chain. Calls ring in and go out on trunks 1 to `trunks` only. The game program logs how many scenes it left out and why when it starts, publishes `game/stations` and `game/trunks`, and refuses a diagnostic on a circuit that is not fitted (§7.5).
+
 ## 6.4 The Audience Loudspeaker
 
 The loudspeaker carries one receive channel, chosen by the game program with `audio/monitor/source/set` (audio.md §10.3). New at Rev 6. The game program points it at the calling line of the call the operator most recently answered, and leaves it there until she answers another.
@@ -470,13 +500,31 @@ The loudspeaker carries one receive channel, chosen by the game program with `au
 
 **Which call.** Only the most recent answer counts. In auto pacing the next call can arrive while the current one is talking (§4.2); in listen it cannot. When the operator answers it, the audience leaves the current conversation for the new request. An `after:` scene is a call like any other and moves the loudspeaker when it is answered.
 
-**Start and stop.** When a game starts, and when it stops for any reason (§3), the game program publishes `monitor/source/set` `"tap"`. Between games the loudspeaker carries the operator tap as it always has. The audio program also returns to the tap by itself if it loses the game program (audio.md §13.2).
+**Start and stop.** When a game starts, and when it stops for any reason (§3), the game program publishes `monitor/source/set` `"tap"`. A monitor diagnostic moves it too, and ends when anything else moves it (§7.5, Rev 25). Between games the loudspeaker carries the operator tap as it always has. The audio program also returns to the tap by itself if it loses the game program (audio.md §13.2).
 
 **What the game program does not do.** It does not set the monitor's gain, which is a bench and installation setting, and it does not turn the monitor on or off. It publishes a new source only on an answer, a start or a stop, and does not wait for the echo. The page shows the echo (§7.1).
 
 The log records each move as `monitor: <calling line>` against the call's number, using script.yml's line name, as the other call events do.
 
 # 7. The Page
+
+## 7.5 Diagnostics
+
+Rev 25. Tests of one circuit at a time, from the page, for bring-up and fault-finding. Each is a toggle: a tap starts it, and a second tap on the same command stops it. The page publishes `game/diag/<target>/<test>/set` `"on"` or `"off"`, where `<target>` is `station/<n>`, `trunk/<n>` or `tap`; the game program does the work, since only it commands the hardware (mqtt.md §6), and echoes each test's state on `game/diag/<target>/<test>`.
+
+| **Test** | **On** | **Where** |
+| --- | --- | --- |
+| `hook` | the station goes off-hook (`hook/set`) and stays so | a station's panel, on its `hook` row |
+| `ring` | the trunk rings in the standard cadence, 2s on and 4s off (`ring/set`); it stops when the trunk is seized, and after the controller's 30s ring limit (control.md §8) | a trunk's panel, on its `ring` row |
+| `tone` | the 1kHz test tone on the circuit's output channel (`audio/test/<ch>/set`) | stations, trunks and the tap |
+| `voice` | speech on the circuit: utterances from the script chosen at random, one after another, each finishing before the next | stations, trunks and the tap |
+| `monitor` | the loudspeaker is fed from the circuit's receive channel (`audio/monitor/source/set`) | stations, trunks and the tap |
+
+**Together.** `tone` and `voice` exclude each other on one target: starting either stops the other. One `monitor` runs at a time: starting it on one target ends it on any other, and anything else that moves the loudspeaker — the operator answering a call (§6.4), a game starting or stopping — ends it too. Ending a monitor test returns the loudspeaker to the tap. `hook`, `ring`, `tone` and `voice` on different targets run side by side.
+
+**With a game.** Tests run whether or not a game is running. A test on a circuit that is in a call, or that the call's slot has taken, is refused on `game/error`, and a circuit under test is busy for dealing (§4.4), so no scene is dealt onto it and no call takes that trunk. The tap belongs to no call, so its tests are always allowed; the operator hears them. Stop ends every test (§3), as does the game program losing a client or restarting.
+
+**Not fitted.** A test on a circuit beyond `stations` or `trunks` (§6.5) is refused on `game/error`, and the page does not offer it.
 
 ## 7.1 Layout
 
@@ -487,7 +535,8 @@ For an iPad in landscape, 1024 CSS pixels wide or more. Touch targets 44px or la
 - Connection: broker connected or not; game program online or not.
 - Start and Stop. Stop needs a second tap within 3s, because it ends a player's game.
 - Pacing: Manual | Automatic | Listen (Rev 16).
-- Next Call: large in manual pacing, small in automatic (auto or listen).
+- Next Call: large in manual pacing, small in automatic (auto or listen). A long press, held about half a second, opens a scrolling list of the scenes to choose the next one from (§4.8, Rev 25); a chosen scene shows under the button until it is dealt.
+- Tools (Rev 25): a panel of diagnostics not tied to a jack. Its one section at Rev 25 is the operator tap: `tone`, `voice` and `monitor` (§7.5).
 - `gap`, `ramp`, `floor`, `jitter`, each with − and + steppers (5s, 1s, 1s, 10% steps; `jitter` Rev 12). Shown only in auto pacing, with `gap_now` and the countdown to `next_at` beside them. In listen, one stepper, `pause` (1s steps), and the countdown take their place (Rev 17). The countdown reads "waiting" while a game runs and nothing is scheduled, and "–" when no game runs (Rev 18).
 - Tallies: started, handled, success, fail, success percentage.
 
@@ -511,6 +560,8 @@ A tile shows little:
 - the far end's **label**, when `peer` is set, taken from the board map rather than shown as a circuit number.
 
 Tapping a tile opens a panel with everything about that jack: its circuit, `hook` or `seize`, `ring`, `peer`, `op`, `play`, `tone`, `listen`, `fault`, the digits of a call on a trunk, and the call slot using it. Tapping elsewhere closes it. Mark expects the tile to need more or less than this once it is on the iPad.
+
+The panel's commands (Rev 25, §7.5), for a jack with a circuit that is fitted (§6.5): on a station, its `hook` row, and `tone`, `voice` and `monitor`; on a trunk, its `ring` row, and the same three. A row that is also a command is coloured as one — the command colour marks a tappable row, and it is lit while that test is on — so the rows that only show a value read differently from those that act. The commands are controls, hidden with the Controls switch like the others.
 
 A station jack with a label and no circuit — listed in `jacks:` with no `station:` — is drawn as a working jack at rest: label, jack number and an unlit lamp, the same as an idle cabled jack (Rev 11). The operator is shown the board as it is built, not which of its jacks the game has wired. A jack with neither a label nor a circuit — a station jack `jacks:` does not list, and trunk jacks 9 and 10 — is drawn as an empty outline with its jack number, so the board keeps its shape (Rev 7). Trunk tiles show the jack number alone, since trunk jacks have no labels.
 
@@ -601,7 +652,6 @@ Before step 1: the certificate is issued (`mqtt.md` §9.1), nginx is configured 
 - **Calls before connection** (§4.5). Deferred by Mark.
 - **Wrong party answers.** Whether ringing the wrong station, or dialling a wrong number, ends the call as a failure or only costs time. Rev 1 lets the connect timeout decide. Wants play-testing.
 - **Timeouts from the page.** The §5 timeouts are configuration at Rev 1. If play-testing wants them changed between players, they become three more `game/…/set` topics.
-- **Start a named scene.** Useful at the bench, to test one scene repeatedly. One more command topic, `game/scene/set`, and the scene ids published for the page to list.
 - **Audience view.** A second page, or a mode of this one, for the room: the tallies large, the calls in progress, nothing diagnostic. Same topics; no host change.
 - **Cords drawn as lines** between tiles rather than shown by colour. Only if the colour pairing is hard to read on the iPad.
 - **Row order on the board.** §7.1 assumes jack 1 at top left and rows of ten running left to right. Check against the 551's designation strips and correct §7.1 if the board runs otherwise.

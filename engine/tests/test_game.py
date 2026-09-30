@@ -21,7 +21,7 @@ from sbgame.board import Board
 from sbgame.config import Config
 from sbgame.game import Game
 from sbgame.pacing import Pacing
-from sbgame.script_data import build
+from sbgame.script_data import build, fit, needs_trunk
 from sbgame.session import SessionLog
 from tts.script import ScriptError, load
 
@@ -281,6 +281,97 @@ async def main() -> int:
         a.pace = "auto"
         at = a.schedule(1000.0)
         check(at is not None and 12 <= at - 1000.0 <= 28, f"schedule() uses the draw: {at - 1000.0:.1f}s")
+
+        print("\n== the circuits fitted (§6.5, Rev 25)")
+        full = build("../script.yml", "../wav")
+        small, left = fit(full, stations=5, trunks=0)
+        check(all(all(n is None or n <= 5 for n in (s.from_station, s.to_station))
+                  for s in small.scenes.values()), "no scene keeps a station above 5")
+        check(not any(needs_trunk(s) for s in small.scenes.values()),
+              "no scene keeps a trunk when none is fitted")
+        check(all(not s.after or s.after in small.scenes for s in small.scenes.values()),
+              "no after: scene is left whose scene was left out")
+        check(len(small.scenes) + len(left) == len(full.scenes),
+              f"every scene is kept or named: {len(small.scenes)} + {len(left)}")
+        same, none = fit(full)
+        check(len(same.scenes) == len(full.scenes) and not none, "the defaults keep everything")
+        b, link, g, sess = await build_game(tmp, stations=5, trunks=2)
+        check(link.state_v.get("game/stations") == "5" and link.state_v.get("game/trunks") == "2",
+              "stations and trunks published at birth")
+        check(g._free_trunk() in (1, 2), "a trunk is picked from the fitted ones")
+
+        print("\n== diagnostics (§7.5, Rev 25)")
+        check(link.state_v.get("game/diag/station/3/tone") == "off"
+              and link.state_v.get("game/diag/tap/voice") == "off", "every test off at birth")
+        link.sent.clear()
+        await g.on_command("diag/station/3/hook", "on")
+        check(("station/3/hook/set", "on") in link.sent, "hook takes the station off-hook")
+        check(link.state_v.get("game/diag/station/3/hook") == "on", "and echoes on")
+        await g.on_command("diag/station/3/tone", "on")
+        check(("audio/test/3/set", "on") in link.sent, "tone is the test tone on output 3")
+        await g.on_command("diag/station/3/voice", "on")
+        await asyncio.sleep(D)
+        check(link.state_v.get("game/diag/station/3/tone") == "off"
+              and ("audio/test/3/set", "off") in link.sent, "voice ends tone (§7.5)")
+        check(any(k == "station/3/play/set" and v != "stop" for k, v in link.sent),
+              "voice plays a file on the station")
+        await g.on_command("diag/trunk/2/tone", "on")
+        check(("audio/test/26/set", "on") in link.sent, "a trunk's tone is on output 24 + n")
+        await g.on_command("diag/tap/voice", "on")
+        await asyncio.sleep(D)
+        check(any(k == "audio/tap/play/set" and v != "stop" for k, v in link.sent),
+              "voice on the tap plays through audio/tap/play/set")
+        await g.on_command("diag/station/4/monitor", "on")
+        check(("audio/monitor/source/set", "station/4") in link.sent, "monitor moves the loudspeaker")
+        await g.on_command("diag/tap/monitor", "on")
+        check(link.state_v.get("game/diag/station/4/monitor") == "off", "one monitor test at a time")
+        link.sent.clear()
+        await g.on_command("diag/tap/monitor", "off")
+        check(("audio/monitor/source/set", "tap") in link.sent, "ending it returns to the tap")
+        await g.on_command("diag/station/5/monitor", "on")
+        await g._monitor("station/1")                   # the game moves it: an answer
+        check(link.state_v.get("game/diag/station/5/monitor") == "off",
+              "the game moving the loudspeaker ends a monitor test (§6.4)")
+        await g.on_command("diag/station/9/tone", "on")
+        check("not a circuit fitted" in link.state_v.get("game/error", ""),
+              "a station beyond the fitted is refused")
+        await g.on_command("diag/station/3/ring", "on")
+        check("no 'ring' test" in link.state_v.get("game/error", ""), "ring is a trunk's test")
+        await g.on_command("diag/trunk/1/ring", "on")
+        check(("trunk/1/ring/set", "on") in link.sent, "ring rings the trunk")
+        check(g._free_trunk() is None,
+              "a trunk under test is not picked for a call: 1 rings, 2 has its tone")
+        await b.update("trunk/1/seize", "on")
+        await asyncio.sleep(0.6)
+        check(link.state_v.get("game/diag/trunk/1/ring") == "off"
+              and ("trunk/1/ring/set", "off") in link.sent, "a seizure ends the ring test")
+        await b.update("trunk/1/seize", "off")
+        held = g._held()
+        check(any(h.lines for h in held), "a station under test is held out of dealing")
+        link.sent.clear()
+        await g.on_command("run", "off")                # Stop with no game running
+        check(not g.diag.on, "Stop ends every test")
+        check(("station/3/hook/set", "off") in link.sent and ("audio/tap/play/set", "stop") in link.sent,
+              "and puts the hardware back")
+
+        print("\n== a chosen next scene (§4.8, Rev 25)")
+        scenes = link.state_v.get("game/scenes", "").split("\n")
+        check(len(scenes) == len(g.gs.deck_scenes()) and scenes[0], "game/scenes lists the deck's scenes")
+        await g.on_command("queue", "no-such-scene")
+        check("not a scene" in link.state_v.get("game/error", ""), "an unknown scene is refused")
+        want = scenes[-1]
+        await g.on_command("queue", want)
+        check(link.state_v.get("game/queue") == want, "the choice is echoed")
+        await g.start()
+        await g.on_command("next", "")
+        await asyncio.sleep(D * 2)
+        dealt = [c.scene for c in g.slots]
+        check(dealt == [want], f"the next call is the chosen scene: {dealt}")
+        check(link.state_v.get("game/queue") == "", "and the choice is spent")
+        await g.on_command("queue", scenes[0])
+        await g.stop("stop")
+        check(link.state_v.get("game/queue") == "", "Stop forgets a choice")
+        await sess.close()
 
         print("\n== start, one manual call, stop")
         b, link, g, sess = await build_game(tmp, pace="manual")

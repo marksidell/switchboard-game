@@ -87,6 +87,16 @@ class Deck:
             self._shuffle()
         return None, "every scene is using a busy line"
 
+    def take(self, scene: SceneDef, held: list[Holding]) -> bool:
+        """Deal this scene next if it is free (§4.8, Rev 25), taking it out of
+        the current deck so it does not come round again before the reshuffle."""
+        if not self._free(scene, held):
+            return False
+        if scene.id in self._cards:
+            self._cards.remove(scene.id)
+        self._last_dealt = scene.id
+        return True
+
     @property
     def remaining(self) -> int:
         return len(self._cards)

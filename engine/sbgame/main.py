@@ -25,7 +25,7 @@ from .board import Board
 from .config import Config
 from .game import Game
 from .link import Link
-from .script_data import build
+from .script_data import build, fit
 from .session import SessionLog
 from tts.script import ScriptError
 
@@ -62,6 +62,11 @@ async def run(cfg: Config) -> int:
     except (OSError, ValueError) as e:
         print(f"script: {e}", file=sys.stderr)
         return 2
+    gs, left_out = fit(gs, cfg.stations, cfg.trunks)
+    for w in left_out:
+        log.info("left out: %s", w)
+    log.info("circuits fitted: %d stations, %d trunks; %d scenes left out",
+             cfg.stations, cfg.trunks, len(left_out))
     log.info("script: %d active scenes of %d, %d in the deck, %d jacks",
              len(gs.scenes), len(gs.script.scenes), len(gs.deck_scenes()),
              sum(1 for j in gs.jacks if j.circuit))
@@ -110,6 +115,10 @@ def main(argv: list[str] | None = None) -> int:
                    help="TOML configuration; without it, the built-in defaults")
     p.add_argument("--script", help="override the script.yml path")
     p.add_argument("--broker", help="override the broker host")
+    p.add_argument("--stations", type=int, metavar="N",
+                   help="stations fitted, 0-22: the first N (game_control.md 6.5)")
+    p.add_argument("--trunks", type=int, metavar="N",
+                   help="trunks fitted, 0-8: the first N")
     p.add_argument("--check", action="store_true",
                    help="load and validate the script, then exit")
     p.add_argument("-v", "--verbose", action="store_true")
@@ -129,6 +138,15 @@ def main(argv: list[str] | None = None) -> int:
         cfg.script = args.script
     if args.broker:
         cfg.broker_host = args.broker
+    if args.stations is not None:
+        cfg.stations = args.stations
+    if args.trunks is not None:
+        cfg.trunks = args.trunks
+    try:
+        cfg.check()
+    except ValueError as e:
+        print(f"configuration: {e}", file=sys.stderr)
+        return 2
 
     if args.check:
         try:
@@ -138,6 +156,9 @@ def main(argv: list[str] | None = None) -> int:
             for f in e.failures:
                 print(f"  {f}", file=sys.stderr)
             return 1
+        gs, left_out = fit(gs, cfg.stations, cfg.trunks)
+        for w in left_out:
+            print(f"  left out: {w}")
         print(f"{cfg.resolved('script')}: {len(gs.scenes)} active scenes "
               f"of {len(gs.script.scenes)}, "
               f"{len(gs.deck_scenes())} in the deck, "

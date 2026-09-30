@@ -45,3 +45,9 @@ speak_timeout = 30.0     # the operator to speak when a line is waiting
 # called a failure.
 max_speech = 20.0
 audio_margin = 3.0
+
+# The circuits fitted (game_control.md 6.5, Rev 25): the first `stations` of
+# 1-22 and the first `trunks` of 1-8. A scene needing more is left out. The
+# command line's --stations and --trunks override these.
+stations = 22
+trunks = 8

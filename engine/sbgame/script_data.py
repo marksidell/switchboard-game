@@ -161,6 +161,44 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
     return GameScript(script=s, scenes=scenes, people=people, jacks=_jacks(s))
 
 
+N_STATIONS, N_TRUNKS = 22, 8
+
+
+def needs_trunk(sc: SceneDef) -> bool:
+    """Whether the scene rings in or goes out on a trunk."""
+    return sc.from_station is None or (sc.shape != Shape.TO_OPERATOR and sc.to_station is None)
+
+
+def fit(gs: GameScript, stations: int = N_STATIONS,
+        trunks: int = N_TRUNKS) -> tuple[GameScript, list[str]]:
+    """The game fitted to the circuits built (game_control.md §6.5, Rev 25).
+
+    Leaves out a scene whose calling or called station is numbered above
+    `stations`, or that needs a trunk when `trunks` is 0, and every `after:`
+    scene down the chain from one left out. Returns the fitted script and a
+    line saying why for each scene left out.
+    """
+    why: dict[str, str] = {}
+    for sid, sc in gs.scenes.items():
+        high = [n for n in (sc.from_station, sc.to_station) if n is not None and n > stations]
+        if high:
+            why[sid] = f"station {max(high)} is not fitted"
+        elif trunks == 0 and needs_trunk(sc):
+            why[sid] = "no trunk is fitted"
+    changed = True
+    while changed:                                   # down the after: chains
+        changed = False
+        for sid, sc in gs.scenes.items():
+            if sid not in why and sc.after in why:
+                why[sid] = f"it follows {sc.after}, left out"
+                changed = True
+    keep = {i: s for i, s in gs.scenes.items() if i not in why}
+    fitted = GameScript(script=gs.script, scenes=keep,
+                        people={i: p for i, p in gs.people.items() if i in keep},
+                        jacks=gs.jacks)
+    return fitted, [f"{i}: {w}" for i, w in why.items()]
+
+
 def _jacks(s: Script) -> tuple[Jack, ...]:
     """The board map (§6.3): 30 station jacks and 10 trunk jacks.
 

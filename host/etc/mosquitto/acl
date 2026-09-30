@@ -11,8 +11,13 @@ topic readwrite sbgame/#
 user sbgame-web
 topic read sbgame/#
 topic write sbgame/game/+/set
+# Diagnostics (mqtt.md 9, Rev 23): a station's or trunk's, and the tap's.
+topic write sbgame/game/diag/+/+/+/set
+topic write sbgame/game/diag/tap/+/set
 
 # The Stream Deck program (mqtt.md 9, Rev 20): the page's rights.
 user sbgame-deck
 topic read sbgame/#
 topic write sbgame/game/+/set
+topic write sbgame/game/diag/+/+/+/set
+topic write sbgame/game/diag/tap/+/set

@@ -631,8 +631,11 @@ void Engine::render()
             n = (n + 1) & (FFT_N - 1);
         }
 
+        // The tap takes a file too (audio.md 7, Rev 10), summed over the
+        // operator tone exactly as a circuit's is over its pilot. Never a tone:
+        // the MQTT thread has no tone command for it.
         Prog& p = prog_[slot];
-        if (p.kind == Prog::Kind::None || slot == chan::TAP_CH) continue;
+        if (p.kind == Prog::Kind::None) continue;
 
         // Sum the programme source over the fixed one, in float, hard-clipped
         // at +-1.0 with a clip count in the log (audio.md 5.1).

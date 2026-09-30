@@ -45,6 +45,17 @@ enough when its form has changed, since the installed loader is the one that
 reads it. The Home Screen page picks up a new build by itself when it next
 comes into view.
 
+**While the switchboard is being built** (game_control.md §6.5), tell the game
+how many circuits exist: `stations` and `trunks` in `host/etc/sbgame/game.toml`
+(installed to `/etc/sbgame/game.toml` by `./release`), or `--stations N` and
+`--trunks N` on the command line, which override the file. Scenes that need a
+station above N, or an outside line with no trunk, are left out and named in
+the log at start; `--check` lists them too:
+
+```sh
+/opt/sbgame/venv/bin/sbgame --check -c /etc/sbgame/game.toml --stations 8 --trunks 2
+```
+
 ## The Stream Deck
 
 `sbgame-streamdeck` is a separate service, `sbgame-streamdeck`, running from

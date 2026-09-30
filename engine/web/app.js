@@ -262,6 +262,66 @@ function fitsAt(tile, start) {
 // A rotation or a resize changes the tile width, so the board is refitted.
 window.addEventListener('resize', fitBoard);
 
+// ---- diagnostics (§7.5, Rev 25) ----------------------------------------------
+
+/** A circuit within game/stations and game/trunks (§6.5). */
+function fitted(circuit) {
+  const [kind, n] = circuit.split('/');
+  const most = num(kind === 'station' ? 'game/stations' : 'game/trunks');
+  return most === null || +n <= most;
+}
+const diagOn = (target, test) => on(`game/diag/${target}/${test}`);
+
+/** A tap on a command: the echo says which way the toggle goes. */
+function toggleDiag(key) {
+  const i = key.lastIndexOf('/');
+  const target = key.slice(0, i), test = key.slice(i + 1);
+  send(`diag/${target}/${test}`, diagOn(target, test) ? 'off' : 'on');
+}
+
+document.getElementById('panel-body').addEventListener('click', (e) => {
+  const row = e.target.closest('[data-diag]');
+  if (row) toggleDiag(row.dataset.diag);
+});
+document.getElementById('tools').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-diag]');
+  if (b) toggleDiag(b.dataset.diag);
+});
+document.getElementById('tools-btn').onclick = (e) => {
+  e.stopPropagation();
+  const t = document.getElementById('tools');
+  t.hidden = !t.hidden;
+  document.getElementById('scenes').hidden = true;
+  render();
+};
+
+function renderTools() {
+  document.getElementById('tools-btn').classList.toggle('sel', !document.getElementById('tools').hidden);
+  for (const b of document.querySelectorAll('#tools [data-diag]')) {
+    const [target, test] = b.dataset.diag.split('/');
+    b.classList.toggle('on', diagOn(target, test));
+  }
+}
+
+// ---- a chosen next scene (§4.8, Rev 25) ---------------------------------------
+
+function showScenes() {
+  const list = document.getElementById('scene-list');
+  const queued = get('game/queue');
+  const ids = get('game/scenes').split('\n').filter(Boolean);
+  list.innerHTML =
+    (queued ? `<button data-scene="">clear the choice (${esc(queued)})</button>` : '') +
+    ids.map((id) => `<button data-scene="${esc(id)}"${id === queued ? ' class="sel"' : ''}>${esc(id)}</button>`).join('');
+  document.getElementById('tools').hidden = true;
+  document.getElementById('scenes').hidden = false;
+}
+document.getElementById('scene-list').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-scene]');
+  if (!b) return;
+  send('queue', b.dataset.scene);
+  document.getElementById('scenes').hidden = true;
+});
+
 function closePanel() {
   document.getElementById('panel').hidden = true;
   panelOpen = null;
@@ -273,18 +333,27 @@ function showPanel(kind, n) {
   const p = document.getElementById('panel');
   const rows = [['jack', `${kind} ${n}`], ['circuit', circuit || '—'],
                 ['label', jackLabel(kind, n) || '—']];
+  // Diagnostics (§7.5, Rev 25): commands only on a circuit that is fitted,
+  // and only with the controls shown. The row's third element is its test.
+  const cmds = circuit && showControls && fitted(circuit);
+  const own = kind === 'station' ? 'hook' : 'ring';
   if (circuit) {
     for (const f of (kind === 'station' ? ['hook', 'ring', 'peer', 'op', 'play', 'listen', 'fault']
                                         : ['seize', 'ring', 'peer', 'op', 'play', 'tone', 'listen', 'fault']))
-      rows.push([f, get(`${circuit}/${f}`) || '—']);
+      rows.push([f, get(`${circuit}/${f}`) || '—', cmds && f === own ? own : '']);
     if (kind === 'trunk') rows.push(['dialled', get(`${circuit}/dialled`) || '—']);
     const using = [...occupiedSlots()].find(
       (s) => get(`game/call/${s}/trunk`) === circuit);
     rows.push(['in call', using ? get(`game/call/${using}/number`) : '—']);
+    if (cmds) for (const t of ['tone', 'voice', 'monitor'])
+      rows.push([t, diagOn(circuit, t) ? 'on' : 'off', t]);
   }
   document.getElementById('panel-body').innerHTML =
     `<h3>${esc(kind === 'trunk' ? `Trunk ${n}` : (jackLabel(kind, n) || `Jack ${n}`))}</h3>` +
-    rows.map(([k, v]) => `<div><span>${esc(k)}</span><b>${esc(String(v))}</b></div>`).join('');
+    rows.map(([k, v, t]) => t
+      ? `<div class="cmd${diagOn(circuit, t) ? ' on' : ''}" data-diag="${esc(circuit)}/${t}">` +
+        `<span>${esc(k)}</span><b>${esc(String(v))}</b></div>`
+      : `<div><span>${esc(k)}</span><b>${esc(String(v))}</b></div>`).join('');
   p.hidden = false;
 
   // Next to the tile that was tapped, not parked in a corner: at this size the
@@ -302,6 +371,10 @@ function showPanel(kind, n) {
   p.style.top = `${top}px`;
 }
 document.addEventListener('click', (e) => {
+  if (!e.target.closest('.sheet') && !e.target.closest('#tools-btn') && !e.target.closest('#next')) {
+    document.getElementById('tools').hidden = true;
+    document.getElementById('scenes').hidden = true;
+  }
   if (!e.target.closest('.tile') && !e.target.closest('#panel')) closePanel();
 });
 // Escape, for the desktop browser Mark is using to look at this. There is no
@@ -377,8 +450,12 @@ function renderTop() {
   }
 
   const next = document.getElementById('next');
-  next.disabled = disabled || !running || Date.now() < nextEnabledAt;
+  // Looks disabled rather than being `disabled`, so its long press (§4.8)
+  // still works with no game running; the tap handler checks the same thing.
+  next.classList.toggle('dis', nextBlocked());
   next.classList.toggle('small', auto);
+  const queued = get('game/queue');
+  next.innerHTML = 'Next Call' + (queued ? `<small>${esc(queued)}</small>` : '');
 
   document.getElementById('steppers').style.display = auto ? '' : 'none';
   // Listen has one value of its own, pause, in place of auto's four (Rev 17).
@@ -426,6 +503,7 @@ function render() {
     showPanel(kind, +n);
   }
   renderTop();
+  renderTools();
   renderBoard();
   renderCalls();
   renderHealth();
@@ -466,7 +544,25 @@ document.getElementById('stop').onclick = () => {
   else { stopArmed = Date.now() + 3000; setTimeout(render, 3100); }
   render();
 };
+function nextBlocked() {
+  return gameStale() || get('game/run') !== 'on' || Date.now() < nextEnabledAt;
+}
+
+// A long press, about half a second, lists the scenes (§4.8). The tap that
+// ends a long press must not also start a call.
+let pressTimer = null, longPressed = false;
+const nextBtn = document.getElementById('next');
+nextBtn.addEventListener('pointerdown', () => {
+  longPressed = false;
+  pressTimer = setTimeout(() => { longPressed = true; showScenes(); }, 500);
+});
+for (const ev of ['pointerup', 'pointerleave', 'pointercancel'])
+  nextBtn.addEventListener(ev, () => clearTimeout(pressTimer));
+nextBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+
 document.getElementById('next').onclick = () => {
+  if (longPressed) { longPressed = false; return; }
+  if (nextBlocked()) return;
   // §4.1: QoS 0, never resent on reconnect, and the button disables itself
   // until `started` changes — or 3 s, so a lost tap does not leave it dead.
   send('next', '', 0);

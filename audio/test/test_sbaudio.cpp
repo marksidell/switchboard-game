@@ -633,6 +633,47 @@ static void test_render_map()
           "and channel 24 then carries silence");
 }
 
+// test_tap_play()
+//   audio.md 7, Rev 10: a file on the operator tap sums over the operator
+//   tone, and the tap's play echo is its own topic, not a circuit's.
+static void test_tap_play()
+{
+    std::printf("a file on the operator tap (audio.md 7, Rev 10)\n");
+    auto sh = std::make_unique<Shared>();
+    AlsaStream st;                          // never opened
+    Engine eng(*sh, st);
+    check(eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
+    eng.render_for_test();
+    const std::vector<int32_t> before = eng.playback();
+
+    Command c;
+    c.verb = Verb::Play;
+    c.idx  = (int16_t)chan::TAP_CH;
+    c.buf  = new AudioBuffer;
+    c.buf->samples.assign(4096, 0.25f);
+    std::snprintf(c.name, sizeof c.name, "diag");
+    check(sh->cmdq.push(c), "the play command queues");
+    eng.drain_for_test();
+    eng.render_for_test();
+    const std::vector<int32_t> after = eng.playback();
+
+    bool shifted = true;
+    const int n = (int)after.size() / chan::N_PLAY_CH;
+    for (int f = 0; f < n; ++f) {
+        const size_t i = (size_t)f * chan::N_PLAY_CH + chan::TAP_CH - 1;
+        const double d = ((double)after[i] - (double)before[i]) / 2147483648.0;
+        if (std::fabs(d - 0.25) > 0.01) shifted = false;
+    }
+    check(n > 0 && shifted, "channel 23 carries the file summed over the operator tone");
+
+    bool echoed = false;
+    Result r;
+    while (sh->res_audio.pop(r))
+        if (r.topic == Topic::Play && r.idx == chan::TAP_CH && std::strcmp(r.value, "diag") == 0)
+            echoed = true;
+    check(echoed, "and posts the tap's play echo");
+}
+
 static void test_monitor_source()
 {
     std::printf("monitor source mapping (audio.md 10.3)\n");
@@ -728,6 +769,7 @@ int main()
     test_monitor_ch();
     test_render_map();
     test_monitor_source();
+    test_tap_play();
     std::printf("\n%s\n", failures ? "FAILURES" : "all checks passed");
     return failures ? 1 : 0;
 }

@@ -428,22 +428,33 @@ async def outside_to_station(ctx: Ctx, trunk: int) -> Outcome:
             await _quietly(ctx.hw.stop(c))
 
 
-async def to_operator(ctx: Ctx) -> Outcome:
+async def to_operator(ctx: Ctx, trunk: int | None = None) -> Outcome:
     """No called party: the caller asks the operator something (§4.3).
 
     Connected when the request has finished playing. The conversation is the
     caller's lines alone, each played after the operator has spoken and
     stopped — script.yml's "Order" note, and why every line waits on a listen.
+
+    From a room the station goes off-hook; from an outside line (Rev 24) the
+    game rings `trunk`, as for a call in to a room. With no conversation the
+    caller hangs up once the request has played — the long-distance operator's
+    time and charges, said once and not waited on.
     """
     sc = ctx.scene
-    caller = f"station/{sc.from_station}" if sc.from_station is not None else ""
+    caller = _caller_circuit(sc, trunk)
     try:
         if sc.from_station is not None:
             await ctx.hw.hook(sc.from_station, True)
+        else:
+            await ctx.slots.set(ctx.call, "trunk", caller)
+            await ctx.hw.ring_trunk(trunk, True)
         try:
             await _answer(ctx, caller)
         except TimeoutError:
             return Outcome(False, Reason.NO_ANSWER)
+        finally:
+            if trunk is not None:
+                await _quietly(ctx.hw.ring_trunk(trunk, False))
 
         gone = lambda b: (not b.on(f"{caller}/op") and not b.get(f"{caller}/peer")
                           and "operator pulled the answering cord")
@@ -468,8 +479,9 @@ async def to_operator(ctx: Ctx) -> Outcome:
     finally:
         if sc.from_station is not None:
             await _quietly(ctx.hw.hook(sc.from_station, False))
-        if caller:
-            await _quietly(ctx.hw.stop(caller))
+        if trunk is not None:
+            await _quietly(ctx.hw.ring_trunk(trunk, False))
+        await _quietly(ctx.hw.stop(caller))
 
 
 FLOWS = {
@@ -477,5 +489,6 @@ FLOWS = {
     Shape.STATION_TO_OUTSIDE: station_to_outside,
     Shape.BUSY: busy_scene,
     Shape.TO_OPERATOR: to_operator,
-    # outside_to_station takes the trunk it rings in on, so the game picks it.
+    # outside_to_station, and to_operator from an outside line, take the trunk
+    # they ring in on, so the game picks it.
 }

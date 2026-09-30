@@ -120,7 +120,9 @@ class Link:
                     # A page command (mqtt.md §6.2). Keep the handler quick:
                     # validate, publish the echo, start tasks. The dispatcher
                     # waits for it.
-                    await self._on_command(key.split("/")[1], payload)
+                    # The name is what lies between game/ and /set: "run", or
+                    # for a diagnostic "diag/station/3/tone" (mqtt.md §6.2).
+                    await self._on_command(key.removeprefix("game/").removesuffix("/set"), payload)
                     continue
                 if key.endswith("/set") or key in _OWN or key.startswith(_OWN_PREFIXES):
                     continue  # our own commands and state, echoed back by the wildcard

@@ -14,6 +14,7 @@
   --idle: #2b3038;  --busy: #4a5568;  --operator: #3b6ea5;
   --connected: #2f855a;  --calling: #b7791f;  --ringing: #c05621;
   --fault: #9b2c2c;  --ok: #38a169;  --danger: #c53030;
+  --command: #7c5cff;             /* a row or button that acts (Rev 25) */
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent;
@@ -271,3 +272,30 @@ h2 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
 #panel-body > div > span { color: var(--dim); }
 #panel-body > div > b { font-weight: 600; text-align: right;
                         overflow-wrap: anywhere; }
+
+/* Next Call looks disabled without being `disabled`: a disabled button takes
+   no touches on the iPad, and its long press (§4.8) works with no game running. */
+button.dis { opacity: 0.35; }
+#next small { display: block; font-size: 11px; font-weight: 400; color: var(--dim); }
+
+/* Diagnostics (game_control.md 7.5, Rev 25). The command colour marks what can
+   be tapped, and fills while that test is on. */
+#panel-body > div.cmd { cursor: pointer; border-left: 3px solid var(--command);
+                        padding-left: 6px; margin-left: -9px; border-radius: 3px; }
+#panel-body > div.cmd > span { color: var(--command); font-weight: 600; }
+#panel-body > div.cmd.on { background: var(--command); }
+#panel-body > div.cmd.on > span, #panel-body > div.cmd.on > b { color: #fff; }
+button.cmd { border: 1px solid var(--command); color: var(--command); background: transparent;
+             min-width: 72px; }
+button.cmd.on { background: var(--command); color: #fff; }
+
+.sheet { position: fixed; z-index: 20; top: 64px; right: 16px; width: 320px;
+         max-height: calc(100vh - 96px); overflow-y: auto;
+         background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+         padding: 10px 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
+.sheet h3 { margin: 0 0 8px; font-size: 14px; }
+.sheet h4 { margin: 8px 0 6px; font-size: 12px; color: var(--dim); text-transform: uppercase; }
+.cmd-row { display: flex; gap: 8px; flex-wrap: wrap; }
+#scene-list button { display: block; width: 100%; text-align: left; margin: 0 0 4px;
+                     font-weight: 400; }
+#scene-list button.sel { background: var(--command); }

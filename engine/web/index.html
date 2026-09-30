@@ -52,6 +52,8 @@
 
   <div class="group control"><button id="next" class="big">Next Call</button></div>
 
+  <div class="group control"><button id="tools-btn" class="toggle">Tools</button></div>
+
   <div class="group" id="steppers">
     <div class="stepper listen-only"><span class="lbl">pause</span>
       <button data-step="pause:-1">−</button><span id="v-pause">–</span><button data-step="pause:1">+</button></div>
@@ -103,6 +105,23 @@
 </main>
 
 <div id="panel" hidden><div id="panel-body"></div></div>
+
+<!-- Tools (game_control.md 7.1, 7.5, Rev 25): diagnostics not tied to a jack. -->
+<div id="tools" class="sheet" hidden>
+  <h3>Tools</h3>
+  <h4>Operator</h4>
+  <div class="cmd-row">
+    <button class="cmd" data-diag="tap/tone">tone</button>
+    <button class="cmd" data-diag="tap/voice">voice</button>
+    <button class="cmd" data-diag="tap/monitor">monitor</button>
+  </div>
+</div>
+
+<!-- A long press on Next Call (game_control.md 4.8, Rev 25). -->
+<div id="scenes" class="sheet" hidden>
+  <h3>Next scene</h3>
+  <div id="scene-list"></div>
+</div>
 
 <script src="mqtt.min.js"></script>
 <script src="app.js"></script>

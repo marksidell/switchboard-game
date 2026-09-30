@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 9 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, 1kHz Test Tone, All Commanded and Reported over MQTT*
+*Rev 10 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, 1kHz Test Tone, All Commanded and Reported over MQTT*
 
 # 1. Overview
 
@@ -121,6 +121,12 @@ Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout t
 
 — A source the device does not capture is refused (§10.3). Rev 8 validated a source against the circuit ranges only. So on a device presenting fewer than 32 capture channels, `--monitor-src trunk/8` started, echoed `trunk/8` and fed silence. A loudspeaker fed silence while the echo names a live line looks like a line with nobody on it, and nothing says otherwise. Now `--monitor-src` naming a channel beyond the capture count the device reports refuses to start, as `--monitor-ch` does for a bad playback channel. A `monitor/source/set` naming one is logged and dropped with no echo, like any invalid payload. On this system a capture count below 32 is itself a fault, and one the detector would suffer too (§16, capture channel count). Code consequence: the check at startup and on the command.
 
+## 1.10 Changes in Rev 10
+
+— The operator tap plays files (§7), following game_control.md Rev 25, 2026-09-30: `sbgame/audio/tap/play/set` and its echo `sbgame/audio/tap/play`, as a circuit's `play/set` and `play` (mqtt.md Rev 23). It is for the game program's diagnostics, which play speech into the operator's headset to check the tap's output path. The file sums over the operator tone, which is never displaced (§5.2), so the tap stays detectable while it plays; the tap has no trunk tones. Nothing else about the tap changes: its receive side, the optone check and the monitor source are as they were.
+
+— Code consequence, made the same day: the mixer sums a file on channel 23; the MQTT thread subscribes to the tap's `play/set`, handles it as a circuit's, and publishes `audio/tap/play` at start, on stop and on shutdown as it does a circuit's `play`. `ctest` covers the mix and the topic.
+
 # 2. Channel Plan
 
 One ALSA card, the Digiface USB, opened in both directions at 48kHz, S32_LE. Playback is 34 channels — confirmed on the host at station Rev 3.37 — and capture is expected to be 32 (the four ADAT ports; the Digiface has no analog input) and is to be confirmed the same way (§16).
@@ -128,7 +134,7 @@ One ALSA card, the Digiface USB, opened in both directions at 48kHz, S32_LE. Pla
 | **Document channel** | **ALSA index** | **Playback carries** | **Capture carries** |
 | --- | --- | --- | --- |
 | 1–22 | 0–21 | Station 1–22: pilot at comb slot n + program source | Station receive: detector input; speech detection on command; monitor source on command (§10.3) |
-| 23 | 22 | Operator tap: 9000Hz operator tone only | Tap receive: the default monitor source (§10.3) and the tap's own-tone health check (§6.3) |
+| 23 | 22 | Operator tap: 9000Hz operator tone, and a file on command (Rev 10, §7) | Tap receive: the default monitor source (§10.3) and the tap's own-tone health check (§6.3) |
 | 24 | 23 | Audience monitor (§10) | Unused — station board 3 strip 8 has no receive path |
 | 25–32 | 24–31 | Trunk 1–8: pilot at comb slot 24 + n + program source | Trunk receive: detector input; speech detection on command; monitor source on command (§10.3) |
 | 33, 34 | 32, 33 | Silence; the fallback monitor output under `--monitor-ch` (§10.1) | — |
@@ -182,7 +188,7 @@ Every playback channel is rendered per period as the sum of its fixed source and
 
 A channel plays one thing at a time. A `play/set` while a tone is running stops the tone; a `tone/set` while a file is playing stops the file; a test tone stops either. The state topics follow: the stopped source's topic clears, the new one's is set (§12). This is deliberate and matches the line being simulated — a trunk does not send ringback and a caller's voice at once, and a station does not talk over itself. It also keeps the game's model simple: to know what a channel is doing, read two retained topics, `play` and `tone`, and at most one is non-empty.
 
-The pilot and the operator tone are not program sources and are never displaced by one, except by the test tone (§11.1).
+The pilot and the operator tone are not program sources and are never displaced by one, except by the test tone (§11.1). On the tap, a file (Rev 10) is its only program source: it sums over the operator tone as a circuit's file sums over its pilot.
 
 ## 5.3 Content Rule for Files
 
@@ -219,7 +225,7 @@ The tap's receive channel (23) is not a detector input — it carries the operat
 
 ## 7.1 Command
 
-`sbgame/station/<n>/play/set` or `sbgame/trunk/<n>/play/set` with the base filename as payload: `greeting_1` plays `wav/greeting_1.wav`. No directory, no extension, no path separator — a payload containing `/`, `\` or `..`, or any control character, or longer than 31 characters, is rejected as a bad name and echoed as `"missing"` (§7.4) with the reason in the log. `"stop"`, or an empty payload, stops whatever is playing on the channel; a file cannot be named `stop`. The wav directory is `wav/` relative to the program's working directory by default and is an option (§14).
+`sbgame/station/<n>/play/set`, `sbgame/trunk/<n>/play/set` or, for the operator tap (Rev 10), `sbgame/audio/tap/play/set`, with the base filename as payload: `greeting_1` plays `wav/greeting_1.wav`. No directory, no extension, no path separator — a payload containing `/`, `\` or `..`, or any control character, or longer than 31 characters, is rejected as a bad name and echoed as `"missing"` (§7.4) with the reason in the log. `"stop"`, or an empty payload, stops whatever is playing on the channel; a file cannot be named `stop`. The wav directory is `wav/` relative to the program's working directory by default and is an option (§14).
 
 ## 7.2 Loading
 
@@ -237,7 +243,7 @@ The audio thread starts the buffer at the beginning of the next period after the
 
 ## 7.4 Reporting
 
-The circuit's `play` topic, retained, carries the base filename from the period the file starts until the period after it ends, then clears to empty. That clearing is the "finished" response. The game distinguishes finished from stopped by knowing whether it sent `stop`, and from replaced by seeing the new filename instead of empty. A file that could not be loaded publishes `"missing"` — a diagnostic literal on the same topic, in the same way `peer` carries `"ambiguous"` — and the log says why (not found, wrong rate, stereo, too long). `"missing"` persists until the next `play/set` on that channel.
+The circuit's `play` topic — `sbgame/audio/tap/play` for the tap (Rev 10) — retained, carries the base filename from the period the file starts until the period after it ends, then clears to empty. That clearing is the "finished" response. The game distinguishes finished from stopped by knowing whether it sent `stop`, and from replaced by seeing the new filename instead of empty. A file that could not be loaded publishes `"missing"` — a diagnostic literal on the same topic, in the same way `peer` carries `"ambiguous"` — and the log says why (not found, wrong rate, stereo, too long). `"missing"` persists until the next `play/set` on that channel.
 
 # 8. Trunk Tones
 
@@ -358,6 +364,7 @@ Subscriptions, all QoS 1:
 
 ```text
 sbgame/station/+/play/set      sbgame/trunk/+/play/set
+sbgame/audio/tap/play/set
 sbgame/trunk/+/tone/set
 sbgame/station/+/listen/set    sbgame/trunk/+/listen/set
 sbgame/audio/monitor/set

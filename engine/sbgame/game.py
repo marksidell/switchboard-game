@@ -29,7 +29,8 @@ from .board import Board, LIVE_AUDIO, LIVE_CONTROL, Offline
 from .calls import Call, N_SLOTS, Reason, Slots, Stage, Tallies
 from .config import Config
 from .deck import Deck, Holding
-from .flows import Ctx, FLOWS, Outcome, outside_to_station
+from .diag import TESTS, Diagnostics, kind_of
+from .flows import Ctx, FLOWS, Outcome, outside_to_station, to_operator
 from .gamelog import GameLog
 from .pacing import PACES
 from .link import Hw, Link
@@ -38,7 +39,6 @@ from .session import SessionLog
 
 log = logging.getLogger("game")
 
-N_TRUNKS = 8
 
 
 class Game:
@@ -69,6 +69,15 @@ class Game:
         self._pending_after: dict[str, Holding] = {}    # what a waiting after holds
         self._scheduler: asyncio.Task | None = None
         self._decks_recorded = 0        # how many of deck.orders are in SQLite
+        self.diag: Diagnostics | None = None
+        self.queued = ""                # the chosen next scene (§4.8)
+        # Station numbers to the script's line names, for holding a station
+        # under test out of dealing (§7.5).
+        self._station_lines: dict[int, frozenset[str]] = {}
+        for line, st in gs.script.stations.items():
+            n = (st or {}).get("number")
+            if n is not None:
+                self._station_lines[n] = self._station_lines.get(n, frozenset()) | {line}
 
     # ---- wiring ----------------------------------------------------------
 
@@ -77,6 +86,12 @@ class Game:
         self.hw = Hw(link)
         self.slots = Slots(link.state)
         self.log = GameLog(link.state)
+        speech: dict[str, float] = {}
+        for sc in self.gs.scenes.values():
+            for sp in (sc.request, *sc.conversation):
+                speech[sp.name] = sp.seconds
+        self.diag = Diagnostics(self.b, self.hw, link.state, link.publish,
+                                sorted(speech.items()), self.cfg.stations, self.cfg.trunks)
 
     async def on_birth(self, link: Link) -> None:
         """Publish the game's state before `online` (mqtt.md §8.4, §4.1).
@@ -97,6 +112,14 @@ class Game:
         for j in self.gs.jacks:
             await link.state(f"board/{j.kind}/{j.number}/label", j.label)
             await link.state(f"board/{j.kind}/{j.number}/circuit", j.circuit)
+        # §4.8, §6.5, §7.5 (Rev 25).
+        await link.state("game/scenes", "\n".join(self.gs.deck_scenes()))
+        await link.state("game/queue", self.queued)
+        await link.state("game/stations", str(self.cfg.stations))
+        await link.state("game/trunks", str(self.cfg.trunks))
+        assert self.diag is not None
+        await self.diag.end_all()
+        await self.diag.publish_all_off()
 
     async def _publish_pacing(self) -> None:
         assert self.link is not None
@@ -142,6 +165,21 @@ class Game:
                     await self._error(f"run: {payload!r} is not on or off")
                 return
 
+            if name.startswith("diag/"):
+                await self._diag_command(name.removeprefix("diag/"), payload)
+                return
+
+            if name == "queue":
+                if payload and payload not in self.gs.deck_scenes():
+                    await self._error(f"queue: {payload!r} is not a scene that can be dealt")
+                    return
+                self.queued = payload
+                await self._say(f"page: next scene {payload}" if payload else "page: next scene cleared")
+                assert self.link is not None
+                await self.link.state("game/queue", self.queued)
+                await self.link.state("game/error", "")
+                return
+
             if name == "next":
                 if not self.running:
                     await self._error("next: no game is running")
@@ -183,6 +221,42 @@ class Game:
         except Offline as e:
             log.warning("command %s dropped: %s", name, e)
 
+    async def _diag_command(self, sub: str, payload: str) -> None:
+        """game/diag/<target>/<test>/set (§7.5, Rev 25)."""
+        assert self.diag is not None
+        target, _, test = sub.rpartition("/")
+        if payload not in ("on", "off"):
+            await self._error(f"diag {sub}: {payload!r} is not on or off")
+            return
+        if not self.diag.fitted(target):
+            await self._error(f"diag: {target or sub} is not a circuit fitted")
+            return
+        if test not in TESTS[kind_of(target)]:
+            await self._error(f"diag: no {test!r} test on {target}")
+            return
+        on = payload == "on"
+        if on and target in self._circuits_in_calls():
+            await self._error(f"diag: {target} is in a call")
+            return
+        await self.diag.command(target, test, on)
+        await self._say(f"page: {target} {test} {payload}")
+        assert self.link is not None
+        await self.link.state("game/error", "")
+
+    def _circuits_in_calls(self) -> set[str]:
+        """Every station and trunk a call in progress is using."""
+        out: set[str] = set()
+        assert self.slots is not None
+        for call in self.slots:
+            sc = self.gs.scenes.get(call.scene)
+            if sc is not None:
+                for n in (sc.from_station, sc.to_station):
+                    if n is not None:
+                        out.add(f"station/{n}")
+            if call.trunk:
+                out.add(call.trunk)
+        return out
+
     # ---- start and stop (§3) --------------------------------------------
 
     async def start(self) -> None:
@@ -216,6 +290,11 @@ class Game:
 
     async def stop(self, why: str) -> None:
         """Tear every call down at once. The tallies stay (§3)."""
+        if self.diag is not None:
+            await self.diag.end_all()               # every diagnostic (§7.5)
+        if self.queued and self.link is not None:
+            self.queued = ""                        # §4.8: Stop forgets it
+            await self.link.state("game/queue", "")
         if not self.running:
             return
         assert self.link is not None and self.slots is not None
@@ -240,8 +319,11 @@ class Game:
         await self._publish_pacing()
 
     async def _monitor(self, source: str) -> None:
+        """The game moving the loudspeaker (§6.4). That ends a monitor test."""
         if self.hw is None:
             return
+        if self.diag is not None:
+            await self.diag.monitor_moved()
         try:
             await self.hw.monitor_source(source)
         except Offline as e:
@@ -252,6 +334,12 @@ class Game:
     def _held(self) -> list[Holding]:
         """What every call in progress and every waiting `after:` occupies."""
         out = list(self._pending_after.values())
+        # A station under test is busy for dealing (§7.5).
+        if self.diag is not None:
+            for c in self.diag.circuits():
+                kind, n = c.split("/")
+                if kind == "station" and int(n) in self._station_lines:
+                    out.append(Holding(self._station_lines[int(n)], frozenset()))
         assert self.slots is not None
         for call in self.slots:
             sc = self.gs.scenes[call.scene]
@@ -284,7 +372,11 @@ class Game:
         await self._publish_pacing()
 
     def _free_trunk(self) -> int | None:
-        for n in range(1, N_TRUNKS + 1):
+        """A trunk fitted (§6.5), idle, and not under test (§7.5)."""
+        tested = self.diag.circuits() if self.diag is not None else set()
+        for n in range(1, self.cfg.trunks + 1):
+            if f"trunk/{n}" in tested:
+                continue
             if not self.b.on(f"trunk/{n}/seize") and not self.b.on(f"trunk/{n}/ring"):
                 if not any(c.trunk == f"trunk/{n}" for c in (self.slots if self.slots is not None else ())):
                     return n
@@ -303,6 +395,15 @@ class Game:
                 await self._error(why)
             return
 
+        if scene is None and self.queued:
+            # §4.8: the chosen scene, if its lines and people are free.
+            q = self.gs.scenes.get(self.queued)
+            if q is not None and self.deck.take(q, self._held()):
+                scene = q
+                self.queued = ""
+                assert self.link is not None
+                await self.link.state("game/queue", "")
+                await self._say(f"chosen scene {q.id} dealt")
         if scene is None:
             scene, why = self.deck.deal(self._held())
             if scene is None:
@@ -321,8 +422,10 @@ class Game:
                 if self._decks_recorded > 1:
                     await self._say("deck reshuffled")
 
+        # A call from an outside line rings in on a trunk: to a room, or to
+        # the operator herself (Rev 24).
         trunk = None
-        if scene.shape == Shape.OUTSIDE_TO_STATION:
+        if scene.from_station is None:
             trunk = self._free_trunk()
             if trunk is None:
                 await self._say(f"no call: no free trunk for {scene.id}")
@@ -360,6 +463,8 @@ class Game:
         try:
             if scene.shape == Shape.OUTSIDE_TO_STATION:
                 outcome = await outside_to_station(ctx, trunk or 1)
+            elif scene.shape == Shape.TO_OPERATOR and trunk is not None:
+                outcome = await to_operator(ctx, trunk)
             else:
                 outcome = await FLOWS[scene.shape](ctx)
         except asyncio.CancelledError:

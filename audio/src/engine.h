@@ -62,6 +62,7 @@ public:
         return prepare();
     }
     void render_for_test()                       { render(); }
+    void drain_for_test()                        { drain_commands(); }
     void set_monitor_row_for_test(float v)       { std::fill(mon_row_.begin(), mon_row_.end(), v); }
     const std::vector<int32_t>& playback() const { return obuf_; }
 

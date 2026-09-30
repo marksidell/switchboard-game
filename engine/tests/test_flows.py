@@ -196,6 +196,12 @@ async def speaks_when_asked(h: Harness) -> None:
     await asyncio.sleep(60)
 
 
+async def answers_the_trunk(h: Harness) -> None:
+    """A call to the operator rung in on trunk 3: she answers and waits."""
+    await answers(h, "trunk/3")
+    await asyncio.sleep(60)
+
+
 async def incoming_operator(h: Harness) -> None:
     c, want = "trunk/3", 2
     await answers(h, c)
@@ -318,6 +324,29 @@ async def main() -> int:
     check(r.ok, "succeeds")
     check(h.connected, "connected when the request finished (§4.3)")
     check(Stage.OPERATOR in h.stages, f"showed the operator stage: {h.stages}")
+
+    print("\n== time and charges: a call to the operator rung in on a trunk (Rev 24)")
+    h = Harness(scene(Shape.TO_OPERATOR, from_line="operator", from_station=None,
+                      to_line="", to_station=None, conversation=()))
+    t0 = asyncio.get_running_loop().time()
+    r = await h.run(to_operator, answers_the_trunk, 3)
+    took = asyncio.get_running_loop().time() - t0
+    check(r.ok, "succeeds")
+    check(h.connected, "connected when the request finished (§4.3)")
+    check(("trunk/3/ring/set", "on") in h.link.sent, "rang the trunk")
+    check(("trunk/3/ring/set", "off") in h.link.sent, "stopped ringing it once answered")
+    check(h.monitor == ["trunk/3"], f"monitor followed the trunk: {h.monitor}")
+    check(took < 5, f"hung up as soon as the request played, not waiting on her: {took:.2f}s")
+    check(not any(k.startswith("station/") and k.endswith("/hook/set") for k, _ in h.link.sent),
+          "took no station off-hook")
+
+    print("\n== time and charges nobody answers")
+    h = Harness(scene(Shape.TO_OPERATOR, from_line="operator", from_station=None,
+                      to_line="", to_station=None, conversation=()))
+    h.ctx.cfg.answer_timeout = 0.3
+    r = await h.run(to_operator, never_answers, 3)
+    check(not r.ok and r.reason == Reason.NO_ANSWER, f"fails as 'no answer': {r.reason!r}")
+    check(("trunk/3/ring/set", "off") in h.link.sent, "and stops ringing the trunk")
 
     print("\n== a call in from outside")
     h = Harness(scene(Shape.OUTSIDE_TO_STATION, from_line="pizza", from_station=None,

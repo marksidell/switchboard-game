@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 22 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
+*Rev 23 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
 
 # 1. Overview
 
@@ -188,6 +188,10 @@ This document specifies the messages: the topic names, who publishes each, what 
 
 — `game/pause` and `game/pause/set` added (§6.1, §6.2), following game_control.md Rev 17, 2026-09-27: listen pacing's own wait, the seconds from the board emptying to the next call, 0–60. An addition; no existing topic or payload changes. The page's and the deck's access lists already cover the command through `sbgame/game/+/set`.
 
+## 1.23 Changes in Rev 23
+
+— Following game_control.md Rev 25 and audio.md Rev 10, 2026-09-30. Diagnostics: the page publishes `game/diag/<target>/<test>/set` and the game program echoes `game/diag/<target>/<test>` (§6.1, §6.2), `<target>` being `station/<n>`, `trunk/<n>` or `tap`. They are two levels deeper than `game/+/set`, so the access list gives the page and the deck `sbgame/game/diag/+/+/+/set` and `sbgame/game/diag/tap/+/set` as well (§9). The chosen next scene: `game/queue/set`, with `game/queue` and `game/scenes` (§6.1, §6.2), the one covered by the existing `game/+/set`. The circuits fitted: `game/stations` and `game/trunks` (§6.1). Voice on the operator tap: `audio/tap/play/set` and its echo `audio/tap/play` (§5, §6). All additions; no existing topic or payload changes. `game/scenes`, like `game/log`, is one value that is many lines.
+
 # 2. Design Rules
 
 These hold across every topic. A new topic that breaks one of them needs a reason recorded here.
@@ -251,6 +255,7 @@ The audio program publishes what its pilot detector finds, per circuit; the stat
 | `sbgame/station/<1-22>/op` | `"on"` or `"off"` | yes | The operator tone (bin 768) is heard on this station's receive channel — the operator is bridged to it. |
 | `sbgame/trunk/<1-8>/op` | `"on"` or `"off"` | yes | The same for a trunk. |
 | `sbgame/station/<1-22>/play`, `sbgame/trunk/<1-8>/play` | base filename, `""` or `"missing"` | yes | The file now playing on this circuit's output. Empty when nothing is — which is how a file's finishing is reported (audio.md §7.4). `"missing"`: the last `play/set` named a file that could not be loaded; persists until the next `play/set`. |
+| `sbgame/audio/tap/play` | base filename, `""` or `"missing"` | yes | The file now playing on the operator tap's output, over the operator tone, as `play` for a circuit (audio.md §7, Rev 10; Rev 23). |
 | `sbgame/trunk/<1-8>/tone` | `"dial"`, `"ringback"`, `"busy"` or `""` | yes | The tone now playing on this trunk. Empty when none. |
 | `sbgame/station/<1-22>/listen`, `sbgame/trunk/<1-8>/listen` | `"listening"`, `"speech"`, `"silence"`, `"timeout"` or `""` | yes | The listen on this circuit as it runs: `"listening"` from the command; `"speech"` when speech starts, and the listen continues; `"silence"` when it ends, which finishes the listen; `"timeout"` if speech never started within the commanded seconds or never ended within the program's cap. The final value persists until the next `listen/set`; empty after a cancel (audio.md §9.1). |
 | `sbgame/audio/monitor` | `"off"` or gain in dB | yes | The loudspeaker feed: muted, or the gain applied, as a signed decimal string. Echoes `monitor/set` after clamping to range (audio.md §10.2). |
@@ -274,6 +279,7 @@ The game program is the only client that commands the ESP32 and the audio progra
 | `sbgame/station/<1-22>/hook/set` | `"on"` or `"off"` | no | ESP32 | Take this station off-hook / on-hook. The ESP32 echoes the result on `hook`. |
 | `sbgame/trunk/<1-8>/ring/set` | `"on"` or `"off"` | no | ESP32 | Start / stop ringing this trunk. The ESP32 runs the cadence and the 30s timeout (`control.md` §8) and echoes the relay state on `ring`. |
 | `sbgame/station/<1-22>/play/set`, `sbgame/trunk/<1-8>/play/set` | base filename, or `"stop"` | no | audio | Play `<wav-dir>/<name>.wav` on this circuit's output, replacing whatever it is playing; `"stop"` stops it. Echoed on `play`; finishing is `play` going empty. |
+| `sbgame/audio/tap/play/set` | base filename, or `"stop"` | no | audio | Play a file on the operator tap's output, over the operator tone, which is never displaced; `"stop"` stops it. Echoed on `audio/tap/play`. Only the game program's diagnostics use it (game_control.md §7.5; Rev 23). |
 | `sbgame/trunk/<1-8>/tone/set` | `"dial"`, `"ringback"`, `"busy"` or `"off"` | no | audio | Play this tone on the trunk until told otherwise; a new value replaces the current tone. Trunks only — a station is the telephone and sends none of them. Echoed on `tone`. |
 | `sbgame/station/<1-22>/listen/set`, `sbgame/trunk/<1-8>/listen/set` | timeout in seconds, or `"0"` | no | audio | Listen on this circuit's receive channel, allowing this long for speech to start; `"0"` cancels. The sequence — start of speech, then end or timeout — is reported on `listen`. |
 | `sbgame/audio/monitor/set` | `"off"` or gain in dB | no | audio | Feed the monitor's source to the loudspeaker at this gain, 0 being unity into A32 output 24, range −60 to +20; or mute. Echoed on `monitor`. |
@@ -313,6 +319,10 @@ Published by the game program for the status page and the log (Rev 10). All reta
 | `sbgame/game/call/<1-8>/since` | host Unix time in seconds, or `""` | yes | When the stage began. |
 | `sbgame/game/call/<1-8>/deadline` | host Unix time in seconds, or `""` | yes | When the stage times out; empty if it does not. |
 | `sbgame/game/call/<1-8>/digits` | digits, or `""` | yes | Digits dialled so far on an outgoing call. |
+| `sbgame/game/scenes` | scene ids, one per line | yes | The scenes that can be chosen as the next one: active, without `after:`, and within the circuits fitted (game_control.md §4.8; Rev 23). Published at start. |
+| `sbgame/game/queue` | scene id, or `""` | yes | The chosen next scene, until it is dealt, cleared or the game stops. Echoes `queue/set` (Rev 23). |
+| `sbgame/game/stations`, `sbgame/game/trunks` | integer | yes | How many stations (0–22) and trunks (0–8) are fitted, from the configuration (game_control.md §6.5; Rev 23). Published at start. |
+| `sbgame/game/diag/<target>/<test>` | `"on"` or `"off"` | yes | A diagnostic's state: `<target>` is `station/<1-22>`, `trunk/<1-8>` or `tap`; `<test>` is `hook` (stations), `ring` (trunks), `tone`, `voice` or `monitor` (game_control.md §7.5; Rev 23). All `"off"` at start. |
 | `sbgame/game/log` | text | yes | The last 50 events, newest first, one per line (game_control.md §6.2). |
 | `sbgame/game/error` | text, or `""` | yes | The last page command the game program rejected, and why; cleared by the next accepted command. |
 
@@ -329,6 +339,8 @@ The page's commands, consumed by the game program only (Rev 10). The Stream Deck
 | `sbgame/game/floor/set` | seconds | no | game | Least gap, 0–600 and not above `gap`. Echoed on `floor`. |
 | `sbgame/game/jitter/set` | percent | no | game | Spread of the automatic wait, 0–100. Echoed on `jitter` (Rev 19). |
 | `sbgame/game/pause/set` | seconds | no | game | Listen's wait after the board empties, 0–60. Echoed on `pause` (Rev 22). |
+| `sbgame/game/queue/set` | scene id, or `""` | no | game | Deal this scene next, or clear the choice. Refused on `error` if not in `game/scenes`. Echoed on `queue` (Rev 23). |
+| `sbgame/game/diag/<target>/<test>/set` | `"on"` or `"off"` | no | game | Start or stop a diagnostic (game_control.md §7.5). Refused on `error` for a circuit in a call or not fitted. Echoed on `diag/<target>/<test>` (Rev 23). |
 | `sbgame/game/next/set` | ignored | no — and QoS 0, §2 | game | Start the next call now, if a game is running and a scene can be dealt; otherwise reported on `error`. Shows as `started` going up by one (Rev 11; a call number through Rev 10). |
 
 # 7. Payload Conventions
@@ -492,11 +504,17 @@ topic readwrite sbgame/#
 user sbgame-web
 topic read sbgame/#
 topic write sbgame/game/+/set
+topic write sbgame/game/diag/+/+/+/set
+topic write sbgame/game/diag/tap/+/set
 
 user sbgame-deck
 topic read sbgame/#
 topic write sbgame/game/+/set
+topic write sbgame/game/diag/+/+/+/set
+topic write sbgame/game/diag/tap/+/set
 ```
+
+The two `diag` lines are the diagnostics (Rev 23): a station's or trunk's, `game/diag/station/3/tone/set`, and the tap's, `game/diag/tap/tone/set`. They are two and one levels deeper than `game/+/set` covers. They still reach the game program only; the page cannot command the hardware.
 
 The page keeps its write line: its controls can be hidden on an iPad but not removed (game_control.md §7.1). The deck's password is in `/etc/sbgame/mqtt-deck.pass`, 640, group `sbgame-deck`, like the others.
 

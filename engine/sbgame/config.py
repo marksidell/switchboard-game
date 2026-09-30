@@ -57,6 +57,12 @@ class Config:
     # always the one that fires first (mqtt.md §8.2).
     audio_margin: float = 3.0
 
+    # ---- the circuits fitted (game_control.md §6.5, Rev 25) ------------
+    # The first `stations` of 1-22 and the first `trunks` of 1-8. The
+    # command line's --stations and --trunks override these.
+    stations: int = 22
+    trunks: int = 8
+
     # ---- the session log -----------------------------------------------
     session_db: str = "~/.local/state/sbgame/sessions.db"
 
@@ -101,5 +107,9 @@ class Config:
         for name in ("answer_timeout", "connect_timeout", "speak_timeout", "max_speech"):
             if getattr(self, name) <= 0:
                 bad.append(f"{name} must be positive")
+        if not (isinstance(self.stations, int) and 0 <= self.stations <= 22):
+            bad.append(f"stations {self.stations!r} is not a whole number 0-22")
+        if not (isinstance(self.trunks, int) and 0 <= self.trunks <= 8):
+            bad.append(f"trunks {self.trunks!r} is not a whole number 0-8")
         if bad:
             raise ValueError("; ".join(bad))
