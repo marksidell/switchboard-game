@@ -53,8 +53,37 @@
 "Seaver": SEE-ver
 "Nils": Nils
 "Pigalle": pee-GAHL
-"desolee": day-zo-LAY
-"bientot": bee-an-TOE
 "Beaumont": BO-mont
 "Gruber": GROO-ber
-"Wahoo": WAH-hoo
+# Lowercase: "WAH-hoo" was spelt out, W-A-H, as capitals often are
+# (Mark, 2026-09-29).
+"Wahoo": wah-hoo
+# As Idaho says it, with an s; the model sometimes made it "boy-zee" or
+# worse (Mark, 2026-09-29).
+"Boise": boy-see
+
+# One person's way of saying things, applied to that person's lines only
+# and matched whatever the case. Checked before the entries above.
+speakers:
+    # The reservationist at Place Pigalle, in her French (Mark, 2026-09-29).
+    # The guests say "Place Pigalle" their own way, by the general entry.
+    pigalle:
+        "Place Pigalle": plahss pee-GAHL
+        "bonsoir": bohn-SWAHR
+        # Whole, so its "a" is spoken "ah", not as a letter.
+        "a bientot": ah byahn-TOH
+        "bientot": byahn-TOH
+        "mais oui": may WEE
+        "madame": mah-DAHM
+        "mademoiselle": mahd-mwah-ZELL
+        "monsieur": muh-SYUR
+        "non": nohn
+        "desolee": day-zoh-LAY
+    # Lindqvist's Swedish "ja", long and open. Miss Vance's "will ya?" is
+    # hers and stays American.
+    lindqvist:
+        "ya": yah
+    # Martha's barks, rougher than the dictionary word: a rolled r and a
+    # growl on the end.
+    martha:
+        "woof": rrrowf

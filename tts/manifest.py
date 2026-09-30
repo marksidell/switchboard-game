@@ -17,7 +17,7 @@ import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from tts.pronounce import substitute
+from tts.pronounce import load_table, substitute, unknown_speakers
 from tts.script import Script, Utterance
 
 DEFAULT_MANIFEST = Path("tts/manifest.json")
@@ -82,7 +82,7 @@ def plan(script: Script, *, voices: Path = VOICES, wav_dir: Path = Path("wav"),
     jobs: list[Job] = []
 
     for u in script.utterances:
-        spoken = substitute(u.text)
+        spoken = substitute(u.text, speaker=u.speaker)
         t_sha = text_hash(spoken)
         ref_wav = voices / f"{u.speaker}.wav"
         v_sha = file_hash(ref_wav)
@@ -159,6 +159,10 @@ def main(argv: list[str] | None = None) -> int:
     except ScriptError as e:
         for f in e.failures:
             print(f"  {f}")
+        return 1
+    unknown = unknown_speakers(load_table(), script.cast)
+    if unknown:
+        print(f"  tts/pronounce.yml speakers: names {', '.join(unknown)}, not in the cast")
         return 1
     try:
         jobs = plan(script, voices=args.voices, wav_dir=args.wav,

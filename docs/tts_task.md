@@ -193,6 +193,14 @@ A table of whole-word substitutions applied only to the text sent to the model. 
 "Shilshole": SHIL-shole
 ```
 
+Entries under `speakers:` apply only to that cast member's lines, match whatever the case, and are applied before the general ones (added 2026-09-29, Mark's request). One person's accent — the Place Pigalle reservationist's French, Lindqvist's Swedish "ya" — then stays off everyone else's lines, and the script is never spelled around the table to keep it there. A speaker the table names who is not in the cast stops the planning step, since the entry would otherwise never apply.
+
+```yaml
+speakers:
+    lindqvist:
+        "ya": yah
+```
+
 ## 6.3 Only Regenerate What Changed
 
 `tts/manifest.json` records, per utterance: a hash of the substituted text, the hash of the reference voice file, the model id and the seed. A line is generated only if its entry is missing or any of those changed. So editing one line, adding a scene, or re-choosing one character's voice regenerates only the lines affected.

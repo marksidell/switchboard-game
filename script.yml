@@ -678,13 +678,13 @@ scenes:
                 called: Who is this?
             -   id: 5
                 caller: >
-                    We met only last night and still you do not recognize my voice.
+                    We met only last night, and still you do not recognize my voice.
                     I should feel offended.
             -   id: 6
                 called: Yeah. Now I know who you are and I am not Mr. Kaplan!
             -   id: 7
                 caller: >
-                    Of course not. You answer is telephone and you live in his hotel room,
+                    Of course not. You answer is telephone, and you live in his hotel room,
                     and yet you are not Mr. Kaplan. Nevertheless, we are pleased to find you in.
             -   id: 8
                 called: Hello? Hello?
@@ -699,7 +699,7 @@ scenes:
         request:
             id: 1
             text: >
-                Operator, this is Mr. Thorn-- Mr. Kaplan in 403.
+                Operator, this is Mr. Thorn, uh no, Mr. Kaplan, in 403.
                 That call that just came through. Was that an outside call or from the lobby?
             operator: internal-greeting
         closing:
@@ -850,7 +850,7 @@ scenes:
             operator: internal-greeting
         conversation:
             -   id: 2
-                called: Good evening, Canlis.
+                called: Good evening, this is Canlis.
             -   id: 3
                 caller: This is Nils Lindqvist. I want a table for four tonight. Eight o'clock.
             -   id: 4
@@ -885,9 +885,9 @@ scenes:
             -   id: 4
                 called: Hotel Ballard, 305. That's gonna be forty-five minutes, lady.
             -   id: 5
-                caller: Forty-five minutes! We're on our honeymoon. We'll starve.
+                caller: Forty-five minutes isa long time! We're on our honeymoon. We'll starve.
             -   id: 6
-                called: Thirty-five. Best I can do.
+                called: Thirty-five is the best I can do.
             -   id: 7
                 caller: All right. Thank you!
             -   id: 8
@@ -1074,7 +1074,7 @@ scenes:
             -   id: 6
                 called: Our pleasure.
             -   id: 7
-                caller: woof, woof, woof!
+                caller: woof! woof! woof!
 
     easyliving-v16:
         active: true
@@ -1092,7 +1092,7 @@ scenes:
             -   id: 2
                 called: Hello, hello?
             -   id: 3
-                caller: Do I have the pleasure of speaking with Mary Smith
+                caller: Do I have the pleasure of speaking with Mary Smith?
             -   id: 4
                 called: Hello. Yes, this is me.
             -   id: 5
@@ -1108,9 +1108,9 @@ scenes:
             -   id: 10
                 called: Well, I suppose they are different.
             -   id: 30
-                caller: And we want you have the car as long as you wish.
+                caller: And we want you to have the car as long as you wish.
             -   id: 31
-                called: Well, what do you want to do that for? Oh, well... I'll take your word for it.
+                called: Well, what do you want to do that for? Oh well... I'll take your word for it.
             -   id: 11
                 caller: May we deliver the automobile to the hotel?
             -   id: 12
@@ -1142,7 +1142,7 @@ scenes:
             -   id: 25
                 caller: I'm sorry, the V-16 is not available in pink.
             -   id: 26
-                called: Well, any color you like.
+                called: Well, any color you like!
             -   id: 27
                 caller: Very well, then, we will send you a black V-16 with a chauffeur.
             -   id: 28
@@ -1388,7 +1388,7 @@ scenes:
             -   id: 8
                 called: Then go to the Pike Place Market. The fishmongers throw the salmon across the counter. It's quite a show.
             -   id: 9
-                caller: They throw fish? Now that I have got to see.
+                caller: They throw fish? Now, that I have got to see.
             -   id: 10
                 called: They do, sir. Enjoy the market.
             -   id: 11
@@ -1418,7 +1418,7 @@ scenes:
             -   id: 5
                 caller: Well, I caught it! So I had to buy it. Thirty pounds. It's in my bathtub.
             -   id: 6
-                called: In the bathtub. Yes, sir. What would you like done with it?
+                called: In the bathtub? Yes, sir. What would you like done with it?
             -   id: 7
                 caller: Pack it in ice and ship it to Omaha. The fellas at the feed store will never believe this.
             -   id: 8
@@ -1476,7 +1476,7 @@ scenes:
             -   id: 5
                 caller: The Olympics? Are they having those here?
             -   id: 6
-                called: The mountains, pal. The mountains.
+                called: I mean the mountains, pal. The mountains.
             -   id: 7
                 caller: Oh. Well, I'll take a look at them too. Seven o'clock, then.
             -   id: 8
@@ -1503,7 +1503,7 @@ scenes:
                     id: 6
                     text: The newsstand in the lobby sells postcards, too.
             -   id: 4
-                caller: Thanks a bunch. You folks sure are friendly out here.
+                caller: Thanks a bunch. You folks sure are friendly out here!
                 operator:
                     id: 7
                     text: There's a mailbox right beside the front desk, sir.
@@ -1532,7 +1532,7 @@ scenes:
                 wait: true
                 operator: long-distance-please
             -   id: 4
-                caller: Wahoo, Nebraska. That's near Omaha. Mrs. Mabel Dobbs, at Dobbs Feed and Seed. The number is 23-J. Person to person.
+                caller: Wahoo, Nebraska. That's near Omaha. Mrs. Mabel Dobbs, at Dobbs Feed and Seed. The number is 23-J. Make it person to person.
             -   id: 5
                 called: Your name and number, please?
                 person: operator
@@ -1563,7 +1563,7 @@ scenes:
                 called: Mr. Dobbs, all the lines to Omaha are busy just now. I'll call you back as soon as I have your party.
                 person: operator
             -   id: 14
-                caller: Busy? In Omaha? Well, it is Saturday. Sure thing, I'll sit right here by the phone.
+                caller: Busy? In Omaha? Well, I guess it is Saturday. Sure thing, I'll sit right here by the phone.
             -   id: 15
                 called: Thank you, Mr. Dobbs. I'll ring you the minute I have Omaha.
                 person: operator
@@ -1742,7 +1742,7 @@ scenes:
             -   id: 2
                 called: Pike here.
             -   id: 3
-                caller: Go ahead, Chicago.
+                caller: Go ahead Chicago.
             -   id: 4
                 caller: Pike! Gruber. How many units did you move this week?
                 person: gruber
@@ -1922,9 +1922,9 @@ scenes:
             -   id: 3
                 caller: This is Mrs. Albright in 302. My pearls are gone. They were on the dresser this morning.
             -   id: 4
-                called: Oh, dear. Have you looked in your handbag, Mrs. Albright?
+                called: Oh, dear! Have you looked in your handbag, Mrs. Albright?
             -   id: 5
-                caller: Of course I have looked in my handbag. Do you think I'm a fool?
+                caller: Of course I have looked in my handbag! Do you think I'm a fool?
             -   id: 6
                 called: And, pardon me, ma'am, around your neck?
             -   id: 7
@@ -1950,7 +1950,7 @@ scenes:
             -   id: 3
                 caller: Mr. Fairweather, it's Mrs. Albright. Is there a concert this week? Something with violins?
             -   id: 4
-                called: The Seattle Symphony plays Friday at the Civic Auditorium, madam. Brahms.
+                called: The Seattle Symphony plays Friday at the Civic Auditorium, madam. The program is Brahms.
             -   id: 5
                 caller: Brahms. My late husband slept through Brahms every time.
             -   id: 6
@@ -2117,7 +2117,7 @@ scenes:
             operator: internal-greeting
         conversation:
             -   id: 2
-                called: Room service.
+                called: Room service here.
             -   id: 3
                 caller: Hello! This is room 305. Could we have a bottle of champagne, please? We're on our honeymoon.
             -   id: 4
@@ -2296,7 +2296,7 @@ scenes:
             operator: outside-greeting
         conversation:
             -   id: 2
-                called: Lindqvist.
+                called: Ahoy, Lindqvist here.
             -   id: 3
                 caller: Mr. Lindqvist, a small matter about your reservation. We do ask that gentlemen wear a jacket and tie.
             -   id: 4
@@ -2334,7 +2334,7 @@ scenes:
             -   id: 6
                 called: Perfect. Come as you are. We'll put the halibut on.
             -   id: 7
-                caller: Good. This is better than the fancy place.
+                caller: Good. This should be better than the fancy place.
             -   id: 8
                 called: We'll see you tonight, sir.
 
@@ -2345,7 +2345,7 @@ scenes:
             person: lindqvist
         request:
             id: 1
-            text: Operator, you look out the window? Is the fog on the Sound?
+            text: Operator, can you look out the window? Is the fog on the Sound?
             operator: internal-greeting
         conversation:
             -   id: 2
@@ -2407,7 +2407,7 @@ scenes:
             operator: internal-greeting
         conversation:
             -   id: 2
-                called: Times, Barrett.
+                called: Times. Barrett.
             -   id: 3
                 caller: I want an advertisement. Deckhand wanted. Strong back. No complaining.
             -   id: 4
@@ -2461,7 +2461,7 @@ scenes:
             busy: true
         request:
             id: 1
-            text: Operator, would you ring the Paramount Theatre box office?
+            text: Operator, would you ring the Paramount Theatre, box office?
             operator: internal-greeting
         conversation:
             -   id: 2
@@ -2498,7 +2498,7 @@ scenes:
             -   id: 5
                 caller: Well, whoever he is, a man just climbed past my window. On the outside.
             -   id: 6
-                called: On the outside, ma'am? We're on the fourth floor.
+                called: On the outside, ma'am? You're on the fourth floor.
             -   id: 7
                 caller: I am aware of which floor we are on, young man. Send someone.
             -   id: 8
@@ -2554,7 +2554,7 @@ scenes:
             -   id: 6
                 called: It's very nearly the same, ma'am.
             -   id: 7
-                caller: Very nearly. Well. I'll risk it. Six o'clock, a table for one, away from the band.
+                caller: Hmmm, very nearly. Well. I'll risk it. Six o'clock, a table for one, away from the band.
             -   id: 8
                 called: Six o'clock, a table for one, away from the band. Very good, Miss Crane.
             -   id: 9
@@ -2628,7 +2628,7 @@ scenes:
             operator: internal-greeting
         conversation:
             -   id: 2
-                caller: Not five-oh-one. Five. I have a scalpel in my hand at seven.
+                caller: Not five-oh-one. Five. I must have a scalpel in my hand at seven.
                 operator:
                     id: 4
                     text: Five o'clock, Doctor. Certainly.
@@ -2664,12 +2664,12 @@ scenes:
             -   id: 5
                 called: To visit?
             -   id: 6
-                caller: To stay, Walter. Head of surgery. Think it over.
+                caller: To stay, Walter. To be head of surgery. Think it over.
                 person: dr_keller
             -   id: 7
                 called: Minnesota, in the winter? I'll think about it, Keller. From here, where it only rains.
             -   id: 8
-                caller: Don't think too long, Walter. Goodbye.
+                caller: Please don't think too long, Walter. Goodbye.
                 person: dr_keller
 
     times-hollis:
@@ -2712,7 +2712,7 @@ scenes:
             -   id: 2
                 called: Valet service.
             -   id: 3
-                caller: Room 101. I have a gray suit to be pressed. There is a black bag on the chair. Do not touch the bag.
+                caller: Room 101 here. I have a gray suit to be pressed. There is a black bag on the chair. Do not touch the bag.
             -   id: 4
                 called: No, sir. What's in the bag, if I may ask?
             -   id: 5
@@ -2747,7 +2747,7 @@ scenes:
             -   id: 6
                 called: I'll send the boy with a leash, then.
             -   id: 7
-                caller: Hurry. Hurry. Woof.
+                caller: Hurry! Hurry! Woof!!
 
     martha-mailman:
         active: true
@@ -2813,7 +2813,7 @@ scenes:
                 caller: Which room? You can tell me. I only want to say hello.
                 operator:
                     id: 4
-                    text: Why, yes. One of our guests has a cat.
+                    text: Why yes. One of our guests has a cat.
             -   id: 3
                 caller: You won't tell me? That's all right. I will find it with my nose.
                 operator:
@@ -2841,7 +2841,7 @@ scenes:
             -   id: 3
                 caller: One large pizza, please. Only meat. No cheese, no crust, no tomatoes.
             -   id: 4
-                called: Lady, that's just a pile of sausage.
+                called: Lady, that's just a pile of sausage!
             -   id: 5
                 caller: Yes. A pile of sausage. Room 103, Hotel Ballard.
             -   id: 6
@@ -2869,11 +2869,11 @@ scenes:
             -   id: 3
                 caller: This is housekeeping. The maid is at your door, but she says there's a very large dog in there.
             -   id: 4
-                called: That's me.
+                called: That dog is me!
             -   id: 5
                 caller: I beg your pardon?
             -   id: 6
-                called: Tell her she can come in. I only bite the mailman. And I've never caught him.
+                called: Tell her she can come in. I'll only bite the mailman. And I've never caught him.
             -   id: 7
                 caller: Yes, ma'am. I'll tell her.
 
@@ -2924,7 +2924,7 @@ scenes:
             -   id: 3
                 caller: Look, there's been some kind of mistake. I can't pay for this room. I have seven dollars and a nickel.
             -   id: 4
-                called: There is no charge, Miss Smith. The manager insists.
+                called: There is no charge, Miss Smith. Mr. Louis Lous insists.
             -   id: 5
                 caller: No charge? For the whole thing? With the bathtub the size of a swimming pool?
             -   id: 6
@@ -2988,7 +2988,7 @@ scenes:
             -   id: 6
                 called: The chauffeurs want to know where you'd like to go, miss.
             -   id: 7
-                caller: Tell them to go get a sandwich. I'll pay. No, I won't, I only have seven dollars.
+                caller: Tell them to go get a sandwich. I'll pay. No, wait, I won't, I only have seven dollars.
             -   id: 8
                 called: I'll tell them, miss.
 
@@ -3096,7 +3096,7 @@ scenes:
             -   id: 3
                 caller: Miss Vance, this is the Harbor Florist. We have four dozen red roses for you from a gentleman.
             -   id: 4
-                called: Four dozen? Who from?
+                called: Four dozen? My goodness! Who from?
             -   id: 5
                 caller: The card says, from a secret admirer on the U.S.S. Bremerton.
             -   id: 6
@@ -3241,7 +3241,7 @@ scenes:
             -   id: 6
                 called: Bruised, not torn. Yes, sir.
             -   id: 7
-                caller: And a silver cup. A julep in a glass is a crime against the Confederacy.
+                caller: And a silver cup. A julep in a glass is a crime against the South.
             -   id: 8
                 called: A silver cup. Yes, Colonel.
 
@@ -3344,7 +3344,7 @@ scenes:
             -   id: 2
                 called: Place Pigalle, bonsoir.
             -   id: 3
-                caller: Good evening, madam. Colonel Augustus Beaumont. A table for two at seven. Do you serve grits?
+                caller: Good evening, madam. Colonel Augustus Beaumont. A table for two at seven. And, do you serve grits?
             -   id: 4
                 called: Grits, monsieur? Non. We have a very nice omelette.
             -   id: 5
@@ -3356,7 +3356,7 @@ scenes:
             -   id: 8
                 called: Then we will not seat her by the fish.
             -   id: 9
-                caller: Seven o'clock, then. Good day, sir.
+                caller: Seven o'clock, then. Good day, ma'am.
 
     beaumont-pemberton:
         active: true
@@ -3384,9 +3384,9 @@ scenes:
             -   id: 7
                 caller: I shall personally stand between you and any draft, madam.
             -   id: 8
-                called: Seven o'clock, Colonel. Wear a tie.
+                called: Seven o'clock, Colonel. Please do wear a tie.
             -   id: 9
-                caller: A tie. Of course, madam. Until seven.
+                caller: A tie. Of course, madam. Farewell until seven.
 
     beaumont-sister:
         active: true
@@ -3473,12 +3473,12 @@ scenes:
                 called: A lady? Augustus Beaumont, you are sixty-eight years old.
                 person: lucinda
             -   id: 11
-                caller: Sixty-seven, Lucinda. Good night.
+                caller: I am Sixty-seven, Lucinda. Good night.
             -   id: 27
                 called: Seattle? Time and charges for room 205. Six minutes. Three dollars and forty cents.
                 person: operator
             -   id: 28
-                caller: Three dollars and forty cents, to be told I am old. Carry on.
+                caller: Three dollars and forty cents, and just to be told I am old. Carry on.
 
     restaurant-beaumont:
         active: true
@@ -3531,7 +3531,7 @@ scenes:
             -   id: 6
                 called: That's eighteen words. Ninety cents, charged to your room.
             -   id: 7
-                caller: Ninety cents? Take out possibly.
+                caller: Ninety cents? Take out the word possibly.
             -   id: 8
                 called: Possibly, out. Eighty-five cents, Mr. Finch.
 
@@ -3621,7 +3621,7 @@ scenes:
             -   id: 8
                 called: You're wearing it, sir. You came down for a newspaper ten minutes ago.
             -   id: 9
-                caller: Oh. So I am. Thank you.
+                caller: Oh. Ha. So I am. Thank you.
 
     finch-wife:
         active: true
@@ -3651,7 +3651,7 @@ scenes:
             -   id: 12
                 caller: Hotel Ballard, room 303. Howard Finch. And would you give me the time and charges afterward? I'm on an expense account.
             -   id: 13
-                called: Rate operator? Walla Walla, Washington. Route and day station rate from Seattle.
+                called: Rate operator? Walla Walla Washington. Route and day station rate from Seattle.
                 person: operator
             -   id: 14
                 called: Yakima, Walla Walla. Day station, 9-5.
@@ -3695,7 +3695,7 @@ scenes:
                 called: Go to your luncheon, Howard. This is costing us a dollar.
                 person: edna_finch
             -   id: 21
-                caller: Yes, Edna. Goodbye.
+                caller: Yes, ok, Edna. Goodbye.
             -   id: 22
                 called: Seattle? Time and charges on room 303. Three minutes. Ninety-five cents.
                 person: operator
