@@ -6449,10 +6449,9 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "a4349efa-2191-4f60-a937-bb80c9150063")
 		(property "Reference" "D201"
-			(at 109.22 130.8099 90)
+			(at 105.156 139.192 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6460,8 +6459,8 @@
 				(justify left)
 			)
 		)
-		(property "Value" "D_TVS"
-			(at 109.22 133.3499 90)
+		(property "Value" "P6KE150CA"
+			(at 103.124 141.478 90)
 			(effects
 				(font
 					(size 1.27 1.27)
