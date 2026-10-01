@@ -2,7 +2,7 @@
 
 **Station Interface Circuit Design**
 
-*Rev 3.41 — 8 Strips Per Board, Three Boards (22 Stations, the Operator Tap and the Audience Monitor Output) Plus 8 Trunk Circuits, HCPL3700M Ring Detection, DPDT Double-Pole Off-Hook, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Station Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, 32-Slot Pilot Tone Comb, Operator Tap and Monitor Options on Two Strips, Common-Battery Power*
+*Rev 3.42 — 8 Strips Per Board, Three Boards (22 Stations, the Operator Tap and the Audience Monitor Output) Plus 8 Trunk Circuits, HCPL3700M Ring Detection, DPDT Double-Pole Off-Hook, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Station Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, 32-Slot Pilot Tone Comb, Operator Tap and Monitor Options on Two Strips, Common-Battery Power*
 
 # 1. Overview
 
@@ -292,6 +292,12 @@ The ESP32 and the host exchange state over MQTT: the ESP32 reports debounced rin
 
 —  No hardware change. The §8.8 filter already removes a circuit channel’s own pilot, its peer’s pilot and the operator tone, as it removes the tone and pilots from the tap channel.
 
+## 1.21 Changes in Rev 3.42
+
+—  §4.1 and the §11 BOM row are corrected: they gave the P6KE120CA a 120V standoff. The 120 in the part number is nominal breakdown. The datasheet figures are 102V standoff, 114–126V breakdown and 165V clamp, as `trunk_circuit.md` §6 already had them. The clamp figure used in §4.1 and §5.5 moves from 167V to the datasheet’s 165V, and the worst-case detector current from 8.1mA to 8.0mA.
+
+—  No hardware change. The part is the same, the 24V loop is still far below standoff, and the 127V ring peak is still above breakdown, so the §4.1 reasoning stands.
+
 # 2. Functional Block Diagram (One Station)
 
 ```text
@@ -426,11 +432,11 @@ TIP  o────────┬──── to ring detector and relay
 RING o────────┴──── to ring detector and relay
 ```
 
-TVS1 is a P6KE120CA bidirectional transient voltage suppressor. Standoff voltage is 120V — well above the 24V normal loop voltage — so it does not affect normal operation. The 127V ring voltage peak causes the TVS to conduct, clamping the line to approximately 167V and absorbing the excess energy. Peak pulse power rating is 600W, adequate for sustained ring conditions.
+TVS1 is a P6KE120CA bidirectional transient voltage suppressor. Standoff voltage is 102V and breakdown 114–126V — the 120 in the part number is nominal breakdown, not standoff. Both are well above the 24V normal loop voltage, so it does not affect normal operation. The 127V ring voltage peak exceeds the breakdown, so the TVS conducts on the peaks; its rated clamp is 165V, the ceiling on what it lets through. Peak pulse power rating is 600W, adequate for sustained ring conditions.
 
 The trunk board uses a different part and this is deliberate, correcting an earlier statement here that the two boards share one. The trunk board fits a P6KE150CA (128V standoff, 143–158V breakdown). The reason is directionality: a station only ever receives ring, so mild conduction on the peaks is the protection doing its job, whereas the trunk board originates ring at 127V peak nominal and up to 141V peak no-load, and a 120V-class part there would conduct on every cycle of every ring — loading the generator, distorting the waveform and dissipating power for nothing. Do not standardise the two boards on a single TVS for the sake of a shorter parts list; the correct part on each board is set by that board’s own ring voltage, not by the other board’s.
 
-With the line clamped at 167V, worst-case detector input current is (167 − 5) / 20,000 ≈ 8.1mA, far below the HCPL3700M’s 140mA surge rating for 3ms pulses and its 50mA average input rating. The detector cannot be damaged by anything the TVS lets through.
+With the line clamped at 165V, worst-case detector input current is (165 − 5) / 20,000 = 8.0mA, far below the HCPL3700M’s 140mA surge rating for 3ms pulses and its 50mA average input rating. The detector cannot be damaged by anything the TVS lets through.
 
 Placement: directly at the station jack terminals, before the ring detector resistors R1a/R1b and before the relay. This gives maximum protection to all downstream components.
 
@@ -524,7 +530,7 @@ Two practical points. The footprint changes from the G5V-1: 2 Form C means eight
 
 Second, this part carries a 20-week manufacturer lead time even though distributor stock is currently deep. At roughly $1.39 in hundreds, buy the whole system quantity plus spares in a single order rather than per board — 22 for the three station boards (the tap and monitor strips fit none) and eight for the trunks, 30 in all, and 32 counting those two strips’ unstuffed positions as spares. A four-month wait for a second order would be an avoidable and irritating way to stall the project.
 
-One figure to confirm from the datasheet rather than the distributor attribute table: dielectric strength between open contacts. The open contacts stand off 127V peak during ring, and up to about 167V if TVS1 is conducting. Parts in this class are normally rated 750–1000 VAC contact-to-contact, so this should be a non-issue, but the attribute table lists only maximum switching voltage, which is a different specification. With the double-pole break each gap sees roughly half of it in any case.
+One figure to confirm from the datasheet rather than the distributor attribute table: dielectric strength between open contacts. The open contacts stand off 127V peak during ring, and up to 165V if TVS1 is conducting. Parts in this class are normally rated 750–1000 VAC contact-to-contact, so this should be a non-issue, but the attribute table lists only maximum switching voltage, which is a different specification. With the double-pole break each gap sees roughly half of it in any case.
 
 Because both poles are now carrying line current, there is no spare contact available for sensing whether the relay actually operated. If closed-loop confirmation of the hook state is ever wanted, it has to come from sensing loop current rather than contact position — a second optocoupler across R3 would confirm both that the contacts closed and that the switchboard is feeding the loop, which is the more useful signal anyway. That needs a spare expander input, so it implies fitting U2 (see §9.1).
 
@@ -1327,7 +1333,7 @@ Worth stating what the loop current does come from, since §10.2 has caused conf
 
 | **Designator** | **Value / Part** | **Description / Notes** |
 | --- | --- | --- |
-| TVS1 ×8 | P6KE120CA | Bidirectional TVS, 120V standoff; one per station jack |
+| TVS1 ×8 | P6KE120CA | Bidirectional TVS, 102V standoff, 114–126V breakdown, 165V clamp; one per station jack |
 | R1a, R1b ×8 | 10kΩ, 0.5W (×2 in series) | Ring detector current-setting resistors, two per station. 1W preferred for sustained ring. Drawn as R14 and R15: R1a and R1b are not valid KiCad reference designators, since a reference is a letter prefix and a number, so the document names are carried in a Function field instead. Same parts, same place. |
 | C4 ×8 | 1µF, 250V film | Ring detector DC blocking capacitor — new in Rev 3.0, see §3.5 |
 | R2 ×8 | 4.7kΩ, 0.25W | HCPL3700M output pull-up to 3.3V |
