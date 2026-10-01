@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 25 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built*
+*Rev 26 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built*
 
 # 1. Overview
 
@@ -176,6 +176,10 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
 
+## 1.26 Changes in Rev 26
+
+— The page lists the scenes for a chosen next scene in alphabetical order of id (§4.8), Mark's request, 2026-09-30. The page sorts them; `game/scenes` is unchanged. Code consequence for Claude Code, made the same day: `app.js`.
+
 ## 1.25 Changes in Rev 25
 
 — Diagnostics from the page (§7.5), Mark's request, 2026-09-30, for bring-up and for finding a fault at the board. A station's panel takes it off-hook and plays a 1kHz tone, a run of speech, or feeds its receive channel to the loudspeaker; a trunk's panel rings it, and plays tone, speech or loudspeaker the same way; a new Tools button opens the same three for the operator tap. Each is a toggle. They run whether or not a game is running, and are kept apart from the calls: a circuit in a call refuses a test, and a circuit under test is busy for dealing (§4.4). Stop ends them all (§3). Voice on the tap needs the audio program to play a file there, which it did not; audio.md Rev 10 adds it.
@@ -342,7 +346,7 @@ At most eight calls are in progress at once — the number of call slots (§6.1)
 
 ## 4.8 A Chosen Next Scene
 
-Rev 25. A long press on Next Call lists every scene that could be dealt — the active ones without `after:`, within the circuits fitted (§6.5) — from `game/scenes`, one id per line. Choosing one publishes `game/queue/set` with its id; the game program echoes it on `game/queue`. The next call dealt, by Next Call or by the automatic schedule, is that scene rather than the deck's, if its lines and people are free; it is then taken out of the current deck, so it does not come round again until the reshuffle, and `game/queue` goes empty. If they are not free, the call is dealt from the deck as usual and the choice stays for the call after. `game/queue/set` with an empty payload clears the choice. It may be made while no game is running, and the first call of the next game is then that scene; Stop forgets it. An id that is not in `game/scenes` is refused on `game/error`.
+Rev 25. A long press on Next Call lists every scene that could be dealt — the active ones without `after:`, within the circuits fitted (§6.5) — from `game/scenes`, one id per line. The page shows them in alphabetical order of id (Rev 26). Choosing one publishes `game/queue/set` with its id; the game program echoes it on `game/queue`. The next call dealt, by Next Call or by the automatic schedule, is that scene rather than the deck's, if its lines and people are free; it is then taken out of the current deck, so it does not come round again until the reshuffle, and `game/queue` goes empty. If they are not free, the call is dealt from the deck as usual and the choice stays for the call after. `game/queue/set` with an empty payload clears the choice. It may be made while no game is running, and the first call of the next game is then that scene; Stop forgets it. An id that is not in `game/scenes` is refused on `game/error`.
 
 ## 4.5 Not Yet: Calls Before Connection
 

@@ -308,7 +308,7 @@ function renderTools() {
 function showScenes() {
   const list = document.getElementById('scene-list');
   const queued = get('game/queue');
-  const ids = get('game/scenes').split('\n').filter(Boolean);
+  const ids = get('game/scenes').split('\n').filter(Boolean).sort();
   list.innerHTML =
     (queued ? `<button data-scene="">clear the choice (${esc(queued)})</button>` : '') +
     ids.map((id) => `<button data-scene="${esc(id)}"${id === queued ? ' class="sel"' : ''}>${esc(id)}</button>`).join('');
