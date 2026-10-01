@@ -17,15 +17,23 @@ def check(ok: bool, what: str) -> None:
         failures += 1
 
 
-class Boards:
-    """Trunk k wired to station `base + k`: ring reaches the station, the
-    station's off-hook seizes the trunk, and the pilots cross while it is."""
+FAST = Timing(ring=0.5, clear=0.5, seize=0.5, peer=0.5, digit=0.5)
 
-    def __init__(self, stations: list[int], dead_ring: int = 0, noisy: str = "") -> None:
+
+class Boards:
+    """Trunk k wired to the k-th station: ring reaches the station, the
+    station's off-hook seizes the trunk, the pilots cross while it is, and a
+    station's dial/set reaches the trunk as digits, as the controller would
+    report them (control.md §7.3, §8.2)."""
+
+    def __init__(self, stations: list[int], dead_ring: int = 0, noisy: str = "",
+                 quick_release: bool = False, misdial: int = 0) -> None:
         self.state: dict[str, str] = {}
         self.stations = stations
         self.dead_ring = dead_ring          # this station never detects ring
         self.noisy = noisy                  # this circuit goes off-hook by itself
+        self.quick_release = quick_release  # a trunk that drops its seizure on a pulse
+        self.misdial = misdial              # this station's trunk miscounts a 7 as 8
         self.test: BoardTest | None = None
 
     def set(self, key: str, value: str) -> None:
@@ -34,7 +42,7 @@ class Boards:
         self.state[key] = value
 
     async def publish(self, key: str, value: str) -> None:
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0.001)
         kind, n, what, _ = key.split("/")
         n = int(n)
         if kind == "trunk" and what == "ring":
@@ -50,12 +58,27 @@ class Boards:
             self.set(f"trunk/{k}/seize", value)
             self.set(f"trunk/{k}/peer", f"station/{n}" if value == "on" else "")
             self.set(f"station/{n}/peer", f"trunk/{k}" if value == "on" else "")
+        if kind == "station" and what == "dial":
+            asyncio.create_task(self.dial(n, value))
+
+    async def dial(self, n: int, digits: str) -> None:
+        k = self.stations.index(n) + 1
+        for i, d in enumerate(digits):
+            self.set(f"station/{n}/dial", digits[i:])
+            await asyncio.sleep(0.01)
+            if self.quick_release and i == 0:
+                self.set(f"trunk/{k}/seize", "off")
+                self.set(f"trunk/{k}/seize", "on")
+            if n == self.misdial and d == "7":
+                d = "8"
+            if self.test:
+                self.test.note(f"trunk/{k}/digit", d)
+        self.set(f"station/{n}/dial", "")
 
 
 async def run(boards: Boards, audio: bool = True):
     lines: list[str] = []
-    t = BoardTest(boards.state, boards.publish, boards.stations, audio,
-                  Timing(ring=0.5, clear=0.5, seize=0.5, peer=0.5), out=lines.append)
+    t = BoardTest(boards.state, boards.publish, boards.stations, audio, FAST, out=lines.append)
     boards.test = t
     r = await t.run()
     return r, lines
@@ -68,6 +91,20 @@ async def main() -> int:
     check(sum(1 for l in lines if l.lstrip().startswith("pair ")) == 8, "eight pairs, one at a time")
     check(any("station/1 detects ring" in l for l in lines), "reports ring detection")
     check(any("trunk/8 hears station/8" in l for l in lines), "reports the pilots crossing")
+
+    check(sum(1 for l in lines if "5 dial" in l and "decodes" in l) == 80,
+          "every pair dials all ten digits, each decoded")
+    check(sum(1 for l in lines if "held the seizure" in l) == 8, "and holds its seizure throughout")
+
+    print("\n== a trunk that releases on a dial pulse")
+    r, _ = await run(Boards(list(range(1, 9)), quick_release=True))
+    check(any("released its seizure during dialling" in f for f in r.failed),
+          "fails the seizure check")
+
+    print("\n== a trunk that miscounts a digit")
+    r, _ = await run(Boards(list(range(1, 9)), misdial=4))
+    check(r.failed == ["5 dial: station/4 dials 7, trunk/4 reports 8"],
+          f"names the digit and what was decoded: {r.failed}")
 
     print("\n== board c: six stations, 17-22")
     r, lines = await run(Boards(list(range(17, 23))))

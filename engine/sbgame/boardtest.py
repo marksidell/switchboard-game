@@ -3,8 +3,9 @@
 With the switchboard out of the way, trunk n is cabled to the n-th station of
 one station board, and each pair is put through what the switchboard would
 otherwise do: the trunk rings the station, the station goes off-hook and the
-trunk sees the seizure, the two hear each other's pilot, and on-hook undoes
-it. One pair at a time, and every other channel is checked to stay idle
+trunk sees the seizure, the two hear each other's pilot, the station dials
+every digit — the controller timing the pulses, control.md §7.3 — and the
+trunk decodes them without losing the seizure, and on-hook undoes it. One pair at a time, and every other channel is checked to stay idle
 throughout.
 
     sbgame-boardtest --stations a          board a, stations 1-8, on trunks 1-8
@@ -41,6 +42,9 @@ class Timing:
     clear: float = 8.0     # ring to clear once stopped
     seize: float = 5.0     # off-hook to the trunk's seizure, and back
     peer: float = 8.0      # the pilot detector to see the change
+    # Each digit to be decoded: up to ten pulses at 100ms, the 700ms return
+    # before it, and the 200ms end-of-digit wait after (control.md §7.3, §8.2).
+    digit: float = 3.0
 
 
 @dataclass
@@ -64,6 +68,7 @@ class BoardTest:
         self.out = out
         self.r = Result()
         self.changes: list[tuple[str, str]] = []      # every state change, for the others
+        self.digits: list[tuple[str, str]] = []       # (trunk, digit), every one reported
 
     # ---- state -----------------------------------------------------------
 
@@ -72,6 +77,9 @@ class BoardTest:
 
     def note(self, key: str, value: str) -> None:
         """Called for every message: keep a record of what changed."""
+        if key.endswith("/digit"):              # an event: the same digit twice is two
+            self.digits.append((key.rsplit("/", 1)[0], value))
+            return
         if self.s.get(key, "") != value:
             self.changes.append((key, value))
 
@@ -132,6 +140,33 @@ class BoardTest:
                     + [f"{c} changed" for c in moved if c not in now]))
         self.check(not now and not moved, step, what)
 
+    # ---- dialling -----------------------------------------------------------
+
+    async def dial(self, trunk: str, station: str) -> None:
+        """The station dials 1 to 0 in one command, the controller timing the
+        pulses and the pauses (control.md §7.3); each digit is checked as the
+        trunk decodes it, and the trunk must hold its seizure throughout."""
+        pair = (trunk, station)
+        mark, seen = len(self.changes), len(self.digits)
+        await self.pub(f"{station}/dial/set", "1234567890")
+        for d in "1234567890":
+            await self.wait(lambda: any(t == trunk for t, _ in self.digits[seen:]), self.t.digit)
+            got = [v for t, v in self.digits[seen:] if t == trunk][:1]
+            seen += next((i + 1 for i, (t, _) in enumerate(self.digits[seen:]) if t == trunk), 0)
+            fault = self.get(f"{trunk}/fault")
+            self.check(got == [d], "5 dial",
+                       f"{station} dials {d}, {trunk} decodes {d}" if got == [d]
+                       else f"{station} dials {d}, {trunk} reports "
+                            + (", ".join(got) if got else "nothing")
+                            + (f" (fault {fault})" if fault else ""))
+        done = await self.wait(lambda: not self.get(f"{station}/dial"), self.t.digit)
+        self.check(done is not None, "5 dial", f"{station} finished dialling")
+        released = any(k == f"{trunk}/seize" and v != "on" for k, v in self.changes[mark:])
+        self.check(not released and self.get(f"{trunk}/seize") == "on", "5 dial",
+                   f"{trunk} held the seizure through every pulse" if not released
+                   else f"{trunk} released its seizure during dialling")
+        self.others_idle(pair, "5 dial", mark)
+
     # ---- the sequence ------------------------------------------------------
 
     async def run(self) -> Result:
@@ -150,7 +185,7 @@ class BoardTest:
                 await self.pair(trunk, station)
             finally:
                 await self.pub(f"{trunk}/ring/set", "off")
-                await self.pub(f"{station}/hook/set", "off")
+                await self.pub(f"{station}/hook/set", "off")   # also ends a dial
         return self.r
 
     async def pair(self, trunk: str, station: str) -> None:
@@ -190,20 +225,25 @@ class BoardTest:
                        f"{station} hears {self.get(f'{station}/peer') or 'only itself'}")
         self.others_idle(pair, "4 pilots" if self.audio else "3 offhook", mark)
 
-        # 5 on-hook: the seizure releases and they no longer hear each other.
+        # 5 dial: every digit from the station, decoded by the trunk, which
+        # must hold the seizure through every break.
+        if self.get(f"{trunk}/seize") == "on":
+            await self.dial(trunk, station)
+
+        # 6 on-hook: the seizure releases and they no longer hear each other.
         mark = len(self.changes)
         await self.pub(f"{station}/hook/set", "off")
         took = await self.wait(lambda: self.get(f"{trunk}/seize") != "on", self.t.seize)
-        self.check(took is not None, "5 onhook",
+        self.check(took is not None, "6 onhook",
                    f"{trunk} detects the release" + (f" after {took:.1f}s" if took is not None else ""))
         if self.audio:
             took = await self.wait(lambda: not self.get(f"{trunk}/peer")
                                    and not self.get(f"{station}/peer"), self.t.peer)
-            self.check(took is not None, "5 onhook",
+            self.check(took is not None, "6 onhook",
                        f"{trunk} and {station} no longer hear each other" if took is not None else
                        f"{trunk} hears {self.get(f'{trunk}/peer') or 'only itself'}, "
                        f"{station} hears {self.get(f'{station}/peer') or 'only itself'}")
-        self.others_idle(pair, "5 onhook", mark)
+        self.others_idle(pair, "6 onhook", mark)
 
 
 # ---- the broker ---------------------------------------------------------------

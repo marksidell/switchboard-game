@@ -2,9 +2,9 @@
  * 551 Switchboard Simulator - ESP32 controller firmware
  *
  * Target : Olimex ESP32-POE-ISO   (arduino-cli FQBN esp32:esp32:esp32-poe-iso)
- * Implements control.md Rev 9, the specification for everything in this folder,
- * and Rev 11's removal of the arming gate. Rev 10's channel-table change
- * (control.md 1.10) is not yet made.
+ * Implements control.md through the revision in FIRMWARE_SPEC_REV (sb_config.h),
+ * the specification for everything in this folder; the running board says
+ * which on ctl/firmware and in its banner (control.md 9.1).
  * The firmware has three jobs: ring waveform generation, I2C master to the
  * station and trunk MCP23017 expanders, and MQTT client to the host - and with
  * them the relay failsafes of control.md 10 and dial pulse detection on the
@@ -509,6 +509,8 @@ static void printBanner() {
                   expanderAnyPresent() ? ""
                                        : " and /RESET on the slow knock (nothing answers)",
                   (unsigned)i2c_retries);
+  Serial.printf("  firmware     control.md Rev %u, %s, built %s\n",
+                FIRMWARE_SPEC_REV, FIRMWARE_COMMIT, FIRMWARE_BUILT);
   Serial.printf("  mqtt         %s, broker %s:%u\n",
                 netConnected() ? "connected" : "down",
                 MQTT_BROKER_HOST, (unsigned)MQTT_PORT);

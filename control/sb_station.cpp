@@ -20,7 +20,17 @@ struct StationState {
 
   int8_t   ring_pub;        // last published: -1 never, 0 off, 1 on
   int8_t   hook_pub;
+
+  // Dialling (control.md 7.3): the digits, the one being sent, and where in it.
+  char     dial[DIAL_MAX_DIGITS + 1];
+  uint8_t  dial_len;
+  uint8_t  dial_pos;        // digits finished
+  uint8_t  pulses_left;     // in the digit being sent
+  uint8_t  dial_phase;      // DIAL_IDLE, DIAL_OPEN, DIAL_CLOSED or DIAL_GAP
+  uint32_t dial_until;
 };
+
+enum : uint8_t { DIAL_IDLE = 0, DIAL_OPEN, DIAL_CLOSED, DIAL_GAP };
 
 static StationState st[N_STATIONS];
 
@@ -44,12 +54,65 @@ static void publishIfChanged(const CircuitMap& c, const char* leaf,
   netPublishState(c, leaf, value ? "on" : "off");
 }
 
+/* The digits still to finish, the echo on `dial`. */
+static void publishDial(const CircuitMap& c, const StationState& s) {
+  netPublishState(c, "dial", s.dial_phase == DIAL_IDLE ? "" : s.dial + s.dial_pos);
+}
+
+static void stopDial(const CircuitMap& c, StationState& s, bool publish) {
+  if (s.dial_phase == DIAL_IDLE) return;
+  s.dial_phase = DIAL_IDLE;
+  if (publish) publishDial(c, s);
+}
+
+/* Begin the next digit: its first break. */
+static void startDigit(const CircuitMap& c, StationState& s, uint32_t now_ms) {
+  const char d   = s.dial[s.dial_pos];
+  s.pulses_left  = d == '0' ? 10 : (uint8_t)(d - '0');
+  s.dial_phase   = DIAL_OPEN;
+  s.dial_until   = now_ms + DIAL_BREAK_MS;
+  circuitSetRelay(c, false);                // loop open: a break
+}
+
+/* One step of the dial when its interval is up. Each interval runs from now,
+ * not from the last deadline, so a late poll stretches it rather than making
+ * the next one short: a break or make is never shorter than its figure. */
+static void dialStep(const CircuitMap& c, StationState& s, uint32_t now_ms) {
+  if (s.dial_phase == DIAL_IDLE || (int32_t)(now_ms - s.dial_until) < 0) return;
+  switch (s.dial_phase) {
+    case DIAL_OPEN:                         // end of a break: close the loop
+      circuitSetRelay(c, true);
+      if (--s.pulses_left > 0) {
+        s.dial_phase = DIAL_CLOSED;
+        s.dial_until = now_ms + DIAL_MAKE_MS;
+      } else if (++s.dial_pos < s.dial_len) {
+        s.dial_phase = DIAL_GAP;            // the digit is done; the dial returns
+        s.dial_until = now_ms + DIAL_INTERDIGIT_MS;
+        publishDial(c, s);
+      } else {
+        s.dial_phase = DIAL_IDLE;           // the last digit is done
+        publishDial(c, s);
+      }
+      break;
+    case DIAL_CLOSED:                       // end of a make: the next break
+      circuitSetRelay(c, false);
+      s.dial_phase = DIAL_OPEN;
+      s.dial_until = now_ms + DIAL_BREAK_MS;
+      break;
+    case DIAL_GAP:
+      startDigit(c, s, now_ms);
+      break;
+  }
+}
+
 void stationPoll(uint32_t now_ms) {
   for (uint8_t i = 0; i < N_STATIONS; ++i) {
     const CircuitMap& c = circuits[i];
     StationState&     s = st[i];
 
     if (!circuitLive(c)) continue;
+
+    dialStep(c, s, now_ms);
 
     const bool raw = circuitInput(c);       // IPOL has made 1 = ring present
 
@@ -88,14 +151,48 @@ void stationSetHook(uint8_t n, bool on) {
     return;
   }
   StationState& s = st[n - 1];
+  stopDial(*c, s, true);                   // a hook command ends any dialling (7.3)
   s.hook = on;
   circuitSetRelay(*c, on);                 // 1 = off-hook, loop closed through R3
   publishIfChanged(*c, "hook", s.hook, s.hook_pub);
 }
 
+void stationDial(uint8_t n, const char* digits) {
+  const CircuitMap* c = stationCircuit(n);
+  if (!c) { Serial.printf("dial/set: station %u out of range\n", (unsigned)n); return; }
+  if (!circuitLive(*c)) {
+    Serial.printf("dial/set: station %u dropped - expander 0x%02X absent\n",
+                  (unsigned)n, expanders[c->exp].addr);
+    return;
+  }
+  StationState& s = st[n - 1];
+  const size_t len = strlen(digits);
+  if (len == 0) {                          // stop
+    stopDial(*c, s, true);
+    if (s.hook) circuitSetRelay(*c, true); // and leave the loop closed
+    return;
+  }
+  if (len > DIAL_MAX_DIGITS || strspn(digits, "0123456789") != len) {
+    Serial.printf("dial/set: station %u payload \"%s\" is not 1-%u digits - dropped\n",
+                  (unsigned)n, digits, (unsigned)DIAL_MAX_DIGITS);
+    return;
+  }
+  if (!s.hook) {
+    Serial.printf("dial/set: station %u is on-hook - no loop to dial on, dropped\n",
+                  (unsigned)n);
+    return;
+  }
+  memcpy(s.dial, digits, len + 1);
+  s.dial_len = (uint8_t)len;
+  s.dial_pos = 0;
+  startDigit(*c, s, millis());
+  publishDial(*c, s);
+}
+
 void stationReleaseAll() {
   for (uint8_t i = 0; i < N_STATIONS; ++i) {
     st[i].hook = false;
+    st[i].dial_phase = DIAL_IDLE;          // 7.3: a release ends dialling
     circuitSetRelay(circuits[i], false);
   }
 }
@@ -109,4 +206,5 @@ void stationPublishOne(uint8_t i) {
   s.hook_pub = s.hook ? 1 : 0;
   netPublishState(c, "ring", s.ring ? "on" : "off");
   netPublishState(c, "hook", s.hook ? "on" : "off");
+  publishDial(c, s);
 }

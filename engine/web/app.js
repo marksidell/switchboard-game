@@ -411,10 +411,17 @@ function renderCalls() {
 function renderHealth() {
   const age = (t) => (t ? `${((Date.now() - t) / 1000).toFixed(1)}s` : '—');
   const src = get('audio/monitor/source');
+  const f = get('ctl/firmware').split(', ');
+  const fw = f.length >= 3 ? [`${f[0].replace('control.md ', '')} ${f[1]}`, f[2].replace('built ', '')]
+                           : [get('ctl/firmware'), ''];
   const rows = [
     ['controller', get('ctl/status') || '—', espStale()],
     ['esp beat', age(lastEspBeat), espStale()],
     ['i2c', get('ctl/i2c') || '—', espStale()],
+    // §7.1, Rev 27: "control.md Rev 18, 4118077, built 2026-10-01 21:14Z",
+    // shown as two rows to fit the column.
+    ['firmware', fw[0] || '—', espStale()],
+    ['built', fw[1] || '—', espStale()],
     ['audio', get('ctl/audio_status') || '—', audioStale()],
     ['optone', get('audio/optone') || '—', audioStale()],
     ['monitor', get('audio/monitor') || '—', audioStale()],

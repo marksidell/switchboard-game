@@ -23,11 +23,17 @@ void stationPoll(uint32_t now_ms);
  * (control.md 9.4). */
 void stationSetHook(uint8_t n, bool on);
 
+/* From sbgame/station/<n>/dial/set (control.md 7.3, Rev 17): pulse the
+ * off-hook relay for each digit, timed in stationPoll(), and echo the digits
+ * still to finish on `dial`. Dropped unless the station is off-hook; an empty
+ * payload stops dialling. */
+void stationDial(uint8_t n, const char* digits);
+
 /* Failsafe (control.md 10): drop every off-hook relay. Does not publish - the
  * caller decides whether the host is still listening. */
 void stationReleaseAll();
 
-/* Republish `ring` and `hook` for station row i (0-22, station i+1), ignoring
+/* Republish `ring`, `hook` and `dial` for station row i (0-22, station i+1), ignoring
  * change detection; nothing if its expander is absent. Two QoS 1 publishes,
  * each blocking until its PUBACK, so it is called for one circuit per poll tick
  * by the spread republish in control.ino and never in a loop over every station

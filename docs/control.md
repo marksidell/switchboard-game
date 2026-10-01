@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 16 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
+*Rev 18 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
 
 # 1. Overview
 
@@ -113,6 +113,22 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 — Firmware updates over the network (§2.1), so that the installed board can be reflashed without a USB cable. A cable left attached would join portland's ground to the system's 24V ground, which PoE's isolation keeps apart, and anything that opened the port would reset the board; Mark weighed powering the Olimex from USB and chose to stay on PoE (with a TL-SG105PE PoE switch in place of a separate injector) and update over the network instead. The generator §3.4 recommendation to prefer OTA in the installed system is now something the firmware can do.
 
 — Firmware consequence, for Claude Code, made in the same commit: ArduinoOTA started once Ethernet has an address, with the hostname `sbgame-esp32` and a SHA-256 password hash from `secrets.h` (`OTA_PASSWORD_SHA256`; without it the firmware builds with OTA off). The start callback stops the waveform and releases every relay before anything is written to flash; an error after that point restarts the board. §10 gains the row.
+
+## 1.18 Changes in Rev 18
+
+— The firmware says which it is (§9.1), Mark's request, 2026-10-01. On every connection it publishes `sbgame/ctl/firmware`, retained: the revision of this document it implements, the git commit it was built from — with `-dirty` if `control/` had uncommitted changes — and when it was built, as one string, `"control.md Rev 18, 4118077-dirty, built 2026-10-01 21:14Z"`. The banner shows the same. A retained topic rather than the heartbeat's payload: the revision is a state, read once by whoever subscribes, and the heartbeat is an event whose arrival is all anyone reads.
+
+— The revision is a constant in the source, `FIRMWARE_SPEC_REV`, raised with this document whenever a revision has a firmware consequence. The commit and the date are stamped at build time by `control/compile`, which writes `control/sb_version.h` — not committed — and then runs `arduino-cli compile` with whatever it was given. A build without it reports the commit as `unknown`.
+
+— Firmware consequence, for Claude Code, made the same day: the constant, the stamp, the publish and the banner line. The header's "Implements control.md Rev 9" was stale: Rev 10's channel table was made in `930f208`, and the firmware is current to Rev 17 before this one.
+
+## 1.17 Changes in Rev 17
+
+— A station can dial (§7.3), Mark's request, 2026-10-01, for testing the trunk board's dial pulse detection without a switchboard: `sbgame/station/<n>/dial/set` with digits pulses that station's off-hook relay at standard dial timing, 61ms break and 39ms make, with 700ms closed between digits, and echoes the digits still to send on `sbgame/station/<n>/dial`. The firmware does the timing because its 5ms loop sits next to the relay: timed from the host, every edge crosses the network and the broker, and the pulses carry their jitter into the classifier the test is meant to check. Only `sbgame-boardtest` uses it; the game does not, since in the game the operator dials and the stations never do.
+
+— §9.2's republish is 90 messages, where it was 68: each station's tick now carries `dial` as well as `ring` and `hook`, three round trips where it was two.
+
+— Firmware consequence, for Claude Code, made the same day: the station module's dial sequencer, the subscription, and the echo.
 
 ## 1.16 Changes in Rev 16
 
@@ -275,6 +291,12 @@ On `sbgame/station/<n>/hook/set`, write OFFHOOK_n on Port B — 1 is off-hook, r
 
 Release every OFFHOOK_n on any of the conditions in §10.
 
+## 7.3 Dialling
+
+Rev 17. On `sbgame/station/<n>/dial/set` with a payload of digits, `0`–`9`, at most 16, the station dials them by pulsing OFFHOOK_n as a rotary dial does (§8.2): N breaks for digit N, ten for 0, each **61ms open** then **39ms closed** — 10 pulses a second at 61% break, the nominal Bell figures — and **700ms closed** between digits, as a dial's return. Only while the station is off-hook: a `dial/set` on an on-hook station is logged and dropped, since there is no loop to break. A new `dial/set` replaces any dialling in progress; an empty payload stops it. `hook/set` `"off"` stops it and puts the station on-hook; every condition in §10 that releases the relay stops it too.
+
+The echo is `sbgame/station/<n>/dial`, retained: the digits not yet finished, including the one being sent, and empty when there are none — set at the command, shortened as each digit's last pulse ends, empty at the end or when stopped. `hook` is not republished during the pulses: the station is off-hook throughout, and the breaks are the dial's, not the hook's. The timing is on the 5ms poll tick, so each interval is good to one tick; the §8.2 thresholds have 35ms in hand either side of both.
+
 # 8. Trunk Circuits
 
 ## 8.1 The Seizure Input
@@ -392,11 +414,13 @@ The client library is MQTT 2.5.3 by Joël Gähwiler (256dpi/arduino-mqtt), chose
 
 Use a username and password; the broker is not anonymous (`mqtt.md` §9).
 
+With the birth message, publish `sbgame/ctl/firmware`, retained: `"control.md Rev <n>, <commit>, built <date>"` (Rev 18). `<n>` is `FIRMWARE_SPEC_REV`, the revision of this document the source implements; `<commit>` is the short commit hash at build time, with `-dirty` if `control/` had uncommitted changes, and `<date>` the build's UTC time, both stamped by `control/compile`, or `unknown` without it.
+
 ## 9.2 Publishing
 
 State topics are published retained, QoS 1, on change only, from the 200Hz loop. The one event topic, `trunk/<n>/digit`, is published unretained at QoS 0 (§8.2). Commands are never published by the ESP32. On `ctl/sync`, republish every state topic. Also republish every state topic on a slow timer — every 30s — which bounds how long a lost publish can leave a retained value stale at the broker; the game program reacts to changes in value, so a repeated value is harmless.
 
-A full republish is 68 messages, and with this client a QoS 1 publish blocks until its PUBACK arrives. Sent as one burst it holds the 200Hz loop for on the order of 100–300ms on a LAN, which is longer than the station ring-release quiet time (§7.1) and longer than a dial pulse (§8.2): a ringing station would report `off`/`on` every 30s and a digit under way would be spoiled or split. So the republish — on reconnect, on `ctl/sync` and on the timer alike — is spread one circuit per 5ms poll tick, round-robin over the 30 circuits, so each tick pays one round trip and the whole set is refreshed in about 150ms (Rev 7; 31 circuits and 155ms until Rev 10). The first firmware sent it as a burst; the fix is a code consequence of Rev 7.
+A full republish is 90 messages — 68 until Rev 17 added each station's `dial` — and with this client a QoS 1 publish blocks until its PUBACK arrives. Sent as one burst it holds the 200Hz loop for on the order of 100–300ms on a LAN, which is longer than the station ring-release quiet time (§7.1) and longer than a dial pulse (§8.2): a ringing station would report `off`/`on` every 30s and a digit under way would be spoiled or split. So the republish — on reconnect, on `ctl/sync` and on the timer alike — is spread one circuit per 5ms poll tick, round-robin over the 30 circuits, so each tick pays one round trip and the whole set is refreshed in about 150ms (Rev 7; 31 circuits and 155ms until Rev 10). The first firmware sent it as a burst; the fix is a code consequence of Rev 7.
 
 ## 9.3 Heartbeats
 
@@ -406,7 +430,7 @@ Watch `sbgame/ctl/game_heartbeat`. If two consecutive beats are missed — no me
 
 ## 9.4 Commands
 
-`hook/set` and `ring/set` are acted on immediately and echoed on the state topic. The payload must be exactly `"on"` or `"off"`; anything else is logged and dropped, not read as `"off"` (Rev 7 — the first firmware released the relay on any payload that was not `"on"`, so a malformed command was a silent release). A command received while the game heartbeat is missing is still acted on — the heartbeat's return is the recovery signal, and the command is evidence of it. A command for a circuit whose expander was absent at the scan is logged, with the address it was dropped for, and dropped. This holds whether or not the game program has read ctl/i2c: a game program that consults it and does not send is cleaner, but the firmware does not depend on it.
+`hook/set`, `ring/set` and `dial/set` (Rev 17) are acted on immediately and echoed on the state topic. The payload must be exactly `"on"` or `"off"`; anything else is logged and dropped, not read as `"off"` (Rev 7 — the first firmware released the relay on any payload that was not `"on"`, so a malformed command was a silent release). A command received while the game heartbeat is missing is still acted on — the heartbeat's return is the recovery signal, and the command is evidence of it. A command for a circuit whose expander was absent at the scan is logged, with the address it was dropped for, and dropped. This holds whether or not the game program has read ctl/i2c: a game program that consults it and does not send is cleaner, but the firmware does not depend on it.
 
 # 10. Failsafe Summary
 

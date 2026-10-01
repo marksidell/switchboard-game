@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 26 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built*
+*Rev 27 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built*
 
 # 1. Overview
 
@@ -175,6 +175,10 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 — The page's countdown says "waiting" while a game runs in automatic pacing and no next call is scheduled — `next_at` empty, because in auto the latest call is not yet connected or ended, and in listen the board is not yet empty (§4.2) — and "–" when no game runs (§7.1), Mark's request, 2026-09-28. It said "–" in both. The deck's Next key already said "waiting" in that case; §7.4 now says so too. It is on the countdown rather than on the Next Call button because the button is hidden with the controls and the countdown is not.
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
+
+## 1.27 Changes in Rev 27
+
+— The health column shows the controller's firmware, `ctl/firmware` (§7.1, mqtt.md Rev 25), 2026-10-01, so a stale build on the board is seen at a glance. Display only.
 
 ## 1.26 Changes in Rev 26
 
@@ -571,7 +575,7 @@ A station jack with a label and no circuit — listed in `jacks:` with no `stati
 
 **Calls.** One row per occupied slot: call number, scene, from → to, trunk, stage, time in stage, time to deadline. From and to are script.yml's line names. The trunk is shown by its jack number.
 
-**Health and log.** Controller: `status`, seconds since the last `esp_heartbeat`, `i2c`. Audio: `audio_status`, `optone`, `monitor`, and the monitor's `source` — `tap`, or the jack label of the circuit it names, from the board map (Rev 6). Game: `game_status`, seconds since the last `game_heartbeat`. Then the log, in a monospaced column, and the last `game/error` as a line that clears on the next accepted command.
+**Health and log.** Controller: `status`, seconds since the last `esp_heartbeat`, `i2c`, and `firmware` (Rev 27). Audio: `audio_status`, `optone`, `monitor`, and the monitor's `source` — `tap`, or the jack label of the circuit it names, from the board map (Rev 6). Game: `game_status`, seconds since the last `game_heartbeat`. Then the log, in a monospaced column, and the last `game/error` as a line that clears on the next accepted command.
 
 ## 7.2 Behaviour
 

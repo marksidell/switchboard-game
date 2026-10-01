@@ -106,9 +106,10 @@ static bool parseOnOff(const char* topic, const char* p, bool& on) {
   return false;
 }
 
-/* mqtt.md 6 is the whole of the inbound surface: two per-circuit commands and
- * two ctl topics. Parsed rather than dispatched through a table because there
- * are only two shapes and the circuit number has to come out of the middle. */
+/* mqtt.md 6 is the whole of the inbound surface: three per-circuit commands -
+ * hook/set and dial/set (control.md 7.3, Rev 17) on a station, ring/set on a
+ * trunk - and two ctl topics. Parsed rather than dispatched through a table
+ * because the circuit number has to come out of the middle. */
 static void onMessage(String& topic, String& payload) {
   const char* t = topic.c_str();
   const char* p = payload.c_str();
@@ -120,6 +121,11 @@ static void onMessage(String& topic, String& payload) {
   if (sscanf(t, "sbgame/station/%u/%23s", &n, leaf) == 2 &&
       strcmp(leaf, "hook/set") == 0) {
     if (parseOnOff(t, p, on)) stationSetHook((uint8_t)n, on);
+    return;
+  }
+  if (sscanf(t, "sbgame/station/%u/%23s", &n, leaf) == 2 &&
+      strcmp(leaf, "dial/set") == 0) {
+    stationDial((uint8_t)n, p);             // control.md 7.3, Rev 17
     return;
   }
   if (sscanf(t, "sbgame/trunk/%u/%23s", &n, leaf) == 2 &&
@@ -168,9 +174,16 @@ void netInit() {
  * all of it. The state publish is left to the caller, which owns the circuits. */
 static void onConnected() {
   netPublishCtl("status", "online", /*retained=*/true, /*qos=*/1);
+  // control.md 9.1, Rev 18: which firmware this is, with the birth message.
+  char fw[96];
+  snprintf(fw, sizeof fw, "control.md Rev %u, %s, built %s",
+           FIRMWARE_SPEC_REV, FIRMWARE_COMMIT, FIRMWARE_BUILT);
+  netPublishCtl("firmware", fw, /*retained=*/true, /*qos=*/1);
 
   char topic[64];
   snprintf(topic, sizeof topic, "%sstation/+/hook/set", TOPIC_PREFIX);
+  mqtt.subscribe(topic, 1);
+  snprintf(topic, sizeof topic, "%sstation/+/dial/set", TOPIC_PREFIX);
   mqtt.subscribe(topic, 1);
   snprintf(topic, sizeof topic, "%strunk/+/ring/set", TOPIC_PREFIX);
   mqtt.subscribe(topic, 1);

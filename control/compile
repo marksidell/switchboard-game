@@ -1,0 +1,23 @@
+#!/bin/sh
+# Stamp the firmware with the commit it is built from and when, then compile it
+# (control.md 9.1, Rev 18). Any arguments go to arduino-cli compile, e.g.
+#
+#   control/compile                                  # a plain build
+#   control/compile --output-dir control/build       # for a network update
+#
+# The stamp is control/sb_version.h, not committed. "-dirty" means control/ had
+# uncommitted changes; changes elsewhere in the repository do not count.
+set -eu
+here=$(cd "$(dirname "$0")" && pwd)
+commit=$(git -C "$here" rev-parse --short HEAD 2>/dev/null || echo unknown)
+if [ "$commit" != unknown ] && [ -n "$(git -C "$here" status --porcelain -- . 2>/dev/null)" ]; then
+    commit="$commit-dirty"
+fi
+built=$(date -u '+%Y-%m-%d %H:%MZ')
+cat > "$here/sb_version.h" <<H
+// Written by control/compile; not committed (control.md 9.1).
+#define FIRMWARE_COMMIT "$commit"
+#define FIRMWARE_BUILT  "$built"
+H
+echo "firmware: $commit, built $built"
+exec arduino-cli compile --warnings all --fqbn esp32:esp32:esp32-poe-iso "$@" "$here"

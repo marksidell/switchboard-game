@@ -85,8 +85,10 @@ engine/.venv/bin/sbgame-boardtest --stations c --no-audio
 
 One pair at a time it rings the station from the trunk, takes the station
 off-hook and looks for the trunk's seizure, checks the two hear each other's
-pilot, and puts it back on-hook; every other channel must stay idle
-throughout. Board c has six stations, since its strips 7 and 8 are the tap and
+pilot, has the station dial 1 to 0 and checks the trunk decodes every digit
+without losing the seizure, and puts it back on-hook; every other channel must
+stay idle throughout. The controller times the dial pulses (control.md §7.3,
+Rev 17), so it needs firmware with `dial/set`. Board c has six stations, since its strips 7 and 8 are the tap and
 the monitor. It needs the controller and the audio program online
 (`--no-audio` needs only the controller) and no game running, and sends the
 game program's heartbeat itself if the game program is not there, since the

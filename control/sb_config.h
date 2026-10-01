@@ -11,6 +11,19 @@
 
 #include <Arduino.h>
 
+/* ---- Which firmware this is (control.md 9.1, Rev 18) ---------------------
+ * The revision of control.md this source implements: raise it with that
+ * document whenever a revision has a firmware consequence. The commit and the
+ * build time come from sb_version.h, which control/compile writes before it
+ * compiles; a build without it says "unknown". Published on ctl/firmware. */
+static constexpr unsigned FIRMWARE_SPEC_REV = 18;
+#if __has_include("sb_version.h")
+#include "sb_version.h"
+#else
+#define FIRMWARE_COMMIT "unknown"
+#define FIRMWARE_BUILT  __DATE__ " " __TIME__
+#endif
+
 /* ---- Build configuration -------------------------------------------------
  * control.md 4.2 step 5: the scan list is driven from the configured station
  * board count, not hard-coded to 0x20-0x23. A scan that always looks for four
@@ -53,6 +66,12 @@ static constexpr uint32_t POLL_PERIOD_MS = 5;
 static constexpr uint8_t  RING_TRANSITIONS_TO_DECLARE = 4;    // within the window
 static constexpr uint32_t RING_DECLARE_WINDOW_MS      = 150;
 static constexpr uint32_t RING_RELEASE_QUIET_MS       = 100;   // no transition
+// control.md 7.3 (Rev 17): a station dialling, for the board test. The nominal
+// Bell figures, 10pps at 61% break, and a dial's return between digits.
+static constexpr uint32_t DIAL_BREAK_MS               = 61;
+static constexpr uint32_t DIAL_MAKE_MS                = 39;
+static constexpr uint32_t DIAL_INTERDIGIT_MS          = 700;
+static constexpr uint8_t  DIAL_MAX_DIGITS             = 16;
 
 /* ---- Trunk seizure classifier (control.md 8.1, 8.2) ----------------------
  * The thresholds are the table in 8.2 and must be read against it. A break of
