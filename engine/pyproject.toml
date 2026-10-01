@@ -26,6 +26,8 @@ sbgame = "sbgame.main:main"
 sbgame-sim = "sbgame.simulate:main"
 # The Stream Deck+ that carries the game's controls (game_control.md 7.4).
 sbgame-streamdeck = "sbgame.streamdeck:main"
+# Trunk and station boards wired straight together, tested pair by pair.
+sbgame-boardtest = "sbgame.boardtest:main"
 
 [tool.setuptools]
 packages = ["sbgame"]

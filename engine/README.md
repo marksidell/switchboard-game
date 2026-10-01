@@ -73,6 +73,26 @@ engine/.venv/bin/sbgame-streamdeck --fake /tmp/deck \
 
 As `sbgame-web` it has the same rights it will have as `sbgame-deck`.
 
+## Testing the boards without the switchboard
+
+Cable the trunk board straight to one station board, trunk n to its n-th
+station, and:
+
+```sh
+engine/.venv/bin/sbgame-boardtest --stations a      # a = 1-8, b = 9-16, c = 17-22
+engine/.venv/bin/sbgame-boardtest --stations c --no-audio
+```
+
+One pair at a time it rings the station from the trunk, takes the station
+off-hook and looks for the trunk's seizure, checks the two hear each other's
+pilot, and puts it back on-hook; every other channel must stay idle
+throughout. Board c has six stations, since its strips 7 and 8 are the tap and
+the monitor. It needs the controller and the audio program online
+(`--no-audio` needs only the controller) and no game running, and sends the
+game program's heartbeat itself if the game program is not there, since the
+controller releases every relay without one. `tests/test_boardtest.py` runs it
+against simulated boards.
+
 ## Without the boards
 
 The PCBs have not arrived. With no controller and no audio program the game
