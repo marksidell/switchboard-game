@@ -51,6 +51,15 @@ class Timing:
 class Result:
     passed: int = 0
     failed: list[str] = field(default_factory=list)
+    stopped: list[str] = field(default_factory=list)   # pairs not finished, and why
+
+
+class Stop(Exception):
+    """A check the rest of the pair depends on has failed."""
+
+
+def _print(line: str) -> None:
+    print(line, flush=True)            # progress shows as it happens, piped or not
 
 
 class BoardTest:
@@ -59,7 +68,7 @@ class BoardTest:
 
     def __init__(self, state: dict[str, str], publish: Callable[[str, str], Awaitable[None]],
                  stations: list[int], audio: bool, timing: Timing | None = None,
-                 out: Callable[[str], None] = print) -> None:
+                 out: Callable[[str], None] = _print) -> None:
         self.s = state
         self.pub = publish
         self.stations = stations
@@ -92,6 +101,11 @@ class BoardTest:
             if time.monotonic() - start > timeout:
                 return None
             await asyncio.sleep(0.05)
+
+    def need(self, ok: bool, step: str, what: str) -> None:
+        """A check the rest of the pair depends on: on failure, stop the pair."""
+        if not self.check(ok, step, what):
+            raise Stop(f"{step}: {what}")
 
     def check(self, ok: bool, step: str, what: str) -> bool:
         self.out(f"    {step:<9} {what:<62} {'ok' if ok else 'FAIL'}")
@@ -154,11 +168,13 @@ class BoardTest:
             got = [v for t, v in self.digits[seen:] if t == trunk][:1]
             seen += next((i + 1 for i, (t, _) in enumerate(self.digits[seen:]) if t == trunk), 0)
             fault = self.get(f"{trunk}/fault")
-            self.check(got == [d], "5 dial",
-                       f"{station} dials {d}, {trunk} decodes {d}" if got == [d]
-                       else f"{station} dials {d}, {trunk} reports "
-                            + (", ".join(got) if got else "nothing")
-                            + (f" (fault {fault})" if fault else ""))
+            if not self.check(got == [d], "5 dial",
+                              f"{station} dials {d}, {trunk} decodes {d}" if got == [d]
+                              else f"{station} dials {d}, {trunk} reports "
+                                   + (", ".join(got) if got else "nothing")
+                                   + (f" (fault {fault})" if fault else "")):
+                await self.pub(f"{station}/dial/set", "")       # the rest would only repeat it
+                break
         done = await self.wait(lambda: not self.get(f"{station}/dial"), self.t.digit)
         self.check(done is not None, "5 dial", f"{station} finished dialling")
         released = any(k == f"{trunk}/seize" and v != "on" for k, v in self.changes[mark:])
@@ -174,30 +190,48 @@ class BoardTest:
         self.out(f"trunks 1-{n} to stations {self.stations[0]}-{self.stations[-1]}"
                  + ("" if self.audio else ", pilot tests off"))
         self.out("\n1 idle: every channel")
+        bad: set[str] = set()
         for c in self.circuits():
             f = self.idle_faults(c)
-            self.check(not f, "idle", f"{c} idle" if not f else f"{c}: {', '.join(f)}")
+            if not self.check(not f, "idle", f"{c} idle" if not f else f"{c}: {', '.join(f)}"):
+                bad.add(c)
+        pairs = [(f"trunk/{k}", f"station/{st}") for k, st in enumerate(self.stations, 1)]
+        ready = [p for p in pairs if not (set(p) & bad)]
+        for p in pairs:
+            if p not in ready:
+                self.r.stopped.append(f"{p[0]} <-> {p[1]}: not idle at the start")
+        if not ready:
+            self.out("\nno pair is idle to start from: stopping")
+            return self.r
 
-        for k, st in enumerate(self.stations, 1):
-            trunk, station = f"trunk/{k}", f"station/{st}"
+        for k, (trunk, station) in enumerate(pairs, 1):
+            if (trunk, station) not in ready:
+                self.out(f"\npair {k} of {n}: {trunk} <-> {station} — skipped, not idle at the start")
+                continue
             self.out(f"\npair {k} of {n}: {trunk} <-> {station}")
             try:
                 await self.pair(trunk, station)
+            except Stop as e:
+                self.r.stopped.append(f"{trunk} <-> {station}: stopped at {e}")
+                self.out(f"    stopped: the rest of this pair depends on that")
             finally:
+                await self.pub(f"{station}/dial/set", "")
                 await self.pub(f"{trunk}/ring/set", "off")
-                await self.pub(f"{station}/hook/set", "off")   # also ends a dial
+                await self.pub(f"{station}/hook/set", "off")
         return self.r
 
     async def pair(self, trunk: str, station: str) -> None:
         pair = (trunk, station)
         mark = len(self.changes)
         f = self.idle_faults(trunk) + self.idle_faults(station)
-        self.check(not f, "1 idle", f"{trunk} and {station} idle" if not f else ", ".join(f))
+        self.need(not f, "1 idle", f"{trunk} and {station} idle" if not f else ", ".join(f))
 
         # 2 ring: the trunk rings, the station detects it; then it clears.
         await self.pub(f"{trunk}/ring/set", "on")
         took = await self.wait(lambda: self.get(f"{station}/ring") == "on", self.t.ring)
-        self.check(took is not None, "2 ring",
+        if took is None:
+            await self.pub(f"{trunk}/ring/set", "off")
+        self.need(took is not None, "2 ring",
                    f"{station} detects ring" + (f" after {took:.1f}s" if took is not None else ""))
         await self.pub(f"{trunk}/ring/set", "off")
         clear = await self.wait(lambda: self.get(f"{station}/ring") != "on"
@@ -209,9 +243,9 @@ class BoardTest:
         mark = len(self.changes)
         await self.pub(f"{station}/hook/set", "on")
         took = await self.wait(lambda: self.get(f"{station}/hook") == "on", self.t.seize)
-        self.check(took is not None, "3 offhook", f"{station} relay echoes off-hook")
+        self.need(took is not None, "3 offhook", f"{station} relay echoes off-hook")
         took = await self.wait(lambda: self.get(f"{trunk}/seize") == "on", self.t.seize)
-        self.check(took is not None, "3 offhook",
+        self.need(took is not None, "3 offhook",
                    f"{trunk} detects seize" + (f" after {took:.1f}s" if took is not None else ""))
 
         # 4 the two hear each other's pilot.
@@ -320,6 +354,8 @@ async def main_async(args) -> int:
     print(f"\n{r.passed} passed, {len(r.failed)} failed")
     for f in r.failed:
         print(f"  FAIL {f}")
+    for s in r.stopped:
+        print(f"  NOT FINISHED {s}")
     return 1 if r.failed else 0
 
 

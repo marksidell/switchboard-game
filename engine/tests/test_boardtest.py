@@ -101,6 +101,23 @@ async def main() -> int:
     check(any("released its seizure during dialling" in f for f in r.failed),
           "fails the seizure check")
 
+    print("\n== every trunk reads seized from the start (a dead seize detector)")
+    b = Boards(list(range(1, 9)))
+    for k in range(1, 9):
+        b.state[f"trunk/{k}/seize"] = "on"
+    r, lines = await run(b)
+    check(len(r.stopped) == 8 and not any("detects ring" in l for l in lines),
+          "skips every pair: nothing is rung or dialled")
+    check(any("no pair is idle" in l for l in lines), "and says why it stopped")
+
+    print("\n== one station not idle at the start")
+    b = Boards(list(range(1, 9)))
+    b.state["station/6/hook"] = "on"
+    r, lines = await run(b)
+    check(any("station/6: not idle" in s for s in r.stopped) and len(r.stopped) == 1,
+          f"skips that pair only: {r.stopped}")
+    check(sum(1 for l in lines if "decodes" in l) == 70, "and tests the other seven in full")
+
     print("\n== a trunk that miscounts a digit")
     r, _ = await run(Boards(list(range(1, 9)), misdial=4))
     check(r.failed == ["5 dial: station/4 dials 7, trunk/4 reports 8"],
@@ -115,6 +132,8 @@ async def main() -> int:
     r, _ = await run(Boards(list(range(1, 9)), dead_ring=3))
     check(any("station/3 detects ring" in f for f in r.failed), "fails on station 3's ring")
     check(len(r.failed) == 1, f"and nothing else: {r.failed}")
+    check(len(r.stopped) == 1 and "station/3" in r.stopped[0] and "2 ring" in r.stopped[0],
+          f"stops that pair at ring, the rest of it depending on it: {r.stopped}")
 
     print("\n== another channel moves during a pair's test")
     r, _ = await run(Boards(list(range(1, 9)), noisy="station/5"))
