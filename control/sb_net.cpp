@@ -249,5 +249,9 @@ bool netTakeSyncRequest() {
 
 bool netGameAlive(uint32_t now_ms) {
   if (!game_beat_seen) return false;
-  return (now_ms - last_game_beat) <= GAME_HEARTBEAT_TIMEOUT_MS;
+  /* Signed (control.md 9.3, Rev 21). `now_ms` is read at the top of the loop
+   * pass and a heartbeat that arrives later in the same pass is stamped after
+   * it; unsigned, that small negative age wrapped to four billion, the game
+   * read as gone, and every relay was released - each second, intermittently. */
+  return (int32_t)(now_ms - last_game_beat) <= (int32_t)GAME_HEARTBEAT_TIMEOUT_MS;
 }

@@ -196,14 +196,14 @@ void trunkPoll(uint32_t now) {
      * During the ring-on phase pole 2 has lifted the return off R_LOOP and
      * SEIZE reads nothing, so the input is only meaningful in the off phase. */
     if (s.phase == Phase::Ringing) {
-      if (now - s.ring_started_ms >= RING_HARD_TIMEOUT_MS) {
+      if (elapsedMs(now, s.ring_started_ms) >= RING_HARD_TIMEOUT_MS) {
         Serial.printf("trunk %u: 30s ring timeout\n", (unsigned)c.number);
         enterIdle(i, now);
         s.ring_requested = false;
         continue;
       }
       const uint32_t phase_ms = s.cadence_on ? CADENCE_ON_MS : CADENCE_OFF_MS;
-      if (now - s.cadence_since >= phase_ms) {
+      if (elapsedMs(now, s.cadence_since) >= phase_ms) {
         s.cadence_since = now;
         driveRing(i, !s.cadence_on);
         if (!s.cadence_on) {
@@ -223,14 +223,14 @@ void trunkPoll(uint32_t now) {
     const bool blind  = (s.phase == Phase::Ringing && s.cadence_on);
 
     if (!blind && raw != s.raw_last) {
-      const uint32_t len = now - s.level_since;
+      const uint32_t len = elapsedMs(now, s.level_since);
       s.raw_last    = raw;
       s.level_since = now;
 
       if (!raw) {
         /* Asserted -> released: this edge is a break. The break-to-break
          * interval is what separates ring from a dial (control.md 8.1). */
-        if (s.have_break && (now - s.last_break_ms) <= RING_BREAK_GAP_MS) {
+        if (s.have_break && elapsedMs(now, s.last_break_ms) <= RING_BREAK_GAP_MS) {
           if (s.short_gaps < 255) s.short_gaps++;
         } else {
           s.short_gaps = 0;
@@ -262,7 +262,7 @@ void trunkPoll(uint32_t now) {
       }
     }
 
-    const uint32_t dwell = now - s.level_since;
+    const uint32_t dwell = elapsedMs(now, s.level_since);
 
     switch (s.phase) {
       case Phase::Idle:
@@ -274,7 +274,7 @@ void trunkPoll(uint32_t now) {
           setFault(i, FAULT_NONE);
           enterSeized(i, now);
         } else if (s.phase == Phase::RingOnTrunk && s.have_break &&
-                   (now - s.last_break_ms) >= RING_PATTERN_TIMEOUT_MS) {
+                   elapsedMs(now, s.last_break_ms) >= RING_PATTERN_TIMEOUT_MS) {
           s.short_gaps = 0;
           setFault(i, FAULT_NONE);
           enterIdle(i, now);

@@ -126,14 +126,14 @@ void stationPoll(uint32_t now_ms) {
       if (!s.ring && s.filled >= RING_TRANSITIONS_TO_DECLARE) {
         /* head now points at the oldest of the four retained transitions. */
         const uint32_t oldest = s.trans[s.head];
-        if (now_ms - oldest <= RING_DECLARE_WINDOW_MS) s.ring = true;
+        if (elapsedMs(now_ms, oldest) <= RING_DECLARE_WINDOW_MS) s.ring = true;
       }
     }
 
     /* Ring on this switchboard is applied by the operator holding a key, so the
      * train is continuous while ring is present and does not follow a cadence
      * (control.md 7.1). Quiet for 100ms therefore means released, not a gap. */
-    if (s.ring && (now_ms - s.last_trans_ms) >= RING_RELEASE_QUIET_MS) {
+    if (s.ring && elapsedMs(now_ms, s.last_trans_ms) >= RING_RELEASE_QUIET_MS) {
       s.ring   = false;
       s.filled = 0;
     }

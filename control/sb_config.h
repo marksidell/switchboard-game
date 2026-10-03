@@ -16,7 +16,17 @@
  * document whenever a revision has a firmware consequence. The commit and the
  * build time come from sb_version.h, which control/compile writes before it
  * compiles; a build without it says "unknown". Published on ctl/firmware. */
-static constexpr unsigned FIRMWARE_SPEC_REV = 20;
+static constexpr unsigned FIRMWARE_SPEC_REV = 21;
+
+/* Milliseconds from `since` to `now`, never wrapping (control.md 6.3, Rev 21).
+ * The loop reads millis() once a pass, and a command handled in that pass
+ * stamps its times with a later reading; plain `now - since` then wrapped to
+ * four billion and every timeout fired at once - a ring stopped as it started,
+ * a heartbeat read as missing. A `since` in the future is an elapsed time of 0. */
+static inline uint32_t elapsedMs(uint32_t now, uint32_t since) {
+  const int32_t d = (int32_t)(now - since);
+  return d > 0 ? (uint32_t)d : 0;
+}
 #if __has_include("sb_version.h")
 #include "sb_version.h"
 #else

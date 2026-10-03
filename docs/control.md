@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 20 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
+*Rev 21 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
 
 # 1. Overview
 
@@ -113,6 +113,14 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 — Firmware updates over the network (§2.1), so that the installed board can be reflashed without a USB cable. A cable left attached would join portland's ground to the system's 24V ground, which PoE's isolation keeps apart, and anything that opened the port would reset the board; Mark weighed powering the Olimex from USB and chose to stay on PoE (with a TL-SG105PE PoE switch in place of a separate injector) and update over the network instead. The generator §3.4 recommendation to prefer OTA in the installed system is now something the firmware can do.
 
 — Firmware consequence, for Claude Code, made in the same commit: ArduinoOTA started once Ethernet has an address, with the hostname `sbgame-esp32` and a SHA-256 password hash from `secrets.h` (`OTA_PASSWORD_SHA256`; without it the firmware builds with OTA off). The start callback stops the waveform and releases every relay before anything is written to flash; an error after that point restarts the board. §10 gains the row.
+
+## 1.21 Changes in Rev 21
+
+— Elapsed times no longer wrap. Found on the bench, 2026-10-03, with station 4 dialling for the scope: the serial console logged "game heartbeat missed twice", every relay released, and "game heartbeat returned" 10ms later — every second, while the game's heartbeats left the broker evenly a second apart. The loop reads the clock once a pass; a message handled in that pass's network step is stamped with a later reading, and `now - then` on unsigned milliseconds turned that small negative age into four billion. The heartbeat read as two seconds late and the failsafe fired. The same trap was set for a ring started by `ring/set` — its 30s hard timeout and its cadence step could fire on the next pass — and for the dial's interval. This accounts for the seizures dropped part-way through dialling, the relays that did not echo and, perhaps, the stations that heard no ring; the board test is rerun on this firmware before the boards are blamed.
+
+— Every elapsed time is now taken as a signed difference, and a stamp later than the pass's clock reads as no time elapsed.
+
+— Firmware consequence, for Claude Code, made the same day: `elapsedMs()` in `sb_config.h`, used by the trunk ring timing, cadence and dial detection and the station ring detector; the game-heartbeat age compared signed. FIRMWARE_SPEC_REV 21.
 
 ## 1.20 Changes in Rev 20
 
@@ -463,7 +471,7 @@ Every relay on every board is released — OFFHOOK_n all zero, RING_EN_n all zer
 | Power-on / reset | Hardware | Relays released by IODIR default and R_pd before the firmware runs (§4.1) |
 | Expander /RESET asserted | Firmware (§6.2) | All relays on the chain drop; firmware must have inhibited ring first |
 | MQTT connection lost | Client callback / failed publish | Release all relays immediately; keep polling; reconnect |
-| Game heartbeat missed twice | 2s timer on `game_heartbeat` | Release all relays; log; resume when it returns |
+| Game heartbeat missed twice | 2s timer on `game_heartbeat`, its age taken signed (Rev 21) | Release all relays; log; resume when it returns |
 | Trunk ringing for 30s | Per-trunk timer | Release that trunk's ring relay; state → IDLE |
 | Required expander absent at boot | I²C scan | Report over MQTT; its relays stay released (§4.1); the generator is not stopped (§1.11) |
 | I²C bus fault in service | Three consecutive errors on one device (NAK or read-back mismatch); single errors logged only | Inhibit ring, assert /RESET, rescan, reconfigure, republish ctl/i2c |
