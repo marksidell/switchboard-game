@@ -2,7 +2,7 @@
 
 **Station Interface Circuit Design**
 
-*Rev 3.42 — 8 Strips Per Board, Three Boards (22 Stations, the Operator Tap and the Audience Monitor Output) Plus 8 Trunk Circuits, HCPL3700M Ring Detection, DPDT Double-Pole Off-Hook, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Station Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, 32-Slot Pilot Tone Comb, Operator Tap and Monitor Options on Two Strips, Common-Battery Power*
+*Rev 3.43 — 8 Strips Per Board, Three Boards (22 Stations, the Operator Tap and the Audience Monitor Output) Plus 8 Trunk Circuits, HCPL3700M Ring Detection, DPDT Double-Pole Off-Hook, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Station Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, 32-Slot Pilot Tone Comb, Operator Tap and Monitor Options on Two Strips, Common-Battery Power*
 
 # 1. Overview
 
@@ -297,6 +297,12 @@ The ESP32 and the host exchange state over MQTT: the ESP32 reports debounced rin
 —  §4.1 and the §11 BOM row are corrected: they gave the P6KE120CA a 120V standoff. The 120 in the part number is nominal breakdown. The datasheet figures are 102V standoff, 114–126V breakdown and 165V clamp, as `trunk_circuit.md` §6 already had them. The clamp figure used in §4.1 and §5.5 moves from 167V to the datasheet’s 165V, and the worst-case detector current from 8.1mA to 8.0mA.
 
 —  No hardware change. The part is the same, the 24V loop is still far below standoff, and the 127V ring peak is still above breakdown, so the §4.1 reasoning stands.
+
+## 1.22 Changes in Rev 3.43
+
+—  C19 added: 100nF from U1 pin 18 (/RESET) to GND, at the pin, one per board (§9.4, §11). Found on the bench, 2026-10-03, with station board 1 and the trunk board wired together and the serial console attached through repeated board tests: both expanders came back at their power-on configuration — IODIR FF, IPOL 00 — about once per run, each time while a ring relay or an off-hook relay switched. Raising the 24V supply's current limit from 0.1A to 1A changed nothing. With 100nF bodged across pin 18 and ground on both boards there was no reset in twelve runs, against four in the four runs before it. /RESET crosses the bus cord and every board with nothing on it but a 10kΩ pull-up, and the MCP23017 resets on a pulse of about a microsecond, so a spike coupled into the cord was enough. R18 and C19 make a 1ms time constant, and boards in parallel keep it at 1ms; control.md §6.2 holds /RESET low for 2ms and waits 5ms after releasing it, so the deliberate reset still works with no firmware change.
+
+—  The present boards carry C19 as a bodge. The next board revision gives it a footprint at U1 pin 18. Schematic: the root sheet as annotated runs C101–C108, so C19 takes C109 there.
 
 # 2. Functional Block Diagram (One Station)
 
@@ -1177,13 +1183,15 @@ The grounds are interleaved rather than grouped, and the reason is worth recordi
 
 Use straight-through cords and verify rather than assume. Standard voice line cords are wired reversed end to end — position 2 lands on 5, 3 on 4 — which with this pinout shorts both SCL and SDA to ground. That is a harmless failure: the pull-ups source about 1.5mA into ground, nothing is damaged, and the bus is simply dead, which the master’s startup scan reports immediately as every device missing. But reversed cords are the commonly stocked kind, so crimp the cords for this system deliberately and label them.
 
-Positions 1 and 6 carry /RESET and its return. The line comes from GPIO5 on the Olimex, arrives at J3A, passes through to J3B in parallel with SDA and SCL, and goes to pin 18 of U1 — and to U2 if that footprint is ever stuffed. Generator §4.7 owns the design; what matters on this board is three things.
+Positions 1 and 6 carry /RESET and its return. The line comes from GPIO5 on the Olimex, arrives at J3A, passes through to J3B in parallel with SDA and SCL, and goes to pin 18 of U1 — and to U2 if that footprint is ever stuffed. Generator §4.7 owns the design; what matters on this board is four things.
 
 First, fit a 10kΩ pull-up to +3.3V on the /RESET line on every board — R18 (§11). This is deliberately the opposite of the DO NOT FIT rule for the I²C pull-ups in §9.3. On a static line driven by a CMOS output, three 10kΩ resistors in parallel are 3.3kΩ and nothing notices; what they buy is that a board unplugged from the chain still holds its own expander out of reset rather than leaving pin 18 floating, which the MCP23017 does not tolerate.
 
 Second, /RESET now leaves the board on a jack that a station line can be mis-plugged into, so it takes a third input of TVS2 alongside SDA and SCL. The SP721APP has six inputs and this is the third — see §7.8.
 
 Third, and this is the part worth thinking about before using it: a reset drops every off-hook relay on the board. The MCP23017 returns to IODIR = 0xFF with every pin an input, R_pd holds the drivers off, and any station that was connected is released. That is the same window §5.2 describes at power-on, with the difference that it can now be entered on command. Firmware should assert /RESET at startup and on a detected bus fault, not as routine housekeeping.
+
+Fourth, filter the line at the pin: C19, 100nF from U1 pin 18 to GND, as close to the pin as the layout allows (Rev 3.43). /RESET is a long, high-impedance line — the cord, every board, and only 10kΩ pull-ups holding it up — and the MCP23017 resets on a pulse of about a microsecond. On the bench, a relay switching on the board reset the expander about once per board test until C19 was fitted, and never after. With R18 it is a 1ms time constant, well inside the 2ms pulse and 5ms settle of control.md §6.2.
 
 ## 9.5 Pull-Ups and Bus Loading
 
@@ -1377,6 +1385,7 @@ Worth stating what the loop current does come from, since §10.2 has caused conf
 | R_pd ×8 | 10kΩ, 0.25W | Q2 base pulldown. Not optional — holds the driver off while Port B floats between reset and configuration. See §5.2. |
 | R17 ×8 | 0Ω link | HCPL3700M Vᴄᴄ series element, one per station. §3.6: at least 240Ω if common-mode dV/dt at the barrier turns out to need it, otherwise a 0Ω link. The footprint has been asked for since Rev 3.0; the designator is new in Rev 3.25. C5 sits between OC1 pins 8 and 5, downstream of R17. |
 | R18 | 10kΩ, 0.25W | /RESET pull-up to +3.3V, one per board. Fitted on every expander board — deliberately the opposite of the DO NOT FIT rule for R9/R10, and for the reason in §9.4. Required in the text since Rev 3.11; the designator is new in Rev 3.25. |
+| C19 | 0.1µF ceramic, 50V | /RESET filter, U1 pin 18 to GND, at the pin. One per board. With R18 a 1ms time constant, so a spike coupled into the bus cord cannot reset the expander, while a deliberate reset — 2ms low, 5ms settle (control.md §6.2) — still works. Added at Rev 3.43 — see §9.4. Schematic C109 on the root sheet. |
 | R19, R20, R21 | 10kΩ, 0.25W | MCP23017 address bias: A0, A1, A2 to +3.3V, with SW1 closing each pin to ground. New in Rev 3.25. Without them the address pins are undefined with the switch open — see §9.2. Three per board. |
 | Cable — station lines | Cat5e, 300V (CM/CMR) | Voltage rating is not optional at 127V peak. Check the jacket print — patch cords are often marked 30V or 72V. |
 | Cable — I²C | 4- or 6-conductor modular, STRAIGHT-THROUGH | Not a standard voice line cord — those are reversed and short the bus to ground. See §9.4. |

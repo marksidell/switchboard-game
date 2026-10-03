@@ -1,6 +1,6 @@
 # Trunk Board — KiCad Schematic Drawing Guide
 
-Derived from trunk circuit Rev 5.25 and the KiCad library plan. Checked part by part
+Derived from trunk circuit Rev 5.25 and the KiCad library plan; C19, the /RESET filter, added at trunk Rev 5.40. Checked part by part
 against Rev 5.25 §13 — the earlier version of this guide was written against Rev 5.16 and
 its header was never moved, so the change entries from 5.17 to 5.25 had never been read
 back into it. Result of that check is at the end of §5.
@@ -443,6 +443,7 @@ the schematic expresses the connection.
 | C18 | C18 | 0.1µF | `Device:C` | `C_Disc_D5.1mm` — new at Rev 5.27 |
 | J3 | J3 | 6P6C | `Connector_Generic:Conn_01x06` | `Connector_RJ:RJ12_*` |
 | R11 | R_RST | 10k | `Device:R` | `R_Axial_DIN0207` — /RESET pull-up, **do fit** |
+| C110 | C19 | 0.1µF | `Device:C` | `C_Disc_D5.1mm` — /RESET filter, new at Rev 5.40 |
 | R9, R10 | R9, R10 | 2.2k | `Device:R` | `R_Axial_DIN0207` — **DO NOT FIT** |
 | JP1–JP3 | JP1–JP3 | 0R link | `Device:R` | `R_Axial_DIN0207` — address strap, **fit** |
 
@@ -454,6 +455,7 @@ J3 pins 3, 5, 6 ── GND
 TVS2 pin 8 ── +3V3,  TVS2 pin 4 ── GND
 C18 from TVS2 pin 8 to pin 4, at the device
 R11 (10k) from /RESET ── +3V3            ← fit on this board
+C110 (C19, 100nF) U1 pin 18 ── GND, at the pin
 R9, R10 footprints SDA/SCL → +3V3        ← DO NOT FIT
 
 U1 pin 9  (VDD)   ── +3V3, C6 at the pin
@@ -479,6 +481,8 @@ C18 is new at Rev 5.27 and belongs at TVS2's own pins. The SP721 conducts the tr
 from the IN pin into V+ rather than shunting it to ground, so V+ must source that current
 locally. TVS2 sits at J3 by design, the opposite edge from U1 and the LDO, which puts C6
 and C8 the length of the board away.
+
+C19 is new at Rev 5.40 and goes the other way: at U1 pin 18, not at the jack. It filters what /RESET has picked up along the cord and the board, so it belongs at the pin it protects.
 
 `/RESET` and its 10k pull-up were added at Rev 5.8. The pull-up goes on **every** expander
 board — the opposite of the DO-NOT-FIT rule for the I²C pull-ups, and for a reason

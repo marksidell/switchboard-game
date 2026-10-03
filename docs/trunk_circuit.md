@@ -2,7 +2,7 @@
 
 **Trunk Interface Circuit Design**
 
-*Rev 5.39 — 8 Trunks, Constant-Current Loop Feed, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Trunk Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, External Ring Generator*
+*Rev 5.40 — 8 Trunks, Constant-Current Loop Feed, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Trunk Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, External Ring Generator*
 
 # **1. Overview**
 
@@ -144,6 +144,7 @@ Only two amendments to the station document are needed, and both are flagged whe
 - Rev 5.37: follows station Rev 3.35 — three station boards built, operator tap on station 24. §1.1, §9, §10.2, §10.4 and the relay row in §13 no longer describe a two-board build with the third as capacity. 0x22 is a fitted board. No change on this board.
 - Rev 5.38: cross-reference only. `esp32.md` is `control.md` and `ring/esp32.ino` is `control/control.ino` as of 2026-09-19 (control.md Rev 9); every reference in this document follows, the Rev 5.35 and Rev 5.36 entries included. No change on this board.
 - Rev 5.39: follows station Rev 3.40 — stations 1–22, the operator tap on station board 3 strip 7 (A32 channel 23) and the audience monitor on strip 8's A32 output, channel 24, in place of the Digiface's own output. §3.3.1, §7.4, §9, §12.1, §12.1.1, §12.5 and the relay row in §13 follow the count. Trunk channels 25–32 and comb slots 25–32 are unchanged. No change on this board.
+- Rev 5.40: C19 added, 100nF from U1 pin 18 (/RESET) to GND at the pin (§10.4, §13), the same part as station Rev 3.43 and for the same finding. On the bench, 2026-10-03, this board's expander came back at its power-on configuration — IODIR FF, IPOL 00, so every trunk read seized until the firmware's configuration check (control.md §6.4) restored it — when a ring relay switched, on trunks 1, 2, 7 and 8 and intermittently. Raising the 24V current limit from 0.1A to 1A changed nothing; 100nF across pin 18 and ground on both boards stopped it, with no reset in twelve board tests. R_RST and C19 make 1ms against control.md §6.2's 2ms pulse and 5ms settle; no firmware change. The present board carries C19 as a bodge; the next revision gives it a footprint. Schematic: the root sheet as annotated runs C101–C109, so C19 takes C110.
 
 - Rev 5.36: the §11.1 pointer follows control.md Rev 2, which adds dial pulse detection on the seizure input. The 25ms release rule it quoted is gone — a dial pulse is a 25–100ms release — and the ring discriminator is now the break-to-break interval. No hardware change: the current source and the HCPL3700M already pass a dial pulse as a clean loop-current interruption (§3.2.2, §4). One measurement is added to the control.md open items rather than to §16 here, since it is a firmware threshold check: pulse timing on SEIZE_n through the real cord circuit and dial.
 
@@ -916,6 +917,8 @@ Fit a 10kΩ pull-up to +3.3V on /RESET here as on the station boards, and note t
 
 The consequence to weigh is sharper here than on a station board. A reset returns the expander to IODIR = 0xFF, which releases every ring relay — R_pd (§7.3) is what holds the drivers off through the window, and that argument is unchanged. But releasing a ring relay mid-cadence opens the contacts at an arbitrary point in the 20Hz waveform rather than at a cadence boundary, which is the click §9.5 quantifies and the switching discipline §7.6 exists to avoid. Never assert /RESET while ring is applied. At startup, and on a detected bus fault with ring already inhibited, it is exactly the right tool.
 
+Filter /RESET at U1: C19, 100nF from pin 18 to GND, as close to the pin as the layout allows (Rev 5.40). The line runs the length of the bus cord and every board with only 10kΩ pull-ups holding it up, and the MCP23017 resets on a pulse of about a microsecond. Before C19 a ring relay switching on this board reset the expander intermittently — every trunk then reads seized, since IPOL is cleared — and with it fitted not once. With R_RST it is a 1ms time constant, inside control.md §6.2's 2ms pulse and 5ms settle.
+
 # **11. Firmware Behaviour**
 
 Moved to control.md at Rev 5.35. The four subsections are kept as headings so that cross-references land; each points at where its content now lives.
@@ -1078,6 +1081,7 @@ Per trunk, ×8 on the board, unless marked otherwise. The Designator column carr
 | R4 ×8 | 1kΩ, 0.25W | Q2 base resistor |
 | R_pd ×8 | 10kΩ, 0.25W | Q2 base pulldown. Not optional — see §7.3. |
 | R_RST | 10kΩ, 0.25W | /RESET pull-up to +3.3V at U1 pin 18, one per board. Fitted here and on every station board — deliberately the opposite of the DO NOT FIT rule for R9/R10, and for the reason in §10.4. Required by the text since Rev 5.8; given a designator and a BOM line at Rev 5.25. Takes R11 on the root sheet of the schematic. |
+| C19 | 0.1µF ceramic, 50V | /RESET filter, U1 pin 18 to GND, at the pin. One per board. With R_RST a 1ms time constant, so a spike coupled into the bus cord cannot reset the expander, while a deliberate reset — 2ms low, 5ms settle (control.md §6.2) — still works. Added at Rev 5.40 — see §10.4. Takes C110 on the root sheet of the schematic. |
 | D5 ×8 | 1N4148 | Relay coil flyback diode |
 | C9 ×8 | 10µF electrolytic | Local 5V reservoir at each relay coil |
 | C2 ×8 | 0.47µF, 250V film | T2 primary DC block. 250V is for the accidental-ring case only — see §8.1. |

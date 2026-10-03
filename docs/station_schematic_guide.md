@@ -1,6 +1,6 @@
 # Station Board — KiCad Schematic Drawing Guide
 
-Derived from station circuit Rev 3.25 and the KiCad library plan; R11/R12 value updated to station Rev 3.27 (22.1k → 22k 1%); tap and monitor strips updated to station Rev 3.40 (operator tap on board 3 strip 7, audience monitor output on strip 8).
+Derived from station circuit Rev 3.25 and the KiCad library plan; R11/R12 value updated to station Rev 3.27 (22.1k → 22k 1%); tap and monitor strips updated to station Rev 3.40 (operator tap on board 3 strip 7, audience monitor output on strip 8); C19, the /RESET filter, added at station Rev 3.43.
 Structure: one root sheet carrying everything common, plus **8 instances of a single
 hierarchical sheet** `station_circuit.kicad_sch`.
 
@@ -434,6 +434,7 @@ its 10, so the parts are bought; only the numbering was missing. See §7.
 | TVS2 | TVS2 | SP721APP | `switchboard:SP721` | `Package_DIP:DIP-8_W7.62mm` |
 | C18 | C18 | 0.1µF | `Device:C` | `C_Disc_D5.1mm_W3.2mm_P5.00mm` — new at Rev 3.26 |
 | R18 | — | 10k | `Device:R` | DIN0207 — /RESET pull-up, **do fit** |
+| C109 | C19 | 0.1µF | `Device:C` | `C_Disc_D5.1mm_W3.2mm_P5.00mm` — /RESET filter, new at Rev 3.43 |
 | R9, R10 | R9, R10 | 2.2k | `Device:R` | DIN0207 — **DO NOT FIT** |
 | U1 | U1 | MCP23017-E/SP, 0x20–0x22 by SW1 | `Interface_Expansion:MCP23017_SP` | `Package_DIP:DIP-28_W7.62mm` |
 | U2 | U2 | MCP23017-E/SP, 0x24–0x26 | same | same — **footprint only, DNP** |
@@ -449,6 +450,7 @@ J3A/J3B pins 3, 5, 6 ── GND
 TVS2 pin 8 ── +3V3,  TVS2 pin 4 ── GND
 C18 from TVS2 pin 8 to pin 4, at the device
 R18 (10k) from /RESET ── +3V3            ← fit on this board
+C109 (C19, 100nF) U1 pin 18 ── GND, at the pin
 R9, R10 footprints SDA/SCL → +3V3        ← DO NOT FIT
 
 U1 pin 9  (VDD)  ── +3V3, C6 at the pin
@@ -464,6 +466,8 @@ C18 is new at Rev 3.26 and belongs at TVS2's own pins, not with the rail decoupl
 SP721 conducts the transient from the IN pin into V+ rather than shunting it to ground, so
 V+ must source that current locally. Placing TVS2 at the jack — which is right — puts C6
 and C8 the length of the board away.
+
+C19 is new at Rev 3.43 and is the opposite of TVS2 in placement: it goes at U1 pin 18, not at the jack. It filters what the line has picked up along its whole length, cord and board, so it belongs at the pin it protects.
 
 Three of TVS2's six inputs are used and three are spare. Place it **at J3A/J3B**, not near
 the expanders — it is protecting the whole bus from something arriving at the jack, so it
