@@ -44,7 +44,9 @@ struct Command {
   bool    on;
   char    digits[DIAL_MAX_DIGITS + 1];
 };
-static constexpr uint8_t CMD_QUEUE_LEN = 16;
+/* A game stop releases every circuit at once - 30 commands in one read, more
+ * with the board test's cleanup - so the queue holds two of those. */
+static constexpr uint8_t CMD_QUEUE_LEN = 64;
 static Command cmd_queue[CMD_QUEUE_LEN];
 static uint8_t cmd_head = 0, cmd_count = 0;
 
