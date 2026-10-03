@@ -16,7 +16,7 @@
  * document whenever a revision has a firmware consequence. The commit and the
  * build time come from sb_version.h, which control/compile writes before it
  * compiles; a build without it says "unknown". Published on ctl/firmware. */
-static constexpr unsigned FIRMWARE_SPEC_REV = 19;
+static constexpr unsigned FIRMWARE_SPEC_REV = 20;
 #if __has_include("sb_version.h")
 #include "sb_version.h"
 #else
@@ -75,6 +75,10 @@ static constexpr uint8_t  DIAL_MAX_DIGITS             = 16;
 // control.md 6.4 (Rev 19): one present expander's configuration read back
 // this often, in turn.
 static constexpr uint32_t CONFIG_CHECK_MS             = 1000;
+// control.md 6.2 (Rev 20): the longest one I2C transaction may block. The
+// core's default is 50ms, which a probe of an absent board would take every
+// time; a real transaction at 100kHz is under 1ms.
+static constexpr uint16_t I2C_TIMEOUT_MS              = 5;
 
 /* ---- Trunk seizure classifier (control.md 8.1, 8.2) ----------------------
  * The thresholds are the table in 8.2 and must be read against it. A break of

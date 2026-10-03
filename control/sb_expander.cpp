@@ -264,35 +264,42 @@ bool expanderAnyPresent() {
   return false;
 }
 
+/* control.md 6.2 (Rev 20): one absent expander per call, in turn. A probe of an
+ * address nobody answers is the slowest transaction there is, and probing every
+ * missing board at once held the 200Hz loop for over 100ms each second - long
+ * enough to swallow dial pulses and ring transitions on the boards that are
+ * there. */
+static uint8_t rescan_next = 0;
+
 bool expanderRescanAbsent() {
-  bool all_present = true;
+  for (uint8_t n = 0; n < N_EXPANDERS; ++n) {
+    const uint8_t i = (uint8_t)((rescan_next + n) % N_EXPANDERS);
+    if (!expanderConfigured(i) || exp_state[i].present) continue;
+    rescan_next = (uint8_t)(i + 1);
 
-  for (uint8_t i = 0; i < N_EXPANDERS; ++i) {
-    if (!expanderConfigured(i)) continue;
-    if (exp_state[i].present)   continue;
-
-    if (!probe(expanders[i].addr)) { all_present = false; continue; }
-
-    /* It answered. Configure it from scratch - it has been away, and whatever
-     * reset it had is not one this firmware watched - and start its relay
-     * shadow from the released state configureOne() just wrote. */
-    exp_state[i].relay_shadow = 0;
-    exp_state[i].relay_dirty  = false;
-    exp_state[i].inputs       = 0;
-
-    if (!configureOne(i)) {
-      Serial.printf("I2C: %s at 0x%02X answered but would not configure\n",
-                    expanders[i].label, expanders[i].addr);
-      all_present = false;
-      continue;
+    if (probe(expanders[i].addr)) {
+      /* It answered. Configure it from scratch - it has been away, and
+       * whatever reset it had is not one this firmware watched - and start its
+       * relay shadow from the released state configureOne() just wrote. */
+      exp_state[i].relay_shadow = 0;
+      exp_state[i].relay_dirty  = false;
+      exp_state[i].inputs       = 0;
+      if (configureOne(i)) {
+        exp_state[i].present  = true;
+        consecutive_errors[i] = 0;
+        Serial.printf("I2C: %s at 0x%02X is back - configured, in service\n",
+                      expanders[i].label, expanders[i].addr);
+      } else {
+        Serial.printf("I2C: %s at 0x%02X answered but would not configure\n",
+                      expanders[i].label, expanders[i].addr);
+      }
     }
-
-    exp_state[i].present  = true;
-    consecutive_errors[i] = 0;
-    Serial.printf("I2C: %s at 0x%02X is back - configured, in service\n",
-                  expanders[i].label, expanders[i].addr);
+    break;                                   // one probe a call
   }
 
+  bool all_present = true;
+  for (uint8_t i = 0; i < N_EXPANDERS; ++i)
+    if (expanderConfigured(i) && !exp_state[i].present) all_present = false;
   bus_fault = !all_present;
   return all_present;
 }

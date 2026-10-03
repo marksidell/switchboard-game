@@ -173,6 +173,11 @@ void netInit() {
  * topic once. A clean session forgets subscriptions, so every reconnect repeats
  * all of it. The state publish is left to the caller, which owns the circuits. */
 static void onConnected() {
+  /* control.md 9.1 (Rev 20): no Nagle. Every QoS 1 publish waits for its PUBACK,
+   * and with Nagle on, the small packets met the broker's delayed ACK: about
+   * 40ms a message, which held the 200Hz loop for up to 130ms while state was
+   * republished. With TCP_NODELAY each round trip is the LAN's, about 1ms. */
+  net_client.setNoDelay(true);
   netPublishCtl("status", "online", /*retained=*/true, /*qos=*/1);
   // control.md 9.1, Rev 18: which firmware this is, with the birth message.
   char fw[96];

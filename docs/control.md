@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 19 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
+*Rev 20 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
 
 # 1. Overview
 
@@ -113,6 +113,18 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 — Firmware updates over the network (§2.1), so that the installed board can be reflashed without a USB cable. A cable left attached would join portland's ground to the system's 24V ground, which PoE's isolation keeps apart, and anything that opened the port would reset the board; Mark weighed powering the Olimex from USB and chose to stay on PoE (with a TL-SG105PE PoE switch in place of a separate injector) and update over the network instead. The generator §3.4 recommendation to prefer OTA in the installed system is now something the firmware can do.
 
 — Firmware consequence, for Claude Code, made in the same commit: ArduinoOTA started once Ethernet has an address, with the hostname `sbgame-esp32` and a SHA-256 password hash from `secrets.h` (`OTA_PASSWORD_SHA256`; without it the firmware builds with OTA off). The start callback stops the waveform and releases every relay before anything is written to flash; an error after that point restarts the board. §10 gains the row.
+
+## 1.20 Changes in Rev 20
+
+— The 200Hz loop no longer stalls, found on the bench 2026-10-03 with station board 1 and the trunk board wired together. The banner showed passes of 130ms against the 5ms nominal, long enough to swallow dial pulses — no trunk decoded a digit — and to drop seizures and miss ring. Three causes, all fixed:
+
+— **Nagle on the broker connection.** Every QoS 1 publish waits for its PUBACK (§9.2), and with Nagle on, the small packets met the broker's delayed ACK: about 40ms a message, so a station's three-message republish tick took 90ms and each heartbeat 39ms. The socket is now TCP_NODELAY (§9.1); they take 8ms and 3.5ms.
+
+— **One absent board probed per retry**, in turn (§6.2), not every absent board at once, and every I²C transaction capped at 5ms, where the core's default is 50ms and a probe of an absent address could take all of it.
+
+— **The banner reports the worst time of each part of the loop** since it last printed — network, configuration check, input poll, station and trunk logic, relay flush, heartbeat, failsafes, republish, OTA — beside the loop timing, so a stall can be traced to its source.
+
+— After the fixes the longest pass is 14ms. The same board test that decoded no digit then decoded all ten on three pairs; what failed on the other five is left to the boards.
 
 ## 1.19 Changes in Rev 19
 
@@ -422,7 +434,7 @@ The topics, payloads and retention are `mqtt.md`; this section is what the firmw
 
 The client library is MQTT 2.5.3 by Joël Gähwiler (256dpi/arduino-mqtt), chosen because it supports QoS 1 and because its keepalive ping is sent from `loop()` rather than from a background task — so a wedged main loop stops the ping, the broker fires the last will, and the client-dependent gap mqtt.md §8.2 describes closes on the safe side. Connect over the wired interface with a clean session, keepalive 5s, and a last will of `"offline"` on `sbgame/ctl/status`, retained. On connect: publish `"online"` to `ctl/status`, retained; subscribe to `sbgame/station/+/hook/set`, `sbgame/trunk/+/ring/set`, `sbgame/ctl/game_heartbeat` and `sbgame/ctl/sync` — those four patterns and no wildcard over `set`, since the audio program's `play/set`, `listen/set` and `tone/set` share the circuit roots (mqtt.md Rev 5 §8.4); publish every state topic once (`ring` and `hook` for every station, `seize`, `ring` and `fault` for every trunk). Reconnect with backoff on loss — 500ms doubling to 8s — and every reconnect repeats this sequence, since a clean session forgets the subscriptions. A connect attempt is blocking: the TCP connect timeout plus the wait for CONNACK, which against a host that is down can be seconds, during which the 200Hz loop does not run (Rev 7). That is tolerable only because the loss of the connection has already released every relay (§10) before the first retry is due, so nothing is being driven while the loop is stalled. The loss release must stay immediate for that reason. Ring detection and dialling are not sampled during a stall; with no host to report to, nothing is lost that could have been used.
 
-Use a username and password; the broker is not anonymous (`mqtt.md` §9).
+Use a username and password; the broker is not anonymous (`mqtt.md` §9). Set TCP_NODELAY on the socket (Rev 20): with Nagle on, each QoS 1 publish waits about 40ms for the broker's delayed ACK, and the loop with it.
 
 With the birth message, publish `sbgame/ctl/firmware`, retained: `"control.md Rev <n>, <commit>, built <date>"` (Rev 18). `<n>` is `FIRMWARE_SPEC_REV`, the revision of this document the source implements; `<commit>` is the short commit hash at build time, with `-dirty` if `control/` had uncommitted changes, and `<date>` the build's UTC time, both stamped by `control/compile`, or `unknown` without it.
 

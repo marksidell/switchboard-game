@@ -294,6 +294,17 @@ static uint16_t i2c_retries       = 0;
 static uint8_t  scan_reported    = 0;
 static uint32_t last_config_check_ms = 0;   // 6.4, Rev 19
 
+/* Where a long loop pass goes: the worst of each section since the banner last
+ * printed. Diagnostic only; the banner shows them beside the loop timing. */
+enum { T_NET, T_VERIFY, T_INPUTS, T_STATION, T_TRUNK, T_FLUSH, T_BEAT, T_FAILSAFE,
+       T_REPUB, T_OTA, T_N };
+static const char* const T_NAMES[T_N] = { "net", "verify", "inputs", "station", "trunk",
+                                          "flush", "beat", "failsafe", "republish", "ota" };
+static uint32_t t_max_us[T_N];
+#define TIMED(k, stmt) do { const uint32_t _t0 = micros(); stmt; \
+                            const uint32_t _d = micros() - _t0; \
+                            if (_d > t_max_us[k]) t_max_us[k] = _d; } while (0)
+
 static uint8_t presentMask() {
   uint8_t m = 0;
   for (uint8_t i = 0; i < N_EXPANDERS; ++i)
@@ -550,6 +561,12 @@ static void printBanner() {
                 (unsigned long)loop_max_us, (unsigned long)poll_gap_max_ms,
                 (unsigned long)POLL_PERIOD_MS,
                 (unsigned long)((now - timing_since_ms) / 1000));
+  Serial.print("  worst (us)  ");
+  for (int k = 0; k < T_N; ++k) {
+    Serial.printf(" %s %lu", T_NAMES[k], (unsigned long)t_max_us[k]);
+    t_max_us[k] = 0;
+  }
+  Serial.println();
   loop_max_us     = 0;
   poll_gap_max_ms = 0;
   timing_since_ms = now;
@@ -593,6 +610,7 @@ void setup() {
 
   /* ---- 4.2 steps 5 and 6: I2C, scan, configure ----------------------- */
   Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL, I2C_CLOCK_HZ);
+  Wire.setTimeOut(I2C_TIMEOUT_MS);             // 6.2, Rev 20: an absent board must not stall the loop
   stationInit();
   trunkInit();
   expanders_all_present = expanderScanAndConfigure();
@@ -835,7 +853,7 @@ void loop() {
   const uint32_t now = millis();
   const uint32_t pass_start_us = micros();
 
-  netService(now);            // keepalive ping and inbound commands
+  TIMED(T_NET, netService(now));   // keepalive ping and inbound commands
 
   /* A reconnect, a ctl/sync and the 30s timer of 9.2 all mean the same thing:
    * republish every state topic. The timer bounds how long a lost publish can
@@ -861,27 +879,27 @@ void loop() {
      * a chip that has reset is set right before its inputs are read. */
     if (now - last_config_check_ms >= CONFIG_CHECK_MS) {
       last_config_check_ms = now;
-      expanderVerifyNext();
+      TIMED(T_VERIFY, expanderVerifyNext());
     }
 
-    expanderPollInputs();
-    stationPoll(now);
-    trunkPoll(now);
-    expanderFlushRelays();
+    TIMED(T_INPUTS, expanderPollInputs());
+    TIMED(T_STATION, stationPoll(now));
+    TIMED(T_TRUNK, trunkPoll(now));
+    TIMED(T_FLUSH, expanderFlushRelays());
 
     /* 9.3: after the poll and from this loop - never from a timer or the
      * network task - so the beat proves the loop that drives relays is running
      * and not merely that the network stack is alive. */
-    netHeartbeat(now);
+    TIMED(T_BEAT, netHeartbeat(now));
 
-    serviceFailsafes(now);
+    TIMED(T_FAILSAFE, serviceFailsafes(now));
 
-    republishStep();                 // at most one circuit's state per tick
+    TIMED(T_REPUB, republishStep()); // at most one circuit's state per tick
   }
 
   serviceEnable();
 
-  serviceOta();
+  TIMED(T_OTA, serviceOta());
 
   const uint32_t pass_us = micros() - pass_start_us;
   if (pass_us > loop_max_us) loop_max_us = pass_us;
