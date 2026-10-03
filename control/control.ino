@@ -286,6 +286,20 @@ static uint32_t last_i2c_retry_ms = 0;
 static uint32_t last_i2c_reset_ms = 0;
 static uint16_t i2c_retries       = 0;
 
+/* Which configured expanders answered at the last report on ctl/i2c, one bit
+ * each. The report goes out whenever this changes, not only when "all present"
+ * flips: a trunk board found while the station boards are still out changes
+ * which are missing, and the retained message has to say so (mqtt.md 4: ctl/i2c
+ * is republished after any rescan that changes it). */
+static uint8_t  scan_reported    = 0;
+
+static uint8_t presentMask() {
+  uint8_t m = 0;
+  for (uint8_t i = 0; i < N_EXPANDERS; ++i)
+    if (expanderConfigured(i) && exp_state[i].present) m |= (uint8_t)(1u << i);
+  return m;
+}
+
 /* ---- Section 6.1 / 6.2: start and stop ----------------------------------- */
 
 /* ---- Start phase ---------------------------------------------------------
@@ -581,6 +595,7 @@ void setup() {
   stationInit();
   trunkInit();
   expanders_all_present = expanderScanAndConfigure();
+  scan_reported = presentMask();
 
   /* The boot scan counts as the first recovery attempt, so a board that is
    * absent from power-up is not rescanned again 5ms later in the first loop
@@ -800,7 +815,9 @@ static void serviceFailsafes(uint32_t now) {
     if (ok && !first)
       Serial.printf("I2C: every configured expander present again, after %u retries\n",
                     (unsigned)i2c_retries);
-    const bool changed = first || (ok != expanders_all_present);
+    const uint8_t mask = presentMask();
+    const bool changed = first || (ok != expanders_all_present) || mask != scan_reported;
+    scan_reported = mask;
     expanders_all_present = ok;
     if (ok) i2c_retries = 0;
 
