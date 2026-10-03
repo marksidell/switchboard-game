@@ -227,6 +227,37 @@ void expanderReleaseAllRelays() {
 
 bool expanderBusFault() { return bus_fault; }
 
+/* control.md 6.4 (Rev 19). The next present expander, in turn: read back its
+ * directions and Port A polarity, and if a reset has put them back to the
+ * power-on defaults, configure it again and mark its relays to be rewritten
+ * from the shadow, which still holds what was commanded. */
+static uint8_t verify_next = 0;
+
+int8_t expanderVerifyNext() {
+  for (uint8_t n = 0; n < N_EXPANDERS; ++n) {
+    const uint8_t i = (uint8_t)((verify_next + n) % N_EXPANDERS);
+    if (!expanderConfigured(i) || !exp_state[i].present) continue;
+    verify_next = (uint8_t)(i + 1);
+
+    const uint8_t a = expanders[i].addr;
+    uint8_t iodira = 0, iodirb = 0, ipola = 0;
+    const bool got = regRead(a, REG_IODIRA, iodira) && regRead(a, REG_IODIRB, iodirb) &&
+                     regRead(a, REG_IPOLA, ipola);
+    noteResult(i, got);
+    if (!got || (iodira == 0xFF && iodirb == 0x00 && ipola == 0xFF)) return -1;
+
+    Serial.printf("I2C: %s at 0x%02X lost its configuration (IODIRA %02X IODIRB %02X "
+                  "IPOLA %02X) - reset? configured again, relays restored\n",
+                  expanders[i].label, a, iodira, iodirb, ipola);
+    const uint8_t keep = exp_state[i].relay_shadow;
+    configureOne(i);                         // writes OLATB 0 on the way
+    exp_state[i].relay_shadow = keep;
+    exp_state[i].relay_dirty  = true;        // expanderFlushRelays() puts them back
+    return (int8_t)i;
+  }
+  return -1;
+}
+
 bool expanderAnyPresent() {
   for (uint8_t i = 0; i < N_EXPANDERS; ++i)
     if (expanderConfigured(i) && exp_state[i].present) return true;

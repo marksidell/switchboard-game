@@ -16,7 +16,7 @@
  * document whenever a revision has a firmware consequence. The commit and the
  * build time come from sb_version.h, which control/compile writes before it
  * compiles; a build without it says "unknown". Published on ctl/firmware. */
-static constexpr unsigned FIRMWARE_SPEC_REV = 18;
+static constexpr unsigned FIRMWARE_SPEC_REV = 19;
 #if __has_include("sb_version.h")
 #include "sb_version.h"
 #else
@@ -72,6 +72,9 @@ static constexpr uint32_t DIAL_BREAK_MS               = 61;
 static constexpr uint32_t DIAL_MAKE_MS                = 39;
 static constexpr uint32_t DIAL_INTERDIGIT_MS          = 700;
 static constexpr uint8_t  DIAL_MAX_DIGITS             = 16;
+// control.md 6.4 (Rev 19): one present expander's configuration read back
+// this often, in turn.
+static constexpr uint32_t CONFIG_CHECK_MS             = 1000;
 
 /* ---- Trunk seizure classifier (control.md 8.1, 8.2) ----------------------
  * The thresholds are the table in 8.2 and must be read against it. A break of

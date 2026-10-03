@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 18 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
+*Rev 19 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
 
 # 1. Overview
 
@@ -113,6 +113,12 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 — Firmware updates over the network (§2.1), so that the installed board can be reflashed without a USB cable. A cable left attached would join portland's ground to the system's 24V ground, which PoE's isolation keeps apart, and anything that opened the port would reset the board; Mark weighed powering the Olimex from USB and chose to stay on PoE (with a TL-SG105PE PoE switch in place of a separate injector) and update over the network instead. The generator §3.4 recommendation to prefer OTA in the installed system is now something the firmware can do.
 
 — Firmware consequence, for Claude Code, made in the same commit: ArduinoOTA started once Ethernet has an address, with the hostname `sbgame-esp32` and a SHA-256 password hash from `secrets.h` (`OTA_PASSWORD_SHA256`; without it the firmware builds with OTA off). The start callback stops the waveform and releases every relay before anything is written to flash; an error after that point restarts the board. §10 gains the row.
+
+## 1.19 Changes in Rev 19
+
+— Each expander's configuration is checked, one a second in turn, and restored if it has been lost (§6.4). Found on the bench, 2026-10-03: plugging station board 1 into the chain reset the trunk board's MCP23017 without the controller noticing — it still answered — and with IPOL back at its default every idle SEIZE input read as a seizure, all eight at once. A chip that resets loses its directions and polarities silently, and nothing in §6.2 catches that, since §6.2 acts on errors and a reset chip makes none.
+
+— Firmware consequence, for Claude Code, made the same day: the check, the reconfiguration, the relays restored to their commanded state, and the log line. FIRMWARE_SPEC_REV 19.
 
 ## 1.18 Changes in Rev 18
 
@@ -276,6 +282,10 @@ The recovery is one reset, one rescan and one reconfigure. An expander that is s
 Poll Port A of every expander at 200Hz (every 5ms). There is no INT line and none is wanted: with the station ring detector pulsing at 40Hz, interrupt-on-change would mean 80 interrupts per second per ringing station, each needing an I²C transaction to identify and clear, and on the trunk board an accidental ring gives 40 per second for something that is not even a state change. Polling gives the debounce logic five samples per half-cycle of the 40Hz pulse train, makes the timing deterministic, and costs about 6% of a 100kHz bus for four expanders. Station §9.6 and trunk §10.4 have the hardware side.
 
 Everything in §7 and §8 runs from this 200Hz sample stream. The MQTT heartbeat (§9.3) is published from the same loop after the poll, so that it proves this loop is running.
+
+## 6.4 Configuration Check
+
+Rev 19. Once a second, take the next present expander in turn and read back IODIRA, IODIRB and IPOLA. They should read 0xFF, 0x00 and 0xFF (§4.2 step 6). Anything else means the chip has been reset — a glitch on /RESET or on its supply, typically while a board is plugged into the chain — and has come back with its power-on defaults, every pin an input and no polarity inversion, so its idle inputs read as present. Log it, configure it again as at startup, and write its Port B latch back to the relay state the firmware holds, since the reset dropped every relay in hardware while the game's commands still stand. A read that fails is an ordinary bus error and counts toward §6.2's fault threshold like any other. One device a second costs three register reads, under a millisecond, in one poll tick in two hundred; four boards are each checked every four seconds.
 
 # 7. Station Circuits
 

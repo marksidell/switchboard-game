@@ -292,6 +292,7 @@ static uint16_t i2c_retries       = 0;
  * which are missing, and the retained message has to say so (mqtt.md 4: ctl/i2c
  * is republished after any rescan that changes it). */
 static uint8_t  scan_reported    = 0;
+static uint32_t last_config_check_ms = 0;   // 6.4, Rev 19
 
 static uint8_t presentMask() {
   uint8_t m = 0;
@@ -855,6 +856,13 @@ void loop() {
     const uint32_t gap = now - last_poll_ms;
     if (last_poll_ms != 0 && gap > poll_gap_max_ms) poll_gap_max_ms = gap;
     last_poll_ms = now;
+
+    /* 6.4 (Rev 19): one expander's configuration a second, before the poll, so
+     * a chip that has reset is set right before its inputs are read. */
+    if (now - last_config_check_ms >= CONFIG_CHECK_MS) {
+      last_config_check_ms = now;
+      expanderVerifyNext();
+    }
 
     expanderPollInputs();
     stationPoll(now);

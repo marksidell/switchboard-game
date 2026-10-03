@@ -62,6 +62,11 @@ void expanderReleaseAllRelays();
  * second time. Holding it is what makes the caller's retry happen at all. */
 bool expanderBusFault();
 
+/* control.md 6.4 (Rev 19): check the next present expander's configuration and
+ * restore it if a reset has cleared it. Returns its index, or -1 if it was fine
+ * or none was checked. Called once a second from loop(). */
+int8_t expanderVerifyNext();
+
 /* The control.md 10 recovery: /RESET, rescan, reconfigure. The caller inhibits
  * ring first and drops every relay after. Returns true if the bus came back.
  *
