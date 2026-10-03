@@ -29,7 +29,7 @@ struct TrunkState {
   uint32_t level_since;     // when the present level began
 
   uint8_t  pulses;          // pulses counted in the digit under way
-  bool     in_digit;        // at least one pulse since the last digit boundary
+  bool     in_digit;        // a pulse, or a long bad break, since the last digit boundary
   bool     digit_spoiled;   // a break outside the window landed inside the digit
 
   uint32_t last_break_ms;   // for the break-to-break interval test
@@ -167,9 +167,13 @@ static void classifyBreak(uint8_t i, uint32_t len) {
   }
 
   /* Shorter than 25ms, or between 100ms and 250ms: neither a pulse nor a
-   * release. Log it, and if it landed inside a digit that digit is spoiled. */
+   * release. Log it, and if it landed inside a digit that digit is spoiled.
+   * A long one is pulses run together by a lost make, so it spoils the digit
+   * even before its first pulse (control.md 8.2, Rev 23): otherwise the rest
+   * would be counted as a shorter, valid digit. */
   Serial.printf("trunk %u: break of %lums is neither pulse nor release\n",
                 (unsigned)row(i).number, (unsigned long)len);
+  if (len >= PULSE_BREAK_MAX_MS) s.in_digit = true;
   if (s.in_digit) s.digit_spoiled = true;
 }
 
