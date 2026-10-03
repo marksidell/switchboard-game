@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 21 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
+*Rev 22 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
 
 # 1. Overview
 
@@ -113,6 +113,12 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 — Firmware updates over the network (§2.1), so that the installed board can be reflashed without a USB cable. A cable left attached would join portland's ground to the system's 24V ground, which PoE's isolation keeps apart, and anything that opened the port would reset the board; Mark weighed powering the Olimex from USB and chose to stay on PoE (with a TL-SG105PE PoE switch in place of a separate injector) and update over the network instead. The generator §3.4 recommendation to prefer OTA in the installed system is now something the firmware can do.
 
 — Firmware consequence, for Claude Code, made in the same commit: ArduinoOTA started once Ethernet has an address, with the hostname `sbgame-esp32` and a SHA-256 password hash from `secrets.h` (`OTA_PASSWORD_SHA256`; without it the firmware builds with OTA off). The start callback stops the waveform and releases every relay before anything is written to flash; an error after that point restarts the board. §10 gains the row.
+
+## 1.22 Changes in Rev 22
+
+— Commands are acted on after the MQTT client's loop returns, never inside it (§9.4). Found on the bench, 2026-10-03, with the serial console attached through a board test: the controller closed its own broker connection four times in 88s, each time after a stall of up to 939ms in the network step, and each loss released every relay. A command's handler publishes its echo at QoS 1, and the client library calls the handler from inside its own loop; the nested publish read the socket for its PUBACK, consumed bytes the outer loop had already counted as available, and the outer read then waited out the library's 1s timeout and closed the connection. The more commands arrive, the more often it happens — the board test sends one every few hundred milliseconds. This accounts for the seizures still dropped part-way through dialling after Rev 21, a 61ms break measured as 175ms, and other circuits changing state while one pair was under test.
+
+— Firmware consequence, for Claude Code, made the same day: `onMessage` records a `hook/set`, `dial/set` or `ring/set` in a queue of sixteen and `netService` acts on them once `mqtt.loop()` has returned; a full queue drops the command with a log line. The game heartbeat and `ctl/sync` were already only recorded. FIRMWARE_SPEC_REV 22.
 
 ## 1.21 Changes in Rev 21
 
@@ -460,7 +466,7 @@ Watch `sbgame/ctl/game_heartbeat`. If two consecutive beats are missed — no me
 
 ## 9.4 Commands
 
-`hook/set`, `ring/set` and `dial/set` (Rev 17) are acted on immediately and echoed on the state topic. The payload must be exactly `"on"` or `"off"`; anything else is logged and dropped, not read as `"off"` (Rev 7 — the first firmware released the relay on any payload that was not `"on"`, so a malformed command was a silent release). A command received while the game heartbeat is missing is still acted on — the heartbeat's return is the recovery signal, and the command is evidence of it. A command for a circuit whose expander was absent at the scan is logged, with the address it was dropped for, and dropped. This holds whether or not the game program has read ctl/i2c: a game program that consults it and does not send is cleaner, but the firmware does not depend on it.
+`hook/set`, `ring/set` and `dial/set` (Rev 17) are acted on immediately and echoed on the state topic — immediately meaning as soon as the MQTT client's loop has returned, in the same pass, and never from inside the client's message callback (Rev 22): an echo published there nests a QoS 1 exchange inside the client's own read, which the library cannot survive. The payload must be exactly `"on"` or `"off"`; anything else is logged and dropped, not read as `"off"` (Rev 7 — the first firmware released the relay on any payload that was not `"on"`, so a malformed command was a silent release). A command received while the game heartbeat is missing is still acted on — the heartbeat's return is the recovery signal, and the command is evidence of it. A command for a circuit whose expander was absent at the scan is logged, with the address it was dropped for, and dropped. This holds whether or not the game program has read ctl/i2c: a game program that consults it and does not send is cleaner, but the firmware does not depend on it.
 
 # 10. Failsafe Summary
 

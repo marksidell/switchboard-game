@@ -30,6 +30,47 @@ static uint32_t backoff_ms      = MQTT_RECONNECT_MIN_MS;
 static uint32_t last_hb_ms      = 0;
 static bool     eth_up_logged   = false;
 
+/* Commands received, waiting to be acted on (control.md 9.1, Rev 22). The
+ * client calls onMessage from inside mqtt.loop(), and acting there publishes
+ * the echo from inside it: the nested QoS 1 publish reads the socket for its
+ * PUBACK, takes bytes the outer loop() had already counted as available, and
+ * the outer read then waits out its 1s timeout and closes the connection - a
+ * stalled loop and every relay released. So onMessage only records the
+ * command, and netService acts on it once loop() has returned. */
+enum : uint8_t { CMD_HOOK, CMD_DIAL, CMD_RING };
+struct Command {
+  uint8_t kind;
+  uint8_t n;
+  bool    on;
+  char    digits[DIAL_MAX_DIGITS + 1];
+};
+static constexpr uint8_t CMD_QUEUE_LEN = 16;
+static Command cmd_queue[CMD_QUEUE_LEN];
+static uint8_t cmd_head = 0, cmd_count = 0;
+
+static Command* cmdPush(const char* topic) {
+  if (cmd_count == CMD_QUEUE_LEN) {
+    Serial.printf("mqtt: command queue full - %s dropped\n", topic);
+    return nullptr;
+  }
+  Command* c = &cmd_queue[(cmd_head + cmd_count++) % CMD_QUEUE_LEN];
+  *c = Command{};
+  return c;
+}
+
+static void runCommands() {
+  while (cmd_count) {
+    const Command c = cmd_queue[cmd_head];
+    cmd_head = (uint8_t)((cmd_head + 1) % CMD_QUEUE_LEN);
+    cmd_count--;
+    switch (c.kind) {
+      case CMD_HOOK: stationSetHook(c.n, c.on);    break;
+      case CMD_DIAL: stationDial(c.n, c.digits);   break;
+      case CMD_RING: trunkSetRing(c.n, c.on);      break;
+    }
+  }
+}
+
 /* ---- topic construction -------------------------------------------------
  * mqtt.md 3: a circuit id prefixed with "sbgame/" is that circuit's topic
  * root, which is the whole reason the id format is what it is. Built in one
@@ -120,17 +161,29 @@ static void onMessage(String& topic, String& payload) {
 
   if (sscanf(t, "sbgame/station/%u/%23s", &n, leaf) == 2 &&
       strcmp(leaf, "hook/set") == 0) {
-    if (parseOnOff(t, p, on)) stationSetHook((uint8_t)n, on);
+    Command* c;
+    if (parseOnOff(t, p, on) && (c = cmdPush(t))) {
+      c->kind = CMD_HOOK; c->n = (uint8_t)n; c->on = on;
+    }
     return;
   }
   if (sscanf(t, "sbgame/station/%u/%23s", &n, leaf) == 2 &&
       strcmp(leaf, "dial/set") == 0) {
-    stationDial((uint8_t)n, p);             // control.md 7.3, Rev 17
+    /* control.md 7.3, Rev 17. Too long to copy is too long to dial: an
+     * over-long payload is replaced by one stationDial() refuses, with its log. */
+    if (Command* c = cmdPush(t)) {
+      c->kind = CMD_DIAL; c->n = (uint8_t)n;
+      if (strlen(p) <= DIAL_MAX_DIGITS) strcpy(c->digits, p);
+      else                              strcpy(c->digits, "x");
+    }
     return;
   }
   if (sscanf(t, "sbgame/trunk/%u/%23s", &n, leaf) == 2 &&
       strcmp(leaf, "ring/set") == 0) {
-    if (parseOnOff(t, p, on)) trunkSetRing((uint8_t)n, on);
+    Command* c;
+    if (parseOnOff(t, p, on) && (c = cmdPush(t))) {
+      c->kind = CMD_RING; c->n = (uint8_t)n; c->on = on;
+    }
     return;
   }
   if (strcmp(t, "sbgame/ctl/game_heartbeat") == 0) {
@@ -202,6 +255,7 @@ static void onConnected() {
 
 void netService(uint32_t now_ms) {
   mqtt.loop();                       // sends the keepalive and dispatches messages
+  runCommands();                     // outside loop(): they publish (Rev 22)
 
   if (mqtt.connected()) return;
 
