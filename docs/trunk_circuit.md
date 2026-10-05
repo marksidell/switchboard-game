@@ -2,7 +2,7 @@
 
 **Trunk Interface Circuit Design**
 
-*Rev 5.40 — 8 Trunks, Constant-Current Loop Feed, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Trunk Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, External Ring Generator*
+*Rev 5.41 — 8 Trunks, Constant-Current Loop Feed, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Trunk Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, External Ring Generator*
 
 # **1. Overview**
 
@@ -145,6 +145,7 @@ Only two amendments to the station document are needed, and both are flagged whe
 - Rev 5.38: cross-reference only. `esp32.md` is `control.md` and `ring/esp32.ino` is `control/control.ino` as of 2026-09-19 (control.md Rev 9); every reference in this document follows, the Rev 5.35 and Rev 5.36 entries included. No change on this board.
 - Rev 5.39: follows station Rev 3.40 — stations 1–22, the operator tap on station board 3 strip 7 (A32 channel 23) and the audience monitor on strip 8's A32 output, channel 24, in place of the Digiface's own output. §3.3.1, §7.4, §9, §12.1, §12.1.1, §12.5 and the relay row in §13 follow the count. Trunk channels 25–32 and comb slots 25–32 are unchanged. No change on this board.
 - Rev 5.40: C19 added, 100nF from U1 pin 18 (/RESET) to GND at the pin (§10.4, §13), the same part as station Rev 3.43 and for the same finding. On the bench, 2026-10-03, this board's expander came back at its power-on configuration — IODIR FF, IPOL 00, so every trunk read seized until the firmware's configuration check (control.md §6.4) restored it — when a ring relay switched, on trunks 1, 2, 7 and 8 and intermittently. Raising the 24V current limit from 0.1A to 1A changed nothing; 100nF across pin 18 and ground on both boards stopped it, with no reset in twelve board tests. R_RST and C19 make 1ms against control.md §6.2's 2ms pulse and 5ms settle; no firmware change. The present board carries C19 as a bodge; the next revision gives it a footprint. Schematic: the root sheet as annotated runs C101–C109, so C19 takes C110.
+- Rev 5.41: the seizure detector is resized (§4.2): R_LOOP 150Ω → 220Ω (2W) and R_DET 470Ω → 150Ω (§3.3, §3.4, §4.1, §13); R1 stays at 100Ω. Found on the bench, 2026-10-03 and 2026-10-04: trunks intermittently reported no seizure with full loop current flowing — up to 27 of 100 off-hooks on one trunk, all-or-nothing, never late — and missed dial makes (control.md Rev 23). With the Analog Discovery across R_LOOP and R_DET, a miss showed 28mA of loop current and 1.90mA into OC1, the same as a good seizure; OC1's output blipped on for about 0.25ms at the relay make and stayed off. §4.2 had modelled the HCPL3700M's DC input as an LED dropping 1.4V and flagged that figure as the one number not measured. The datasheet (onsemi HCPL3700M, 2022-03-15) gives the DC input as the buffer IC's own threshold: V_TH+ 3.35–4.05V at I_TH+ 1.96–3.11mA, V_TH− 2.01–2.86V. Measured, OC1 sat at 3.28V and 1.90mA — below every part's turn-on point and above every part's turn-off point, inside the hysteresis band, so the output stayed wherever the make transient left it. No value of R_DET alone fixes it: 28mA in 150Ω is 4.2V, barely above the 4.05V worst-case threshold with nothing in series. Loop compliance was measured through the switchboard first (§3.3.3); the heaviest configuration, a station-board station on a cord, keeps about 100Ω of spare with these values. Two alternatives were weighed and not taken: R1 to 33Ω as well (more spare, which nothing measured needs, at eight more parts and harder faults), and R1 removed (the most spare, but a shorted Q4 on a normal call then runs OC1 at 83% of its input power rating). §3.3.2's merged-resistor sizing, which had the same 1.4V error, is corrected, and two §16 items are closed. The schematic designators for the changed parts are Rx06 and Rx07 on trunk sheet x.
 
 - Rev 5.36: the §11.1 pointer follows control.md Rev 2, which adds dial pulse detection on the seizure input. The 25ms release rule it quoted is gone — a dial pulse is a 25–100ms release — and the ring discriminator is now the break-to-break interval. No hardware change: the current source and the HCPL3700M already pass a dial pulse as a clean loop-current interruption (§3.2.2, §4). One measurement is added to the control.md open items rather than to §16 here, since it is a firmware threshold check: pulse timing on SEIZE_n through the real cord circuit and dial.
 
@@ -323,6 +324,8 @@ R1 = 100Ω is specified as the default, revised down from 220Ω. It keeps a shor
 
 Deleting R1 entirely is the tempting simplification and should be resisted. At 0Ω a shorted Q4 puts 2.7W into a 0.5W R_LOOP and drives 40mA continuously into the optocoupler input — a single transistor failure then takes out two more parts and possibly the trunk's detection with it. The 100Ω resistor is cheap insurance against a plausible failure turning into a cascading one.
 
+*Rev 5.41: R1 stays at 100Ω. R_LOOP rises to 220Ω, so R1 + R_LOOP is 320Ω, and the fault figures in the table above improve; §4.2 has them. The compliance figures in the table are the Rev 5.40 values; §3.3 and §3.3.3 have the current ones.*
+
 ## **3.3 Component Values and Compliance**
 
 | **Parameter** | **Value** | **Notes** |
@@ -330,8 +333,8 @@ Deleting R1 entirely is the tempting simplification and should be resisted. At 0
 | R_set | 22Ω, 0.5W | Sets loop current |
 | Loop current | 28.2mA nominal | V_BE 0.62V / 22Ω |
 | Spread | 26–31mA | V_BE 0.58–0.68V across parts and temperature |
-| Fixed drops at 28mA | 8.4V | R_set 0.62 + R1 2.82 + D1 0.7 + R_LOOP 4.23 |
-| Compliance for line | 15.6V | Regulates up to ~554Ω of switchboard cord circuit — see §3.2.4 |
+| Fixed drops at 28mA | 9.1–9.7V | R_set 0.62 + R1 2.82 + D1 0.7 + R_LOOP 4.9–5.5 (Rev 5.41; was 8.4V with R_LOOP 4.23). OC1's branch carries 3–6mA of the loop current past R_LOOP, so the drop is less than 28mA × 220Ω — §4.2. |
+| Compliance for line | 14.3–14.9V | Regulates up to about 505–530Ω of line (Rev 5.41; was 554Ω). Measured loads through the switchboard are 134–357Ω — §3.3.3. |
 | Beyond compliance | Degrades | Behaves as a resistive feed and loop current falls. Our detector holds to 14mA (§4.2), but the switchboard's supervisory relay may not. |
 
 *If the cord circuit measures comfortably below 400Ω, R1 can go back up to 220Ω for a cooler Q4 and a gentler fault case. If it measures above 554Ω, see §3.3.1 — and note that raising the supply rail is not among the options.*
@@ -382,15 +385,33 @@ The same reasoning suggests a change that is not a compliance fix but is a genui
   compliance                554 ohm      unchanged
   Q4-short fault             85 mA       unchanged
   V_sense at 28.2mA        7.05 V        (was 4.23V across R_LOOP alone)
-  R_DET = 1k -> I_opto     5.65 mA       margin 1.8x over the 3.11mA threshold
+  R_DET = 1k -> I_opto     5.65 mA       margin 1.8x over the 3.11mA threshold   [wrong - see note]
   fault: 20 mA into OC1, 1.80 W in the resistor
 ```
 
 It removes one component per trunk, eight across the board, and keeps the sense node ground-referenced and at low voltage where it belongs. The cost is that the single resistor needs a 3W rating for the fault case where the split version used a 1W and a 2W part, so the choice is really one 3W package against two smaller ones — closer than it looks, since two smaller bodies also spread the heat better.
 
+*Rev 5.41: the R_DET line above used the same 1.4V LED drop as Rev 5.40's §4.2 and is wrong. With the HCPL3700M's real DC threshold a merged 250Ω needs R_DET at about 330Ω, not 1k, to turn on every part (§4.2). Rev 5.41 keeps the split and R1 at 100Ω.*
+
 Sensing across a high-side R1 instead, which is the other way to remove a component, is the one arrangement to avoid. It works electrically — the optocoupler provides the isolation — but it moves the LED and its series resistor out of the ground-referenced logic area and into the high-voltage zone, where their common-mode potential swings with the line during ring. There is no benefit to pay for that.
 
 *Reducing the loop current is the cheapest fix on the list and the one with the hidden dependency. The switchboard's trunk supervisory relay has a minimum operate current that nobody has measured, and if it needs 20mA or more then 18.8mA is not available regardless of what our own detector can see. Measure the relay before the resistor — it also bounds how far the current can be trimmed for any other reason.*
+
+## **3.3.3 Measured Through the Switchboard — 2026-10-04 and 2026-10-05**
+
+Trunk 1, as built at Rev 5.40 (R1 100Ω, R_LOOP 150Ω, R_DET 470Ω), the Analog Discovery across R_LOOP (R206) and across Q4 emitter to collector (Q203), board supply 23.99V. Loop current is R_LOOP's current plus OC1's branch. The loop resistance is what the rail leaves after R_set, R1, D1, R_LOOP and Q4, divided by that current, taking V_BE as 0.62V and D1 as 0.7V. Spare is Q4's V_EC less 0.5V to keep regulating, divided by the loop current: how much more resistance the source would still drive.
+
+| **Test** | **On the trunk** | **Loop R** | **Loop I** | **Q4 V_EC** | **Spare** |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Station board strip 1, wired direct (bench); R3 is 330Ω | 326Ω | 30.4mA | 5.48V | 164Ω |
+| 2 | Model 500 desk set, wired direct | 175Ω | 30.1mA | 10.17V | 321Ω |
+| 3 | Switchboard cord in the trunk jack — the switchboard seizes the trunk | 181Ω | 29.9mA | 10.09V | 321Ω |
+| 4 | Operator connected on the talk key, no station | 134Ω | 29.7mA | 11.55V | 372Ω |
+| 5 | Model 500 on the cord, carrying the trunk's loop current; operator bridged, which carries a small DC current | 179Ω | 29.5mA | 10.30V | 332Ω |
+| 6 | Model 500 on the cord, operator off the circuit | 211Ω | 29.5mA | 9.36V | 300Ω |
+| 7 | Station 1 on the switchboard, off-hook through the cord | 357Ω | 29.9mA | 4.83V | 145Ω |
+
+Test 1 checks the method: 326Ω calculated against R3's 330Ω. Test 7 is the heaviest load: a station-board station is 330Ω where a desk set is about 175Ω, and the cord and switchboard add about 27Ω. Every configuration regulates. Rev 5.41 raises the drop across R_LOOP from 4.2V to about 4.9–5.5V at these currents, which takes 25–50Ω off every spare: test 7 keeps about 95–120Ω, and Q4 still has 2.4–2.8V across it with the loop current at the top of its spread (31mA, V_BE 0.68V). The switchboard sees the same current and so the same voltage as before — 5.3V on a desk-set call, 10.7V on a station-board station.
 
 ## **3.4 Dissipation**
 
@@ -400,7 +421,7 @@ Each trunk has its own current source, so the figures below are per trunk and th
 | --- | --- | --- | --- |
 | Q4 (MJE350) | 0.44W | 3.5W | TO-126, 300V/0.5A. Fit a heatsink — see below. |
 | R1 (100Ω) | 0.08W | 0.6W | 1W part — rated for the Q4-short case, not this one |
-| R_LOOP (150Ω) | 0.12W | 1.0W | 2W part — rated for the Q4-short case (§3.2.4) |
+| R_LOOP (220Ω) | 0.11–0.14W | 1.1W | 2W part — rated for the Q4-short case (§4.2) |
 | Relay coils | 0.15W | 1.2W | On the 5V rail |
 | Total loops + coils | 0.79W | ≈6.4W | Per-trunk column is one trunk block; ×8 is the board. Ventilate — see §15 |
 
@@ -415,9 +436,9 @@ This is the only supervisory input on the board. There is one per trunk and noth
 ## **4.1 Circuit**
 
 ```text
-  RING (jack) ---- RLY1 pole 2 NC ----+---- R_LOOP (150R, 0.5W) ---- GND
+  RING (jack) ---- RLY1 pole 2 NC ----+---- R_LOOP (220R, 2W) ---- GND
                                       |
-                                 R_DET (470R)
+                                 R_DET (150R)
                                       |
                                  OC1 pin 2 (DC+)
   OC1 pin 3 (DC-) ---- GND
@@ -432,16 +453,35 @@ The AC and DC input pairs are alternative entry points to the same input buffer 
 
 ## **4.2 Sizing**
 
+Rev 5.41. The HCPL3700M's DC input is not an LED. It is the input of the threshold buffer, and the datasheet (onsemi HCPL3700M, 2022-03-15) specifies it directly:
+
+| **DC input, pins 2–3** | **Min** | **Typ** | **Max** |
+| --- | --- | --- | --- |
+| V_TH+, turn-on voltage | 3.35V | 3.80V | 4.05V |
+| I_TH+, turn-on current | 1.96mA | 2.40mA | 3.11mA |
+| V_TH−, turn-off voltage | 2.01V | 2.50V | 2.86V |
+| I_TH−, turn-off current | 1.00mA | 1.20mA | 1.62mA |
+| I_IN at V_IN = 5.0V | 3.0mA | 3.7mA | 4.4mA |
+| V_IHC1, input clamp at 10mA | 5.4V | 6.3V | 6.6V |
+| Absolute maximum | 50mA average input current, 230mW input power | | |
+
+Every part turns on once its input reaches 4.05V, and draws at most 3.11mA doing it. R_LOOP is fed by the current source, so the node it sits on is a source of I × R_LOOP behind R_LOOP itself, and with R_DET in series the input at worst-case turn-on is
+
 ```text
-  V_sense at 28mA        = 28.2mA x 150R        = 4.23V
-  I_opto                 = (4.23 - 1.4) / 470   = 6.0mA
-  worst-case I_TH+       = 3.11mA               -> 1.93x margin
-  turn-off at I_TH- max  = 1.62mA -> V_sense 2.16V -> 14.4mA loop
+  V_in = R_LOOP x (I_loop - 3.11mA) - 3.11mA x R_DET      must be >= 4.05V
 ```
 
-Because the feed is a current source, the loop current is either zero or 28mA with nothing in between, so the detector never sits near its threshold and the 1.2mA of built-in hysteresis is never exercised in normal operation. The 14.4mA release point exists only to define behaviour if the current source is driven out of compliance by an unexpectedly high-resistance cord circuit; even then the detector holds up to roughly 1.2kΩ of line.
+```text
+                          I_loop 26mA (low end, §3.3)   at 28.2mA
+  Rev 5.40: 150R / 470R   V_in 1.97V  - never           measured 3.28V, 1.90mA
+  Rev 5.41: 220R / 150R   V_in 4.57V  - 0.52V margin    node 4.9-5.5V, 3-6mA into OC1
+```
 
-*The 1.4V figure for the HCPL3700M DC input forward drop is taken from the device's input characteristic and should be confirmed against the datasheet curve at 6mA before the board is cut. It is the one number in this section that is not either measured or set by a resistor, and R_DET is the knob if it turns out different.*
+Rev 5.40 assumed a 1.4V forward drop and found 6mA and 1.93x margin. Measured on the bench, OC1 sat at 3.28V and 1.90mA, below every part's turn-on point and above every part's turn-off point: inside the hysteresis band, where the output keeps whatever state it was in. The make transient decided it, which is why seizures and dial makes were missed all-or-nothing, at a rate that differed by part and drifted with temperature (Rev 5.41 change entry).
+
+The node voltage at 28.2mA depends on where OC1's own input settles, which the datasheet bounds only through I_IN at 5.0V: for an input between 4.0V and 5.0V, OC1 takes 3–6mA and the node sits at 4.9–5.5V. That current is diverted past R_LOOP, which is why the compliance cost in §3.3 is less than 28mA × 70Ω. Once on, the input is far above V_TH− max, so a seized trunk does not drop out, and each dial make turns the detector on cleanly.
+
+**Faults.** A shorted Q4 is a single fault and must not take out anything else. With a real loop on the trunk it does not: into the lightest load measured, 134Ω (§3.3.3), the loop rises to 56mA and OC1 takes 16mA and 103mW, R_DET 0.04W, R_LOOP 0.36W, R1 0.32W. A shorted Q4 *and* a dead short across the jack is a double fault: 92mA, of which OC1 takes about 37mA and 241mW — 5% over its 230mW absolute maximum — with R_DET at 0.21W of 0.25W, R_LOOP 0.66W of 2W and R1 0.85W of 1W. Rev 5.40's 470Ω kept OC1 to 77mW in that case only because it starved the detector in normal use. Guarding the double fault fully would take a clamp across R_LOOP, and it does not justify one.
 
 A cheaper part would work here. With the fault currents bounded by the current source there is nothing left for a threshold optocoupler to protect against, and a PC817 with R_DET at 600Ω would give the same 5mA of LED current. The HCPL3700M is specified anyway for one part number across both boards and for the guaranteed threshold limits, but with only eight fitted per board this is a smaller saving than it was and commonality probably wins.
 
@@ -1071,8 +1111,8 @@ Per trunk, ×8 on the board, unless marked otherwise. The Designator column carr
 | C_C ×8 | 1nF ceramic | Current source loop compensation, Q4 base to emitter. Fit a footprint accepting 100pF–10nF — see §3.2.2. Takes C1 on the strip sheet; assigned at Rev 5.26, having been missed when Rev 5.20 assigned numbers to the five functionally named resistors. |
 | R1 ×8 | 100Ω, 1W | Fault limiting, not thermal relief — see §3.2.4. 1W is for the Q4-short case. Revised down from 220Ω to recover compliance. |
 | D1 ×8 | 1N4007 | Blocks reverse current during an accidental ring |
-| R_LOOP ×8 | 150Ω, 2W | Loop current sense. 2W covers a shorted Q4 (1.08W) — see §3.2.4. |
-| R_DET ×8 | 470Ω, 0.25W | Sets OC1 input current |
+| R_LOOP ×8 | 220Ω, 2W | Loop current sense. 220Ω from Rev 5.41 (was 150Ω), to drive OC1 past its DC threshold — see §4.2. 2W covers a shorted Q4, 0.66W even into a dead short. Schematic Rx06. |
+| R_DET ×8 | 150Ω, 0.25W | Sets OC1 input current, 3–6mA. 150Ω from Rev 5.41 (was 470Ω, which held OC1 inside its hysteresis band) — see §4.2. Schematic Rx07. |
 | OC1 ×8 | HCPL3700M (onsemi) | Seizure detect, DC input mode — pins 2/3 driven, pins 1/4 OPEN. 8-pin PDIP. Note this is the opposite wiring from the station board ring detector. |
 | R2 ×8 | 4.7kΩ, 0.25W | OC1 output pull-up to 3.3V |
 | C5 ×8 | 0.1µF ceramic | OC1 V_CC bypass, pins 8–5, at the device. Required. |
@@ -1188,9 +1228,9 @@ Everything below is a number this design assumes rather than knows. Each has a f
 
 | **Item** | **Why it matters** | **Section** |
 | --- | --- | --- |
-| 551 trunk cord circuit DC resistance | Compliance is 554Ω with R1 at 100Ω. Decides whether §3.3.1 is needed at all. | §3.2.4 |
+| ~~551 trunk cord circuit DC resistance~~ | Measured at Rev 5.41: 134–211Ω through the switchboard to a desk set, 357Ω to a station-board station; compliance 505–530Ω. §3.3.1 is not needed. | §3.3.3 |
 | Switchboard trunk supervisory relay operate current | Bounds how far loop current can be reduced; gates the cheapest compliance fix | §3.3.1 |
-| HCPL3700M DC input forward drop at 6mA | Sets R_DET. The one unmeasured number in the seizure detector. | §4.2 |
+| ~~HCPL3700M DC input forward drop at 6mA~~ | Closed at Rev 5.41: the DC input is a threshold buffer, V_TH+ 3.35–4.05V; measured 3.28V at 1.90mA with the Rev 5.40 values. | §4.2 |
 | Current source loop stability into the real line | Sets C_C. Step the load and look for ringing; cord circuit inductance is unmeasured. | §3.2.2 |
 | Current source output impedance across 300Hz–9kHz | Underpins the crosstalk claim; Early voltage is an estimate | §3.2.1 |
 | Switchboard 24V draw — idle, typical, all lamps lit | The largest unmeasured term in the system budget; decides the PSU | §12.1 |

@@ -1,6 +1,6 @@
 # Trunk Board — KiCad Schematic Drawing Guide
 
-Derived from trunk circuit Rev 5.25 and the KiCad library plan; C19, the /RESET filter, added at trunk Rev 5.40. Checked part by part
+Derived from trunk circuit Rev 5.25 and the KiCad library plan; C19, the /RESET filter, added at trunk Rev 5.40; R_LOOP and R_DET values from trunk Rev 5.41. Checked part by part
 against Rev 5.25 §13 — the earlier version of this guide was written against Rev 5.16 and
 its header was never moved, so the change entries from 5.17 to 5.25 had never been read
 back into it. Result of that check is at the end of §5.
@@ -251,8 +251,8 @@ scope across R13 at seizure.
 
 | Ref | Doc name | Value | Symbol | Footprint |
 |---|---|---|---|---|
-| R13 | R_LOOP | 150R 2W | `Device:R` | `R_Axial_DIN0516_L15.5mm_D5.0mm` |
-| R14 | R_DET | 470R | `Device:R` | `R_Axial_DIN0207` |
+| R13 | R_LOOP | 220R 2W (trunk Rev 5.41; was 150R) | `Device:R` | `R_Axial_DIN0516_L15.5mm_D5.0mm` |
+| R14 | R_DET | 150R (trunk Rev 5.41; was 470R) | `Device:R` | `R_Axial_DIN0207` |
 | OC1 | OC1 | HCPL3700M | `switchboard:HCPL-3700` | `Package_DIP:DIP-8_W7.62mm` |
 | R2 | R2 | 4.7k | `Device:R` | `R_Axial_DIN0207` |
 | C5 | C5 | 0.1µF | `Device:C` | `C_Disc_D5.1mm_W3.2mm_P5.00mm` |
