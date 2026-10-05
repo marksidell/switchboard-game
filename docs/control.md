@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 25 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
+*Rev 26 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
 
 # 1. Overview
 
@@ -113,6 +113,21 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 — Firmware updates over the network (§2.1), so that the installed board can be reflashed without a USB cable. A cable left attached would join portland's ground to the system's 24V ground, which PoE's isolation keeps apart, and anything that opened the port would reset the board; Mark weighed powering the Olimex from USB and chose to stay on PoE (with a TL-SG105PE PoE switch in place of a separate injector) and update over the network instead. The generator §3.4 recommendation to prefer OTA in the installed system is now something the firmware can do.
 
 — Firmware consequence, for Claude Code, made in the same commit: ArduinoOTA started once Ethernet has an address, with the hostname `sbgame-esp32` and a SHA-256 password hash from `secrets.h` (`OTA_PASSWORD_SHA256`; without it the firmware builds with OTA off). The start callback stops the waveform and releases every relay before anything is written to flash; an error after that point restarts the board. §10 gains the row.
+
+## 1.26 Changes in Rev 26
+
+— Bench record only: dial pulse timing and contact bounce through the real 551 cord circuit and dial, measured 2026-10-05 (§8.2, §11). The operator seized trunk 1 with a cord and dialled 0, 1, 2, 3 on the switchboard's dial; loop current was recorded across the trunk's sense resistor (R206) with an Analog Discovery 3 at 50kHz for 45s, upstream of the seizure detector, so the figures are the dial's own and not the detector's.
+
+| **Digit** | **Pulses** | **Break** | **Make** | **Rate** | **Make before the next digit** |
+| --- | --- | --- | --- | --- | --- |
+| 0 | 10 | 68.7–76.0ms | 37.0–40.2ms | 9.2pps | 1.56s |
+| 1 | 1 | 81.5ms | — | — | 1.34s |
+| 2 | 2 | 76.6–76.7ms | 41.6ms | 8.5pps | 1.29s |
+| 3 | 3 | 76.3–78.2ms | 41.5–41.8ms | 8.4pps | — |
+
+Every break is inside §8.2's 25–100ms window, the longest with 18.5ms to spare; every make is far below the 200ms end of digit and every inter-digit make far above it. The dial runs a little slow, 8.4–9.2pps against 10 nominal, and a little long on break, 64–68%, both inside what §8.2 accepts. Bounce is at the start of each break only: an open of up to about 3ms, then the contacts close again for 0.34–0.96ms, then stay open; 18 such re-closes in 16 breaks, and none inside any make. The longest, 0.96ms, is a fifth of one 5ms sample, so the Rev 24 glitch filter rejects it with margin, and no firmware change follows. A 12V spike across the sense resistor about 1.5s after the last digit was the operator throwing the key that takes the dial off the trunk, not the dial.
+
+— The firmware's own decode of these digits could not be checked in the same run: trunk 1 still carried the Rev 5.40 seizure detector values, which hold the HCPL3700M inside its hysteresis band (trunk Rev 5.41), and the controller published no digits. That check waits on the Rev 5.41 resistors.
 
 ## 1.25 Changes in Rev 25
 
@@ -514,7 +529,7 @@ What the firmware cannot do is make the ring bus safe: the generator runs whenev
 - The Next Call button on GPIO36 (Rev 13): debounce, the press event, its `mqtt.md` topic and the game program's handling of it, as an alternative to the page's `game/next/set`. Not yet written, and waiting on hardware: the button is not fitted to the board as built (Rev 16); the circuit is drawn in ring2.
 - Nothing in §6 to §10 has yet run against a station or trunk board, because none is built. First bring-up with a board on the chain: scan result on ctl/i2c, IPOL sense, relay drive and echo, ring and seize debounce against the real detectors.
 - The concurrent-ring cap value waits on the ring-current measurements in trunk §7.6.
-- Dial pulse timing through the real 551 trunk cord circuit and dial has not been measured, nor has the dial's contact bounce, which the Rev 24 glitch filter assumes is shorter than one 5ms sample. Scope SEIZE_n while dialling a full digit and a 0 on a seized trunk, and confirm the break and make intervals land inside the §8.2 windows with margin; the cord circuit's retard coils will round the edges, and the current source's recovery (trunk §3.2.2) is calculated, not measured, into a real dial.
+- ~~Dial pulse timing through the real 551 trunk cord circuit and dial~~ — measured 2026-10-05 (Rev 26): breaks 68.7–81.5ms, makes 37.0–41.8ms, 8.4–9.2pps, bounce at break start only, re-closes of 0.96ms at most, inside every §8.2 window and the Rev 24 glitch filter. Still open: the firmware's decode of those digits end to end, which waits on the trunk Rev 5.41 resistors.
 - The 1ms /RESET pulse width is chosen as safe, not read from the MCP23017 datasheet; confirm.
 - The three-error bus-fault threshold (§6.2) and the two-interval ring threshold (§8.1) are judgement values; revisit both once there is a bus and a switchboard to measure against.
 - Read the banner's loop timing — longest pass and longest poll gap — with the broker up and a republish cycle in the window, and confirm the gap stays at the 5ms nominal.
