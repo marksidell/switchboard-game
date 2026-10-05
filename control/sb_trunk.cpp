@@ -25,8 +25,10 @@ static const char* const FAULT_DIAL = "bad_dial";
 struct TrunkState {
   Phase    phase;
 
-  bool     raw_last;        // last SEIZE sample, 1 = loop current flowing
+  bool     raw_last;        // accepted SEIZE level, 1 = loop current flowing
   uint32_t level_since;     // when the present level began
+  bool     cand;            // one sample has disagreed with raw_last (glitch filter)
+  uint32_t cand_ms;         // when that sample was taken
 
   uint8_t  pulses;          // pulses counted in the digit under way
   bool     in_digit;        // a pulse, or a long bad break, since the last digit boundary
@@ -219,27 +221,48 @@ void trunkPoll(uint32_t now) {
            * time to re-establish before the 100ms seizure test can fire. */
           s.raw_last    = circuitInput(c);
           s.level_since = now;
+          s.cand        = false;
         }
       }
     }
 
-    const bool raw    = circuitInput(c);
+    const bool sample = circuitInput(c);
     const bool blind  = (s.phase == Phase::Ringing && s.cadence_on);
 
-    if (!blind && raw != s.raw_last) {
-      const uint32_t len = elapsedMs(now, s.level_since);
+    /* Glitch filter (control.md 8.1, Rev 24): a change of level is accepted
+     * only when two consecutive samples agree on it, and it is timed from the
+     * first of them, so both edges of a pulse move together and a break or
+     * make keeps its length. Anything shorter than one 5ms sample interval -
+     * dial contact bounce - can disagree with the level in one sample at most,
+     * and is dropped. */
+    bool     edge    = false;
+    uint32_t edge_ms = now;
+    if (blind || sample == s.raw_last) {
+      s.cand = false;
+    } else if (s.cand) {
+      edge    = true;
+      edge_ms = s.cand_ms;
+      s.cand  = false;
+    } else {
+      s.cand    = true;
+      s.cand_ms = now;
+    }
+
+    if (edge) {
+      const bool     raw = sample;
+      const uint32_t len = elapsedMs(edge_ms, s.level_since);
       s.raw_last    = raw;
-      s.level_since = now;
+      s.level_since = edge_ms;
 
       if (!raw) {
         /* Asserted -> released: this edge is a break. The break-to-break
          * interval is what separates ring from a dial (control.md 8.1). */
-        if (s.have_break && elapsedMs(now, s.last_break_ms) <= RING_BREAK_GAP_MS) {
+        if (s.have_break && elapsedMs(edge_ms, s.last_break_ms) <= RING_BREAK_GAP_MS) {
           if (s.short_gaps < 255) s.short_gaps++;
         } else {
           s.short_gaps = 0;
         }
-        s.last_break_ms = now;
+        s.last_break_ms = edge_ms;
         s.have_break    = true;
 
         if (s.short_gaps >= RING_SHORT_GAPS_TO_DECLARE &&
@@ -266,6 +289,7 @@ void trunkPoll(uint32_t now) {
       }
     }
 
+    const bool     raw   = s.raw_last;      // the filtered level from here on
     const uint32_t dwell = elapsedMs(now, s.level_since);
 
     switch (s.phase) {

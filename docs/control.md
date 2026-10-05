@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 23 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
+*Rev 24 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
 
 # 1. Overview
 
@@ -113,6 +113,12 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 — Firmware updates over the network (§2.1), so that the installed board can be reflashed without a USB cable. A cable left attached would join portland's ground to the system's 24V ground, which PoE's isolation keeps apart, and anything that opened the port would reset the board; Mark weighed powering the Olimex from USB and chose to stay on PoE (with a TL-SG105PE PoE switch in place of a separate injector) and update over the network instead. The generator §3.4 recommendation to prefer OTA in the installed system is now something the firmware can do.
 
 — Firmware consequence, for Claude Code, made in the same commit: ArduinoOTA started once Ethernet has an address, with the hostname `sbgame-esp32` and a SHA-256 password hash from `secrets.h` (`OTA_PASSWORD_SHA256`; without it the firmware builds with OTA off). The start callback stops the waveform and releases every relay before anything is written to flash; an error after that point restarts the board. §10 gains the row.
+
+## 1.24 Changes in Rev 24
+
+— A change of level on SEIZE_n is accepted only when two consecutive samples agree on it (§8.1). Found in review of trunk Rev 5.41, 2026-10-05: the resized detector drives the HCPL3700M well past its threshold, so it now follows every bounce of the switchboard's dial contacts, which the input sitting near its threshold had partly hidden. The input is sampled every 5ms with nothing in between, and one sample caught inside a bounce is a break shorter than 25ms in a digit — spoiling it with `bad_dial` — or a make that splits a break in two. Bounce lasts a few milliseconds, so it can disagree with the settled level in one sample at most, and a two-sample rule drops it. The accepted edge is timed from the first of the two samples, so both edges of a pulse move by the same amount and every interval in §8.1 and §8.2 keeps its length; the cost is 5ms of latency on each edge, nothing against a 100ms seizure test or a 25ms shortest break. Ring applied from the switchboard alternates at about 25ms on and 25ms off, five samples a side, and passes unchanged. The dial bounce itself is still to be measured on the bench, through the real cord circuit (§11).
+
+— Firmware consequence, for Claude Code, made in the same commit: `trunkPoll()` in `sb_trunk.cpp` holds a candidate level and its time, accepts it on the second agreeing sample, and stamps the edge — `level_since` and the break-to-break time — from the candidate. The state machine reads the filtered level. FIRMWARE_SPEC_REV 24.
 
 ## 1.23 Changes in Rev 23
 
@@ -355,6 +361,8 @@ One input per trunk, SEIZE_n, sampled at 200Hz. It is asserted whenever loop cur
 
 Two things separate the cases, and neither is a count of transitions. Seizure against ring is duration: an accidental ring never holds the line asserted for longer than about 27ms (trunk §5.2) against a 100ms threshold, roughly four times margin. Dial against ring is the interval between successive breaks: 20Hz ring gives one every 50ms, and a dial gives one every 67–125ms across the whole 8–15 pps window in §8.2, so a ≤ 60ms break-to-break interval is ring and a 67ms or longer one is a dial pulse, with no overlap on paper. At 5ms sampling the two are one sample apart at the 15 pps end, so ring is declared on two consecutive intervals ≤ 60ms, not one; a dial cannot produce two in a row and ring produces them continuously. Rev 1 used a transition count — four or more in 150ms — which a 12 pps dial can just reach; the interval test is what actually differs between the two signals. A break shorter than 25ms or between 100ms and 250ms is neither a pulse nor a release: log it, publish `fault` = `"bad_dial"` if it occurs inside a digit — or, for one of 100–250ms, before the digit's first pulse (Rev 23, §8.2) — and carry on.
 
+**Glitch filter** (Rev 24). A change of level is accepted only when two consecutive samples show it, and is timed from the first of them. A pulse of either sense shorter than one sample interval — dial contact bounce — cannot occupy two samples and is ignored; every interval in the table above keeps its length, and each edge is reported 5ms later than it happened.
+
 The 100ms of seizure latency and the 250ms of release latency are invisible on a manual switchboard. The 25ms release threshold of Rev 1 is gone because it is shorter than a dial pulse.
 
 ## 8.2 Dial Pulse Detection
@@ -496,7 +504,7 @@ What the firmware cannot do is make the ring bus safe: the generator runs whenev
 - The Next Call button on GPIO36 (Rev 13): debounce, the press event, its `mqtt.md` topic and the game program's handling of it, as an alternative to the page's `game/next/set`. Not yet written, and waiting on hardware: the button is not fitted to the board as built (Rev 16); the circuit is drawn in ring2.
 - Nothing in §6 to §10 has yet run against a station or trunk board, because none is built. First bring-up with a board on the chain: scan result on ctl/i2c, IPOL sense, relay drive and echo, ring and seize debounce against the real detectors.
 - The concurrent-ring cap value waits on the ring-current measurements in trunk §7.6.
-- Dial pulse timing through the real 551 trunk cord circuit and dial has not been measured. Scope SEIZE_n while dialling a full digit and a 0 on a seized trunk, and confirm the break and make intervals land inside the §8.2 windows with margin; the cord circuit's retard coils will round the edges, and the current source's recovery (trunk §3.2.2) is calculated, not measured, into a real dial.
+- Dial pulse timing through the real 551 trunk cord circuit and dial has not been measured, nor has the dial's contact bounce, which the Rev 24 glitch filter assumes is shorter than one 5ms sample. Scope SEIZE_n while dialling a full digit and a 0 on a seized trunk, and confirm the break and make intervals land inside the §8.2 windows with margin; the cord circuit's retard coils will round the edges, and the current source's recovery (trunk §3.2.2) is calculated, not measured, into a real dial.
 - The 1ms /RESET pulse width is chosen as safe, not read from the MCP23017 datasheet; confirm.
 - The three-error bus-fault threshold (§6.2) and the two-interval ring threshold (§8.1) are judgement values; revisit both once there is a bus and a switchboard to measure against.
 - Read the banner's loop timing — longest pass and longest poll gap — with the broker up and a republish cycle in the window, and confirm the gap stays at the 5ms nominal.
