@@ -384,7 +384,7 @@ async def outside_to_station(ctx: Ctx, trunk: int) -> Outcome:
     caller, called = f"trunk/{trunk}", f"station/{sc.to_station}"
     try:
         await ctx.slots.set(ctx.call, "trunk", caller)
-        await ctx.hw.ring_trunk(trunk, True)
+        await ctx.hw.short_ring(trunk)          # game_control.md §4.3, Rev 28
         try:
             await _answer(ctx, caller)
         finally:
@@ -447,7 +447,7 @@ async def to_operator(ctx: Ctx, trunk: int | None = None) -> Outcome:
             await ctx.hw.hook(sc.from_station, True)
         else:
             await ctx.slots.set(ctx.call, "trunk", caller)
-            await ctx.hw.ring_trunk(trunk, True)
+            await ctx.hw.short_ring(trunk)      # game_control.md §4.3, Rev 28
         try:
             await _answer(ctx, caller)
         except TimeoutError:

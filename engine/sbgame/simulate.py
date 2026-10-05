@@ -142,6 +142,13 @@ class Sim:
         """One `/set`, echoed as the real client would echo it."""
         leaf = base.rsplit("/", 1)[-1]
 
+        if leaf == "shortring":                  # control.md §8.4, Rev 25: one burst
+            ring = base.rsplit("/", 1)[0] + "/ring"
+            await self.pub(ring, payload)
+            if payload == "on":
+                asyncio.create_task(self._end_burst(ring))
+            return
+
         if leaf in ("hook", "ring", "seize"):
             await self.pub(base, payload)
             if leaf == "hook" and payload == "off":
@@ -314,6 +321,11 @@ class Sim:
                 if line and self.circuit_of.get(line) == circuit:
                     return True
         return False
+
+    async def _end_burst(self, ring: str) -> None:
+        await asyncio.sleep(0.5)
+        if self.get(ring) == "on":
+            await self.pub(ring, "off")
 
     def _free_trunk_now(self) -> int | None:
         """Pick a trunk and commit to it in the same breath, no await between."""

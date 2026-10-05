@@ -54,6 +54,13 @@ class FakeLink:
                 await u(base, "silence")
         elif base.endswith("/tone"):
             await u(base, "" if p == "off" else p)
+        elif base.endswith("/shortring"):   # one burst on the ring echo (control.md §8.4)
+            ring = base.removesuffix("/shortring") + "/ring"
+            await u(ring, p)
+            if p == "on":
+                await asyncio.sleep(D * 5)
+                if self.b.get(ring) == "on":
+                    await u(ring, "off")
         else:  # hook, ring
             await u(base, p)
 

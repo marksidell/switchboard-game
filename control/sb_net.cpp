@@ -37,7 +37,7 @@ static bool     eth_up_logged   = false;
  * the outer read then waits out its 1s timeout and closes the connection - a
  * stalled loop and every relay released. So onMessage only records the
  * command, and netService acts on it once loop() has returned. */
-enum : uint8_t { CMD_HOOK, CMD_DIAL, CMD_RING };
+enum : uint8_t { CMD_HOOK, CMD_DIAL, CMD_RING, CMD_SHORTRING };
 struct Command {
   uint8_t kind;
   uint8_t n;
@@ -69,6 +69,7 @@ static void runCommands() {
       case CMD_HOOK: stationSetHook(c.n, c.on);    break;
       case CMD_DIAL: stationDial(c.n, c.digits);   break;
       case CMD_RING: trunkSetRing(c.n, c.on);      break;
+      case CMD_SHORTRING: trunkShortRing(c.n, c.on); break;
     }
   }
 }
@@ -149,9 +150,9 @@ static bool parseOnOff(const char* topic, const char* p, bool& on) {
   return false;
 }
 
-/* mqtt.md 6 is the whole of the inbound surface: three per-circuit commands -
- * hook/set and dial/set (control.md 7.3, Rev 17) on a station, ring/set on a
- * trunk - and two ctl topics. Parsed rather than dispatched through a table
+/* mqtt.md 6 is the whole of the inbound surface: four per-circuit commands -
+ * hook/set and dial/set (control.md 7.3, Rev 17) on a station, ring/set and
+ * shortring/set (control.md 8.4, Rev 25) on a trunk - and two ctl topics. Parsed rather than dispatched through a table
  * because the circuit number has to come out of the middle. */
 static void onMessage(String& topic, String& payload) {
   const char* t = topic.c_str();
@@ -185,6 +186,14 @@ static void onMessage(String& topic, String& payload) {
     Command* c;
     if (parseOnOff(t, p, on) && (c = cmdPush(t))) {
       c->kind = CMD_RING; c->n = (uint8_t)n; c->on = on;
+    }
+    return;
+  }
+  if (sscanf(t, "sbgame/trunk/%u/%23s", &n, leaf) == 2 &&
+      strcmp(leaf, "shortring/set") == 0) {
+    Command* c;
+    if (parseOnOff(t, p, on) && (c = cmdPush(t))) {
+      c->kind = CMD_SHORTRING; c->n = (uint8_t)n; c->on = on;
     }
     return;
   }
@@ -246,6 +255,8 @@ static void onConnected() {
   snprintf(topic, sizeof topic, "%sstation/+/dial/set", TOPIC_PREFIX);
   mqtt.subscribe(topic, 1);
   snprintf(topic, sizeof topic, "%strunk/+/ring/set", TOPIC_PREFIX);
+  mqtt.subscribe(topic, 1);
+  snprintf(topic, sizeof topic, "%strunk/+/shortring/set", TOPIC_PREFIX);
   mqtt.subscribe(topic, 1);
   ctlTopic("game_heartbeat", topic, sizeof topic); mqtt.subscribe(topic, 1);
   ctlTopic("sync",           topic, sizeof topic); mqtt.subscribe(topic, 1);

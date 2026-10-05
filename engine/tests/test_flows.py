@@ -333,7 +333,7 @@ async def main() -> int:
     took = asyncio.get_running_loop().time() - t0
     check(r.ok, "succeeds")
     check(h.connected, "connected when the request finished (§4.3)")
-    check(("trunk/3/ring/set", "on") in h.link.sent, "rang the trunk")
+    check(("trunk/3/shortring/set", "on") in h.link.sent, "rang the trunk once, short (Rev 28)")
     check(("trunk/3/ring/set", "off") in h.link.sent, "stopped ringing it once answered")
     check(h.monitor == ["trunk/3"], f"monitor followed the trunk: {h.monitor}")
     check(took < 5, f"hung up as soon as the request played, not waiting on her: {took:.2f}s")
@@ -354,6 +354,8 @@ async def main() -> int:
     r = await h.run(outside_to_station, incoming_operator, 3)
     check(r.ok, "succeeds")
     check(h.monitor == ["trunk/3"], f"monitor followed the trunk: {h.monitor}")
+    check(("trunk/3/shortring/set", "on") in h.link.sent, "rang the trunk once, short (Rev 28)")
+    check(("trunk/3/ring/set", "on") not in h.link.sent, "and never with the cadence")
     check(("trunk/3/ring/set", "off") in h.link.sent, "stopped ringing the trunk")
 
     print("\n" + ("FAILURES" if failures else "all flows passed"))

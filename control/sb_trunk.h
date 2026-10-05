@@ -24,6 +24,11 @@ void trunkPoll(uint32_t now_ms);
  * the concurrent-ring cap is queued rather than rung (control.md 8.5). */
 void trunkSetRing(uint8_t n, bool on);
 
+/* From sbgame/trunk/<n>/shortring/set (control.md 8.4, Rev 25). "on" rings one
+ * burst of SHORT_RING_MS and returns the trunk to IDLE; "off" cancels it. Same
+ * phase rules and cap as ring/set. */
+void trunkShortRing(uint8_t n, bool on);
+
 /* Failsafe (control.md 10): drop every ring relay, cancel every request and
  * return every ringing trunk to IDLE. */
 void trunkReleaseAll();

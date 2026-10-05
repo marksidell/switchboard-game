@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 27 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built*
+*Rev 28 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built*
 
 # 1. Overview
 
@@ -175,6 +175,12 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 — The page's countdown says "waiting" while a game runs in automatic pacing and no next call is scheduled — `next_at` empty, because in auto the latest call is not yet connected or ended, and in listen the board is not yet empty (§4.2) — and "–" when no game runs (§7.1), Mark's request, 2026-09-28. It said "–" in both. The deck's Next key already said "waiting" in that case; §7.4 now says so too. It is on the countdown rather than on the Next Call button because the button is hidden with the controls and the countdown is not.
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
+
+## 1.28 Changes in Rev 28
+
+— A call in on a trunk is signalled with one short burst of ring, `shortring/set` (§4.3, §6.1, §6.4; mqtt.md Rev 26, control.md Rev 25), Mark's request, 2026-10-05, in place of ring in the standard cadence until answered. The trunk cannot see a seizure while it is ringing, so an operator who plugged in during a 2s ring-on interval was not seen until it ended. The 551's trunk signal latches on a short burst, so the lamp stays lit without further ring and the trunk is readable from the moment the burst ends. Nothing else about the call changes: the answer timeout runs from the start of the call as before, and an unanswered call fails as `no answer`. The game still sends `ring/set` `"off"` when the call ends, which cancels a burst that is still ringing. The page's `ring` diagnostic keeps the cadence (§7.5).
+
+— Code consequence for Claude Code, made the same day: `Hw.short_ring()` in `link.py`; `outside_to_station` and `to_operator` from an outside line call it instead of `ring_trunk(…, True)`; the simulator and the tests' fake echo a 0.5s burst on `ring`.
 
 ## 1.27 Changes in Rev 27
 
@@ -424,7 +430,7 @@ Each call in progress occupies one of eight slots, `game/call/<1-8>/…`. A slot
 
 `stage` is one of:
 
-- `signalling` — the calling station is off-hook, or the incoming trunk is ringing; waiting for the operator.
+- `signalling` — the calling station is off-hook, or the incoming trunk has been rung (one short burst, Rev 28); waiting for the operator.
 - `request` — the operator has answered; the request is playing.
 - `routing` — waiting for the operator to ring a station or take a trunk.
 - `dialling` — the operator has seized a trunk; digits are arriving.
@@ -502,7 +508,7 @@ The loudspeaker carries one receive channel, chosen by the game program with `au
 
 **When.** The operator answers a call when its calling circuit's `op` goes on while the call is in `signalling`: that is the event that takes the call out of `signalling` (§6.1). At that moment the game program publishes `monitor/source/set` with the calling circuit's id. For a call from a station that is the station, such as `station/11`. For a call from outside it is the trunk that rang in, such as `trunk/3`. It does not change the source at any other point in the call. It does not change it when the operator bridges onto a call already past `signalling`, to listen in or to go back to a caller, since that is not an answer.
 
-**Why at the answer.** Before the answer the calling line carries nothing worth hearing. A calling station is off-hook and silent. A calling trunk is ringing, and its ring relay puts a click on its channel at every cadence edge (trunk §8.1.1). Waiting for the answer also keeps the audience on the current conversation until the operator actually leaves it for the next caller. Mark's first proposal switched at the start of the call. He changed it to the answer on 2026-09-24 for these reasons.
+**Why at the answer.** Before the answer the calling line carries nothing worth hearing. A calling station is off-hook and silent. A calling trunk has been rung, and its ring relay put a click on its channel at the start and end of the burst (trunk §8.1.1; one short burst from Rev 28, a click at every cadence edge before). Waiting for the answer also keeps the audience on the current conversation until the operator actually leaves it for the next caller. Mark's first proposal switched at the start of the call. He changed it to the answer on 2026-09-24 for these reasons.
 
 **What the audience hears.** The calling line's receive channel carries the caller's side at full strength, since the interface has no hybrid (station §8.4). It carries the operator while she is bridged to the line, and the called party once the cord connects them. So one source carries the request, the operator's reply and the conversation. A call to the operator, and a busy scene where the operator goes back to the caller, are heard the same way. An outgoing call's ringback and busy tone reach the caller through the cord, and the audience hears them when the caller would.
 

@@ -39,6 +39,7 @@ struct TrunkState {
   uint8_t  short_gaps;
 
   bool     ring_requested;  // the game asked; may be waiting on the cap
+  bool     short_burst;     // the request is shortring/set: one burst, no cadence
   uint32_t ring_started_ms; // entry to Ringing, for the 30s hard timeout
   bool     cadence_on;
   uint32_t cadence_since;
@@ -106,6 +107,7 @@ static void enterIdle(uint8_t i, uint32_t now) {
   s.digit_spoiled = false;
   s.cadence_since = now;
   s.seize_on      = false;
+  s.short_burst   = false;
   publishBoolIfChanged(row(i), "seize", false, s.seize_pub);
 }
 
@@ -115,6 +117,7 @@ static void enterSeized(uint8_t i, uint32_t now) {
    * line outward and the incoming call is moot (control.md 8.3). */
   driveRing(i, false);
   s.ring_requested = false;
+  s.short_burst    = false;
   s.phase          = Phase::Seized;
   s.pulses         = 0;
   s.in_digit       = false;
@@ -201,6 +204,18 @@ void trunkPoll(uint32_t now) {
     /* ---- cadence and the hard timeout, before the input is looked at ----
      * During the ring-on phase pole 2 has lifted the return off R_LOOP and
      * SEIZE reads nothing, so the input is only meaningful in the off phase. */
+    /* shortring/set (control.md 8.4, Rev 25): one burst, then IDLE, where a
+     * seizure is readable at once. The level recorded before the burst says
+     * nothing about now, so rebaseline as at the start of an off phase. */
+    if (s.phase == Phase::Ringing && s.short_burst &&
+        elapsedMs(now, s.ring_started_ms) >= SHORT_RING_MS) {
+      s.ring_requested = false;
+      enterIdle(i, now);
+      s.raw_last    = circuitInput(c);
+      s.level_since = now;
+      s.cand        = false;
+    }
+
     if (s.phase == Phase::Ringing) {
       if (elapsedMs(now, s.ring_started_ms) >= RING_HARD_TIMEOUT_MS) {
         Serial.printf("trunk %u: 30s ring timeout\n", (unsigned)c.number);
@@ -344,12 +359,15 @@ void trunkPoll(uint32_t now) {
 
 /* ---- commands ----------------------------------------------------------- */
 
-void trunkSetRing(uint8_t n, bool on) {
+/* ring/set and shortring/set share their checks and the cap; they differ only
+ * in what the trunk does once it rings (control.md 8.4). `cmd` names the topic
+ * in the log. */
+static void requestRing(uint8_t n, bool on, bool short_burst, const char* cmd) {
   const CircuitMap* c = trunkCircuit(n);
-  if (!c) { Serial.printf("ring/set: trunk %u out of range\n", (unsigned)n); return; }
+  if (!c) { Serial.printf("%s: trunk %u out of range\n", cmd, (unsigned)n); return; }
   if (!circuitLive(*c)) {
-    Serial.printf("ring/set: trunk %u dropped - expander 0x%02X absent\n",
-                  (unsigned)n, expanders[c->exp].addr);
+    Serial.printf("%s: trunk %u dropped - expander 0x%02X absent\n",
+                  cmd, (unsigned)n, expanders[c->exp].addr);
     return;
   }
 
@@ -359,22 +377,24 @@ void trunkSetRing(uint8_t n, bool on) {
 
   if (!on) {
     s.ring_requested = false;
+    s.short_burst    = false;
     if (s.phase == Phase::Ringing) enterIdle(i, now);
     return;
   }
 
   /* control.md 8.3, Rev 7: "on" is acted on in IDLE only. In RINGING it is a
-   * no-op. In SEIZED and RING_ON_TRUNK it is dropped with a log line and not
-   * held for later - a ring that started seconds after the command, once the
-   * operator had finished with the trunk, is not what the game meant. Nothing
-   * is published, so the `ring` echo stays "off", which is how the game
-   * learns it was not acted on; it re-issues if it still wants the ring. */
+   * no-op - a burst already ringing finishes, and a cadence already ringing is
+   * not cut short. In SEIZED and RING_ON_TRUNK it is dropped with a log line
+   * and not held for later - a ring that started seconds after the command,
+   * once the operator had finished with the trunk, is not what the game meant.
+   * Nothing is published, so the `ring` echo stays "off", which is how the
+   * game learns it was not acted on; it re-issues if it still wants the ring. */
   switch (s.phase) {
     case Phase::Ringing:
       return;
     case Phase::Seized:
     case Phase::RingOnTrunk:
-      Serial.printf("ring/set: trunk %u is %s - dropped, not ringing it\n",
+      Serial.printf("%s: trunk %u is %s - dropped, not ringing it\n", cmd,
                     (unsigned)n,
                     s.phase == Phase::Seized ? "seized" : "being rung from the switchboard");
       return;
@@ -386,13 +406,17 @@ void trunkSetRing(uint8_t n, bool on) {
    * request was accepted here and is only waiting for the generator, which is
    * why it survives where a dropped one does not. */
   s.ring_requested = true;
+  s.short_burst    = short_burst;
   if (ringingCount() < MAX_TRUNKS_RINGING) {
     enterRinging(i, now);
   } else {
-    Serial.printf("ring/set: trunk %u queued - %u already ringing\n",
-                  (unsigned)n, (unsigned)ringingCount());
+    Serial.printf("%s: trunk %u queued - %u already ringing\n",
+                  cmd, (unsigned)n, (unsigned)ringingCount());
   }
 }
+
+void trunkSetRing(uint8_t n, bool on)   { requestRing(n, on, false, "ring/set"); }
+void trunkShortRing(uint8_t n, bool on) { requestRing(n, on, true,  "shortring/set"); }
 
 void trunkInhibitRing() {
   for (uint8_t i = 0; i < N_TRUNKS; ++i) {
@@ -404,6 +428,7 @@ void trunkReleaseAll() {
   const uint32_t now = millis();
   for (uint8_t i = 0; i < N_TRUNKS; ++i) {
     tr[i].ring_requested = false;
+    tr[i].short_burst    = false;
     if (tr[i].phase == Phase::Ringing) enterIdle(i, now);
     else                               circuitSetRelay(row(i), false);
   }

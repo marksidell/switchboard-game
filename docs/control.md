@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 24 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
+*Rev 25 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
 
 # 1. Overview
 
@@ -113,6 +113,12 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 — Firmware updates over the network (§2.1), so that the installed board can be reflashed without a USB cable. A cable left attached would join portland's ground to the system's 24V ground, which PoE's isolation keeps apart, and anything that opened the port would reset the board; Mark weighed powering the Olimex from USB and chose to stay on PoE (with a TL-SG105PE PoE switch in place of a separate injector) and update over the network instead. The generator §3.4 recommendation to prefer OTA in the installed system is now something the firmware can do.
 
 — Firmware consequence, for Claude Code, made in the same commit: ArduinoOTA started once Ethernet has an address, with the hostname `sbgame-esp32` and a SHA-256 password hash from `secrets.h` (`OTA_PASSWORD_SHA256`; without it the firmware builds with OTA off). The start callback stops the waveform and releases every relay before anything is written to flash; an error after that point restarts the board. §10 gains the row.
+
+## 1.25 Changes in Rev 25
+
+— A second ring command, `trunk/<n>/shortring/set` (§8.3, §8.4, §9.4; mqtt.md Rev 26), Mark's request, 2026-10-05. `"on"` rings the trunk once, for 0.5s, and returns it to IDLE; `"off"` cancels a burst that has not finished. The trunk cannot see a seizure while its ring relay is energised, because pole 2 lifts the return off R_LOOP (trunk §4.3), so under the cadence an operator who answered during the 2s on phase was not seen until the off phase began. The 551's trunk signal is a latching relay that one short burst of ring is enough to operate, so a single burst signals the call and leaves the trunk readable from the moment it ends, which is when the operator can first plug in. The same phase rules and the same concurrent-ring cap apply as for `ring/set`: acted on in IDLE only, a no-op while RINGING, dropped with a log line in SEIZED or RING_ON_TRUNK, queued behind the cap. `ring/set` keeps the cadence, and `ring/set "off"` also cancels a short burst. The `ring` echo goes `"on"` for the burst and `"off"` after it.
+
+— Firmware consequence, for Claude Code, made in the same commit: `trunkShortRing()` beside `trunkSetRing()` in `sb_trunk.cpp`, both through one `requestRing()`; a `short_burst` flag on the trunk ends RINGING after `SHORT_RING_MS` (500) and rebaselines the seizure input as at the start of an off phase; `shortring/set` is subscribed and queued like `ring/set` in `sb_net.cpp`. FIRMWARE_SPEC_REV 25.
 
 ## 1.24 Changes in Rev 24
 
@@ -403,25 +409,27 @@ The game program assembles digits into a number and decides what the call means;
                   SEIZE asserted 100ms       -> SEIZED
                   ring pattern (two breaks <=60ms apart) -> RING_ON_TRUNK
                   ring/set "on"              -> RINGING
+                  shortring/set "on"         -> RINGING, one burst (Rev 25)
 
-  RINGING       Cadence 2s on / 4s off (§8.4). SEIZE unreadable during the on phase
+  RINGING       Cadence 2s on / 4s off (§8.4), or one 0.5s burst for shortring/set. SEIZE unreadable during the on phase
                 (pole 2 has lifted the return off R_LOOP).
                   SEIZE asserted 100ms in off phase -> SEIZED, cancel ring
                   ring/set "off", or 30s hard timeout -> IDLE
-                  ring/set "on"              -> no-op
+                  burst of shortring/set ends, or shortring/set "off" -> IDLE
+                  ring/set "on", shortring/set "on" -> no-op
 
   SEIZED        Loop current flowing. Audio path live. Dial pulses counted (§8.2).
                   break 25-100ms             -> pulse counted, stay SEIZED
                   make >= 200ms after pulses -> publish digit, stay SEIZED
                   open >= 250ms              -> IDLE (partial digit abandoned)
                   ring pattern               -> RING_ON_TRUNK (partial digit abandoned)
-                  ring/set "on"              -> dropped, logged; echo stays "off"
+                  ring/set or shortring/set "on" -> dropped, logged; echo stays "off"
 
   RING_ON_TRUNK Operator has rung a trunk. Report; take no other action.
                 `seize` keeps the value it had on entry.
                   pattern stops, SEIZE asserted 100ms -> SEIZED
                   pattern stops, otherwise            -> IDLE
-                  ring/set "on"              -> dropped, logged; echo stays "off"
+                  ring/set or shortring/set "on" -> dropped, logged; echo stays "off"
 ```
 
 RING_ON_TRUNK is a report, not a mode — the board keeps feeding the loop and the audio path stays live throughout. It exists so the game program can distinguish a trunk being rung into from an idle one and put it on screen; without it the operator gets silence and no explanation. Dialling is likewise not a state: the trunk is SEIZED throughout, and the digit counter is a sub-state of SEIZED that the classifier in §8.1 drives. RING_ON_TRUNK is entered from SEIZED as well as from IDLE — the operator can ring a trunk that is already seized — and on the pattern stopping the trunk returns to whichever of SEIZED or IDLE the line then reads. Rev 2 and Rev 3 listed the transition from IDLE only, which would have left a 20Hz break train inside a seizure to be counted as pulses.
@@ -439,6 +447,8 @@ The trunk board cannot detect seizure while it is ringing, because relay pole 2 
   RING_EN released   4.0s   relay released, DC feed restored, seizure readable
   repeat until answered, cancelled by the game program, or the timeout expires
 ```
+
+**Short ring** (Rev 25). `shortring/set` `"on"` energises the relay once, for 0.5s, and returns the trunk to IDLE, with no off phase and no repeat; the seizure input is rebaselined as at the start of an off phase, so a seizure is read from the moment the burst ends. The 551's trunk signal is a latching relay that a short burst operates, so this is what the game program uses to signal an incoming call (game_control.md §4.3, Rev 28): the lamp stays lit until the operator answers, and the answer is never hidden behind a ring-on interval. The 30s hard timeout does not arise. The cadence below remains for `ring/set`, which the page's diagnostics use.
 
 Worst-case answer-detection latency is one ring-on interval, 2s, which is also what real incoming trunk ring sounds like. A 1s/2s cadence halves the latency if 2s proves annoying in play; it is a constant here, not a hardware choice. Releasing the relay mid-cycle is 3.6VA against a 500VA contact rating and needs no zero-crossing logic. Echo the relay state on `sbgame/trunk/<n>/ring` at every transition, so a monitoring UI sees the cadence.
 
@@ -480,7 +490,7 @@ Watch `sbgame/ctl/game_heartbeat`. If two consecutive beats are missed — no me
 
 ## 9.4 Commands
 
-`hook/set`, `ring/set` and `dial/set` (Rev 17) are acted on immediately and echoed on the state topic — immediately meaning as soon as the MQTT client's loop has returned, in the same pass, and never from inside the client's message callback (Rev 22): an echo published there nests a QoS 1 exchange inside the client's own read, which the library cannot survive. The payload must be exactly `"on"` or `"off"`; anything else is logged and dropped, not read as `"off"` (Rev 7 — the first firmware released the relay on any payload that was not `"on"`, so a malformed command was a silent release). A command received while the game heartbeat is missing is still acted on — the heartbeat's return is the recovery signal, and the command is evidence of it. A command for a circuit whose expander was absent at the scan is logged, with the address it was dropped for, and dropped. This holds whether or not the game program has read ctl/i2c: a game program that consults it and does not send is cleaner, but the firmware does not depend on it.
+`hook/set`, `ring/set`, `shortring/set` (Rev 25) and `dial/set` (Rev 17) are acted on immediately and echoed on the state topic — immediately meaning as soon as the MQTT client's loop has returned, in the same pass, and never from inside the client's message callback (Rev 22): an echo published there nests a QoS 1 exchange inside the client's own read, which the library cannot survive. The payload must be exactly `"on"` or `"off"`; anything else is logged and dropped, not read as `"off"` (Rev 7 — the first firmware released the relay on any payload that was not `"on"`, so a malformed command was a silent release). A command received while the game heartbeat is missing is still acted on — the heartbeat's return is the recovery signal, and the command is evidence of it. A command for a circuit whose expander was absent at the scan is logged, with the address it was dropped for, and dropped. This holds whether or not the game program has read ctl/i2c: a game program that consults it and does not send is cleaner, but the firmware does not depend on it.
 
 # 10. Failsafe Summary
 

@@ -172,7 +172,13 @@ class Hw:
         await self._p(f"station/{station}/hook/set", "on" if off_hook else "off")
 
     async def ring_trunk(self, trunk: int, on: bool = True) -> None:
+        """Cadenced ring until stopped; "off" also cancels a short ring."""
         await self._p(f"trunk/{trunk}/ring/set", "on" if on else "off")
+
+    async def short_ring(self, trunk: int) -> None:
+        """One 0.5s burst, then the trunk can see a seizure (control.md §8.4,
+        Rev 25): the switchboard's trunk signal latches on it."""
+        await self._p(f"trunk/{trunk}/shortring/set", "on")
 
     async def play(self, circuit: str, name: str) -> None:
         await self._p(f"{circuit}/play/set", name)

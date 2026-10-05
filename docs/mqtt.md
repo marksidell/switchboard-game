@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 25 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
+*Rev 26 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
 
 # 1. Overview
 
@@ -200,6 +200,10 @@ This document specifies the messages: the topic names, who publishes each, what 
 
 — `ctl/firmware` added (§4), following control.md Rev 18, 2026-10-01: the controller's firmware, its specification revision, git commit and build time, retained and published on every connection. An addition; no existing topic or payload changes, and the heartbeat's payload stays as it was.
 
+## 1.26 Changes in Rev 26
+
+— `trunk/<n>/shortring/set` added (§6, §8.4), following control.md Rev 25, 2026-10-05: `"on"` rings the trunk once for 0.5s, `"off"` cancels the burst; the ESP32 echoes the relay on the existing `ring` topic, `"on"` then `"off"`. The game program uses it to signal a call in on a trunk (game_control.md Rev 28). It is the third command that is not absolute state, after `next/set` and the station's `dial/set`: a duplicate delivered after the first burst has ended rings once more. That is harmless — the switchboard's trunk signal latches, and a second burst on an unanswered trunk changes nothing the operator sees; a duplicate during the burst, or after the trunk is seized, is ignored by the controller. QoS 1 as for every command. The ESP32 subscribes to one more pattern. No existing topic or payload changes.
+
 # 2. Design Rules
 
 These hold across every topic. A new topic that breaks one of them needs a reason recorded here.
@@ -244,7 +248,7 @@ The ESP32 publishes hardware state as it debounces it (`control.md` §7 and §8)
 | `sbgame/station/<1-22>/hook` | `"on"` or `"off"` | yes | Off-hook relay state, echoed from the relay drive. `"on"` is off-hook (loop closed). |
 | `sbgame/station/<1-22>/dial` | digits, or `""` | yes | The digits a `dial/set` has still to finish, the one being sent included; empty when the station is not dialling (control.md §7.3; Rev 24). |
 | `sbgame/trunk/<1-8>/seize` | `"on"` or `"off"` | yes | The switchboard has seized this trunk — loop current is flowing. Debounced, trunk §11.1. The trunk analogue of a station's `hook`. |
-| `sbgame/trunk/<1-8>/ring` | `"on"` or `"off"` | yes | This trunk's ring relay is energised — the board is applying ring toward the switchboard. Actual relay state, echoed back, so a monitoring UI can show a ringing trunk. |
+| `sbgame/trunk/<1-8>/ring` | `"on"` or `"off"` | yes | This trunk's ring relay is energised — the board is applying ring toward the switchboard. Actual relay state, echoed back, so a monitoring UI can show a ringing trunk. A `shortring/set` shows as one `"on"` and `"off"` half a second apart (Rev 26). |
 | `sbgame/trunk/<1-8>/digit` | `"0"` to `"9"` | no — and QoS 0, §2 | The operator has just dialled this digit on the seized trunk. One message per completed digit, in order; ten pulses is `"0"`. Decoded by the firmware from the seizure input, control.md §8.2. Never published outside seizure, never for a partial digit. |
 | `sbgame/trunk/<1-8>/fault` | `""`, `"ring_on_trunk"` or `"bad_dial"` | yes | `"ring_on_trunk"`: the operator has applied ring to this trunk by mistake (trunk §5.2). `"bad_dial"`: a pulse train outside the dial timing windows, or more than ten pulses (control.md §8.2). Empty clears either. |
 | `sbgame/ctl/status` | `"online"` or `"offline"` | yes | Birth message and last will (§8). |
@@ -288,6 +292,7 @@ The game program is the only client that commands the ESP32 and the audio progra
 | --- | --- | --- | --- | --- |
 | `sbgame/station/<1-22>/hook/set` | `"on"` or `"off"` | no | ESP32 | Take this station off-hook / on-hook. The ESP32 echoes the result on `hook`. |
 | `sbgame/station/<1-22>/dial/set` | digits `0`–`9`, at most 16, or `""` | no | ESP32 | Dial them on this off-hook station, the controller timing the pulses; `""` stops. Published by `sbgame-boardtest` only (Rev 24). Echoed on `dial`. |
+| `sbgame/trunk/<1-8>/shortring/set` | `"on"` or `"off"` | no | ESP32 | Ring this trunk once, for 0.5s, then leave it idle and able to see a seizure (`control.md` §8.4, Rev 25); `"off"` cancels the burst. Echoed on `ring`. Not absolute state: a late duplicate rings once more, which the switchboard's latching trunk signal makes harmless (§1.26). |
 | `sbgame/trunk/<1-8>/ring/set` | `"on"` or `"off"` | no | ESP32 | Start / stop ringing this trunk. The ESP32 runs the cadence and the 30s timeout (`control.md` §8) and echoes the relay state on `ring`. |
 | `sbgame/station/<1-22>/play/set`, `sbgame/trunk/<1-8>/play/set` | base filename, or `"stop"` | no | audio | Play `<wav-dir>/<name>.wav` on this circuit's output, replacing whatever it is playing; `"stop"` stops it. Echoed on `play`; finishing is `play` going empty. |
 | `sbgame/audio/tap/play/set` | base filename, or `"stop"` | no | audio | Play a file on the operator tap's output, over the operator tone, which is never displaced; `"stop"` stops it. Echoed on `audio/tap/play`. Only the game program's diagnostics use it (game_control.md §7.5; Rev 23). |
@@ -433,7 +438,7 @@ The page has neither a will nor a heartbeat. Nothing depends on it being there: 
 
 ## 8.4 Recovery Sequence
 
-On ESP32 connect: LWT registered, `status` = `online`, subscribe to `hook/set` and `ring/set` for every circuit, `game_heartbeat` and `sync` — those four patterns and not a wildcard over every `set`, since the audio program's commands share the circuit topics — then publish every state topic once. Relays are all released at that point regardless, since the ESP32 releases them on any loss of contact and boots with them released.
+On ESP32 connect: LWT registered, `status` = `online`, subscribe to `hook/set`, `dial/set`, `ring/set` and `shortring/set` (Rev 26) for every circuit, `game_heartbeat` and `sync` — those six patterns and not a wildcard over every `set`, since the audio program's commands share the circuit topics — then publish every state topic once. Relays are all released at that point regardless, since the ESP32 releases them on any loss of contact and boots with them released.
 
 On game program start: connect with its will of `"offline"` on `game_status`; publish its game state — `run` `"off"`, pacing values from its configuration, tallies zero, every call slot cleared, `next_at` and `error` cleared, the log with one start line, every `board/` label and circuit — then `game_status` = `"online"`, state before birth as the audio program does. Then subscribe to everything, read the retained state, publish `sync` to be sure, start the heartbeat. If `status` reads `offline`, wait — commands sent now go nowhere and are not queued (clean session). If `audio_status` reads `offline`, the same for audio commands. A game program that restarts never resumes a game; the page starts a new one.
 
