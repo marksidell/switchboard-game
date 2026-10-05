@@ -1,6 +1,6 @@
 # Ring Generator Board — KiCad Schematic Drawing Guide
 
-> **Superseded for designators, 2026-09-26.** The board was drawn and built with a different assignment from the one below. `ring_generator.md` Rev 68 is renumbered to the board. Its §10 has a Board column giving every part's reference as built, and §11 is the netlist as built. Use those. This guide is kept for its reasoning about sheet structure and blocks.
+> **Follows `ring_generator.md` Rev 72 for designators, 2026-10-05.** Every reference in this guide's tables, netlists and prose is the board's as built (`kicad/control`), the names `ring_generator.md` uses from Rev 72. The board was drawn with a different assignment from the one this guide planned; §1's table maps the guide's planned references and the document's former names to the board. The wiring this guide describes is still its pre-build plan where the board differs — the 74HCT04 gate assignment, J1's four pins, the SP721 pins — and `ring_generator.md` §5.1, §10 and §11 are the authority for what was built. §4 is a record and keeps the names it was written with.
 
 Derived from ring generator Rev 32 §10 and §11, and the KiCad library plan.
 Structure: **one flat sheet**. No hierarchy, no instances.
@@ -22,89 +22,54 @@ written against one is findable from the other.
 
 The one division worth respecting absolutely is the ring output. `RING_HI`,
 `RING_HI_SB` and `RING_LO` belong in their own corner of the sheet with the transformer
-secondary, F2, J2 and J6, and nothing else routed through that space.
+secondary, F2, J7 and J8, and nothing else routed through that space.
 
-### Annotation and designators
+### Designators
 
-**The names in this guide are document names, not KiCad references.** `R_SD_PD`,
-`C_BOOT1`, `D_BOOT1`, `U_12V`, `U_ESP32`, `R_G1`–`R_G4`, `R_SNB`, `C_BULK1` and the rest
-are not valid reference designators. KiCad requires a letter prefix and a number, and
-annotation will renumber every one of them the first time you run it.
+The board was annotated by KiCad, not to the plan this guide set out, and every part keeps the board's reference (`ring_generator.md` Rev 68 and Rev 72). Former document names and this guide's planned references, for reading older notes:
 
-Same remedy as the trunk board: let KiCad own the reference, and carry the document name
-in a user field named **`Function`**. Make it visible on the schematic wherever the value
-does not identify the part — the four 10Ω gate resistors are indistinguishable by value
-and the two 10kΩ pull-ups are indistinguishable from the 10kΩ pull-down.
-
-This board has three specific traps the trunk board did not.
-
-**`IC1` and `IC2` are not KiCad references.** The document calls the two IR2104s IC1 and
-IC2. KiCad's annotator assigns by symbol prefix, which for an IC symbol is `U`. It will
-not produce IC1 and IC2 and there is no setting that makes it. Those two names will
-disappear the moment you annotate, so put them in `Function` before you do.
-
-**`U4` has no U1, U2 or U3 behind it.** The 74HCT02 is called U4 in the document because
-the number came from an earlier revision that had other parts. Annotate and it becomes
-U1. Either accept that and record `U4` in `Function`, or pre-assign as below so the
-document's one surviving U number stays put.
-
-**`TVS2` has no TVS1 on this board.** On the station and trunk boards TVS1 is the line
-clamp and TVS2 is the I²C clamp; here there is no line clamp, so the numbering starts at
-2 for consistency with its neighbours rather than for any reason local to this board.
-`switchboard:SP721` will annotate to whatever its symbol prefix says — check the symbol,
-because if the prefix is `U` it lands in the middle of the U sequence below.
-
-### Designator assignment
-
-Assign these by hand before annotating, then annotate with **Tools → Annotate → Keep
-existing annotations** so it only fills the gaps.
-
-| Doc name | Assign | Part |
+| Former document name | Planned here | Board |
 |---|---|---|
-| `U_ESP32` | U1 | Olimex ESP32-POE-ISO |
-| `IC1` | U2 | IR2104PBF, left leg |
-| `IC2` | U3 | IR2104PBF, right leg |
-| `U4` | **U4** | 74HCT02 — unchanged, the one number worth preserving |
-| `U_12V` | U5 | Traco TSR 1-24120 |
-| `TVS2` | U6 | SP721APP — or D-prefix, depending on the symbol |
-| `D1` | **D1** | 1N5822 shunt clamp — unchanged |
-| `D_BOOT1` | D2 | UF4007, IC1 |
-| `D_BOOT2` | D3 | UF4007, IC2 |
-| `R_SDA` | R1 | 2.2k |
-| `R_SCL` | R2 | 2.2k |
-| `R_SD_PD` | R3 | 10k |
-| `R_PWMA_PU` | R4 | 10k |
-| `R_PWMB_PU` | R5 | 10k |
-| `R_G1`…`R_G4` | R6…R9 | 10Ω, in Q1…Q4 order |
-| `R_SNB` | R10 | 100Ω |
-| `R_SD_PD2` | R11 | 10k — new at Rev 37 |
-| `C_BULK1` | C1 | 100µF 35V |
-| `C_BULK2` | C2 | 100nF |
-| `C_12V_IN1` | C3 | 47µF |
-| `C_12V_IN2` | C4 | 100nF |
-| `C_12V_OUT` | C5 | 100nF |
-| `C_12V_BULK` | C6 | 10µF |
-| `C_U4` | C7 | 100nF |
-| `C_VCC1` | C8 | 100nF |
-| `C_VCC2` | C9 | 100nF |
-| `C_BOOT1` | C10 | 100nF |
-| `C_BOOT2` | C11 | 100nF |
-| `C_SNB` | C12 | 10nF |
-| `C_TVS2` | C13 | 100nF — new at Rev 34 |
-| `R_MON1` | R14 | 4.7k — new at Rev 48 |
-| `R_MON2` | R15 | 4.7k — new at Rev 48 |
-| `C_MON` | C14 | 100nF — new at Rev 48 |
+| `U_ESP32` | U1 | U6 |
+| `IC1` | U2 | U4 |
+| `IC2` | U3 | U5 |
+| `U4` | U4 | U1 |
+| `U_12V` | U5 | U3 |
+| `TVS2` | U6 | U2 |
+| `D1` | D1 | D1 |
+| `D_BOOT1` | D2 | D2 |
+| `D_BOOT2` | D3 | D3 |
+| `R_SDA` | R1 | R2 |
+| `R_SCL` | R2 | R1 |
+| `R_SD_PD` | R3 | R4 |
+| `R_PWMA_PU` | R4 | R3 |
+| `R_PWMB_PU` | R5 | R5 |
+| `R_G1`, `R_G2`, `R_G3`, `R_G4` | R6, R7, R8, R9 | R6, R8, R7, R9 (the guide numbered them in its Q order; the board's R7 drives Q2, low left) |
+| `R_SNB` | R10 | R10 |
+| `R_SD_PD2` | R11 | — (not fitted) |
+| `C_BULK1` | C1 | C2 |
+| `C_BULK2` | C2 | C3 |
+| `C_12V_IN1` | C3 | C4 |
+| `C_12V_IN2` | C4 | C5 |
+| `C_12V_OUT` | C5 | C7 |
+| `C_12V_BULK` | C6 | C6 |
+| `C_U4` | C7 | C1 |
+| `C_VCC1` | C8 | C8 |
+| `C_VCC2` | C9 | C11 |
+| `C_BOOT1` | C10 | C9 |
+| `C_BOOT2` | C11 | C10 |
+| `C_SNB` | C12 | C12 |
+| `C_TVS2` | C13 | C15 |
+| `R_MON1` | R14 | R12 |
+| `R_MON2` | R15 | R11 |
+| `C_MON` | C14 | C13 |
+| `R_GS3` | R12 | R13 (now R_GS2; bodged) |
+| `R_GS4` | R13 | R14 (bodged) |
+| `C_OUT` | — | C14 |
+| `Q2`, `Q3` | Q2 high right, Q3 low left | Q3 high right, Q2 low left |
+| `J1`, `J2`, `J3`, `J4`, `J6`, `J7`, `J8`, `J9`, `J10` | same | J2, J7, J5, not on the board, J8, J9, J6, J1, J3 |
 
-`Q1`–`Q4`, `F1`, `F2`, `FH1`, `FH2`, `T1`, `J1`–`J4` and `J6` are already valid and stay
-as the document has them. Keep R6–R9 in Q1–Q4 order: on a board with four identical
-resistors feeding four identical MOSFETs, a designator that does not track the device it
-serves is a trap you set for yourself at rework time.
-
-`J10` is the ring drive monitor header, added at Rev 48 — see §3.6.
-
-`J5` is deliberately absent. On the station and trunk boards J5 is the black 24V input
-block; here that job belongs to J1 and J5 is left unused rather than reassigned. Do not
-let the annotator fill the gap. `J7` and `J8` are the T1 terminals, added at Rev 32.
+Net names follow the MOSFETs: the guide's `Q2_GATE` is the board's `Q3_GATE` and the reverse. `PS1`, `T1`, `FH1` and `FH2` are not schematic parts.
 
 ---
 
@@ -117,9 +82,9 @@ a drawn wire, a local label, or a global power symbol.
 
 | Net | Where the flag goes |
 |---|---|
-| `+24V_IN` | J1 pin 1, upstream of F1 |
+| `+24V_IN` | J2 pin 1, upstream of F1 |
 | `+24V_SW` | F1 pin 2 — the whole board's switched rail |
-| `+12V_VCC` | U5 Vout |
+| `+12V_VCC` | U3 Vout |
 | `+5V` | Olimex EXT1 pin 1 |
 | `+3V3` | Olimex 3.3V pin |
 | `GND` | system ground |
@@ -130,7 +95,7 @@ names and there is no reason to invent others: `IN1`, `IN2`, `SD`, `SD_N`, `SW_L
 `GPIO4`, `GPIO14`, `GPIO32`, `GPIO33`, `SDA`, `SCL`, `/RESET`.
 
 **The ring nets** — `RING_HI`, `RING_HI_SB`, `RING_LO` — are three separate nets and the
-distinction is the fuse again. `RING_HI` runs from J8 to J2 and to F2 pin 1; `RING_HI_SB` is only the short piece from F2 pin 2 to J6. Merge them and the
+distinction is the fuse again. `RING_HI` runs from J6 to J7 and to F2 pin 1; `RING_HI_SB` is only the short piece from F2 pin 2 to J8. Merge them and the
 switchboard branch is unfused.
 
 Give all three a distinct colour or a hatched box on the sheet, the same treatment the
@@ -146,9 +111,9 @@ Each block below carries its own parts and its own nets, in that order. Draw a b
 start to finish before moving on. The blocks match Rev 32 §13's layout zones, so a note written
 against one is findable from the other.
 
-Every parts table carries the **document name** beside the reference, because Rev 32 §11
-uses document names throughout and this guide uses references. That column is the bridge
-between the two; you should never have to page back to §1 to cross a name.
+Every parts table carries the board reference and, beside it, the name the document used
+before Rev 72 (for connectors, MOSFETs and ICs, the numbering before Rev 68), so older notes
+stay readable without paging back to §1.
 
 **Symbol and footprint names come from `kicad_library_plan.xlsx`**, which records them as
 checked against the KiCad 9.0.0 stock libraries on 21 Aug 2026. That file is the authority;
@@ -159,23 +124,23 @@ questions rather than name questions.
 
 ### 3.1 Power entry and the 24V rail
 
-| Ref | Doc name | Value | Symbol | Footprint |
+| Ref | Former name | Value | Symbol | Footprint |
 |---|---|---|---|---|
-| J1 | `J1` | OSTTE020104, 3.50mm **125V** | `Connector:Screw_Terminal_01x02` | `TerminalBlock_4Ucon:...1x02_P3.50mm_Horizontal` |
+| J2 | `J1` | OSTTE020104, 3.50mm **125V** | `Connector:Screw_Terminal_01x02` | `TerminalBlock_4Ucon:...1x02_P3.50mm_Horizontal` |
 | F1 | `F1` | 500mA slow-blow, 0218.500MXP | `Device:Fuse` | `Fuse:Fuseholder_Clip-5x20mm_*` |
 | FH1 | `FH1` | 649-series block | — | holder; part of F1's footprint, not a separate symbol |
 | D1 | `D1` | 1N5822 | `Diode:1N5822` | `D_DO-201AD_P12.70mm_Horizontal` |
-| C1 | `C_BULK1` | 100µF 50V | `Device:C_Polarized` | `CP_Radial_D8.0mm_P3.50mm` |
-| C2 | `C_BULK2` | 100nF | `Device:C` | `C_Disc_D5.1mm_W3.2mm_P5.00mm` |
+| C2 | `C_BULK1` | 100µF 50V | `Device:C_Polarized` | `CP_Radial_D8.0mm_P3.50mm` |
+| C3 | `C_BULK2` | 100nF | `Device:C` | `C_Disc_D5.1mm_W3.2mm_P5.00mm` |
 
 ```
-J1 pin1 ── +24V_IN ── F1 pin1
+J2 pin1 ── +24V_IN ── F1 pin1
 F1 pin2 ── +24V_SW
 D1 cathode ── +24V_SW,  D1 anode ── GND     [SHUNT clamp, reverse-biased]
-J1 pin2 ── GND
+J2 pin2 ── GND
 
-C1, C2 across +24V_SW ── GND                (at Q1/Q2 drains, not at J1)
-+24V_SW ── Q1 drain, Q2 drain               (drawn in 3.5)
+C2, C3 across +24V_SW ── GND                (at Q1/Q3 drains, not at J2)
++24V_SW ── Q1 drain, Q3 drain               (drawn in 3.5)
 ```
 
 `+24V_IN` and `+24V_SW` are two nets, not one, and the fuse is what separates them. If
@@ -184,43 +149,43 @@ nothing to blow. This is the most consequential net split on the board.
 
 D1 is a shunt clamp, not a series diode. Cathode to the rail, anode to ground, carrying
 nothing until the supply is connected backwards — then it conducts and blows F1. **F1
-must be upstream.** J1, then F1, then the clamp, then the board. If the fuse ends up
+must be upstream.** J2, then F1, then the clamp, then the board. If the fuse ends up
 downstream of the clamp it carries only the board's own load current, never sees the
 fault, and the 1N5822 conducts 6.5A until it dies.
 
-Same orientation trap as the trunk board's D6, and it catches people the same way,
+Same orientation trap as the trunk board's D101, and it catches people the same way,
 because the diode symbol invites a series drawing.
 
 **PS1 is not a schematic part.** Rev 32 §10.1 lists the Mean Well LRS-150-24 because it is
 the board's supply, but it is a chassis part shared by the whole system and it arrives
-here through J1. Draw a power flag on `+24V_IN`, not a PSU symbol.
+here through J2. Draw a power flag on `+24V_IN`, not a PSU symbol.
 
 ---
 
 ### 3.2 +12V regulator
 
-| Ref | Doc name | Value | Symbol | Footprint |
+| Ref | Former name | Value | Symbol | Footprint |
 |---|---|---|---|---|
-| U5 | `U_12V` | Traco TSR 1-24120 | `Converter_DCDC:TSR1-24120` | `Converter_DCDC:Converter_DCDC_TRACO_TSR-1_THT` |
-| C3 | `C_12V_IN1` | 47µF 50V | `Device:C_Polarized` | `CP_Radial_D6.3mm_P2.50mm` |
-| C4 | `C_12V_IN2` | 100nF | `Device:C` | `C_Disc_D5.1mm` |
-| C5 | `C_12V_OUT` | 100nF | `Device:C` | `C_Disc_D5.1mm` |
+| U3 | `U_12V` | Traco TSR 1-24120 | `Converter_DCDC:TSR1-24120` | `Converter_DCDC:Converter_DCDC_TRACO_TSR-1_THT` |
+| C4 | `C_12V_IN1` | 47µF 50V | `Device:C_Polarized` | `CP_Radial_D6.3mm_P2.50mm` |
+| C5 | `C_12V_IN2` | 100nF | `Device:C` | `C_Disc_D5.1mm` |
+| C7 | `C_12V_OUT` | 100nF | `Device:C` | `C_Disc_D5.1mm` |
 | C6 | `C_12V_BULK` | 10µF 50V | `Device:C_Polarized` | `CP_Radial_D5.0mm_P2.00mm` |
 
 ```
-U5 Vin ── +24V_SW,  U5 GND ── GND,  U5 Vout ── +12V_VCC
-C3, C4 across +24V_SW ── GND      (input side, at U5's input pin)
-C5, C6 across +12V_VCC ── GND     (output side, at U5's output pin)
+U3 Vin ── +24V_SW,  U3 GND ── GND,  U3 Vout ── +12V_VCC
+C4, C5 across +24V_SW ── GND      (input side, at U3's input pin)
+C7, C6 across +12V_VCC ── GND     (output side, at U3's output pin)
 
-+12V_VCC ── U2 pin4 (VCC), U3 pin4 (VCC)     (drawn in 3.5)
++12V_VCC ── U4 pin4 (VCC), U5 pin4 (VCC)     (drawn in 3.5)
 +12V_VCC ── D2 anode, D3 anode               (drawn in 3.5)
 ```
 
-C3 and C4 sit on `+24V_SW`, not on `+12V_VCC`. They are the regulator's **input**
+C4 and C5 sit on `+24V_SW`, not on `+12V_VCC`. They are the regulator's **input**
 capacitors and they belong to this block even though their net comes from 3.1 — that is
 why they are here and not there.
 
-C5 and C6 are both at the output and do different jobs: C5 decouples, C6 stores. The
+C7 and C6 are both at the output and do different jobs: C7 decouples, C6 stores. The
 IR2104s draw gate charge in pulses at 40kHz and 100nF holds nothing between them.
 
 `TSR1-24120` — no underscore after TSR, and in `Converter_DCDC` rather than
@@ -230,64 +195,64 @@ Traco datasheet of 2 July 2026**: 1 +Vin, 2 GND, 3 +Vout, SIP-3 on 2 × 2.54mm.
 Two things from that datasheet reach layout rather than the schematic. **Route no traces
 under the converter** — it asks for this explicitly, and this board also carries the I²C
 bus and the ring output. And maximum output capacitance is 470µF, against the 10.1µF this
-rail carries, so C5 and C6 are nowhere near the limit.
+rail carries, so C7 and C6 are nowhere near the limit.
 
 ---
 
 ### 3.3 Controller and I²C
 
-| Ref | Doc name | Value | Symbol | Footprint |
+| Ref | Former name | Value | Symbol | Footprint |
 |---|---|---|---|---|
-| U1 | `U_ESP32` | Olimex ESP32-POE-ISO | **make** — no stock symbol; see §5 | none — socketed on two 1x10 pin sockets |
-| R1 | `R_SDA` | 2.2k | `Device:R` | `R_Axial_DIN0207` |
-| R2 | `R_SCL` | 2.2k | `Device:R` | `R_Axial_DIN0207` |
-| U6 | `TVS2` | SP721APP | `switchboard:SP721` | `Package_DIP:DIP-8_W7.62mm` |
-| C13 | `C_TVS2` | 100nF | `Device:C` | `C_Disc_D5.1mm` |
-| J3 | `J3` | 6P6C | `Connector_Generic:Conn_01x06` | `Connector_RJ:RJ12_*` |
-| J4 | `J4` | 4-pin header | `Connector_Generic:Conn_01x04` | `PinHeader_1x04_P2.54mm_Vertical` — **footprint only, DNP** |
-| J9 | `J9` | 3-pin header | `Connector_Generic:Conn_01x03` *verify* | `PinHeader_1x03_P2.54mm_Vertical` *verify* — **fit** |
+| U6 | `U_ESP32` | Olimex ESP32-POE-ISO | **make** — no stock symbol; see §5 | none — socketed on two 1x10 pin sockets |
+| R2 | `R_SDA` | 2.2k | `Device:R` | `R_Axial_DIN0207` |
+| R1 | `R_SCL` | 2.2k | `Device:R` | `R_Axial_DIN0207` |
+| U2 | `TVS2` | SP721APP | `switchboard:SP721` | `Package_DIP:DIP-8_W7.62mm` |
+| C15 | `C_TVS2` | 100nF | `Device:C` | `C_Disc_D5.1mm` |
+| J5 | `J3` | 6P6C | `Connector_Generic:Conn_01x06` | `Connector_RJ:RJ12_*` |
+| J4 (not on the board) | `J4` | 4-pin header | `Connector_Generic:Conn_01x04` | `PinHeader_1x04_P2.54mm_Vertical` — **footprint only, DNP** |
+| J1 | `J9` | 3-pin header | `Connector_Generic:Conn_01x03` *verify* | `PinHeader_1x03_P2.54mm_Vertical` *verify* — **fit** |
 
 ```
-U1 3.3V pin ── +3V3
-U1 EXT1 pin1 ── +5V
-U1 GND ── GND
+U6 3.3V pin ── +3V3
+U6 EXT1 pin1 ── +5V
+U6 GND ── GND
 
-U1 GPIO13 ── SDA ── R1 ── +3V3,  U6 IN, J3 pin4
-U1 GPIO16 ── SCL ── R2 ── +3V3,  U6 IN, J3 pin2
-U1 GPIO5  ── /RESET ──           U6 IN, J3 pin1
-J3 pins 3, 5, 6 ── GND
-U6 pin8 (V+) ── +3V3,  U6 pin4 (V−) ── GND
-C13 from U6 pin8 to U6 pin4, at the device
-U6 three remaining inputs ── NO CONNECT flags
+U6 GPIO13 ── SDA ── R2 ── +3V3,  U2 IN, J5 pin4
+U6 GPIO16 ── SCL ── R1 ── +3V3,  U2 IN, J5 pin2
+U6 GPIO5  ── /RESET ──           U2 IN, J5 pin1
+J5 pins 3, 5, 6 ── GND
+U2 pin8 (V+) ── +3V3,  U2 pin4 (V−) ── GND
+C15 from U2 pin8 to U2 pin4, at the device
+U2 three remaining inputs ── NO CONNECT flags
 
-U1 GPIO4  ── GPIO4 ── J9 pin1    (master enable, active LOW, internal pull-up)
-GND       ────────── J9 pin2
-U1 GPIO15 ── GPIO15 ── J9 pin3   (waveform sync — see doc §12.5)
-J4 pins ── second I²C, FOOTPRINT ONLY
+U6 GPIO4  ── GPIO4 ── J1 pin1    (master enable, active LOW, internal pull-up)
+GND       ────────── J1 pin2
+U6 GPIO15 ── GPIO15 ── J1 pin3   (waveform sync — see doc §12.5)
+J4 (not on the board) pins ── second I²C, FOOTPRINT ONLY
 ```
 
 `switchboard:SP721` is the one custom symbol here that already exists and is already used
 on the station and trunk boards. **Pinout verified against the datasheet** — Littelfuse
 SP721 series, revision GD 07/10/24: IN on 1–3 and 5–7, V− on 4, V+ on 8.
 
-C13 is new at Rev 34 and belongs at U6's own pins, not with the other decoupling. The
+C15 is new at Rev 34 and belongs at U2's own pins, not with the other decoupling. The
 SP721 does not shunt to ground — it conducts the transient from the IN pin into V+ — so
 V+ has to source that current locally or it lifts while the clamp is working. This board
 has no other +3.3V decoupling at all, since the rail arrives from the Olimex header.
 
-`GPIO4` lands on J9 pin 1 as of Rev 43 — a 2.54mm shunt across pins 1 and 2 pulls it low
+`GPIO4` lands on J1 pin 1 as of Rev 43 — a 2.54mm shunt across pins 1 and 2 pulls it low
 and the generator runs. Before Rev 43 the net went nowhere in the document and this guide
 asked for a text note explaining what grounded it; the header existed on the schematic and
 in neither place.
 
-**GND is in the middle of J9 on purpose.** The enable shunt is fitted once; the scope
+**GND is in the middle of J1 on purpose.** The enable shunt is fitted once; the scope
 probe on pin 3 is used constantly and wants the shortest ground return the header allows.
 A shunt put wrongly across pins 2 and 3 grounds a push-pull output, which it survives.
 
 `GPIO15` is a strapping pin — firmware leaves it as an input until `setup()` runs. Nothing
-on the sheet enforces that, so it wants a text note beside J9.
+on the sheet enforces that, so it wants a text note beside J1.
 
-U6's spare inputs get explicit no-connect flags. It is a six-input rail clamp with three
+U2's spare inputs get explicit no-connect flags. It is a six-input rail clamp with three
 in use, and ERC should be told the other three are deliberate.
 
 **The Olimex pin numbers are the one thing on this board that costs a respin.** Rev 32
@@ -300,38 +265,38 @@ has no crystal and takes its 50MHz clock from that pin.
 
 ### 3.4 Level translation and SD buffer
 
-| Ref | Doc name | Value | Symbol | Footprint |
+| Ref | Former name | Value | Symbol | Footprint |
 |---|---|---|---|---|
-| U4 | `U4` | 74HCT04 | `74xx:74HCT04` | `Package_DIP:DIP-14_W7.62mm` |
-| C7 | `C_U4` | 100nF | `Device:C` | `C_Disc_D5.1mm` |
-| R3 | `R_SD_PD` | 10k | `Device:R` | `R_Axial_DIN0207` |
-| R4 | `R_PWMA_PD` | 10k | `Device:R` | `R_Axial_DIN0207` |
+| U1 | `U4` | 74HCT04 | `74xx:74HCT04` | `Package_DIP:DIP-14_W7.62mm` |
+| C1 | `C_U4` | 100nF | `Device:C` | `C_Disc_D5.1mm` |
+| R4 | `R_SD_PD` | 10k | `Device:R` | `R_Axial_DIN0207` |
+| R3 | `R_PWMA_PD` | 10k | `Device:R` | `R_Axial_DIN0207` |
 | R5 | `R_PWMB_PD` | 10k | `Device:R` | `R_Axial_DIN0207` |
-| R11 | `R_SD_PD2` | 10k | `Device:R` | `R_Axial_DIN0207` |
+| R_SD_PD2 (not fitted) | `R_SD_PD2` | 10k | `Device:R` | `R_Axial_DIN0207` |
 
 ```
 74HCT04 pinout, verified against TI SCLS042F §4:
                 1A 1, 1Y 2, 2A 3, 2Y 4, 3A 5, 3Y 6, GND 7,
                 4Y 8, 4A 9, 5Y 10, 5A 11, 6Y 12, 6A 13, VCC 14.
 
-U1 GPIO32 ── GPIO32 ── U4 pin1              (Gate 1 in)
-GPIO32 ── R4 ── GND                         (pull-down, low through boot)
-U4 pin2  ── PWMA_MID ── U4 pin3             (Gate 1 out → Gate 2 in)
-U4 pin4  ── IN1 ── U2 pin2 (IN)             (Gate 2 out)
+U6 GPIO32 ── GPIO32 ── U1 pin1              (Gate 1 in)
+GPIO32 ── R3 ── GND                         (pull-down, low through boot)
+U1 pin2  ── PWMA_MID ── U1 pin3             (Gate 1 out → Gate 2 in)
+U1 pin4  ── IN1 ── U4 pin2 (IN)             (Gate 2 out)
 
-U1 GPIO33 ── GPIO33 ── U4 pin5              (Gate 3 in)
+U6 GPIO33 ── GPIO33 ── U1 pin5              (Gate 3 in)
 GPIO33 ── R5 ── GND                         (pull-down)
-U4 pin6  ── PWMB_MID ── U4 pin9             (Gate 3 out → Gate 4 in)
-U4 pin8  ── IN2 ── U3 pin2 (IN)             (Gate 4 out)
+U1 pin6  ── PWMB_MID ── U1 pin9             (Gate 3 out → Gate 4 in)
+U1 pin8  ── IN2 ── U5 pin2 (IN)             (Gate 4 out)
 
-U1 GPIO14 ── GPIO14 ── U4 pin11             (Gate 5 in)
-GPIO14 ── R3 ── GND                         (pull-down)
-U4 pin10 ── SD_N ── U4 pin13                (Gate 5 out → Gate 6 in)
-U4 pin12 ── SD ── U2 pin3, U3 pin3          (LOW = shutdown)
-SD ── R11 ── GND                            (holds shutdown with U4 unpowered)
+U6 GPIO14 ── GPIO14 ── U1 pin11             (Gate 5 in)
+GPIO14 ── R4 ── GND                         (pull-down)
+U1 pin10 ── SD_N ── U1 pin13                (Gate 5 out → Gate 6 in)
+U1 pin12 ── SD ── U4 pin3, U5 pin3          (LOW = shutdown)
+SD ── R_SD_PD2 (not fitted) ── GND                            (holds shutdown with U1 unpowered)
 
-U4 pin14 ── +5V,  U4 pin7 ── GND
-C7 from pin14 to pin7, at the device
+U1 pin14 ── +5V,  U1 pin7 ── GND
+C1 from pin14 to pin7, at the device
 ```
 
 **Pinout verified against the datasheet** — TI SCLS065G, §4, DIP-14 top view:
@@ -362,17 +327,17 @@ park value. That is LEDC's power-on state, so the peripheral comes up parked. Un
 symbol; KiCad's multi-unit `74xx` symbols put each gate on its own unit and a floating
 second input is easy to leave behind.
 
-R4 and R5 are **pull-downs to GND** as of Rev 44 — they were pull-ups to +3.3V while the
+R3 and R5 are **pull-downs to GND** as of Rev 44 — they were pull-ups to +3.3V while the
 drive was active low. Not optional either way: GPIO32 and GPIO33 have no internal pull at
 reset, so without them both inverter inputs float through the bootloader window, and a
 floating HCT input near threshold drives its gate either way.
 
-**SD low is shutdown; SD high is enabled.** R3 holds GPIO14 low from power-on, and gates 3
+**SD low is shutdown; SD high is enabled.** R4 holds GPIO14 low from power-on, and gates 3
 and 4 are a non-inverting pair, so SD follows GPIO14 down and the bridge stays off. The
-second gate is what makes that true — a single inverting gate would turn R3's pull-down
-into an *enable* at power-on. R11, new at Rev 37, pulls the SD net itself down, covering
-the case R3 cannot: PoE absent with the 24V bus live, where +12V is up and both drivers
-are alive while U4 has no supply.
+second gate is what makes that true — a single inverting gate would turn R4's pull-down
+into an *enable* at power-on. R_SD_PD2 (not fitted), new at Rev 37, pulls the SD net itself down, covering
+the case R4 cannot: PoE absent with the 24V bus live, where +12V is up and both drivers
+are alive while U1 has no supply.
 
 The gate is **level translation**, and that is the whole job. Shoot-through within a
 leg is handled inside the IR2104, which derives HO and LO from one IN pin with 520ns
@@ -394,60 +359,60 @@ rack.
 
 ### 3.5 Gate drive and H-bridge
 
-| Ref | Doc name | Value | Symbol | Footprint |
+| Ref | Former name | Value | Symbol | Footprint |
 |---|---|---|---|---|
-| U2 | `IC1` | IR2104PBF, left | `Driver_FET:IR2104` | `Package_DIP:DIP-8_W7.62mm` — **assign it by hand** |
-| U3 | `IC2` | IR2104PBF, right | same | same |
+| U4 | `IC1` | IR2104PBF, left | `Driver_FET:IR2104` | `Package_DIP:DIP-8_W7.62mm` — **assign it by hand** |
+| U5 | `IC2` | IR2104PBF, right | same | same |
 | C8 | `C_VCC1` | 100nF | `Device:C` | `C_Disc_D5.1mm` |
-| C9 | `C_VCC2` | 100nF | `Device:C` | `C_Disc_D5.1mm` |
+| C11 | `C_VCC2` | 100nF | `Device:C` | `C_Disc_D5.1mm` |
 | D2 | `D_BOOT1` | UF4007 | `Device:D`, value set to UF4007 | `Diode_THT:D_DO-41_SOD81_P10.16mm_Horizontal` |
 | D3 | `D_BOOT2` | UF4007 | same | same |
-| C10 | `C_BOOT1` | 100nF | `Device:C` | `C_Disc_D5.1mm` |
-| C11 | `C_BOOT2` | 100nF | `Device:C` | `C_Disc_D5.1mm` |
+| C9 | `C_BOOT1` | 100nF | `Device:C` | `C_Disc_D5.1mm` |
+| C10 | `C_BOOT2` | 100nF | `Device:C` | `C_Disc_D5.1mm` |
 | Q1 | `Q1` | IRLZ44NPBF, high left | `Transistor_FET:IRLZ44N` | `Package_TO_SOT_THT:TO-220-3_Vertical` |
-| Q2 | `Q2` | IRLZ44NPBF, high right | same | same |
-| Q3 | `Q3` | IRLZ44NPBF, low left | same | same |
+| Q3 | `Q2` | IRLZ44NPBF, high right | same | same |
+| Q2 | `Q3` | IRLZ44NPBF, low left | same | same |
 | Q4 | `Q4` | IRLZ44NPBF, low right | same | same |
 | R6 | `R_G1` | 10Ω, Q1 gate | `Device:R` | `R_Axial_DIN0207` |
-| R7 | `R_G2` | 10Ω, Q2 gate | `Device:R` | `R_Axial_DIN0207` |
-| R8 | `R_G3` | 10Ω, Q3 gate | `Device:R` | `R_Axial_DIN0207` |
+| R8 | `R_G2` | 10Ω, Q3 gate | `Device:R` | `R_Axial_DIN0207` |
+| R7 | `R_G3` | 10Ω, Q2 gate | `Device:R` | `R_Axial_DIN0207` |
 | R9 | `R_G4` | 10Ω, Q4 gate | `Device:R` | `R_Axial_DIN0207` |
-| R12 | `R_GS3` | 10k, Q3 gate to GND | `Device:R` | `R_Axial_DIN0207` |
-| R13 | `R_GS4` | 10k, Q4 gate to GND | `Device:R` | `R_Axial_DIN0207` |
+| R13 | `R_GS3` | 10k, Q2 gate to GND | `Device:R` | `R_Axial_DIN0207` |
+| R14 | `R_GS4` | 10k, Q4 gate to GND | `Device:R` | `R_Axial_DIN0207` |
 
 ```
 IR2104 pinout: 1 VCC, 2 IN, 3 /SD, 4 COM, 5 LO, 6 VS, 7 HO, 8 VB.
 
-U2 pin1 ── +12V_VCC,  U2 pin4 ── GND,  C8 across those two at the device
-U3 pin1 ── +12V_VCC,  U3 pin4 ── GND,  C9 across those two at the device
+U4 pin1 ── +12V_VCC,  U4 pin4 ── GND,  C8 across those two at the device
+U5 pin1 ── +12V_VCC,  U5 pin4 ── GND,  C11 across those two at the device
 
 Bootstrap, left leg:
-  VB_L  = D2 cathode, C10 upper plate, U2 pin8
+  VB_L  = D2 cathode, C9 upper plate, U4 pin8
   D2 anode ── +12V_VCC
 
 Bootstrap, right leg:
-  VB_R  = D3 cathode, C11 upper plate, U3 pin8
+  VB_R  = D3 cathode, C10 upper plate, U5 pin8
   D3 anode ── +12V_VCC
 
 *** SW_L and SW_R are FOUR-WAY NODES. All four must land, or the high side is dead. ***
 
-  SW_L  = Q1 source,  Q3 drain,  U2 pin6 (VS),  C10 lower plate
-  SW_R  = Q2 source,  Q4 drain,  U3 pin6 (VS),  C11 lower plate
+  SW_L  = Q1 source,  Q2 drain,  U4 pin6 (VS),  C9 lower plate
+  SW_R  = Q3 source,  Q4 drain,  U5 pin6 (VS),  C10 lower plate
 
-  (SW_L also carries R10 pin1 and J7 pin1 — see 3.6)
+  (SW_L also carries R10 pin1 and J9 pin1 — see 3.6)
 
 Gate drive:
-  U2 pin7 (HO) ── HO_L ── R6 ── Q1_GATE ── Q1 gate
-  U3 pin7 (HO) ── HO_R ── R7 ── Q2_GATE ── Q2 gate
-  U2 pin5 (LO) ── LO_L ── R8 ── Q3_GATE ── Q3 gate
-  U3 pin5 (LO) ── LO_R ── R9 ── Q4_GATE ── Q4 gate
+  U4 pin7 (HO) ── HO_L ── R6 ── Q1_GATE ── Q1 gate
+  U5 pin7 (HO) ── HO_R ── R8 ── Q3_GATE ── Q3 gate
+  U4 pin5 (LO) ── LO_L ── R7 ── Q2_GATE ── Q2 gate
+  U5 pin5 (LO) ── LO_R ── R9 ── Q4_GATE ── Q4 gate
 
-  Q3_GATE ── R12 ── GND            (gate-to-source, low side only)
-  Q4_GATE ── R13 ── GND
+  Q2_GATE ── R13 ── GND            (gate-to-source, low side only)
+  Q4_GATE ── R14 ── GND
 
 Rail:
-  Q1 drain ── +24V_SW      Q3 source ── GND
-  Q2 drain ── +24V_SW      Q4 source ── GND
+  Q1 drain ── +24V_SW      Q2 source ── GND
+  Q3 drain ── +24V_SW      Q4 source ── GND
 ```
 
 The pinout above is the datasheet order and it is not what this guide said before. Rev 32
@@ -460,8 +425,8 @@ to anything by implication — the driver reaches the bridge only through HO, LO
 VS is the one that carries no signal, so it is the one that gets dropped. Nothing about
 the schematic looks wrong afterwards.
 
-VS is the driver's reference for its entire high side. HO drives relative to VS, and C_BOOT
-sits between VB and VS. The bootstrap charges when Q3 pulls SW_L to ground — nothing else
+VS is the driver's reference for its entire high side. HO drives relative to VS, and the bootstrap capacitor
+sits between VB and VS. The bootstrap charges when Q2 pulls SW_L to ground — nothing else
 in the design pulls that node down — so if pin 6 is not on SW_L, the driver's idea of zero
 floats independently of the actual switching node.
 
@@ -487,11 +452,11 @@ what reminds you.
 **Pinout verified against the datasheet** — PD-94831, lead assignments box on the package
 outline page: 1 GATE, 2 DRAIN, 3 SOURCE, 4 DRAIN, G-D-S from the front.
 
-**R12 and R13 are not optional and there is no high-side pair.** A floating MOSFET gate does
+**R13 and R14 are not optional and there is no high-side pair.** A floating MOSFET gate does
 not stay off: Crss couples about a ninth of any drain step onto the gate, so applying 24V
 deposits roughly 2V against a 1.0V threshold minimum. Found on the bench at Rev 46 with the
 drivers unfitted — the board shorted the rail to ground. Low side only, because every DC path
-from +24V to ground runs through Q3 or Q4; high-side equivalents would drain the bootstrap
+from +24V to ground runs through Q2 or Q4; high-side equivalents would drain the bootstrap
 capacitor and buy nothing. See doc §8.4.
 
 `Driver_FET:IR2104` **ships with no default footprint**. Assign `DIP-8_W7.62mm` yourself or
@@ -509,75 +474,75 @@ that ever changes you need a four-pad variant, and the drain then lands on two p
 
 ### 3.6 Snubber, drive monitor, transformer terminals and ring output
 
-| Ref | Doc name | Value | Symbol | Footprint |
+| Ref | Former name | Value | Symbol | Footprint |
 |---|---|---|---|---|
-| R14 | `R_MON1` | 4.7k 1/4W | `Device:R` | `Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal` |
-| R15 | `R_MON2` | 4.7k 1/4W | `Device:R` | same as R14 |
-| C14 | `C_MON` | 100nF 50V X7R | `Device:C` | same as C13 (the decoupling disc) |
-| J10 | `J10` | 3-pin header | same as J9 | same as J9 — **fit** |
+| R12 | `R_MON1` | 4.7k 1/4W | `Device:R` | `Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal` |
+| R11 | `R_MON2` | 4.7k 1/4W | `Device:R` | same as R12 |
+| C13 | `C_MON` | 100nF 50V X7R | `Device:C` | same as C15 (the decoupling disc) |
+| J3 | `J10` | 3-pin header | same as J1 | same as J1 — **fit** |
 | R10 | `R_SNB` | 100Ω **1W** | `Device:R` | `Resistor_THT:R_Axial_DIN0414_L11.9mm_D4.5mm_P15.24mm_Horizontal` |
 | C12 | `C_SNB` | 10nF 250V film | `Device:C` | `Capacitor_THT:C_Rect_L7.0mm_W*_P5.00mm` — Kemet R82, 5mm pitch; W still *verify* |
-| J7 | `J7` | OSTTE020104, 3.50mm **125V** | `Connector:Screw_Terminal_01x02` | same as J1 |
-| J8 | `J8` | OSTTC020162, 5.00mm **300V** | `Connector:Screw_Terminal_01x02` | **5.00mm, not 5.08mm** — see §5 |
-| J2 | `J2` | OSTTC020162, 5.00mm 300V | same as J8 | same as J8 |
-| J6 | `J6` | OSTTC020162, 5.00mm 300V | same as J8 | same as J8 |
+| J9 | `J7` | OSTTE020104, 3.50mm **125V** | `Connector:Screw_Terminal_01x02` | same as J2 |
+| J6 | `J8` | OSTTC020162, 5.00mm **300V** | `Connector:Screw_Terminal_01x02` | **5.00mm, not 5.08mm** — see §5 |
+| J7 | `J2` | OSTTC020162, 5.00mm 300V | same as J6 | same as J6 |
+| J8 | `J6` | OSTTC020162, 5.00mm 300V | same as J6 | same as J6 |
 | F2 | `F2` | 250mA fast, 0217.250MXP | `Device:Fuse` | `Fuse:Fuseholder_Clip-5x20mm_*` |
 | FH2 | `FH2` | 649-series block | — | holder; part of F2's footprint |
 
 ```
 SW_L ── R10 ── SNUB_MID ── C12 ── SW_R       (series RC across the primary)
 
-SW_L ── R14 ── MON_A ── C14 ── MON_B ── R15 ── SW_R   (balanced 170Hz low-pass, doc §8.7)
-MON_A ── J10 pin1
-GND   ── J10 pin2
-MON_B ── J10 pin3
+SW_L ── R12 ── MON_A ── C13 ── MON_B ── R11 ── SW_R   (balanced 170Hz low-pass, doc §8.7)
+MON_A ── J3 pin1
+GND   ── J3 pin2
+MON_B ── J3 pin3
 
-SW_L ── J7 pin1                              (out to T1 primary, off-board)
-SW_R ── J7 pin2
+SW_L ── J9 pin1                              (out to T1 primary, off-board)
+SW_R ── J9 pin2
 
-J8 pin1 ── RING_HI                           (in from T1 20W tap, off-board)
-J8 pin2 ── RING_LO
+J6 pin1 ── RING_HI                           (in from T1 20W tap, off-board)
+J6 pin2 ── RING_LO
 
-RING_HI ── J2 pin1
+RING_HI ── J7 pin1
 RING_HI ── F2 pin1
-F2 pin2 ── RING_HI_SB ── J6 pin1
-RING_LO ── J2 pin2, J6 pin2
+F2 pin2 ── RING_HI_SB ── J8 pin1
+RING_LO ── J7 pin2, J8 pin2
 ```
 
 R10 is 1W as of Rev 38, not the 1/4W earlier revisions specified. Snubber dissipation is
 C·V²·f = 230mW, which is 92% of a quarter-watt part. It is the same MFR-100 the trunk board
-buys for R1, so nothing new is ordered — but the footprint is DIN0414, not DIN0207, and it
+buys for its R1 (Rx05), so nothing new is ordered — but the footprint is DIN0414, not DIN0207, and it
 is a noticeably larger body to place.
 
 C12 is film, not ceramic. An X7R loses capacitance under DC bias and handles repetitive
 pulse current poorly.
 
-C14 is the opposite call, on purpose: it is the same X7R disc as the decoupling parts. The
+C13 is the opposite call, on purpose: it is the same X7R disc as the decoupling parts. The
 monitor is a viewing filter whose response at 20Hz is within 1% of unity across any
 capacitance the part could drift to, and the pulse-current argument does not apply to a
-node fed through 9.4k. Do not "correct" it to film. R14 and R15 are the only parts that
+node fed through 9.4k. Do not "correct" it to film. R12 and R11 are the only parts that
 take the switching node away from the MOSFET zone; keep them at the SW_L/SW_R end and let
-the filtered nodes make the run to J10. GND in the middle of J10 for the same reason as J9.
+the filtered nodes make the run to J3. GND in the middle of J3 for the same reason as J1.
 
-**T1 is not a schematic part.** It is mounted off the board and wired to J7 and J8, so it
+**T1 is not a schematic part.** It is mounted off the board and wired to J9 and J6, so it
 has no symbol and no footprint and wants neither. The only terminals the board knows about
-are the four wires that reach J7 and J8. As of Rev 48 T1 is an Antek AS-0522 toroid used in
+are the four wires that reach J9 and J6. As of Rev 48 T1 is an Antek AS-0522 toroid used in
 reverse — the OSD saturated at 20Hz, doc §9.5 — so the text note on the sheet names: the two
-22V windings in series to J7 (drive), the two 115V windings in series to J8 (ring output),
-static shield to GND or unconnected. Output peak is 113V rather than 141V; J8 stays the blue
+22V windings in series to J9 (drive), the two 115V windings in series to J6 (ring output),
+static shield to GND or unconnected. Output peak is 113V rather than 141V; J6 stays the blue
 300V block.
 
-The J2 branch is not fused on this board; the trunk board fuses its own ring input at its
-J6. F2 protects the switchboard branch only. Both ends of F2 sit at ring potential, so it
+The J7 branch is not fused on this board; the trunk board fuses its own ring input at its
+J102. F2 protects the switchboard branch only. Both ends of F2 sit at ring potential, so it
 belongs inside the hazardous zone, not outside it because it is a fuse.
 
 One leg only. The secondary is floating and `RING_LO` is not bonded to GND anywhere, so
 opening `RING_HI` breaks the circuit but does not make the cable dead: with F2 open,
-`RING_LO` stays connected to the secondary through J6. A blown F2 is not an isolation
+`RING_LO` stays connected to the secondary through J8. A blown F2 is not an isolation
 method. Put that on the sheet as text, next to the fuse.
 
-Five terminal blocks of two different parts: J1 and J7 are 3.50mm black at 125V, J2, J6
-and J8 are 5.00mm blue at 300V. Different footprints, different pitches, different
+Five terminal blocks of two different parts: J2 and J9 are 3.50mm black at 125V, J7, J8
+and J6 are 5.00mm blue at 300V. Different footprints, different pitches, different
 colours. Do not let a single generic 2-pin terminal symbol with one footprint serve all
 five — set the footprint per instance and check it after annotation, because this is
 the case where a global edit propagates where you did not want it.
@@ -634,20 +599,20 @@ schematic and a netlist that shorts four parts cannot do that job.
   symbol with the value field set is fine, but the footprint and pad order then have to be
   confirmed against the datasheet rather than inherited from the symbol.
 - **All four MOSFET tabs are live, and at three different potentials.** The TO-220 tab is
-  the drain — datasheet lead 4, confirmed: Q1 and Q2 tabs sit at +24V, Q3's tab at `SW_L` and Q4's at `SW_R`, both
+  the drain — datasheet lead 4, confirmed: Q1 and Q3 tabs sit at +24V, Q2's tab at `SW_L` and Q4's at `SW_R`, both
   switching the full rail at 40kHz. They cannot share an unisolated heatsink and they
   cannot touch each other. Same class of constraint as the eight MJE350 heatsinks on the
   trunk board, and worth the same silkscreen warning.
-- **J7 and J8 are the transformer, and the swap is not symmetric.** These are wire-clamp
+- **J9 and J6 are the transformer, and the swap is not symmetric.** These are wire-clamp
   blocks: the 3.50mm and 5.00mm pitches distinguish the parts on the board but key nothing,
-  and any wire fits any block. Secondary leads onto J7 puts 141V peak on `SW_L` and `SW_R`
+  and any wire fits any block. Secondary leads onto J9 puts 141V peak on `SW_L` and `SW_R`
   against a 55V IRLZ44N rating and destroys four MOSFETs and both drivers. The reverse is
   harmless. Silkscreen T1-PRI and T1-SEC, and put them at opposite edges.
-- **J2, J6 and J8 are 5.00mm, not 5.08mm.** The OSTTC020162 footprint pitch is on the index's
+- **J7, J8 and J6 are 5.00mm, not 5.08mm.** The OSTTC020162 footprint pitch is on the index's
   blocking-layout list for exactly this reason. KiCad's terminal block footprints are
   mostly 5.08mm and the two will fit each other badly enough to be annoying and well
   enough to be missed.
-- **Check the snubber capacitor's body.** C_SNB is specified in Rev 32 §10.8 as 10nF 100V
+- **Check the snubber capacitor's body.** C12 is specified in Rev 32 §10.8 as 10nF 100V
   ceramic and in BOM row 43 as the KEMET R82 film part at 250V, with a note saying film
   and not ceramic. The BOM is the quantity authority; take the footprint from the R82
   body, which is a boxed radial and not a disc.

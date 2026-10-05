@@ -2,7 +2,7 @@
 
 **Station Interface Circuit Design**
 
-*Rev 3.43 — 8 Strips Per Board, Three Boards (22 Stations, the Operator Tap and the Audience Monitor Output) Plus 8 Trunk Circuits, HCPL3700M Ring Detection, DPDT Double-Pole Off-Hook, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Station Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, 32-Slot Pilot Tone Comb, Operator Tap and Monitor Options on Two Strips, Common-Battery Power*
+*Rev 3.44 — 8 Strips Per Board, Three Boards (22 Stations, the Operator Tap and the Audience Monitor Output) Plus 8 Trunk Circuits, HCPL3700M Ring Detection, DPDT Double-Pole Off-Hook, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Station Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, 32-Slot Pilot Tone Comb, Operator Tap and Monitor Options on Two Strips, Common-Battery Power*
 
 # 1. Overview
 
@@ -304,33 +304,62 @@ The ESP32 and the host exchange state over MQTT: the ESP32 reports debounced rin
 
 —  The present boards carry C19 as a bodge. The next board revision gives it a footprint at U1 pin 18. Schematic: the root sheet as annotated runs C101–C108, so C19 takes C109 there.
 
+## 1.23 Changes in Rev 3.44
+
+—  The document now names every part by its KiCad designator as annotated on the rev 2 board, the board in hand on all three positions. The eight strips are eight instances of one sheet, numbered 2xx for strip 1 to 9xx for strip 8; a strip part is written with x for the hundreds digit, so Rx03 is R203 on strip 1 and R903 on strip 8. Root-sheet parts keep their own numbers. Change entries before this one keep the names they were written with. The former names, in the §11 BOM notes as well:
+
+| **Former** | **Now** | **Former** | **Now** | **Former** | **Now** |
+| --- | --- | --- | --- | --- | --- |
+| C3 | Cx01 | R7, R8 | Rx10, Rx11 | C8 | C107 |
+| C9 | Cx02 | R11, R12 | Rx04, Rx05 | C10, C11, C12 | C102, C103, C104 |
+| C4 | Cx03 | R_pd | Rx02 | C15, C16, C17 | C105, C106, C108 |
+| C5 | Cx04 | T2 | Tx01 | D6 | D101 |
+| TVS1 | Dx01 | OC1 | Ux01 | F1 with FH1 | F101 |
+| D5 | Dx02 | U1 | U101 | J1, J2 | J104, J105 |
+| RLY1 | Kx01 | U3, U4 | U102, U103 | J3A, J3B | J101, J102 |
+| Q2 | Qx01 | TVS2 | TVS101 | J5 | J103 |
+| R4 | Rx01 | SW1 | SW101 | J7A, J7B | J7A101, J7B101 |
+| R3 | Rx03 | R18 | R102 | R19, R20, R21 | R101, R103, R104 |
+| R1a, R1b | Rx06, Rx07 | R2 | Rx12 | C6 | C101 |
+| R5, R6 | Rx08, Rx09 | C19 (bodge) | C109 at the next revision | | |
+
+—  The document follows the rev 2 board as built (Mark, 2026-10-05):
+   - U2 and C7, the optional second expander and its decoupling, are removed. The board has no footprint for them and none will be fitted; 0x24–0x27 are unused (§9.1, §9.2).
+   - R9 and R10 are removed: the board has no pull-up footprints. The bus's pull-ups are the generator board's R1 and R2 (§9.5).
+   - R13, the tap-strip secondary damping, and R17, the Ux01 supply series element, have no footprints. R13 becomes a bodge across T801's secondary if the §7.9.5 sweep asks for it; Ux01 pin 8 goes straight to +3.3V (§3.6).
+   - The TVS101 bypass (C18, Rev 3.26) is not on the board. It was missed in the drawing and waits for the next revision (§7.8, §11, §12; TODO.md).
+   - The D-Sub ground links are two 0Ω resistors, R105 for J104 and R106 for J105, fitted (§7.6).
+   - J106, a two-way MONITOR terminal on strip 8's transmit pair, is on the board: the connector §12 asked for at Rev 3.40 (§7.9.8). "The next board revision" now means rev 3.
+
+—  No electrical change; the design is unchanged apart from recording the board as it is.
+
 # 2. Functional Block Diagram (One Station)
 
 ```text
 SWITCHBOARD STATION JACK
 
-TIP  o───┬──── Ring Detector (R1a/R1b, C4, OC1 HCPL3700M) ──► MCP23017 RING_DET_n
+TIP  o───┬──── Ring Detector (Rx06/Rx07, Cx03, Ux01 HCPL3700M) ──► MCP23017 RING_DET_n
          │
-         ├──── TVS1 (P6KE120CA) ──── RING
+         ├──── Dx01 (P6KE120CA) ──── RING
          │
-         └──── RLY1 pole A (NO) ──── node A
-                (MCP23017 OFFHOOK_n ──► R4 ──► Q2 ──► relay coil)
+         └──── Kx01 pole A (NO) ──── node A
+                (MCP23017 OFFHOOK_n ──► Rx01 ──► Qx01 ──► relay coil)
 
-RING o───┬──── RLY1 pole B (NO) ──── node B
+RING o───┬──── Kx01 pole B (NO) ──── node B
          │
-         └──── (ring detector and TVS1 return)
+         └──── (ring detector and Dx01 return)
 
-node A ── R3 (330Ω) ── node B                    loop path
-node A ── C3 ── T2 primary (+)                   ←→ balanced audio
-node B ───────── T2 primary (−)
+node A ── Rx03 (330Ω) ── node B                    loop path
+node A ── Cx01 ── Tx01 primary (+)               ←→ balanced audio
+node B ───────── Tx01 primary (−)
 
-T2 secondary: fully floating 600Ω winding
+Tx01 secondary: fully floating 600Ω winding
 
-   Hot  ──── R5 (1kΩ) ──── A32 ANALOG IN (+)    [receive, D-Sub25 in]
-   Cold ──── R6 (1kΩ) ──── A32 ANALOG IN (−)
+   Hot  ──── Rx08 (1kΩ) ──── A32 ANALOG IN (+)    [receive, D-Sub25 in]
+   Cold ──── Rx09 (1kΩ) ──── A32 ANALOG IN (−)
 
-   A32 ANALOG OUT (+) ──── R7 (1kΩ) ──── T2 sec hot
-   A32 ANALOG OUT (−) ──── R8 (1kΩ) ──── T2 sec cold
+   A32 ANALOG OUT (+) ──── Rx10 (1kΩ) ──── Tx01 sec hot
+   A32 ANALOG OUT (−) ──── Rx11 (1kΩ) ──── Tx01 sec cold
                               [transmit, D-Sub25 out]
 
    (voice audio + pilot tone mixed in software before DAC)
@@ -358,38 +387,38 @@ Isolation is 2500 V RMS minimum per the device datasheet; onsemi and Digi-Key li
 
 | **Pin** | **Name** | **Connection in this design** |
 | --- | --- | --- |
-| 1 | AC | Line side, via R1a / R1b / C4 from TIP |
+| 1 | AC | Line side, via Rx06 / Rx07 / Cx03 from TIP |
 | 2 | DC+ | No connection — must be left open for AC-input operation |
 | 3 | DC− | No connection — must be left open for AC-input operation |
 | 4 | AC | Line side, direct to RING |
 | 5 | GND | Logic ground |
-| 6 | VO | RING_DET_n to MCP23017 Port A; pull-up R2 to +3.3V |
+| 6 | VO | RING_DET_n to MCP23017 Port A; pull-up Rx12 to +3.3V |
 | 7 | NC | No connection |
-| 8 | VCC | +3.3V, with C5 (0.1µF) to pin 5 |
+| 8 | VCC | +3.3V, with Cx04 (0.1µF) to pin 5 |
 
  
 
-The AC and DC input pairs are alternative entry points into the same input buffer, and the datasheet thresholds for each are specified with the other pair open. Applying the line across pins 1 and 4 with pins 2 and 3 floating is what selects the internal bridge and gives full-wave detection. C5 is not optional — the datasheet requires a 0.1µF bypass between pins 8 and 5.
+The AC and DC input pairs are alternative entry points into the same input buffer, and the datasheet thresholds for each are specified with the other pair open. Applying the line across pins 1 and 4 with pins 2 and 3 floating is what selects the internal bridge and gives full-wave detection. Cx04 is not optional — the datasheet requires a 0.1µF bypass between pins 8 and 5.
 
 ## 3.3 Ring Detector Schematic
 
 ```text
-TIP  ──── R1a (10kΩ) ──── R1b (10kΩ) ──── C4 (1µF, 250V) ──── OC1 pin 1  (AC)
-RING ──────────────────────────────────────────────────────── OC1 pin 4  (AC)
+TIP  ──── Rx06 (10kΩ) ──── Rx07 (10kΩ) ──── Cx03 (1µF, 250V) ──── Ux01 pin 1  (AC)
+RING ──────────────────────────────────────────────────────── Ux01 pin 4  (AC)
 
-OC1 pins 2, 3   ──── open, no connection (selects the internal AC bridge)
-OC1 pin 5       ──── GND
-OC1 pin 8       ──── +3.3V, with C5 (0.1µF) from pin 8 to pin 5, at the device
-OC1 pin 6       ──── R2 (4.7kΩ) ──── +3.3V
-OC1 pin 6       ──── RING_DET_n ──── MCP23017 U1 Port A bit n
+Ux01 pins 2, 3   ──── open, no connection (selects the internal AC bridge)
+Ux01 pin 5       ──── GND
+Ux01 pin 8       ──── +3.3V, with Cx04 (0.1µF) from pin 8 to pin 5, at the device
+Ux01 pin 6       ──── Rx12 (4.7kΩ) ──── +3.3V
+Ux01 pin 6       ──── RING_DET_n ──── MCP23017 U101 Port A bit n
 ```
 
 ## 3.4 Input Network Sizing
 
-R1a and R1b set the input current; C4 blocks the DC loop voltage. At 20Hz:
+Rx06 and Rx07 set the input current; Cx03 blocks the DC loop voltage. At 20Hz:
 
 ```text
-Xc(C4)  = 1 / (2π × 20 × 1µF)          = 7,958Ω
+Xc(Cx03)  = 1 / (2π × 20 × 1µF)          = 7,958Ω
 |Z|     = sqrt(20,000² + 7,958²)      = 21,525Ω
 Vpk     = 90V RMS × √2                = 127.3V
 Vclamp  ≈ 5V  (AC threshold 4.23–5.50V; input clamp 6.1–7.3V @ 10mA)
@@ -398,23 +427,23 @@ Ipk     ≈ (127.3 − 5) / 21,525        ≈ 5.7mA
 
 Peak input current of 5.7mA against a worst-case turn-on threshold of 3.11mA gives 1.8× margin. The input current exceeds the threshold for about 113° of each 180° half-cycle, so the output is a clean 40Hz pulse train at roughly 63% duty — comfortably wide for the firmware to sample.
 
-RMS input current is about 4.0mA, so R1a and R1b dissipate 0.32W between them, 0.16W each. Half-watt parts are adequate; 1W gives thermal headroom if the operator holds the ring key for long periods. Each resistor sees roughly 42V RMS, well inside the working voltage of any standard axial film part, and splitting the value in two also spreads the pulse stress and the creepage across two bodies.
+RMS input current is about 4.0mA, so Rx06 and Rx07 dissipate 0.32W between them, 0.16W each. Half-watt parts are adequate; 1W gives thermal headroom if the operator holds the ring key for long periods. Each resistor sees roughly 42V RMS, well inside the working voltage of any standard axial film part, and splitting the value in two also spreads the pulse stress and the creepage across two bodies.
 
-## 3.5 Why C4 Is Required
+## 3.5 Why Cx03 Is Required
 
-This is the substantive change from a straight resistive dropper. The 24V loop voltage sits across tip and ring whenever the station is on-hook. A purely resistive 20kΩ path would pass roughly 0.95mA of standing DC. That is safely below the 1.96mA minimum turn-on threshold, so the detector would never false-trigger — but it is not below the 1.00mA minimum turn-off threshold. A device at the low end of its tolerance band could therefore stay latched on after ring is removed. C4 removes the failure mode entirely by making the standing DC current exactly zero.
+This is the substantive change from a straight resistive dropper. The 24V loop voltage sits across tip and ring whenever the station is on-hook. A purely resistive 20kΩ path would pass roughly 0.95mA of standing DC. That is safely below the 1.96mA minimum turn-on threshold, so the detector would never false-trigger — but it is not below the 1.00mA minimum turn-off threshold. A device at the low end of its tolerance band could therefore stay latched on after ring is removed. Cx03 removes the failure mode entirely by making the standing DC current exactly zero.
 
-C4 also has to be large enough that it does not eat the ring signal, and small enough that it does not pass voice. At 1kHz its reactance falls to 159Ω and the path impedance is essentially R1a+R1b alone, so reaching even the minimum turn-on threshold would need about 44V instantaneous on the line — two orders of magnitude above conversational level. A capacitor-dominant dropper (as used in the standalone ring detector on the generator side of this project) would invert that relationship and make audio-band false triggering a real concern, which is why the resistance dominates here.
+Cx03 also has to be large enough that it does not eat the ring signal, and small enough that it does not pass voice. At 1kHz its reactance falls to 159Ω and the path impedance is essentially Rx06+Rx07 alone, so reaching even the minimum turn-on threshold would need about 44V instantaneous on the line — two orders of magnitude above conversational level. A capacitor-dominant dropper (as used in the standalone ring detector on the generator side of this project) would invert that relationship and make audio-band false triggering a real concern, which is why the resistance dominates here.
 
-C4 carries the 24V loop voltage as a standing DC bias plus about 45V peak of AC during ring. A 250V film part covers both with wide margin and matches the capacitor already specified elsewhere in the project.
+Cx03 carries the 24V loop voltage as a standing DC bias plus about 45V peak of AC during ring. A 250V film part covers both with wide margin and matches the capacitor already specified elsewhere in the project.
 
 ## 3.6 Output Interface and Timing
 
-R2 (4.7kΩ) matches the datasheet’s switching test load. The darlington output stage is slow by logic standards — 40µs propagation delay to the high level and 45µs typical rise time — but at a 25ms period this is under 0.2% of a cycle. Maximum recommended operating frequency for the part is 4kHz, two decades above what is being asked of it.
+Rx12 (4.7kΩ) matches the datasheet’s switching test load. The darlington output stage is slow by logic standards — 40µs propagation delay to the high level and 45µs typical rise time — but at a 25ms period this is under 0.2% of a cycle. Maximum recommended operating frequency for the part is 4kHz, two decades above what is being asked of it.
 
-The output is active-low: line energised gives a logic low at pin 6. Either invert in firmware or set the MCP23017 IPOL bit for those pins so a read returns 1 for ring present. Leave the MCP23017 internal pull-ups disabled on Port A, since R2 already defines the idle level.
+The output is active-low: line energised gives a logic low at pin 6. Either invert in firmware or set the MCP23017 IPOL bit for those pins so a read returns 1 for ring present. Leave the MCP23017 internal pull-ups disabled on Port A, since Rx12 already defines the idle level.
 
-One optional hardening step from the datasheet: if common-mode dV/dt at the barrier could exceed 50,000 V/µs, a series resistor of at least 240Ω in the Vᴄᴄ feed protects the detector chip from surge current. On a board that switches relays next to a telephone line this is cheap insurance and worth a footprint even if it is stuffed with a zero-ohm link. That footprint is R17 (§11). C5 belongs between pins 8 and 5 at the device, downstream of R17 rather than upstream of it, or the bypass sits on the wrong side of the series element.
+One optional hardening step from the datasheet: if common-mode dV/dt at the barrier could exceed 50,000 V/µs, a series resistor of at least 240Ω in the Vᴄᴄ feed protects the detector chip from surge current. The rev 2 board has no footprint for it: Ux01 pin 8 goes straight to +3.3V, with Cx04 between pins 8 and 5 at the device. Nothing on the bench has suggested the transients come near that figure. If they ever do, the resistor goes in the pin 8 trace with Cx04 downstream of it, at the device side, or the bypass sits on the wrong side of the series element. Rev 3.25 to Rev 3.43 carried it as R17, a footprint the board never got.
 
 ## 3.7 Firmware Validation of the Pulse Train
 
@@ -422,9 +451,9 @@ Moved to control.md §7.1 at Rev 3.34. The detector’s 40Hz pulse train (§3.4)
 
 # 4. Overvoltage Protection — TVS Diode
 
-The operator can inadvertently send ring voltage (90V RMS AC, 127V peak) to a station that is already off-hook. During this overlap the relay is closed and the audio transformer is in circuit. Although C3 limits the voltage across T2 primary, a bidirectional TVS diode across tip and ring provides a first line of defence, clamping the peak voltage before it reaches any other component.
+The operator can inadvertently send ring voltage (90V RMS AC, 127V peak) to a station that is already off-hook. During this overlap the relay is closed and the audio transformer is in circuit. Although Cx01 limits the voltage across Tx01 primary, a bidirectional TVS diode across tip and ring provides a first line of defence, clamping the peak voltage before it reaches any other component.
 
-The TVS also protects the ring detector components (R1a, R1b, C4 and the HCPL3700M input) from sustained overvoltage if the operator holds ring on the line for an extended period.
+The TVS also protects the ring detector components (Rx06, Rx07, Cx03 and the HCPL3700M input) from sustained overvoltage if the operator holds ring on the line for an extended period.
 
 ## 4.1 TVS Placement and Schematic
 
@@ -433,59 +462,59 @@ SWITCHBOARD STATION JACK
 
 TIP  o────────┬──── to ring detector and relay
                 │
-           TVS1 (P6KE120CA, bidirectional)
+           Dx01 (P6KE120CA, bidirectional)
                 │
 RING o────────┴──── to ring detector and relay
 ```
 
-TVS1 is a P6KE120CA bidirectional transient voltage suppressor. Standoff voltage is 102V and breakdown 114–126V — the 120 in the part number is nominal breakdown, not standoff. Both are well above the 24V normal loop voltage, so it does not affect normal operation. The 127V ring voltage peak exceeds the breakdown, so the TVS conducts on the peaks; its rated clamp is 165V, the ceiling on what it lets through. Peak pulse power rating is 600W, adequate for sustained ring conditions.
+Dx01 is a P6KE120CA bidirectional transient voltage suppressor. Standoff voltage is 102V and breakdown 114–126V — the 120 in the part number is nominal breakdown, not standoff. Both are well above the 24V normal loop voltage, so it does not affect normal operation. The 127V ring voltage peak exceeds the breakdown, so the TVS conducts on the peaks; its rated clamp is 165V, the ceiling on what it lets through. Peak pulse power rating is 600W, adequate for sustained ring conditions.
 
 The trunk board uses a different part and this is deliberate, correcting an earlier statement here that the two boards share one. The trunk board fits a P6KE150CA (128V standoff, 143–158V breakdown). The reason is directionality: a station only ever receives ring, so mild conduction on the peaks is the protection doing its job, whereas the trunk board originates ring at 127V peak nominal and up to 141V peak no-load, and a 120V-class part there would conduct on every cycle of every ring — loading the generator, distorting the waveform and dissipating power for nothing. Do not standardise the two boards on a single TVS for the sake of a shorter parts list; the correct part on each board is set by that board’s own ring voltage, not by the other board’s.
 
 With the line clamped at 165V, worst-case detector input current is (165 − 5) / 20,000 = 8.0mA, far below the HCPL3700M’s 140mA surge rating for 3ms pulses and its 50mA average input rating. The detector cannot be damaged by anything the TVS lets through.
 
-Placement: directly at the station jack terminals, before the ring detector resistors R1a/R1b and before the relay. This gives maximum protection to all downstream components.
+Placement: directly at the station jack terminals, before the ring detector resistors Rx06/Rx07 and before the relay. This gives maximum protection to all downstream components.
 
 # 5. Off-Hook Circuit
 
-Going off-hook closes the tip-ring loop through series resistor R3, causing DC loop current to flow. The switchboard’s supervisory circuit detects this current and registers the station as answered.
+Going off-hook closes the tip-ring loop through series resistor Rx03, causing DC loop current to flow. The switchboard’s supervisory circuit detects this current and registers the station as answered.
 
 ## 5.1 Double-Pole Break
 
-The relay breaks both tip and ring rather than tip alone. Rev 2.1 through Rev 3.2 specified a single-pole relay (Omron G5V-1, SPDT) switching only the tip leg, with R3 returning permanently to ring. Breaking both legs is better for three reasons and costs nothing once a 2 Form C part is used:
+The relay breaks both tip and ring rather than tip alone. Rev 2.1 through Rev 3.2 specified a single-pole relay (Omron G5V-1, SPDT) switching only the tip leg, with Rx03 returning permanently to ring. Breaking both legs is better for three reasons and costs nothing once a 2 Form C part is used:
 
 —  The 127V ring peak that appears across the open contacts of an on-hook station is shared between two gaps in series instead of standing across one. The relay is the isolation barrier between the line and everything downstream of it, so doubling the standoff is worth having.
 
-—  The break stays symmetric. With one leg switched, an on-hook station still presents R3, C3 and T2 to the ring conductor, so it sits on the pair as an unbalanced load. With 8 stations on a board and 24 in the system sharing cable runs, longitudinal balance is what keeps idle stations from coupling into active ones.
+—  The break stays symmetric. With one leg switched, an on-hook station still presents Rx03, Cx01 and Tx01 to the ring conductor, so it sits on the pair as an unbalanced load. With 8 stations on a board and 24 in the system sharing cable runs, longitudinal balance is what keeps idle stations from coupling into active ones.
 
-—  R3, C3 and T2 are fully disconnected from the line when on-hook. Any leakage or component fault downstream of the contacts is then invisible to the switchboard until the station actually answers.
+—  Rx03, Cx01 and Tx01 are fully disconnected from the line when on-hook. Any leakage or component fault downstream of the contacts is then invisible to the switchboard until the station actually answers.
 
-The ring detector and TVS1 remain permanently across the line ahead of the relay contacts — ring has to be detectable while the station is on-hook, which is the whole point of it.
+The ring detector and Dx01 remain permanently across the line ahead of the relay contacts — ring has to be detectable while the station is on-hook, which is the whole point of it.
 
 ## 5.2 Off-Hook Relay Schematic
 
 ```text
-TIP  ──── RLY1 pole A, NO ────┬── node A
+TIP  ──── Kx01 pole A, NO ────┬── node A
                                 │
-                              R3 (330Ω, 2W)      loop path
+                              Rx03 (330Ω, 2W)      loop path
                                 │
-RING ──── RLY1 pole B, NO ────┴── node B
+RING ──── Kx01 pole B, NO ────┴── node B
 
-   node A ──── C3 (0.47µF, 250V) ──── T2 primary (+)   audio path
-   node B ──────────────────────── T2 primary (−)
+   node A ──── Cx01 (0.47µF, 250V) ──── Tx01 primary (+)   audio path
+   node B ──────────────────────── Tx01 primary (−)
 
    (both poles normally open; both close when the relay is energized)
 
-MCP23017 U1 Port B bit n ──── R4 (1kΩ) ──── Q2 base (2N2222A)
-Q2 base ──── R_pd (10kΩ) ──── GND
-Q2 collector ──── RLY1 coil (−)
-Q2 emitter   ──── GND
-RLY1 coil (+) ──── +5V
+MCP23017 U101 Port B bit n ──── Rx01 (1kΩ) ──── Qx01 base (2N2222A)
+Qx01 base ──── Rx02 (10kΩ) ──── GND
+Qx01 collector ──── Kx01 coil (−)
+Qx01 emitter   ──── GND
+Kx01 coil (+) ──── +5V
 ```
 
-D5 (1N4148) flyback diode: anode to Q2 collector, cathode to +5V
+Dx02 (1N4148) flyback diode: anode to Qx01 collector, cathode to +5V
 
-R3 limits loop current to approximately 60–70mA with the 24V switchboard supply — within normal station range. Power dissipation in R3 at short circuit is 24²/330 ≈ 1.75W, so a 2W part is specified. D5 suppresses the inductive flyback spike when the relay releases.
+Rx03 limits loop current to approximately 60–70mA with the 24V switchboard supply — within normal station range. Power dissipation in Rx03 at short circuit is 24²/330 ≈ 1.75W, so a 2W part is specified. Dx02 suppresses the inductive flyback spike when the relay releases.
 
 ## 5.3 Relay Selection
 
@@ -505,15 +534,15 @@ CIT Relay and Switch J104D2C5VDC.15S. DPDT (2 Form C), 5V coil, through-hole PC 
 
  
 
-Base drive: with R4 at 1kΩ the base current is (3.3 − 0.7) / 1000 = 2.6mA against a 29.9mA coil, a forced beta of 11.5. The 2N2222A is deeply saturated at that ratio, so Vᴄᴱ(sat) is around 0.1V and the coil sees close to the full rail. The MCP23017 sources 2.6mA comfortably against its 25mA per-pin limit, and because Q2 switches the low side of a 5V coil the 3.3V logic rail creates no level-shifting problem. R_pd draws 0.26mA of the base current at 3.3V, which is immaterial against the 2.6mA available.
+Base drive: with Rx01 at 1kΩ the base current is (3.3 − 0.7) / 1000 = 2.6mA against a 29.9mA coil, a forced beta of 11.5. The 2N2222A is deeply saturated at that ratio, so Vᴄᴱ(sat) is around 0.1V and the coil sees close to the full rail. The MCP23017 sources 2.6mA comfortably against its 25mA per-pin limit, and because Qx01 switches the low side of a 5V coil the 3.3V logic rail creates no level-shifting problem. Rx02 draws 0.26mA of the base current at 3.3V, which is immaterial against the 2.6mA available.
 
-Q2 is a 2N2222A as of Rev 3.8, replacing the 2N3904 specified through Rev 3.7. The change is one of stock on hand rather than performance — the 2N2222A has more collector-current headroom and a marginally lower Vᴄᴱ(sat) than the part it replaces, and neither matters at 30mA into a 167Ω coil. Nothing else in this section changes.
+Qx01 is a 2N2222A as of Rev 3.8, replacing the 2N3904 specified through Rev 3.7. The change is one of stock on hand rather than performance — the 2N2222A has more collector-current headroom and a marginally lower Vᴄᴱ(sat) than the part it replaces, and neither matters at 30mA into a 167Ω coil. Nothing else in this section changes.
 
 What does need attention is the pinout. Order a TO-92 part with EBC pinout and confirm it on the datasheet for the exact orderable part, not on the generic 2N2222A number. The original 2N2222A is a TO-18 metal can and will not fit this footprint at all; TO-92 equivalents such as the onsemi PN2222A and P2N2222A are EBC, but TO-92 parts sold as 2N2222A vary between EBC, CBE and ECB by manufacturer. The footprint is committed at layout and there are 24 of these, so settle it before the boards are ordered.
 
 Use the same part on the trunk board. Mixing pinouts across board types, or across the two station boards and the third when it is fitted, builds a trap for whoever populates the last board — which will probably be you, a year from now, working from this document rather than from memory.
 
-R_pd is new in this revision and it is not decoration. The MCP23017 powers up with every pin configured as an input, so Port B floats from the moment power is applied until firmware finishes configuring the expander — and again after any subsequent expander reset. A floating base on a small-signal NPN is not reliably off. On a station board the worst case is a station that answers itself before the software is running, which is untidy rather than dangerous; the trunk board has the same window and there a floating driver puts 90V on a line. The resistor costs nothing and the two boards should not differ on this.
+Rx02 is new in this revision and it is not decoration. The MCP23017 powers up with every pin configured as an input, so Port B floats from the moment power is applied until firmware finishes configuring the expander — and again after any subsequent expander reset. A floating base on a small-signal NPN is not reliably off. On a station board the worst case is a station that answers itself before the software is running, which is untidy rather than dangerous; the trunk board has the same window and there a floating driver puts 90V on a line. The resistor costs nothing and the two boards should not differ on this.
 
 ## 5.4 Coil Margin over Temperature
 
@@ -528,7 +557,7 @@ This is the one parameter with less headroom than it first appears. Must-operate
 
  
 
-Available assumes a 5V rail at its lower tolerance limit less Q2’s saturation drop, which in turn assumes the 24V battery is set correctly at the PSU terminals — see §10.1.1. A rack at normal room temperature is entirely comfortable; the figures only get uncomfortable if eight coils and a DC-DC converter are sealed in a box with no ventilation. Two consequences for the build: ventilate the enclosure, and do not add any series resistance in the coil path — no current-limiting resistor, no LED wired in series with the coil for indication. If a per-station indicator is wanted, drive it separately.
+Available assumes a 5V rail at its lower tolerance limit less Qx01’s saturation drop, which in turn assumes the 24V battery is set correctly at the PSU terminals — see §10.1.1. A rack at normal room temperature is entirely comfortable; the figures only get uncomfortable if eight coils and a DC-DC converter are sealed in a box with no ventilation. Two consequences for the build: ventilate the enclosure, and do not add any series resistance in the coil path — no current-limiting resistor, no LED wired in series with the coil for indication. If a per-station indicator is wanted, drive it separately.
 
 ## 5.5 Procurement and Verification
 
@@ -536,9 +565,9 @@ Two practical points. The footprint changes from the G5V-1: 2 Form C means eight
 
 Second, this part carries a 20-week manufacturer lead time even though distributor stock is currently deep. At roughly $1.39 in hundreds, buy the whole system quantity plus spares in a single order rather than per board — 22 for the three station boards (the tap and monitor strips fit none) and eight for the trunks, 30 in all, and 32 counting those two strips’ unstuffed positions as spares. A four-month wait for a second order would be an avoidable and irritating way to stall the project.
 
-One figure to confirm from the datasheet rather than the distributor attribute table: dielectric strength between open contacts. The open contacts stand off 127V peak during ring, and up to 165V if TVS1 is conducting. Parts in this class are normally rated 750–1000 VAC contact-to-contact, so this should be a non-issue, but the attribute table lists only maximum switching voltage, which is a different specification. With the double-pole break each gap sees roughly half of it in any case.
+One figure to confirm from the datasheet rather than the distributor attribute table: dielectric strength between open contacts. The open contacts stand off 127V peak during ring, and up to 165V if Dx01 is conducting. Parts in this class are normally rated 750–1000 VAC contact-to-contact, so this should be a non-issue, but the attribute table lists only maximum switching voltage, which is a different specification. With the double-pole break each gap sees roughly half of it in any case.
 
-Because both poles are now carrying line current, there is no spare contact available for sensing whether the relay actually operated. If closed-loop confirmation of the hook state is ever wanted, it has to come from sensing loop current rather than contact position — a second optocoupler across R3 would confirm both that the contacts closed and that the switchboard is feeding the loop, which is the more useful signal anyway. That needs a spare expander input, so it implies fitting U2 (see §9.1).
+Because both poles are now carrying line current, there is no spare contact available for sensing whether the relay actually operated. If closed-loop confirmation of the hook state is ever wanted, it has to come from sensing loop current rather than contact position — a second optocoupler across Rx03 would confirm both that the contacts closed and that the switchboard is feeding the loop, which is the more useful signal anyway. That needs a spare expander input, and U101 has none (§9.1); the board has no second expander.
 
 Worst case for the 5V rail is all eight relays on a board energised at once: 8 × 29.9mA = 239mA. Size the per-board 5V supply for at least 500mA to cover inrush and margin.
 
@@ -579,57 +608,57 @@ Nothing about the station board design changes either way. This is a decision ab
 
 # 7. Balanced Audio Interface
 
-Audio is coupled through a 600Ω:600Ω isolation transformer T2 whose secondary is left fully floating, producing a balanced signal on the equipment side. The transformer primary is placed after the relay contacts (RLY1) so it is only connected to the line when the station is off-hook. This protects T2 from ring voltage during the ringing phase before the station answers. A series DC blocking capacitor C3 on the primary prevents DC loop current from biasing the core and also limits the voltage across T2 during the brief overlap period after the station goes off-hook but before the operator releases the ring button.
+Audio is coupled through a 600Ω:600Ω isolation transformer Tx01 whose secondary is left fully floating, producing a balanced signal on the equipment side. The transformer primary is placed after the relay contacts (Kx01) so it is only connected to the line when the station is off-hook. This protects Tx01 from ring voltage during the ringing phase before the station answers. A series DC blocking capacitor Cx01 on the primary prevents DC loop current from biasing the core and also limits the voltage across Tx01 during the brief overlap period after the station goes off-hook but before the operator releases the ring button.
 
 ## 7.1 Ring Overlap Protection
 
-Because ring is controlled manually by the operator, there will be a short delay after the station goes off-hook (both relay poles close) before the operator releases the ring button and ring voltage is removed. During this overlap, 90V AC is present on the line simultaneously with the relay being closed and T2 in circuit. C3 (0.47µF, 250V film) limits the current through T2 primary during this overlap:
+Because ring is controlled manually by the operator, there will be a short delay after the station goes off-hook (both relay poles close) before the operator releases the ring button and ring voltage is removed. During this overlap, 90V AC is present on the line simultaneously with the relay being closed and Tx01 in circuit. Cx01 (0.47µF, 250V film) limits the current through Tx01 primary during this overlap:
 
-Reactance of C3 at 20Hz is 1/(2π × 20 × 0.47e-6) ≈ 17kΩ. Voltage across T2 primary during overlap is 90V × 600/17000 ≈ 3.2V, well within the transformer’s safe operating range. The 250V capacitor rating is required since C3 sees the full ring voltage across it during the overlap.
+Reactance of Cx01 at 20Hz is 1/(2π × 20 × 0.47e-6) ≈ 17kΩ. Voltage across Tx01 primary during overlap is 90V × 600/17000 ≈ 3.2V, well within the transformer’s safe operating range. The 250V capacitor rating is required since Cx01 sees the full ring voltage across it during the overlap.
 
-C3 also serves as a DC blocking capacitor for normal audio operation. At 0.47µF its -3dB point with the 600Ω primary is 1/(2π × 600 × 0.47e-6) ≈ 565Hz. This is slightly within the voice band, causing some rolloff at the low end. If low-frequency audio quality is important, increase C3 to 2.2µF (which gives -3dB at 120Hz) but ensure it is still rated 250V.
+Cx01 also serves as a DC blocking capacitor for normal audio operation. At 0.47µF its -3dB point with the 600Ω primary is 1/(2π × 600 × 0.47e-6) ≈ 565Hz. This is slightly within the voice band, causing some rolloff at the low end. If low-frequency audio quality is important, increase Cx01 to 2.2µF (which gives -3dB at 120Hz) but ensure it is still rated 250V.
 
 ## 7.2 Complete Primary Circuit
 
 ```text
-TIP  ──── RLY1 pole A (NO) ──── node A
-RING ──── RLY1 pole B (NO) ──── node B
+TIP  ──── Kx01 pole A (NO) ──── node A
+RING ──── Kx01 pole B (NO) ──── node B
 
-node A ──── R3 (330Ω, 2W) ──── node B
+node A ──── Rx03 (330Ω, 2W) ──── node B
 
-node A ──── C3 (0.47µF, 250V film) ──── T2 primary (+)
-node B ────────────────────────── T2 primary (−)
+node A ──── Cx01 (0.47µF, 250V film) ──── Tx01 primary (+)
+node B ────────────────────────── Tx01 primary (−)
 ```
 
-R3 and the transformer primary both sit behind the contacts, in parallel with each other across nodes A and B. R3 carries the DC loop current the switchboard supervises; C3 blocks that DC from the transformer while passing audio. When the relay releases, both poles open and the entire station circuit — R3, C3 and T2 — is lifted clear of the line.
+Rx03 and the transformer primary both sit behind the contacts, in parallel with each other across nodes A and B. Rx03 carries the DC loop current the switchboard supervises; Cx01 blocks that DC from the transformer while passing audio. When the relay releases, both poles open and the entire station circuit — Rx03, Cx01 and Tx01 — is lifted clear of the line.
 
 ## 7.3 Receive Path — Station Line to A32 Analog Input
 
 ```text
-T2 secondary hot   ──── R5 (1kΩ) ──── A32 ANALOG IN (+)
-T2 secondary cold  ──── R6 (1kΩ) ──── A32 ANALOG IN (−)
+Tx01 secondary hot   ──── Rx08 (1kΩ) ──── A32 ANALOG IN (+)
+Tx01 secondary cold  ──── Rx09 (1kΩ) ──── A32 ANALOG IN (−)
 ```
 
-The floating secondary naturally drives the balanced A32 input with good common-mode rejection. R5 and R6 are matched series resistors defining source impedance and protecting the converter input. There is no third connection here. Revisions through Rev 3.24 showed a T2 screen or shield earthed to chassis; the TY-311P is a four-pin part with a primary and a secondary and nothing else, so there was never a terminal to land it on. The secondary is unreferenced at this board by design and §7.6 covers what happens to the D-Sub ground pins, which is the real grounding decision on the equipment side.
+The floating secondary naturally drives the balanced A32 input with good common-mode rejection. Rx08 and Rx09 are matched series resistors defining source impedance and protecting the converter input. There is no third connection here. Revisions through Rev 3.24 showed a Tx01 screen or shield earthed to chassis; the TY-311P is a four-pin part with a primary and a secondary and nothing else, so there was never a terminal to land it on. The secondary is unreferenced at this board by design and §7.6 covers what happens to the D-Sub ground pins, which is the real grounding decision on the equipment side.
 
 ## 7.4 Transmit Path — A32 Analog Output to Station Line
 
 ```text
-A32 ANALOG OUT (+) ──── R7 (1kΩ) ──── T2 secondary hot
-A32 ANALOG OUT (−) ──── R8 (1kΩ) ──── T2 secondary cold
+A32 ANALOG OUT (+) ──── Rx10 (1kΩ) ──── Tx01 secondary hot
+A32 ANALOG OUT (−) ──── Rx11 (1kΩ) ──── Tx01 secondary cold
 ```
 
 There is no hardware attenuator in this path as of Rev 3.16 — see below. The transmit signal is the sum of voice audio and the two ID tones, mixed in software before the DAC. No hardware mixing is required.
 
 RV1 is deleted. Earlier revisions carried a 10kΩ dual-gang trim pot here as an optional transmit attenuator, and flagged it as a deletion candidate because the A32 has switchable analog reference levels of +4dBu, +13dBu and +20dBu per channel plus digital gain trim from −8dBu to +20dBu in 1dB steps, all recallable from the front panel. That covers everything RV1 was there to do, and does it with recall.
 
-Sourcing settled the question that the level argument had left open. A dual-gang trimmer in a through-hole PCB trimmer package is not a normal catalogue item — trimmer potentiometers are essentially all single-gang. The alternative was two single trimmers per circuit, 48 across the system, with no guaranteed tracking between the two halves of a balanced pair; a mismatch between them degrades CMRR, which is the same quantity R5–R8 are hand-matched to protect. Adding 48 uncontrolled parts to defend against a problem the converter already solves was the wrong trade.
+Sourcing settled the question that the level argument had left open. A dual-gang trimmer in a through-hole PCB trimmer package is not a normal catalogue item — trimmer potentiometers are essentially all single-gang. The alternative was two single trimmers per circuit, 48 across the system, with no guaranteed tracking between the two halves of a balanced pair; a mismatch between them degrades CMRR, which is the same quantity Rx08–Rx11 are hand-matched to protect. Adding 48 uncontrolled parts to defend against a problem the converter already solves was the wrong trade.
 
 If the ADA8200 path is ever adopted for the final build rather than the bench, this decision has to be revisited: those units have no output trim at all, and the attenuation would have to come back as hardware or as digital level in the host.
 
 ## 7.5 Transformer Selection for Station Circuits
 
-Settled by measurement. T2 is the Triad TY-311P, and the full comparison against the Triad SP-70 is in trunk §8.3 — the trunk transformers work at the top of the comb and are the harder case, so the measurement was made there and applies here.
+Settled by measurement. Tx01 is the Triad TY-311P, and the full comparison against the Triad SP-70 is in trunk §8.3 — the trunk transformers work at the top of the comb and are the harder case, so the measurement was made there and applies here.
 
 Measured, 2026-08-24, Analog Discovery 3 network analyser, 10Hz to 100kHz. Triad TY-311P: passband loss about −5.5dB, flat from roughly 400Hz to 10kHz, no rolloff whatever at 9kHz, and still only −8dB at 100kHz. Low end −8.5dB at 10Hz. Driven at 200mV.
 
@@ -649,17 +678,17 @@ Do still measure one before committing to 24. Standard telephone transformers be
 
 If the loss at the top of the comb is significant, pre-emphasise the pilot injection level per station in software to equalise the received magnitudes. This is cheap to do and it is worth doing even for a few dB, because it keeps every station’s pilot at a similar level at the far end and lets one threshold value serve all of them. The ratiometric threshold in §8.4 already tolerates unequal levels, so this is refinement rather than necessity.
 
-## 7.6 Audio Connectors — J1, J2, D-Sub25 Female
+## 7.6 Audio Connectors — J104, J105, D-Sub25 Female
 
-Audio terminates in two D-Sub25 connectors in TASCAM analog pinout, mating with the A32 through a standard male-to-male analog loom with no breakout. J1 carries the board’s eight outputs to the A32 analog input connector; J2 carries the A32’s eight analog outputs back to the board. Channel n on the connector is station n on that board.
+Audio terminates in two D-Sub25 connectors in TASCAM analog pinout, mating with the A32 through a standard male-to-male analog loom with no breakout. J104 carries the board’s eight outputs to the A32 analog input connector; J105 carries the A32’s eight analog outputs back to the board. Channel n on the connector is station n on that board.
 
 Both are female sockets. Earlier revisions of this document specified male, which is wrong, and the trunk document carried the same error before correcting it. The convention across TASCAM-pinout equipment — the A32 included — is a female socket on the gear and a male plug on the loom, so a board-to-A32 run is a male-to-male analog snake, which is a stock item. Do not assume male on the grounds that the board is the source end. Confirm against the A32 before ordering. Note that the trunk document refers to the unit as the A32 Pro: both carry 32 analog channels on four D-Sub25 pairs in each direction with the TASCAM analog pinout, so nothing in this section changes either way, but the digital transport differs and the ADAT budget in §6 assumes the A32. Settle which unit is in the rack before the looms are made up.
 
-The eight ground pins on each connector are left floating at this board, on the assumption that they are commoned at the A32, and the reasoning is the same as trunk §8.4. T2 isolates, R5 to R8 run between the winding and the converter, and board GND is in none of it. Grounding them at both ends closes a loop that encircles the rack: board GND to the PSU, PSU to mains earth, earth to the A32 chassis, chassis to the cable ground pins, and back to the board. Eight audio channels sharing that loop is the classic way to acquire mains hum and its harmonics. Grounding at one end only is the standard answer, and the A32 is the end that should have it.
+The eight ground pins on each connector are left floating at this board, on the assumption that they are commoned at the A32, and the reasoning is the same as trunk §8.4. Tx01 isolates, Rx08 to Rx11 run between the winding and the converter, and board GND is in none of it. Grounding them at both ends closes a loop that encircles the rack: board GND to the PSU, PSU to mains earth, earth to the A32 chassis, chassis to the cable ground pins, and back to the board. Eight audio channels sharing that loop is the classic way to acquire mains hum and its harmonics. Grounding at one end only is the standard answer, and the A32 is the end that should have it.
 
-There is a real argument the other way, which is why the decision gets a footprint rather than a piece of copper. T2 has interwinding capacitance and its primary sits on a line that carries 90V RMS ring when the operator rings that station. Common-mode current through that capacitance has to return somewhere, and with the secondary unreferenced at the board it returns down the snake to the converter's input. The A32's common-mode rejection should absorb it. Ring transients are fast, and the word doing the work in that sentence is "should".
+There is a real argument the other way, which is why the decision gets a footprint rather than a piece of copper. Tx01 has interwinding capacitance and its primary sits on a line that carries 90V RMS ring when the operator rings that station. Common-mode current through that capacitance has to return somewhere, and with the secondary unreferenced at the board it returns down the snake to the converter's input. The A32's common-mode rejection should absorb it. Ring transients are fast, and the word doing the work in that sentence is "should".
 
-So: tie the eight ground pins of each D-Sub together at the board into a single node, and take one 0Ω link footprint from that node to board GND. Leave it unstuffed. If the system hums, it stays out. If ring events produce clicks or thumps in the captured audio, fit it and listen again. A 100Ω resistor in parallel with 10nF is the middle position — it gives transients and RF a path to ground while presenting an open circuit to 50/60Hz loop current — and the same footprint takes it.
+So: tie the eight ground pins of each D-Sub together at the board into a single node, and take a 0Ω link from that node to board GND. The rev 2 board has one per connector, R105 for J104 and R106 for J105, and both are fitted with 0Ω resistors as built, so on these boards the D-Sub grounds are at board GND. If the system hums, lift them and listen again. If ring events then produce clicks or thumps in the captured audio, put them back. A 100Ω resistor in parallel with 10nF is the middle position — it gives transients and RF a path to ground while presenting an open circuit to 50/60Hz loop current — and the same footprints take it.
 
 Silkscreen the link position and what fitting it means. An unstuffed 0Ω whose purpose is undocumented gets fitted by whoever populates the next board, on the reasonable assumption that a missing part is an oversight.
 
@@ -671,13 +700,13 @@ Silkscreen the link position and what fitting it means. An unstuffed 0Ω whose p
 
  
 
-Pin 13 is not connected. The TASCAM analog and AES/EBU digital pinouts differ and breakout cables are not interchangeable; the A32 analog connectors need the analog variant. J1 and J2 need 4-40 female screwlocks on the board side so the loom’s jackscrews have something to bite. On most D-Sub bodies those are a separate line item; the connector specified in §11 has them integral to the mating-side flange, so there is no separate hardware to order, fit or lose. If that part is ever substituted, check the flange feature — a plain threaded shell needs two screwlocks per connector and they must be ordered deliberately.
+Pin 13 is not connected. The TASCAM analog and AES/EBU digital pinouts differ and breakout cables are not interchangeable; the A32 analog connectors need the analog variant. J104 and J105 need 4-40 female screwlocks on the board side so the loom’s jackscrews have something to bite. On most D-Sub bodies those are a separate line item; the connector specified in §11 has them integral to the mating-side flange, so there is no separate hardware to order, fit or lose. If that part is ever substituted, check the flange feature — a plain threaded shell needs two screwlocks per connector and they must be ordered deliberately.
 
-## 7.7 Station Line Connectors — J7A, J7B, RJ45
+## 7.7 Station Line Connectors — J7A101, J7B101, RJ45
 
 The eight station pairs leave on two shielded RJ45 jacks, four stations per connector, one twisted pair per station. This matches the trunk board’s arrangement and, more importantly, matches the rule the trunk document establishes for the whole system: RJ45 means telephone line and nothing else, anywhere. The connector type itself signals hazardous voltage.
 
-| **Pin** | **T568B colour** | **J7A** | **J7B** |
+| **Pin** | **T568B colour** | **J7A101** | **J7B101** |
 | --- | --- | --- | --- |
 | 1 | white/orange | Station 1 TIP | Station 5 TIP |
 | 2 | orange | Station 1 RING | Station 5 RING |
@@ -698,15 +727,15 @@ Use Cat5e rated 300V (CM or CMR) rather than patch cord. Ring is 90V RMS, 127V p
 
 Three signal classes, three connector types: D-Sub25 for audio, 6P6C for I²C, RJ45 for station lines. No cable can be crossed between classes and still seat. This is worth stating as a system rule rather than a per-board choice, because the failure it prevents is severe — a station line pushed into an I²C jack would put 127V peak onto SDA and SCL, shared with every board on the chain and the master.
 
-One case survives and is worth naming because people are surprised by it: a 6P6C plug physically fits an RJ45 jack. It is narrower, so it lands on the middle six positions and leaves the outer two unmade. An I²C cord can therefore be pushed into J7A or J7B, where it would find station tip and ring conductors. The reverse is impossible — an RJ45 plug will not enter a 6P6C jack — so the hazard runs one way only and needs one control.
+One case survives and is worth naming because people are surprised by it: a 6P6C plug physically fits an RJ45 jack. It is narrower, so it lands on the middle six positions and leaves the outer two unmade. An I²C cord can therefore be pushed into J7A101 or J7B101, where it would find station tip and ring conductors. The reverse is impossible — an RJ45 plug will not enter a 6P6C jack — so the hazard runs one way only and needs one control.
 
-That control is TVS2, a Littelfuse SP721APP rail-clamp array on SDA and SCL, the same part the trunk and generator boards fit, with C18 (100nF) across its pins 8 and 4 at the device. The SP721 does not shunt to ground — it conducts the transient from the IN pin into V+ — so V+ has to be able to source that current locally, or it lifts during the event and the clamp degrades exactly when it is working. Only the V+ side needs it: V− is pin 4 and goes straight to GND, so bypassing that to ground is a zero-length connection. The series resistor the same datasheet note suggests is not fitted, because that note covers automotive load-dump and reverse-battery conditions and series resistance in the V+ feed would raise the clamp’s dynamic impedance. If the station involved is on-hook the array simply clamps. If ring is present, 127V arrives and the array fails short, which pulls the bus down and halts the system rather than passing ring voltage to four expanders and the master. A failure that stops the game is a far better outcome than one that destroys the control system, and the array costs about 3pF against a bus with a large timing margin.
+That control is TVS101, a Littelfuse SP721APP rail-clamp array on SDA and SCL, the same part the trunk and generator boards fit, with a 100nF bypass across its pins 8 and 4 at the device — specified since Rev 3.26 but not on the rev 2 board, so it waits for the next revision (§11). The SP721 does not shunt to ground — it conducts the transient from the IN pin into V+ — so V+ has to be able to source that current locally, or it lifts during the event and the clamp degrades exactly when it is working. Only the V+ side needs it: V− is pin 4 and goes straight to GND, so bypassing that to ground is a zero-length connection. The series resistor the same datasheet note suggests is not fitted, because that note covers automotive load-dump and reverse-battery conditions and series resistance in the V+ feed would raise the clamp’s dynamic impedance. If the station involved is on-hook the array simply clamps. If ring is present, 127V arrives and the array fails short, which pulls the bus down and halts the system rather than passing ring voltage to four expanders and the master. A failure that stops the game is a far better outcome than one that destroys the control system, and the array costs about 3pF against a bus with a large timing margin.
 
 The SP721APP is an 8-PDIP with six protected inputs, clamping each to V+ (pin 8, here +3.3V) or V− (pin 4, here GND) through SCR/diode structures that trigger one VBE beyond the rail. It is specified over the smaller surface-mount ESD arrays because the rest of this board is through-hole and its 3pF per line costs nothing against the bus budget in §9.5 — 6pF on top of roughly 50pF. Four of its six inputs are unused.
 
 Treat it as sacrificial. Steering 127V into a 3.3V rail is not a rated condition for any part, and it is not meant to be survivable — it is meant to stop the system. Keep spares, and a socket is worth considering given it is a DIP.
 
-Group J7A and J7B at the high-voltage edge of the board with J1, J2 and the I²C jacks at the opposite edge, and mark the boundary on the silkscreen. Colour-code cables and jacks consistently across every board — station and trunk lines in one colour, I²C cords in another. That is now a convenience rather than the primary control, which is the right place for it to be.
+Group J7A101 and J7B101 at the high-voltage edge of the board with J104, J105 and the I²C jacks at the opposite edge, and mark the boundary on the silkscreen. Colour-code cables and jacks consistently across every board — station and trunk lines in one colour, I²C cords in another. That is now a convenience rather than the primary control, which is the right place for it to be.
 
 ## 7.9 Operator Tap Option
 
@@ -720,46 +749,46 @@ As of Rev 3.41 the tap is the monitor’s default source rather than its only on
 
 ## 7.9.1 Configuration Is a Stuffing Option, Not a Jumper
 
-An earlier sketch of this called for a pair of three-pin jumpers per strip to select between the station line network and the tap network. That is unnecessary, and §7.2 is the reason: when RLY1 releases, both poles open and R3, C3 and T2 are lifted clear of the line. A strip whose relay is never energised has already disconnected everything the tap needs disconnected.
+An earlier sketch of this called for a pair of three-pin jumpers per strip to select between the station line network and the tap network. That is unnecessary, and §7.2 is the reason: when Kx01 releases, both poles open and Rx03, Cx01 and Tx01 are lifted clear of the line. A strip whose relay is never energised has already disconnected everything the tap needs disconnected.
 
-What is left is to leave RLY1 out of the strip entirely rather than rely on software never commanding it. A relay that is not fitted cannot be closed by a firmware fault, and R3 at 330Ω across the operator’s talking path would be a genuine fault: that path carries talk battery, and shunting it with 330Ω is not something to leave to a software interlock.
+What is left is to leave Kx01 out of the strip entirely rather than rely on software never commanding it. A relay that is not fitted cannot be closed by a firmware fault, and Rx03 at 330Ω across the operator’s talking path would be a genuine fault: that path carries talk battery, and shunting it with 330Ω is not something to leave to a software interlock.
 
-So the tap is a designated strip stuffed differently. No jumper carries ring voltage or loop current, the other seven strips are untouched, all three boards stay identical as fabricated, and the configuration is visible on the board rather than hidden in a shunt position. The footprints go on all eight strips so the strip stays a single replicated block in layout; only the stuffing differs. This has to hold in the schematic as well, and the schematic is where it is easiest to get wrong. The eight strips are eight instances of one hierarchical sheet, and a sheet instance owns its reference designators but shares everything else — values, footprints and the do-not-populate flag all belong to the symbol. R11, R12 and R13 are therefore drawn on every strip and marked do-not-populate. That flag is a BOM attribute and does not remove the footprint from the board, so all eight PCB strips stay identical and one laid-out strip can be copied to the other seven. The cost is that an exported BOM reads zero 22kΩ where the build needs two: reconcile it by hand for R11, R12 and R13 and for nothing else, against the project BOM, which is the authority.
+So the tap is a designated strip stuffed differently. No jumper carries ring voltage or loop current, the other seven strips are untouched, all three boards stay identical as fabricated, and the configuration is visible on the board rather than hidden in a shunt position. The footprints go on all eight strips so the strip stays a single replicated block in layout; only the stuffing differs. This has to hold in the schematic as well, and the schematic is where it is easiest to get wrong. The eight strips are eight instances of one hierarchical sheet, and a sheet instance owns its reference designators but shares everything else — values, footprints and the do-not-populate flag all belong to the symbol. Rx04 and Rx05 are therefore drawn on every strip and marked do-not-populate. That flag is a BOM attribute and does not remove the footprint from the board, so all eight PCB strips stay identical and one laid-out strip can be copied to the other seven. The cost is that an exported BOM reads zero 22kΩ where the build needs two: reconcile it by hand for Rx04 and Rx05 and for nothing else, against the project BOM, which is the authority. The damping resistor once drawn beside them, R13 until Rev 3.43, has no footprint on the rev 2 board (§7.9.5).
 
 The cost is that reconfiguring between station and tap is a rework operation rather than a field change. For something set once per build, that is the right trade.
 
 ## 7.9.2 Circuit
 
 ```text
-  OP TIP  ──── R11 (22k) ────── node A ──── C3 (0.47µF 250V) ──── T2 pri (+)
-  OP RING ──── R12 (22k) ────── node B ──────────────────── T2 pri (−)
-  R11 and R12 bridge the RLY1 pole A and pole B NO contacts. RLY1 is
+  OP TIP  ──── Rx04 (22k) ────── node A ──── Cx01 (0.47µF 250V) ──── Tx01 pri (+)
+  OP RING ──── Rx05 (22k) ────── node B ──────────────────── Tx01 pri (−)
+  Rx04 and Rx05 bridge the Kx01 pole A and pole B NO contacts. Kx01 is
   not fitted on the tap strip, so they are the only path to the line.
-  T2 sec hot  ──── R5 (1k) ──── A32 ANALOG IN (+)    monitor + detection
-  T2 sec cold ──── R6 (1k) ──── A32 ANALOG IN (−)
-  A32 ANALOG OUT (+) ──── R7 (1k) ──── T2 sec hot     operator tone
-  A32 ANALOG OUT (−) ──── R8 (1k) ──── T2 sec cold
-  R13 (2.2k) across T2 secondary — DO NOT FIT unless §7.9.5 says so
-  TVS1 stays at the jack, as on every strip
+  Tx01 sec hot  ──── Rx08 (1k) ──── A32 ANALOG IN (+)    monitor + detection
+  Tx01 sec cold ──── Rx09 (1k) ──── A32 ANALOG IN (−)
+  A32 ANALOG OUT (+) ──── Rx10 (1k) ──── Tx01 sec hot     operator tone
+  A32 ANALOG OUT (−) ──── Rx11 (1k) ──── Tx01 sec cold
+  damping across Tx01 secondary — no footprint; a bodge only if §7.9.5 calls for it
+  Dx01 stays at the jack, as on every strip
 ```
 
-Two resistors are the entire addition. C3 already sits in series with the primary at node A and already blocks DC, so the tap needs no coupling capacitor of its own — only a path from the jack to nodes A and B that bypasses the open relay poles. R11 and R12 bridge the two NO contacts and do exactly that.
+Two resistors are the entire addition. Cx01 already sits in series with the primary at node A and already blocks DC, so the tap needs no coupling capacitor of its own — only a path from the jack to nodes A and B that bypasses the open relay poles. Rx04 and Rx05 bridge the two NO contacts and do exactly that.
 
-The secondary side is untouched. R5–R8 are the same matched 1kΩ pairs as every other strip, the D-Sub25 wiring is unchanged, and the tap lands on its board channel exactly as a station would. On the primary, the only difference from a station strip is that 44kΩ of series resistance replaces a pair of closed relay contacts, and R3 is absent.
+The secondary side is untouched. Rx08–Rx11 are the same matched 1kΩ pairs as every other strip, the D-Sub25 wiring is unchanged, and the tap lands on its board channel exactly as a station would. On the primary, the only difference from a station strip is that 44kΩ of series resistance replaces a pair of closed relay contacts, and Rx03 is absent.
 
-The resistance is split between the legs rather than put entirely in one, but not for the reason generator §15.2 gave. That section said splitting it “keeps the injection balanced”, and that is wrong: the primary floats, so there is no ground reference to define a common mode and the injected current loop is differential wherever the resistance sits. Nor is this the same argument as the matched R5–R8 pairs, which set the CMRR of a real balanced receiver on the secondary.
+The resistance is split between the legs rather than put entirely in one, but not for the reason generator §15.2 gave. That section said splitting it “keeps the injection balanced”, and that is wrong: the primary floats, so there is no ground reference to define a common mode and the injected current loop is differential wherever the resistance sits. Nor is this the same argument as the matched Rx08–Rx11 pairs, which set the CMRR of a real balanced receiver on the secondary.
 
-What splitting it actually buys is common-mode rejection in the receive direction. Common-mode voltage on the operator pair only becomes differential through a return path, and the only one available is T2’s interwinding capacitance to the grounded secondary — a few tens of megohms at mains frequencies. Leg imbalance divides against that. With the resistance split, the imbalance is resistor tolerance, a couple of hundred ohms; with it all in one leg, the imbalance is the full 44kΩ, some 45dB worse. Two resistors instead of one is the cheapest 45dB in the design, and the capacitor imbalance C3 leaves behind costs perhaps 25dB of that — worth knowing, not worth a second capacitor and 24 unstuffed footprints to recover.
+What splitting it actually buys is common-mode rejection in the receive direction. Common-mode voltage on the operator pair only becomes differential through a return path, and the only one available is Tx01’s interwinding capacitance to the grounded secondary — a few tens of megohms at mains frequencies. Leg imbalance divides against that. With the resistance split, the imbalance is resistor tolerance, a couple of hundred ohms; with it all in one leg, the imbalance is the full 44kΩ, some 45dB worse. Two resistors instead of one is the cheapest 45dB in the design, and the capacitor imbalance Cx01 leaves behind costs perhaps 25dB of that — worth knowing, not worth a second capacitor and 24 unstuffed footprints to recover.
 
-That estimate rests on an interwinding capacitance nobody has measured, so treat it as a reason to split the resistance rather than as a predicted hum figure. If the tap turns out to hum, short C3 and re-measure: that separates a capacitor-imbalance problem from common mode arriving by some other route.
+That estimate rests on an interwinding capacitance nobody has measured, so treat it as a reason to split the resistance rather than as a predicted hum figure. If the tap turns out to hum, short Cx01 and re-measure: that separates a capacitor-imbalance problem from common mode arriving by some other route.
 
-R11 and R12 are 22kΩ, 1% metal film. Rev 3.24 through Rev 3.26 specified 22.1kΩ on the grounds that 22.0k is E24 and 1% metal film is E96 only; that was wrong, 22kΩ is stocked at 1%, and Rev 3.27 returned to the round value generator §15.2 always called for. The two values differ by 0.5% and nothing in §7.9.3 could tell them apart. What matters is that the two resistors are 1% parts and match each other.
+Rx04 and Rx05 are 22kΩ, 1% metal film. Rev 3.24 through Rev 3.26 specified 22.1kΩ on the grounds that 22.0k is E24 and 1% metal film is E96 only; that was wrong, 22kΩ is stocked at 1%, and Rev 3.27 returned to the round value generator §15.2 always called for. The two values differ by 0.5% and nothing in §7.9.3 could tell them apart. What matters is that the two resistors are 1% parts and match each other.
 
 ## 7.9.3 Loading, Levels and Fault Current
 
 The 22kΩ per leg is carried over from generator §15.2 rather than re-derived, and the reasons it was chosen there hold here unchanged.
 
-Loading. The bridge presents 44kΩ in series with the transformer primary, which is itself loaded by roughly 12kΩ reflected from the secondary — 2kΩ of R5/R6 plus the A32 input impedance. The total shunt across the operator’s talking path is about 56kΩ, which on a 600Ω circuit is 0.05dB of insertion loss. The operator cannot hear the tap.
+Loading. The bridge presents 44kΩ in series with the transformer primary, which is itself loaded by roughly 12kΩ reflected from the secondary — 2kΩ of Rx08/Rx09 plus the A32 input impedance. The total shunt across the operator’s talking path is about 56kΩ, which on a 600Ω circuit is 0.05dB of insertion loss. The operator cannot hear the tap.
 
 Fault current. The operator’s talking path can see ring voltage and talk battery. At 90V RMS the bridge passes about 2mA and each 22kΩ resistor dissipates about 90mW, inside a 0.25W part with margin. This is the reason not to drop the value. 4.75kΩ per leg would give roughly 8dB more receive level and 13dB more injection, both of which would be welcome — but it also puts about 0.4W into a 0.25W resistor during a ring fault and more than quadruples the current the transformer barrier is asked to hold off. The level problem has a free solution and the fault problem does not, so the level problem is the one to solve.
 
@@ -769,7 +798,7 @@ Injection level. Driving the other way is the hard direction, because the tone h
 
 Set that channel’s analog reference to +20dBu and the tone lands near −18dBFS with the whole of the headroom back. §7.4 already relies on the A32’s per-channel reference and digital trim for exactly this class of problem, and this is another instance of it rather than a new mechanism. Record the setting with the other commissioning values — it is not recoverable by inspecting the board.
 
-Low-frequency corner. C3 at 0.47µF against the 56kΩ loop puts the corner near 6Hz — far below the 565Hz it sets in a standard station strip, because there the capacitor works against a 600Ω primary and here it works against the tap bridge. The §7.1 note about raising C3 to 2.2µF for low-end response does not apply to this strip. Nothing in the voice band is affected, and the high-pass in §8.8 sets the real low-end limit of the monitor feed anyway.
+Low-frequency corner. Cx01 at 0.47µF against the 56kΩ loop puts the corner near 6Hz — far below the 565Hz it sets in a standard station strip, because there the capacitor works against a 600Ω primary and here it works against the tap bridge. The §7.1 note about raising Cx01 to 2.2µF for low-end response does not apply to this strip. Nothing in the voice band is affected, and the high-pass in §8.8 sets the real low-end limit of the monitor feed anyway.
 
 ## 7.9.4 Where to Tap
 
@@ -777,13 +806,13 @@ The same point generator §15.5 specified for the injector: across tip and ring 
 
 The tap point now determines what the audience hears as well as where the tone goes in, which raises the stakes on getting it right. Across the talking path you get the far end plus the operator’s own sidetone, which is the mix wanted. Across the receiver alone you get the far end, and the operator’s voice only at whatever level the switchboard’s hybrid sets — which will be too quiet, and the monitor would then need a second source after all, which is the outcome this whole arrangement exists to avoid. Confirm it on the bench before committing the wiring.
 
-The run to the switchboard is line wiring like the station and trunk lines: one pair of 300V Cat5e, landed on the tap strip’s RJ45 position per §7.7. The transformer is the galvanic barrier and R11/R12 limit fault current into it, exactly the arrangement generator §15.5 argued for and for exactly the same reasons. Nothing about that argument changes by moving the transformer from the generator board to a station strip.
+The run to the switchboard is line wiring like the station and trunk lines: one pair of 300V Cat5e, landed on the tap strip’s RJ45 position per §7.7. The transformer is the galvanic barrier and Rx04/Rx05 limit fault current into it, exactly the arrangement generator §15.5 argued for and for exactly the same reasons. Nothing about that argument changes by moving the transformer from the generator board to a station strip.
 
 ## 7.9.5 Bench Verification
 
 The transformer is working into a much higher impedance than it was swept at. §7.5’s measurement drove the TY-311P in a 600Ω system; here the primary sees 44kΩ and the secondary about 12kΩ. Leakage inductance ringing against winding self-capacitance can produce a high-frequency peak in a lightly loaded transformer that does not appear at all in a matched sweep, so the earlier flat result does not carry over and has to be re-measured in this configuration.
 
-Sweep the assembled tap network, 20Hz to 20kHz, with a 600Ω source at the operator terminals and 10kΩ across the A32 input pair standing in for the converter. Expect about −15dB, flat, with the low-frequency corner near 12Hz. If a peak appears above 8kHz, fit R13 across the secondary — start at 2.2kΩ and reduce until it flattens — and re-sweep. R13 is a DO NOT FIT footprint until that measurement says otherwise.
+Sweep the assembled tap network, 20Hz to 20kHz, with a 600Ω source at the operator terminals and 10kΩ across the A32 input pair standing in for the converter. Expect about −15dB, flat, with the low-frequency corner near 12Hz. If a peak appears above 8kHz, damp the secondary — 2.2kΩ across Tx01's secondary to start, reduced until it flattens — and re-sweep. The rev 2 board has no footprint for it (it was R13 until Rev 3.43), so on the tap strip (board 3 strip 7) it is a resistor bodged across T801's secondary pads; nothing is fitted until the measurement asks for it.
 
 Confirm the A32 analog input impedance from the Ferrofish specification rather than taking the 10kΩ used above. Every receive-level figure in §7.9.3 depends on it, and it is the one number in the chain that came from an assumption rather than a datasheet.
 
@@ -801,7 +830,7 @@ One question the bench cannot answer: whether 9000Hz survives the switchboard’
 
 Strip 7 of board 3 — A32 channel 23 — is the designated tap, and the rest of this document assumes it. Strip 8 of the same board is the audience monitor output (§7.9.8). Stations are therefore 1–22, contiguous.
 
-Rev 3.24 through Rev 3.34 designated station 8 on board 1, and recorded the last strip of the last board as the alternative, rejected because in a two-board build it would have meant putting the tap on station 16 and moving it when the third board arrived. With all three boards built (Rev 3.35) that objection was gone and the tap moved to board 3 strip 8, for contiguous station numbering and a place at the end of the I²C chain and of the station channels rather than in the middle of both. Rev 3.40 moves it one strip over, to strip 7, so that strip 8’s A32 output can carry the audience monitor. The advantages are unchanged, and the tap and the monitor now sit side by side on one board. Nothing electrical changes: the tap is a stuffing option on a strip that is identical on every board (§7.9.1), and moving it is a matter of which strip gets the R11/R12 pair and omits its relay and ring detector (§7.9.7).
+Rev 3.24 through Rev 3.34 designated station 8 on board 1, and recorded the last strip of the last board as the alternative, rejected because in a two-board build it would have meant putting the tap on station 16 and moving it when the third board arrived. With all three boards built (Rev 3.35) that objection was gone and the tap moved to board 3 strip 8, for contiguous station numbering and a place at the end of the I²C chain and of the station channels rather than in the middle of both. Rev 3.40 moves it one strip over, to strip 7, so that strip 8’s A32 output can carry the audience monitor. The advantages are unchanged, and the tap and the monitor now sit side by side on one board. Nothing electrical changes: the tap is a stuffing option on a strip that is identical on every board (§7.9.1), and moving it is a matter of which strip gets the Rx04/Rx05 pair and omits its relay and ring detector (§7.9.7).
 
 Channel cost. The tap consumes A32 channel 23 in both directions — the output carries the operator tone, the input carries the default monitor source (§8.8). The monitor takes channel 24’s output. The system is 22 stations, 8 trunks, the tap and the monitor, which is all 32 A32 outputs; on the input side channel 24 is the one channel left unused. Rev 3.35 through Rev 3.39 gave the tap channel 24, left no A32 output for the loudspeaker, and sent the monitor out of the Digiface USB instead; §8.8 keeps that route as the fallback.
 
@@ -812,49 +841,49 @@ Slots 23 and 24 of the pilot comb (bins 688 and 696, 8062.50Hz and 8156.25Hz) go
 Relative to a standard station strip:
 
 ```text
-  FIT          T2, C3, R5, R6, R7, R8, TVS1     as any station strip
-               R11, R12                         tap bridge, new
-               R2                               see note below
-               R13                              only if §7.9.5 requires it
-  DO NOT FIT   RLY1, Q2, D5, R4, R_pd, C9       off-hook path
-               R3                               loop current resistor
-               R1a, R1b, C4, OC1, C5            ring detector
+  FIT          Tx01, Cx01, Rx08, Rx09, Rx10, Rx11, Dx01     as any station strip
+               Rx04, Rx05                         tap bridge, new
+               Rx12                               see note below
+               secondary damping                  a bodge, only if §7.9.5 requires it
+  DO NOT FIT   Kx01, Qx01, Dx02, Rx01, Rx02, Cx02       off-hook path
+               Rx03                               loop current resistor
+               Rx06, Rx07, Cx03, Ux01, Cx04            ring detector
 ```
 
 The off-hook path comes out because the strip must never be able to close a loop across the operator’s talking circuit, and the surest way to guarantee that is for the relay not to exist. MCP23017 Port B bit 6 on board 3 then drives nothing; leave the firmware’s output mapping alone rather than special-casing it.
 
 The ring detector comes out because the operator’s talking path is not rung, so the detector has nothing to report, and leaving it fitted would put its 20kΩ input network across the tap for about 0.26dB of additional loading. Not fatal, but there is no reason to pay it.
 
-R2 is the exception and stays fitted. It is the 4.7kΩ pull-up on the HCPL3700M output; with OC1 absent it holds Port A bit 6 of board 3’s expander high, which the firmware reads as a steady no-ring. Omit R2 as well and that input floats, which will eventually be read as an intermittent ring on a station that does not exist — the kind of fault that wastes an afternoon.
+Rx12 is the exception and stays fitted. It is the 4.7kΩ pull-up on the HCPL3700M output; with Ux01 absent it holds Port A bit 6 of board 3’s expander high, which the firmware reads as a steady no-ring. Omit Rx12 as well and that input floats, which will eventually be read as an intermittent ring on a station that does not exist — the kind of fault that wastes an afternoon.
 
-C3 stays fitted and is doing the same job it does everywhere else. R3 does not: it is the loop current resistor and has no business across the operator’s talking path.
+Cx01 stays fitted and is doing the same job it does everywhere else. Rx03 does not: it is the loop current resistor and has no business across the operator’s talking path.
 
 ## 7.9.8 Audience Monitor Strip
 
-Strip 8 of board 3 carries the audience monitor. The filtered, limited mix of §8.8 leaves the host on A32 output 24, arrives at the board on J2 channel 8 like any other strip’s transmit audio, and goes from there to the loudspeaker amplifier. It is not a line interface: nothing on the switchboard side connects to it, J7B’s strip-8 pair (pins 7 and 8) stays empty, and there is no receive signal, so A32 input 24 is unused.
+Strip 8 of board 3 carries the audience monitor. The filtered, limited mix of §8.8 leaves the host on A32 output 24, arrives at the board on J105 channel 8 like any other strip’s transmit audio, and goes from there to the loudspeaker amplifier. It is not a line interface: nothing on the switchboard side connects to it, J7B101’s strip-8 pair (pins 7 and 8) stays empty, and there is no receive signal, so A32 input 24 is unused.
 
 ```text
-  FIT          R2                               holds Port A bit 7 high
-  DO NOT FIT   T2, C3, R5, R6, R7, R8, TVS1     audio and line side
-               R11, R12, R13                    tap parts
-               RLY1, Q2, D5, R4, R_pd, C9, R3   off-hook path
-               R1a, R1b, C4, OC1, C5            ring detector
-               R17                              feeds nothing with OC1 absent
-  CABLE        shielded pair to the amplifier:
-               hot  to the J2-side pad of R7    (J2 pin 1)
-               cold to the J2-side pad of R8    (J2 pin 14)
-               shield to J2 pin 2               (channel 8 ground)
+  FIT          Rx12                               holds Port A bit 7 high
+  DO NOT FIT   Tx01, Cx01, Rx08, Rx09, Rx10, Rx11, Dx01     audio and line side
+               Rx04, Rx05                         tap parts
+               Kx01, Qx01, Dx02, Rx01, Rx02, Cx02, Rx03   off-hook path
+               Rx06, Rx07, Cx03, Ux01, Cx04            ring detector
+  CONNECTOR    J106, the MONITOR terminal, on strip 8's transmit pair:
+               pin 2  AOUT+_8, hot   (J105 pin 1, the J105-side pad of R910)
+               pin 1  AOUT−_8, cold  (J105 pin 14, the J105-side pad of R911)
+  CABLE        shielded pair from J106 to the amplifier;
+               shield to the channel 8 D-Sub ground, J105 pin 2
 ```
 
-T2 is not fitted because it would put 2kΩ of R7/R8 and a transformer between the A32 and the amplifier for nothing: the A32 output is already balanced, and the amplifier is not a telephone line. The cable picks the signal up where the A32 delivers it. Confirm continuity from each pad to J2 pin 1 and pin 14 before soldering — the two pads of each resistor footprint look alike and only one of each goes to the connector.
+T901 is not fitted because it would put 2kΩ of R910/R911 and a transformer between the A32 and the amplifier for nothing: the A32 output is already balanced, and the amplifier is not a telephone line. J106 picks the signal up where the A32 delivers it, on the J105 side of R910 and R911.
 
-The shield goes to the channel’s own D-Sub ground pin, which is part of the floating D-Sub ground node of §7.6 and is earthed at the A32 end, not to board GND. That keeps the monitor run out of the ground loop §7.6 keeps the audio out of. At the amplifier end, terminate as its balanced input expects.
+The shield goes to the channel’s own D-Sub ground pin, which is part of the D-Sub ground node of §7.6 rather than board GND directly, so it follows whatever R106 does: with R106 fitted, as built, the node is at board GND; lifted, the shield is earthed at the A32 end only and the monitor run stays out of the ground loop §7.6 describes. At the amplifier end, terminate as its balanced input expects.
 
-This is how the present board carries it, not the design. The board has no connector for it because until Rev 3.40 nothing but a station line ever left a strip; the next board revision adds one on strip 8’s J2 side, type not yet chosen (§12). Until then, strain-relieve the cable at the board — two solder joints on resistor pads are the only thing holding it.
+The rev 2 board carries J106 for it, a two-way terminal at the low-voltage edge. Rev 3.40 to Rev 3.43 described the first board, which had no connector and took the cable on two resistor pads. J106 carries hot and cold only; the shield still lands on the channel's D-Sub ground (§7.6).
 
 Level. Channel 24’s A32 analog reference and digital trim (§7.4) set the output level for the amplifier’s input sensitivity, and are recorded with the other commissioning values; the audio program’s gain and limiter sit ahead of them (§8.8, audio.md §10).
 
-R2 stays for the reason §7.9.7 gives: with OC1 absent it holds Port A bit 7 of board 3’s expander at a steady no-ring. Port B bit 7 drives nothing.
+Rx12 stays for the reason §7.9.7 gives: with Ux01 absent it holds Port A bit 7 of board 3’s expander at a steady no-ring. Port B bit 7 drives nothing.
 
 # 8. Station Identification — Pilot Tone Comb
 
@@ -1075,7 +1104,7 @@ Listening needs the pilots gone. The tap channel carries the operator tone at cl
 
 The one thing still read from the raw tap stream is bin 768 itself — the tap’s own tone returning on its own channel, which is its transmit-path health check (§8.4). Take that from the raw stream and send a filtered copy to the loudspeaker.
 
-An analog low-pass on this input was considered and rejected. It would have to be jumpered, because the same channel has to pass 6–9kHz whenever the strip is in station service, and a jumper on a replicated strip is one more stuffing hazard of the kind §12 already warns about for R11/R12. It loads the transformer secondary at high frequency, which drags on the tone injection in the other direction. And it would remove the returned tone that is the tap’s health check. A software filter costs nothing and has none of these problems.
+An analog low-pass on this input was considered and rejected. It would have to be jumpered, because the same channel has to pass 6–9kHz whenever the strip is in station service, and a jumper on a replicated strip is one more stuffing hazard of the kind §12 already warns about for Rx04/Rx05. It loads the transformer secondary at high frequency, which drags on the tone injection in the other direction. And it would remove the returned tone that is the tap’s health check. A software filter costs nothing and has none of these problems.
 
 Filter specification for the monitor branch:
 
@@ -1105,53 +1134,49 @@ Eight stations need eight ring-detect inputs and eight relay outputs: exactly on
 
 | **Device** | **Pins** | **Function** |
 | --- | --- | --- |
-| U1 (MCP23017) | Port A 0–7 | RING_DET_1..8 — inputs from HCPL3700M outputs. External pull-ups fitted (R2), so leave GPPU off. Set IPOL to invert the active-low sense. |
-| U1 (MCP23017) | Port B 0–7 | OFFHOOK_1..8 — outputs, drive high to go off-hook |
-| U2 (MCP23017, optional) | Port A 0–7 | STATUS_LED_1..8 — optional per-station indicators |
-| U2 (MCP23017, optional) | Port B | Spare / future use |
+| U101 (MCP23017) | Port A 0–7 | RING_DET_1..8 — inputs from HCPL3700M outputs. External pull-ups fitted (Rx12), so leave GPPU off. Set IPOL to invert the active-low sense. |
+| U101 (MCP23017) | Port B 0–7 | OFFHOOK_1..8 — outputs, drive high to go off-hook |
 
  
 
-U2 is optional and only needs stuffing if front-panel indication is wanted. Leave the footprint, the address straps and the decoupling on the board regardless — it costs nothing at layout and there is no good way to add it later.
-
-Note that U1 is exactly full: eight ring-detect inputs and eight relay drives is precisely 16 pins, with nothing spare. Any additional per-station signal — loop-current confirmation of the hook state being the obvious candidate, since both relay poles now carry line current and none is free for contact sensing — requires U2 to be fitted. That promotes U2 from optional to mandatory and consumes a second I²C address per board, which with four boards is the entire address space. Worth knowing before treating U2’s Port B as free.
+Note that U101 is exactly full: eight ring-detect inputs and eight relay drives is precisely 16 pins, with nothing spare. Any additional per-station signal — loop-current confirmation of the hook state being the obvious candidate, since both relay poles now carry line current and none is free for contact sensing — needs a second expander, and the board has none: Rev 3.0 to Rev 3.43 kept a footprint for an optional one (U2) that the rev 2 board does not carry and will not. Adding one would take a second I²C address per board, which with four boards is the entire address space.
 
 ## 9.2 Addressing
 
 The MCP23017 has three address pins, giving eight addresses from 0x20 to 0x27. With one mandatory expander per board the address plan is straightforward and exactly fills the space at the 24-station target. Three station boards and one trunk board is the whole mandatory allocation; there is no fourth station board, and 0x23 belongs to the trunk:
 
-| **Board** | **Stations** | **U1 address** | **U2 address (if fitted)** |
-| --- | --- | --- | --- |
-| 1 | 1–8 | 0x20  (A2:A0 = 000) | 0x24  (A2:A0 = 100) |
-| 2 | 9–16 | 0x21  (A2:A0 = 001) | 0x25  (A2:A0 = 101) |
-| 3 | 17–22, tap, monitor | 0x22  (A2:A0 = 010) | 0x26  (A2:A0 = 110) |
-| Trunk | — (8 trunks) | 0x23  (A2:A0 = 011) | 0x27  (A2:A0 = 111) |
+| **Board** | **Stations** | **U101 address** |
+| --- | --- | --- |
+| 1 | 1–8 | 0x20  (A2:A0 = 000) |
+| 2 | 9–16 | 0x21  (A2:A0 = 001) |
+| 3 | 17–22, tap, monitor | 0x22  (A2:A0 = 010) |
+| Trunk | — (8 trunks) | 0x23  (A2:A0 = 011) |
 
  
 
-Strap A0–A2 with SW1, the 3-position DIP switch, rather than hard-wiring. Every station board is then identical and interchangeable, which matters when one comes off the rack for repair and matters more when the third board is fitted and has to take 0x22 without rework. The trunk board does the opposite — three hard 0Ω links, no switch — because there is exactly one of it and nothing to distinguish; see trunk §10.2. That difference between the two boards is deliberate, not an inconsistency between the documents.
+Strap A0–A2 with SW101, the 3-position DIP switch, rather than hard-wiring. Every station board is then identical and interchangeable, which matters when one comes off the rack for repair and matters more when the third board is fitted and has to take 0x22 without rework. The trunk board does the opposite — its address pins are wired straight to +3.3V and GND, no switch and no links — because there is exactly one of it and nothing to distinguish; see trunk §10.2. That difference between the two boards is deliberate, not an inconsistency between the documents.
 
-SW1 alone is not enough, and this is a correction rather than an addition. The MCP23017's three address pins have no internal pull-up or pull-down and have to be biased externally, so a bank of three SPST switches defines the address in one position and leaves it floating in the other. Rev 3.5 through Rev 3.24 specified the switch and no resistors, which would have produced a board whose address depended on leakage and on what was next to it — and an expander that answers intermittently at the wrong address is a fault that presents as a bus problem rather than a strapping one.
+SW101 alone is not enough, and this is a correction rather than an addition. The MCP23017's three address pins have no internal pull-up or pull-down and have to be biased externally, so a bank of three SPST switches defines the address in one position and leaves it floating in the other. Rev 3.5 through Rev 3.24 specified the switch and no resistors, which would have produced a board whose address depended on leakage and on what was next to it — and an expander that answers intermittently at the wrong address is a fault that presents as a bus problem rather than a strapping one.
 
-Fit R19, R20 and R21: 10kΩ from A0, A1 and A2 respectively to +3.3V, with each SW1 position closing its pin to ground. Pull-up and switch-to-ground rather than the reverse, so a closed switch reads 0.
+Fit R101, R103 and R104: 10kΩ from A0, A1 and A2 respectively to +3.3V, with each SW101 position closing its pin to ground. Pull-up and switch-to-ground rather than the reverse, so a closed switch reads 0.
 
-Board 1 at 0x20 is therefore all three closed; board 2 at 0x21 has A0 open; board 3 at 0x22 has A1 open. A2 is closed on every station board. An unstrapped board with all three switches open reads 0x27, which is not a station address at all — it is the address trunk §10.2 reserves for the trunk board's optional U2, which is not fitted. So a board that arrives from the bench with its switch untouched drops off the master's startup scan as a missing device rather than colliding silently with another station board. That asymmetry is the reason to prefer pull-ups here: the unset state is the conspicuous one.
+Board 1 at 0x20 is therefore all three closed; board 2 at 0x21 has A0 open; board 3 at 0x22 has A1 open. A2 is closed on every station board. An unstrapped board with all three switches open reads 0x27, which is not a station address at all — no board uses it. So a board that arrives from the bench with its switch untouched drops off the master's startup scan as a missing device rather than colliding silently with another station board. That asymmetry is the reason to prefer pull-ups here: the unset state is the conspicuous one.
 
 Silkscreen the sense as well as the addresses. With an active-low strap ON means 0, which is the opposite of what most people assume from a switch marked ON, and this is the one setting on the board that invites being changed by someone who does not know why it is set the way it is.
 
-One consequence of a switch rather than links: it is the only setting on this board that invites being changed by someone who does not know why it is set the way it is. Silkscreen the address against each position — 0x20, 0x21, 0x22 — next to SW1, so the board carries its own explanation. That costs nothing at layout and removes the failure where a board comes back from the bench at the wrong address.
+One consequence of a switch rather than links: it is the only setting on this board that invites being changed by someone who does not know why it is set the way it is. Silkscreen the address against each position — 0x20, 0x21, 0x22 — next to SW101, so the board carries its own explanation. That costs nothing at layout and removes the failure where a board comes back from the bench at the wrong address.
 
-The trunk board takes the fourth address, 0x23. That fills the mandatory allocation at four expanders and leaves exactly four addresses for optional LED expanders: 0x24, 0x25 and 0x26 for the three station boards' U2, and 0x27 for the trunk board's. Trunk §10.2 reserves 0x27 on the same basis. The address space is now exactly consumed, like everything else in §6.
+The trunk board takes the fourth address, 0x23. That fills the allocation at four expanders and leaves 0x24–0x27 unused: no board fits a second expander.
 
-If a further expander is ever needed the escape hatch is cheap: the ESP32 has two hardware I²C controllers, so a second bus gives another eight addresses without a mux. The pins for it come out on the generator board, which is where the master lives — generator Rev 16 §10.10 carries the unstuffed footprint. Nothing on the station boards changes if that bus is ever brought into use; a board simply moves to the other chain.
+If a further expander is ever needed the escape hatch is cheap: the ESP32 has two hardware I²C controllers, so a second bus gives another eight addresses without a mux. The pins for it come out on the generator board, which is where the master lives — generator Rev 16 §10.10 specified an unstuffed header for it (J4), which the generator board as built does not carry. Nothing on the station boards changes if that bus is ever brought into use; a board simply moves to the other chain.
 
 ## 9.3 I²C Bus — 3.3V Only
 
-The ESP32 GPIO pins are not 5V tolerant. The MCP23017 will run from 1.8V to 5.5V and would work fine at 5V, but its bus pull-ups would then sit at 5V and would damage the ESP32. Run Vᴅᴅ on every expander from the 3.3V rail. The relay coils stay on 5V; because Q2 switches the low side, nothing crosses between the two domains.
+The ESP32 GPIO pins are not 5V tolerant. The MCP23017 will run from 1.8V to 5.5V and would work fine at 5V, but its bus pull-ups would then sit at 5V and would damage the ESP32. Run Vᴅᴅ on every expander from the 3.3V rail. The relay coils stay on 5V; because Qx01 switches the low side, nothing crosses between the two domains.
 
 This is the most likely thing to get wrong when adapting a Raspberry Pi design, since the Pi tolerates the same mistake no better but the older schematic shows a 5V part.
 
-## 9.4 Bus Topology and Connectors — J3A, J3B
+## 9.4 Bus Topology and Connectors — J101, J102
 
 The I²C master is the Olimex ESP32-POE-ISO, which lives on the ring generator board. The bus daisy-chains from there through the station boards and terminates at the trunk board. The generator carries one connector, each station board two, and the trunk board one. The chain is generator, station boards 1 to 3, trunk.
 
@@ -1164,14 +1189,14 @@ ring generator ──[6P6C]── station 1 ──[6P6C]── station 2
   ~600mm total bus length
 ```
 
-Station boards sit in the middle of the chain, so each carries two 6P6C jacks wired in parallel, J3A and J3B. Which one is in and which is out does not matter electrically — they are the same node — and leaving them interchangeable is one less thing to get wrong at install.
+Station boards sit in the middle of the chain, so each carries two 6P6C jacks wired in parallel, J101 and J102. Which one is in and which is out does not matter electrically — they are the same node — and leaving them interchangeable is one less thing to get wrong at install.
 
 | **Position** | **Signal** | **Pair** | **Connection on this board** |
 | --- | --- | --- | --- |
 | 1 | — | 3 (1–6) | /RESET — expander hardware reset from the generator board, paired with GND at position 6 |
-| 2 | SCL | 2 (2–5) | U1 pin 12 (and U2 pin 12 if fitted) |
+| 2 | SCL | 2 (2–5) | U101 pin 12 |
 | 3 | GND | 1 (3–4) | Board ground — SDA return |
-| 4 | SDA | 1 (3–4) | U1 pin 13 (and U2 pin 13 if fitted) |
+| 4 | SDA | 1 (3–4) | U101 pin 13 |
 | 5 | GND | 2 (2–5) | Board ground — SCL return |
 | 6 | — | 3 (1–6) | /RESET return — paired with /RESET at position 1 |
 
@@ -1183,19 +1208,19 @@ The grounds are interleaved rather than grouped, and the reason is worth recordi
 
 Use straight-through cords and verify rather than assume. Standard voice line cords are wired reversed end to end — position 2 lands on 5, 3 on 4 — which with this pinout shorts both SCL and SDA to ground. That is a harmless failure: the pull-ups source about 1.5mA into ground, nothing is damaged, and the bus is simply dead, which the master’s startup scan reports immediately as every device missing. But reversed cords are the commonly stocked kind, so crimp the cords for this system deliberately and label them.
 
-Positions 1 and 6 carry /RESET and its return. The line comes from GPIO5 on the Olimex, arrives at J3A, passes through to J3B in parallel with SDA and SCL, and goes to pin 18 of U1 — and to U2 if that footprint is ever stuffed. Generator §4.7 owns the design; what matters on this board is four things.
+Positions 1 and 6 carry /RESET and its return. The line comes from GPIO5 on the Olimex, arrives at J101, passes through to J102 in parallel with SDA and SCL, and goes to pin 18 of U101. Generator §4.7 owns the design; what matters on this board is four things.
 
-First, fit a 10kΩ pull-up to +3.3V on the /RESET line on every board — R18 (§11). This is deliberately the opposite of the DO NOT FIT rule for the I²C pull-ups in §9.3. On a static line driven by a CMOS output, three 10kΩ resistors in parallel are 3.3kΩ and nothing notices; what they buy is that a board unplugged from the chain still holds its own expander out of reset rather than leaving pin 18 floating, which the MCP23017 does not tolerate.
+First, fit a 10kΩ pull-up to +3.3V on the /RESET line on every board — R102 (§11). This is deliberately the opposite of the DO NOT FIT rule for the I²C pull-ups in §9.3. On a static line driven by a CMOS output, three 10kΩ resistors in parallel are 3.3kΩ and nothing notices; what they buy is that a board unplugged from the chain still holds its own expander out of reset rather than leaving pin 18 floating, which the MCP23017 does not tolerate.
 
-Second, /RESET now leaves the board on a jack that a station line can be mis-plugged into, so it takes a third input of TVS2 alongside SDA and SCL. The SP721APP has six inputs and this is the third — see §7.8.
+Second, /RESET now leaves the board on a jack that a station line can be mis-plugged into, so it takes a third input of TVS101 alongside SDA and SCL. The SP721APP has six inputs and this is the third — see §7.8.
 
-Third, and this is the part worth thinking about before using it: a reset drops every off-hook relay on the board. The MCP23017 returns to IODIR = 0xFF with every pin an input, R_pd holds the drivers off, and any station that was connected is released. That is the same window §5.2 describes at power-on, with the difference that it can now be entered on command. Firmware should assert /RESET at startup and on a detected bus fault, not as routine housekeeping.
+Third, and this is the part worth thinking about before using it: a reset drops every off-hook relay on the board. The MCP23017 returns to IODIR = 0xFF with every pin an input, Rx02 holds the drivers off, and any station that was connected is released. That is the same window §5.2 describes at power-on, with the difference that it can now be entered on command. Firmware should assert /RESET at startup and on a detected bus fault, not as routine housekeeping.
 
-Fourth, filter the line at the pin: C19, 100nF from U1 pin 18 to GND, as close to the pin as the layout allows (Rev 3.43). /RESET is a long, high-impedance line — the cord, every board, and only 10kΩ pull-ups holding it up — and the MCP23017 resets on a pulse of about a microsecond. On the bench, a relay switching on the board reset the expander about once per board test until C19 was fitted, and never after. With R18 it is a 1ms time constant, well inside the 2ms pulse and 5ms settle of control.md §6.2.
+Fourth, filter the line at the pin: 100nF from U101 pin 18 to GND, as close to the pin as the layout allows (Rev 3.43). The rev 2 boards carry it as a bodge; it takes C109 at the next revision. /RESET is a long, high-impedance line — the cord, every board, and only 10kΩ pull-ups holding it up — and the MCP23017 resets on a pulse of about a microsecond. On the bench, a relay switching on the board reset the expander about once per board test until the capacitor was fitted, and never after. With R102 it is a 1ms time constant, well inside the 2ms pulse and 5ms settle of control.md §6.2.
 
 ## 9.5 Pull-Ups and Bus Loading
 
-Fit no pull-ups on station boards. The single 2.2kΩ pair for the whole bus lives on the ring generator board. R9 and R10 remain in the BOM as unstuffed footprints only, and should be marked DO NOT FIT on the silkscreen rather than merely left empty — a bare footprint invites someone to populate it, and three boards each fitting their own pair would take the effective pull-up to 730Ω.
+Fit no pull-ups on station boards. The single 2.2kΩ pair for the whole bus lives on the ring generator board. The generator's R1 and R2 are that pair. The station board has no pull-up footprints at all, so there is nothing to populate by mistake; three boards each fitting their own pair would take the effective pull-up to 730Ω. Rev 3.0 to Rev 3.43 carried R9 and R10 as DO NOT FIT footprints, which the rev 2 board does not have.
 
 Loading is comfortable. Four expanders at roughly 10pF each plus 600mm of cord comes to about 50pF, which against 2.2kΩ gives a rise time near 94ns — an order of magnitude inside the 1µs I²C budget. Run the bus at 100kHz; polling four expanders at 200Hz needs about 6% of it. No bus buffer is required at this length, and the P82B96 footprint suggested in earlier revisions of this document can be dropped.
 
@@ -1237,7 +1262,7 @@ Moved to mqtt.md §2 at Rev 3.34: QoS 1 throughout, state retained and commands 
 
 ## 9.12 Failure Handling
 
-Moved at Rev 3.34. The protocol — birth message and last will on ctl/status, the two heartbeats and why both are needed, the sync handshake — is mqtt.md §8. What the ESP32 does about each failure, including the full list of conditions on which every relay is released, is control.md §10. The broker security note is mqtt.md §9. What stays here is the hardware fact those sections rest on: nothing on the host can open a relay, so every failsafe has to be in the controller, and R_pd (§5.2) is what holds the relays off before the controller is running at all.
+Moved at Rev 3.34. The protocol — birth message and last will on ctl/status, the two heartbeats and why both are needed, the sync handshake — is mqtt.md §8. What the ESP32 does about each failure, including the full list of conditions on which every relay is released, is control.md §10. The broker security note is mqtt.md §9. What stays here is the hardware fact those sections rest on: nothing on the host can open a relay, so every failsafe has to be in the controller, and Rx02 (§5.2) is what holds the relays off before the controller is running at all.
 
 # 10. Power
 
@@ -1270,7 +1295,7 @@ Two consequences land back on this board. First, set the LRS-150 output to 24.0V
 | +24V BRD | ≈ 71mA | Board supply input. 1.45W out at ~85% efficiency. |
 | +5V | ≈ 290mA | Relay coils 8 × 29.9mA = 239mA all-on, plus the 3.3V LDO input current. |
 | +3.3V | ≈ 50mA | MCP23017 ~1mA, 8 × HCPL3700M at 4mA max when output low, output pull-ups ~6mA. |
-| Loop current | ≈ 560mA | Not a board rail, but drawn from the same battery: 8 × 70mA through R3 with every station off-hook. See §10.1. |
+| Loop current | ≈ 560mA | Not a board rail, but drawn from the same battery: 8 × 70mA through Rx03 with every station off-hook. See §10.1. |
 | ESP32 controller | PoE, < 2W | Separate. Powers nothing but itself — see §9.8. |
 
  
@@ -1287,7 +1312,7 @@ Prefer a 36V-rated part over the common 28V-maximum modules such as the Recom R-
 
 Derive 3.3V with an LDO from the 5V rail rather than a second switcher. The load is about 50mA at a 1.7V drop, so dissipation is 85mW and almost any small LDO will do. An LDO also gives the logic rail good rejection of whatever the switcher is doing, which is worth having on the rail that feeds the ring detector outputs.
 
-Note the package. SOT-223, specified through earlier revisions, is surface mount and sits oddly on a board that is otherwise entirely through-hole — the same objection that ruled out the SS34 for D6 and kept TVS2 on the SP721APP. The MCP1826S-3302E/AB in TO-220-3 is the through-hole variant and is what this design uses. Thermally it is enormous overkill for 85mW and that costs nothing; the price is board area, roughly 10 × 4.5mm plus height, one per board. Confirm the tab connection on the datasheet before layout — on most 3-pin TO-220 regulators it is common with the ground pin, which is harmless, but it is exposed metal near the 24V rail. The AMS1117-3.3 named as an alternative in earlier revisions exists only in SOT-223 and is dropped.
+Note the package. SOT-223, specified through earlier revisions, is surface mount and sits oddly on a board that is otherwise entirely through-hole — the same objection that ruled out the SS34 for D101 and kept TVS101 on the SP721APP. The MCP1826S-3302E/AB in TO-220-3 is the through-hole variant and is what this design uses. Thermally it is enormous overkill for 85mW and that costs nothing; the price is board area, roughly 10 × 4.5mm plus height, one per board. Confirm the tab connection on the datasheet before layout — on most 3-pin TO-220 regulators it is common with the ground pin, which is harmless, but it is exposed metal near the 24V rail. The AMS1117-3.3 named as an alternative in earlier revisions exists only in SOT-223 and is dropped.
 
 ## 10.4 Capacitive Load at the Converter Output
 
@@ -1301,11 +1326,11 @@ Specify that bulk capacitor at 25V, not the 10V of earlier revisions. On a 5V ra
 
 —  Fuse each board separately on its 24V input, 250mA slow-blow — Littelfuse 0218.250MXP in a 64900001039 PC-mount block. Four boards on one bus means a fault on one should not take down the rack, and a shorted relay driver is a plausible fault. With eight drivers per board that is the fault worth socketing for: a blown fuse should be a five-second swap, not a desoldering job.
 
-—  Fit reverse-polarity protection as a shunt clamp rather than in series. D6 cathode to +24V BRD, anode to GND, reverse-biased and carrying nothing in normal operation. A screw terminal on a 24V bus will eventually be connected backwards; when it is, the diode conducts hard and blows F1, and the board sits at about −0.5V until it opens. F1 must be upstream of D6 — J5, then F1, then the clamp.
+—  Fit reverse-polarity protection as a shunt clamp rather than in series. D101 cathode to +24V BRD, anode to GND, reverse-biased and carrying nothing in normal operation. A screw terminal on a 24V bus will eventually be connected backwards; when it is, the diode conducts hard and blows F101, and the board sits at about −0.5V until it opens. F101 must be upstream of D101 — J103, then F101, then the clamp.
 
 The fuse does open, and it is worth showing rather than assuming. The LRS-150-24 sources 6.5A before its own limiting acts, so a 250mA slow-blow on this board sees roughly twenty times its rating and opens in a few milliseconds. The 1N5822 is rated 80A non-repetitive for 8.3ms, an I²t of roughly 26A²s against the 0.25A²s of 5A for 10ms — two orders of magnitude of margin. If the diode does fail, it fails short, which is a dead short across a reversed supply and opens the fuse anyway. Both outcomes end the same way.
 
-The earlier revisions of this section proposed a series Schottky and noted that its 0.4V was headroom the converter could spare. That was correct, and Rev 3.20's stated reason for preferring the clamp was not: it claimed R3's loop feed comes off the same rail and that the drop was therefore not free. R3 is in the tip-ring loop and is fed by the switchboard, so on this board the 0.4V genuinely was free. The clamp is still the right choice — it is the same arrangement as the trunk and generator boards, where the drop does cost something, and one reverse-polarity topology across three boards is worth more than a diode's forward voltage. A P-channel MOSFET is not worth considering either way.
+The earlier revisions of this section proposed a series Schottky and noted that its 0.4V was headroom the converter could spare. That was correct, and Rev 3.20's stated reason for preferring the clamp was not: it claimed Rx03's loop feed comes off the same rail and that the drop was therefore not free. Rx03 is in the tip-ring loop and is fed by the switchboard, so on this board the 0.4V genuinely was free. The clamp is still the right choice — it is the same arrangement as the trunk and generator boards, where the drop does cost something, and one reverse-polarity topology across three boards is worth more than a diode's forward voltage. A P-channel MOSFET is not worth considering either way.
 
 —  Put 47µF at 50V plus 100nF at the converter input, close to the pins. The input loop of a buck converter is the noisiest current path on the board.
 
@@ -1321,7 +1346,7 @@ The 47µF at the DC-DC input is required, not advisory. Traco's TSR 2 datasheet 
 
 Confirm the capacitive-load limit before committing the 220µF at the converter output. These modules specify a maximum load capacitance, and exceeding it produces a start-up failure rather than an instability that shows on a scope — the board simply does not come up, with no symptom pointing at the cause. 220µF on a 2A part almost certainly has margin, but find the line in the datasheet rather than assume it; §10.4 already caps the total, and this is the number that cap has to respect.
 
-The omission is at the LDO. The 3.3V rail has bulk at the regulator's output but nothing at its own input pin: the 220µF sits at the converter output, which may be an inch or more away with trace inductance in between, and an LDO wants local bulk at its own pins. Fit 10µF plus 100nF at U4's input — C15 and C16 — and add a 100nF ceramic, C17, at its output in parallel with the existing C8. A lone aluminium electrolytic has poor impedance exactly where the regulator's control loop needs it, and the MCP1826 is specified with a ceramic on the output.
+The omission is at the LDO. The 3.3V rail has bulk at the regulator's output but nothing at its own input pin: the 220µF sits at the converter output, which may be an inch or more away with trace inductance in between, and an LDO wants local bulk at its own pins. Fit 10µF plus 100nF at U103's input — C105 and C106 — and add a 100nF ceramic, C108, at its output in parallel with the existing C107. A lone aluminium electrolytic has poor impedance exactly where the regulator's control loop needs it, and the MCP1826 is specified with a ceramic on the output.
 
 These are parts already on the board in quantity — one more 10µF and two more 100nF per board — so nothing new is purchased.
 
@@ -1329,11 +1354,11 @@ These are parts already on the board in quantity — one more 10µF and two more
 
 Rev 3.19 added a 1000µF electrolytic at the 24V board input on this board. Rev 3.23 deletes it. The reasoning given for it was wrong, and wrong in a way that matters more than the capacitor does.
 
-The claim was that this board's loop feed is R3 and that audio-band current from every off-hook station therefore reaches the shared 24V rail through 330Ω, where the trunk board's current sources keep it out. That describes a board this one is not. R3 is a series resistor in the tip-ring loop, sitting behind the relay contacts between node A and node B — §5.1 and §7.2 are explicit about it. It is never connected to +24V BRD. Nothing in the line-side circuit is.
+The claim was that this board's loop feed is Rx03 and that audio-band current from every off-hook station therefore reaches the shared 24V rail through 330Ω, where the trunk board's current sources keep it out. That describes a board this one is not. Rx03 is a series resistor in the tip-ring loop, sitting behind the relay contacts between node A and node B — §5.1 and §7.2 are explicit about it. It is never connected to +24V BRD. Nothing in the line-side circuit is.
 
 The architecture is the other way round from the trunk board, and this is the distinction to hold on to. The 551 switchboard supplies loop current to a station: this circuit presents itself as a subscriber station and closes the loop on command, exactly as §1 says. The trunk board is the opposite — there our circuit is the source of loop current and the switchboard is the load. So the trunk board's 24V rail carries loop current and its C13 has a real audio-band job; this board's 24V rail carries nothing but the DC-DC converters that make 5V for the relay coils and 3.3V for the logic.
 
-With no loop current and no audio on the rail, there is nothing for a 1000µF electrolytic to do. It goes, for the same reason the trunk board's C14 goes at trunk Rev 5.23: a capacitor whose purpose cannot be stated is a part fitted out of habit. The 47µF and 100nF at the DC-DC input stay — those are a datasheet requirement, see §10.6.
+With no loop current and no audio on the rail, there is nothing for a 1000µF electrolytic to do. It goes, for the same reason trunk Rev 5.23 withdrew the trunk board's per-strip 100µF: a capacitor whose purpose cannot be stated is a part fitted out of habit. (That part was fitted on the trunk board as built anyway, as Cx01, and does no harm — trunk §12.4.) The 47µF and 100nF at the DC-DC input stay — those are a datasheet requirement, see §10.6.
 
 Worth stating what the loop current does come from, since §10.2 has caused confusion. It is drawn from the same battery — one LRS-150-24 feeds the whole system — but it reaches the station through the switchboard's own supply and its cord circuit, not through this board. That is why §10.2 counts 8 × 70mA in the system budget while this board's own rail budget is only the converters.
 
@@ -1341,72 +1366,69 @@ Worth stating what the loop current does come from, since §10.2 has caused conf
 
 | **Designator** | **Value / Part** | **Description / Notes** |
 | --- | --- | --- |
-| TVS1 ×8 | P6KE120CA | Bidirectional TVS, 102V standoff, 114–126V breakdown, 165V clamp; one per station jack |
-| R1a, R1b ×8 | 10kΩ, 0.5W (×2 in series) | Ring detector current-setting resistors, two per station. 1W preferred for sustained ring. Drawn as R14 and R15: R1a and R1b are not valid KiCad reference designators, since a reference is a letter prefix and a number, so the document names are carried in a Function field instead. Same parts, same place. |
-| C4 ×8 | 1µF, 250V film | Ring detector DC blocking capacitor — new in Rev 3.0, see §3.5 |
-| R2 ×8 | 4.7kΩ, 0.25W | HCPL3700M output pull-up to 3.3V |
-| C5 ×8 | 0.1µF ceramic | HCPL3700M Vᴄᴄ bypass, pins 8–5, mounted at the device. Required. |
-| OC1 ×8 | HCPL3700M (onsemi) | Threshold-sensing ring detect optocoupler, 8-pin PDIP. Replaces 4N35 + D1–D4. |
-| R3 ×8 | 330Ω, 2W | Off-hook loop current limiting resistor (24V supply) |
-| R4 ×8 | 1kΩ, 0.25W | Q2 base resistor |
-| Q2 ×8 | 2N2222A (TO-92, EBC) | NPN relay driver transistor |
-| D5 ×8 | 1N4148 | Relay flyback diode |
-| RLY1 ×8 | CIT J104D2C5VDC.15S | DPDT (2 Form C) off-hook relay, 5V/167Ω/29.9mA coil, sealed THT. Both poles used — one per leg. 20-week factory lead time. 22 across the three boards — the tap and monitor strips on board 3 fit none — order the system quantity in one order, with the trunk board's 8 on top. |
-| C3 ×8 | 0.47µF, 250V film | T2 primary DC block and ring overlap protection |
-| T2 ×8 | Triad TY-311P, 600Ω:600Ω | Audio isolation transformer. Needs usable response to ~9kHz only — see §7.5. Specialty wideband parts no longer required. |
-| R5, R6 ×8 | 1kΩ, 0.25W matched pair | Receive balanced output series resistors |
-| R7, R8 ×8 | 1kΩ, 0.25W matched pair | Transmit balanced input series resistors |
-| R11, R12 ×8 | 22kΩ, 0.25W 1% metal film matched pair | Operator tap series bridge resistors, bridging the RLY1 pole A and pole B NO contacts. Footprints on all eight strips; FIT ONLY on the designated tap strip (board 3 strip 7, A32 channel 23) — see §7.9. The tap needs no coupling capacitor of its own: C3 is already in series with the primary. The value generator §15.2 specified. Rev 3.24–3.26 substituted 22.1k on a mistaken claim that 22.0k is not stocked in 1% metal film; corrected at Rev 3.27. Yageo MFR-25FBF52-22K. |
-| R13 ×8 | 2.2kΩ, 0.25W | Optional damping across T2 secondary on the tap strip, against a possible HF peak with the transformer lightly loaded. DO NOT FIT until the sweep in §7.9.5 calls for it. Footprint only. |
-| U1 | MCP23017-E/SP | I²C GPIO expander, 28-pin PDIP. Port A ring detect, Port B relay drive. Vᴅᴅ = 3.3V. |
-| U2 | MCP23017-E/SP | Optional second expander for status LEDs. Fit footprint regardless. |
-| C6, C7 | 0.1µF ceramic | MCP23017 decoupling, one per device at the VDD pin |
-| C8 | 10µF electrolytic | 3.3V rail bulk capacitor |
-| C9 ×8 | 10µF electrolytic | Local 5V reservoir, one near each relay coil. Reduced from 100µF — see §10.4. |
-| U3 | Traco TSR 2-2450 | 24V→5V switching module, SIP-3 (7805 footprint). Murata OKI-78SR-5/1.5-W36-C equivalent. 36V input rating required. |
-| U4 | MCP1826S-3302E/AB | 3.3V LDO from the 5V rail, TO-220-3 through hole, 1A. ~50mA load, 85mW dissipation. DigiKey MCP1826S-3302E/AB-ND. NOT the SOT-223 suffix (E/DB) — this board is through-hole throughout. See §10.3. |
-| C10 | 47µF, 50V electrolytic | 24V input bulk, at the U3 pins |
-| C11 | 0.1µF ceramic, 50V | 24V input decoupling, at the U3 pins |
-| C12 | 220µF, 25V electrolytic | 5V output bulk at U3. Total output capacitance must stay inside the module rating. |
-| C15 | 10µF electrolytic | LDO input bulk, at U4’s own input pin rather than at the converter output. The distance between the two is trace inductance the regulator has to work through — §10.6. |
-| C16 | 0.1µF ceramic | LDO input decoupling, at U4’s input pin alongside C15 — §10.6. |
-| C17 | 0.1µF ceramic | LDO output ceramic, in parallel with C8 at U4’s output pin. The MCP1826 is specified with a ceramic on the output; a lone aluminium electrolytic has poor impedance exactly where the control loop needs it — §10.6. |
-| D6 | 1N5822 | Reverse-polarity protection on the 24V board input. SHUNT clamp: cathode to +24V BRD, anode to GND — not in series. Blows F1 on a reversed supply and costs no forward drop — see §10.5. |
-| F1 | 250mA slow-blow, 5x20mm — Littelfuse 0218.250MXP | Per-board fuse on the 24V board input. 250V, 5x20mm glass cartridge, socketed — see §10. |
-| FH1 | 5x20mm PC-mount fuse block | Littelfuse 64900001039, 649 series PC-mount block, 5x20mm, 6.3A / 250VAC, solder lug. Holds F1. Same holder on all three board types. |
-| J1, J2 | NorComp 182-025-213R561 | DB25 FEMALE, right-angle THT, gold, board lock, integral 4-40 female screwlocks on the mating side. Analog I/O to the A32, TASCAM analog pinout. Gender is female — see §7.6. 25-position receptacle, solder termination, nickel-plated steel shell, 5A per contact, PA9T dielectric, −55°C to +105°C. DigiKey 182-125FE-ND. Replaces the Amphenol ICC DBM25S500MN, which DigiKey does not stock. Screwlocks are part of the connector — no separate screwlock line item. The 182-025-213R531 is the same part with a plain threaded shell, about $1 cheaper, and needs two SFSO4401NR screwlocks each; that route saves nothing once the hardware is counted. Backset is 0.318 in (8.08mm), identical either way — confirm against the board edge before committing the footprint, particularly with two of these alongside the RJ45 jacks. Manufacturer lead time is 16 weeks despite stock, so order all six at once. |
-| J3A, J3B | Amphenol ICC 87180-066LF | 6P6C modular jack, right angle, unshielded, THT. I²C in and out — two per station board, wired in parallel. Würth 615006138421 or Assmann A-2004-1-4-N-R equivalent. Pinout in §9.4. |
-| J7A, J7B | Amphenol ICC RJHSE5380 | RJ45 shielded right-angle jack, EMI finger, no LEDs or magnetics, gold 50µin. Station tip/ring, four stations per connector. Pinout in §7.7. 14-week factory lead time — buy spares in the first order. Confirm dielectric withstanding voltage from the Amphenol datasheet; the distributor attribute table lists none. |
-| TVS2 | Littelfuse SP721APP, 3pF SCR/diode rail-clamp array | ESD and mis-plug protection on SDA and SCL. 8-PDIP through-hole, 6 inputs, 3pF per line. Rail clamp, not a fixed-breakdown TVS: V+ (pin 8) to +3.3V, V- (pin 4) to GND, SDA and SCL to two of the six inputs, four spare. Sacrificial after a mis-plug — keep spares and consider a socket, since it is a DIP anyway. See §7.8. Not optional now that RJ45 is on the board. |
-| C18 | 0.1µF ceramic, 50V | Bypass across TVS2, pin 8 (V+) to pin 4 (V−), at the device. The SP721 clamps by conducting the transient from its IN pin into V+, so V+ must source that current locally or it lifts while the clamp is working. TVS2 sits at J3A/J3B by design, away from U1 and the LDO, so C6 and C8 are too far to serve. One per board, not per station. C18 matches the trunk board’s designator for the same part in the same role. Added at Rev 3.26 — see §9.5 |
-| J5 | 2-pin screw terminal | Board supply in: +24V BRD, GND. Star-wired from the PSU terminals — see §10.1. |
-| SW1 | CTS 206-3ST | MCP23017 address strap A0–A2. SPST, 3 position, through hole, slide actuator, 2.54mm pitch in a DIP-6 footprint, 50mA / 24VDC. Top tape and bottom epoxy seal — worth the small premium over the unsealed 206-3, because this switch is set once and then left for years, and flux ingress presents later as an expander that intermittently vanishes from the bus. Not the right-angle variants (206-3RAS, 194-3MST, 195-3MSN); those actuate off the board edge. |
-| R9, R10 | 2.2kΩ, 0.25W | I²C pull-ups — DO NOT FIT. The single pull-up pair for the whole bus lives on the ring generator board. Footprints only; mark DO NOT FIT on the silkscreen. |
-| R_pd ×8 | 10kΩ, 0.25W | Q2 base pulldown. Not optional — holds the driver off while Port B floats between reset and configuration. See §5.2. |
-| R17 ×8 | 0Ω link | HCPL3700M Vᴄᴄ series element, one per station. §3.6: at least 240Ω if common-mode dV/dt at the barrier turns out to need it, otherwise a 0Ω link. The footprint has been asked for since Rev 3.0; the designator is new in Rev 3.25. C5 sits between OC1 pins 8 and 5, downstream of R17. |
-| R18 | 10kΩ, 0.25W | /RESET pull-up to +3.3V, one per board. Fitted on every expander board — deliberately the opposite of the DO NOT FIT rule for R9/R10, and for the reason in §9.4. Required in the text since Rev 3.11; the designator is new in Rev 3.25. |
-| C19 | 0.1µF ceramic, 50V | /RESET filter, U1 pin 18 to GND, at the pin. One per board. With R18 a 1ms time constant, so a spike coupled into the bus cord cannot reset the expander, while a deliberate reset — 2ms low, 5ms settle (control.md §6.2) — still works. Added at Rev 3.43 — see §9.4. Schematic C109 on the root sheet. |
-| R19, R20, R21 | 10kΩ, 0.25W | MCP23017 address bias: A0, A1, A2 to +3.3V, with SW1 closing each pin to ground. New in Rev 3.25. Without them the address pins are undefined with the switch open — see §9.2. Three per board. |
+| Dx01 ×8 | P6KE120CA | Bidirectional TVS, 102V standoff, 114–126V breakdown, 165V clamp; one per station jack. Formerly TVS1. |
+| Rx06, Rx07 ×8 | 10kΩ, 0.5W (×2 in series) | Ring detector current-setting resistors, two per station. 1W preferred for sustained ring. Formerly R1a and R1b; the first schematic drew them as R14 and R15, since a KiCad reference is a letter prefix and a number. |
+| Cx03 ×8 | 1µF, 250V film | Ring detector DC blocking capacitor — new in Rev 3.0, see §3.5. Formerly C4. |
+| Rx12 ×8 | 4.7kΩ, 0.25W | HCPL3700M output pull-up to 3.3V. Formerly R2. |
+| Cx04 ×8 | 0.1µF ceramic | HCPL3700M Vᴄᴄ bypass, pins 8–5, mounted at the device. Required. Formerly C5. |
+| Ux01 ×8 | HCPL3700M (onsemi) | Threshold-sensing ring detect optocoupler, 8-pin PDIP. Replaces 4N35 + D1–D4. Formerly OC1. |
+| Rx03 ×8 | 330Ω, 2W | Off-hook loop current limiting resistor (24V supply). Formerly R3. |
+| Rx01 ×8 | 1kΩ, 0.25W | Qx01 base resistor. Formerly R4. |
+| Qx01 ×8 | 2N2222A (TO-92, EBC) | NPN relay driver transistor. Formerly Q2. |
+| Dx02 ×8 | 1N4148 | Relay flyback diode. Formerly D5. |
+| Kx01 ×8 | CIT J104D2C5VDC.15S | DPDT (2 Form C) off-hook relay, 5V/167Ω/29.9mA coil, sealed THT. Both poles used — one per leg. 20-week factory lead time. 22 across the three boards — the tap and monitor strips on board 3 fit none — order the system quantity in one order, with the trunk board's 8 on top. Formerly RLY1. |
+| Cx01 ×8 | 0.47µF, 250V film | Tx01 primary DC block and ring overlap protection. Formerly C3. |
+| Tx01 ×8 | Triad TY-311P, 600Ω:600Ω | Audio isolation transformer. Needs usable response to ~9kHz only — see §7.5. Specialty wideband parts no longer required. Formerly T2. |
+| Rx08, Rx09 ×8 | 1kΩ, 0.25W matched pair | Receive balanced output series resistors. Formerly R5, R6. |
+| Rx10, Rx11 ×8 | 1kΩ, 0.25W matched pair | Transmit balanced input series resistors. Formerly R7, R8. |
+| Rx04, Rx05 ×8 | 22kΩ, 0.25W 1% metal film matched pair | Operator tap series bridge resistors, bridging the Kx01 pole A and pole B NO contacts. Footprints on all eight strips; FIT ONLY on the designated tap strip (board 3 strip 7, A32 channel 23) — see §7.9. The tap needs no coupling capacitor of its own: Cx01 is already in series with the primary. The value generator §15.2 specified. Rev 3.24–3.26 substituted 22.1k on a mistaken claim that 22.0k is not stocked in 1% metal film; corrected at Rev 3.27. Yageo MFR-25FBF52-22K. Formerly R11, R12. |
+| U101 | MCP23017-E/SP | I²C GPIO expander, 28-pin PDIP. Port A ring detect, Port B relay drive. Vᴅᴅ = 3.3V. Formerly U1. |
+| C101 | 0.1µF ceramic | MCP23017 decoupling, at U101’s VDD pin. Formerly C6. |
+| C107 | 10µF electrolytic | 3.3V rail bulk capacitor. Formerly C8. |
+| Cx02 ×8 | 10µF electrolytic | Local 5V reservoir, one near each relay coil. Reduced from 100µF — see §10.4. Formerly C9. |
+| U102 | Traco TSR 2-2450 | 24V→5V switching module, SIP-3 (7805 footprint). Murata OKI-78SR-5/1.5-W36-C equivalent. 36V input rating required. Formerly U3. |
+| U103 | MCP1826S-3302E/AB | 3.3V LDO from the 5V rail, TO-220-3 through hole, 1A. ~50mA load, 85mW dissipation. DigiKey MCP1826S-3302E/AB-ND. NOT the SOT-223 suffix (E/DB) — this board is through-hole throughout. See §10.3. Formerly U4. |
+| C102 | 47µF, 50V electrolytic | 24V input bulk, at the U102 pins. Formerly C10. |
+| C103 | 0.1µF ceramic, 50V | 24V input decoupling, at the U102 pins. Formerly C11. |
+| C104 | 220µF, 25V electrolytic | 5V output bulk at U102. Total output capacitance must stay inside the module rating. Formerly C12. |
+| C105 | 10µF electrolytic | LDO input bulk, at U103’s own input pin rather than at the converter output. The distance between the two is trace inductance the regulator has to work through — §10.6. Formerly C15. |
+| C106 | 0.1µF ceramic | LDO input decoupling, at U103’s input pin alongside C105 — §10.6. Formerly C16. |
+| C108 | 0.1µF ceramic | LDO output ceramic, in parallel with C107 at U103’s output pin. The MCP1826 is specified with a ceramic on the output; a lone aluminium electrolytic has poor impedance exactly where the control loop needs it — §10.6. Formerly C17. |
+| D101 | 1N5822 | Reverse-polarity protection on the 24V board input. SHUNT clamp: cathode to +24V BRD, anode to GND — not in series. Blows F101 on a reversed supply and costs no forward drop — see §10.5. Formerly D6. |
+| F101 | 250mA slow-blow, 5x20mm — Littelfuse 0218.250MXP | Per-board fuse on the 24V board input. 250V, 5x20mm glass cartridge, socketed — see §10. F101 is the fuse and its holder together: a Littelfuse 64900001039, 649 series PC-mount 5x20mm block, 6.3A / 250VAC, solder lug, the same holder on all three board types. Formerly F1, with the holder as FH1. |
+| J104, J105 | NorComp 182-025-213R561 | DB25 FEMALE, right-angle THT, gold, board lock, integral 4-40 female screwlocks on the mating side. Analog I/O to the A32, TASCAM analog pinout. Gender is female — see §7.6. 25-position receptacle, solder termination, nickel-plated steel shell, 5A per contact, PA9T dielectric, −55°C to +105°C. DigiKey 182-125FE-ND. Replaces the Amphenol ICC DBM25S500MN, which DigiKey does not stock. Screwlocks are part of the connector — no separate screwlock line item. The 182-025-213R531 is the same part with a plain threaded shell, about $1 cheaper, and needs two SFSO4401NR screwlocks each; that route saves nothing once the hardware is counted. Backset is 0.318 in (8.08mm), identical either way — confirm against the board edge before committing the footprint, particularly with two of these alongside the RJ45 jacks. Manufacturer lead time is 16 weeks despite stock, so order all six at once. Formerly J1, J2. |
+| R105, R106 | 0Ω | D-Sub ground pins to board GND, one per DB25: R105 for J104, R106 for J105. Fitted on the rev 2 board, as built — see §7.6. |
+| J101, J102 | Amphenol ICC 87180-066LF | 6P6C modular jack, right angle, unshielded, THT. I²C in and out — two per station board, wired in parallel. Würth 615006138421 or Assmann A-2004-1-4-N-R equivalent. Pinout in §9.4. Formerly J3A, J3B. |
+| J7A101, J7B101 | Amphenol ICC RJHSE5380 | RJ45 shielded right-angle jack, EMI finger, no LEDs or magnetics, gold 50µin. Station tip/ring, four stations per connector. Pinout in §7.7. 14-week factory lead time — buy spares in the first order. Confirm dielectric withstanding voltage from the Amphenol datasheet; the distributor attribute table lists none. Formerly J7A, J7B. |
+| TVS101 | Littelfuse SP721APP, 3pF SCR/diode rail-clamp array | ESD and mis-plug protection on SDA and SCL. 8-PDIP through-hole, 6 inputs, 3pF per line. Rail clamp, not a fixed-breakdown TVS: V+ (pin 8) to +3.3V, V- (pin 4) to GND, SDA and SCL to two of the six inputs, four spare. Sacrificial after a mis-plug — keep spares and consider a socket, since it is a DIP anyway. See §7.8. Not optional now that RJ45 is on the board. Formerly TVS2. |
+| — | 0.1µF ceramic, 50V | Bypass across TVS101, pin 8 (V+) to pin 4 (V−), at the device. **Not on the rev 2 board** — specified since Rev 3.26 and missed in the drawing; it waits for the next board revision (TODO.md). The SP721 clamps by conducting the transient from its IN pin into V+, so V+ must source that current locally or it lifts while the clamp is working. TVS101 sits at J101/J102 by design, away from U101 and the LDO, so C101 and C107 are too far to serve. Formerly C18. |
+| J103 | 2-pin screw terminal | Board supply in: +24V BRD, GND. Star-wired from the PSU terminals — see §10.1. Formerly J5. |
+| J106 | 2-pin screw terminal | MONITOR: the audience monitor output on board 3 strip 8’s transmit pair, pin 2 AOUT+_8 (hot), pin 1 AOUT−_8 (cold), at the J105 side of R910/R911. Fitted on every board; used on board 3 only — see §7.9.8. New on the rev 2 board. |
+| SW101 | CTS 206-3ST | MCP23017 address strap A0–A2. SPST, 3 position, through hole, slide actuator, 2.54mm pitch in a DIP-6 footprint, 50mA / 24VDC. Top tape and bottom epoxy seal — worth the small premium over the unsealed 206-3, because this switch is set once and then left for years, and flux ingress presents later as an expander that intermittently vanishes from the bus. Not the right-angle variants (206-3RAS, 194-3MST, 195-3MSN); those actuate off the board edge. Formerly SW1. |
+| Rx02 ×8 | 10kΩ, 0.25W | Qx01 base pulldown. Not optional — holds the driver off while Port B floats between reset and configuration. See §5.2. Formerly R_pd. |
+| R102 | 10kΩ, 0.25W | /RESET pull-up to +3.3V, one per board. Fitted on every expander board — deliberately the opposite of the rule that leaves the bus pull-ups to the generator, and for the reason in §9.4. Required in the text since Rev 3.11; the designator is new in Rev 3.25. Formerly R18. |
+| C109 (bodge) | 0.1µF ceramic, 50V | /RESET filter, U101 pin 18 to GND, at the pin. One per board. With R102 a 1ms time constant, so a spike coupled into the bus cord cannot reset the expander, while a deliberate reset — 2ms low, 5ms settle (control.md §6.2) — still works. Added at Rev 3.43 — see §9.4. Bodged onto the rev 2 boards; C109 is its designator at the next revision. Formerly C19. |
+| R101, R103, R104 | 10kΩ, 0.25W | MCP23017 address bias: A0, A1, A2 to +3.3V, with SW101 closing each pin to ground. New in Rev 3.25. Without them the address pins are undefined with the switch open — see §9.2. Three per board. Formerly R19, R20, R21. |
 | Cable — station lines | Cat5e, 300V (CM/CMR) | Voltage rating is not optional at 127V peak. Check the jacket print — patch cords are often marked 30V or 72V. |
 | Cable — I²C | 4- or 6-conductor modular, STRAIGHT-THROUGH | Not a standard voice line cord — those are reversed and short the bus to ground. See §9.4. |
 
  
 
-Three boards: 24 of each per-strip part and 3 × U1, less the parts §7.9.7 and §7.9.8 leave off the tap and monitor strips. No pull-ups on this board in either case — the single 2.2kΩ pair for the whole bus is on the ring generator board, and R9/R10 here are DO NOT FIT footprints.
+Three boards: 24 of each per-strip part and 3 × U101, less the parts §7.9.7 and §7.9.8 leave off the tap and monitor strips. No pull-ups on this board in either case — the single 2.2kΩ pair for the whole bus is on the ring generator board (its R1 and R2), and this board has no footprints for them.
 
 # 12. PCB Layout Notes
 
-—  Place the eight ring detector sections (R1a/R1b pairs, C4, OC1) along one board edge with clear physical separation from the logic section. Mark the high-voltage zone on silkscreen. Maintain 3mm creepage from ring detector traces to all logic traces, and route the isolation barrier as a continuous slot under each HCPL3700M body rather than relying on surface clearance alone.
+—  Place the eight ring detector sections (Rx06/Rx07 pairs, Cx03, Ux01) along one board edge with clear physical separation from the logic section. Mark the high-voltage zone on silkscreen. Maintain 3mm creepage from ring detector traces to all logic traces, and route the isolation barrier as a continuous slot under each HCPL3700M body rather than relying on surface clearance alone.
 
 —  Group each station’s relay, driver transistor and audio transformer together in a dedicated strip. With eight stations per board this repetition is the whole layout — get one station block right, then array it. Confirm the J104D package dimensions first: 2 Form C is an eight-pin footprint rather than the six the G5V-1 used, and the difference is multiplied by eight.
 
 —  Both relay poles carry line voltage, so treat the whole relay except its coil pins as part of the high-voltage zone. Keep the coil and its driver on the logic side of the strip and route nothing at logic potential under the contact end of the package.
 
-—  There is no transformer screen to ground. Revisions through Rev 3.24 asked for a star ground bringing each T2 shield to one chassis point; the TY-311P has no such terminal (§7.3). Keep the audio strip physically away from the expander and the relay bank instead, which is what that instruction was really buying, and treat §7.6’s unstuffed D-Sub ground link as the one deliberate connection between the equipment side and board ground.
+—  There is no transformer screen to ground. Revisions through Rev 3.24 asked for a star ground bringing each Tx01 shield to one chassis point; the TY-311P has no such terminal (§7.3). Keep the audio strip physically away from the expander and the relay bank instead, which is what that instruction was really buying, and treat §7.6’s D-Sub ground links, R105 and R106, as the one deliberate connection between the equipment side and board ground.
 
 —  Decouple each MCP23017 with a 100nF ceramic from VDD to GND as close to the chip as possible, and each HCPL3700M with its required 100nF between pins 8 and 5. Add a 10µF bulk capacitor on the 3.3V rail, and a 100nF ceramic in parallel with it at the LDO output pin — see §10.6.
 
-—  Place the LDO's own input bulk — 10µF and 100nF — at U4's input pin, not at the converter output. The distance between them is trace inductance the regulator has to work through.
+—  Place the LDO's own input bulk — 10µF and 100nF — at U103's input pin, not at the converter output. The distance between them is trace inductance the regulator has to work through.
 
 —  There is no audio-band bulk on this board's 24V rail and none is needed — see §10.7. The rail feeds the DC-DC converters only; no loop current and no audio reach it.
 
@@ -1418,25 +1440,23 @@ Three boards: 24 of each per-strip part and 3 × U1, less the parts §7.9.7 and 
 
 —  Place the two DB25 connectors on the board edge with the eight balanced pairs routed as differential pairs with matched length. Keep them away from the relay bank and the ring detector strip.
 
-—  Put J3A and J3B at the low-voltage edge alongside J1 and J2, and J7A/J7B at the high-voltage edge with the ring detector strip. Mark the boundary on the silkscreen. The physical separation of the two connector classes is what makes the mis-plug case in §7.8 hard to reach by accident as well as electrically survivable.
+—  Put J101 and J102 at the low-voltage edge alongside J104 and J105, and J7A101/J7B101 at the high-voltage edge with the ring detector strip. Mark the boundary on the silkscreen. The physical separation of the two connector classes is what makes the mis-plug case in §7.8 hard to reach by accident as well as electrically survivable.
 
-—  Place TVS2 immediately at J3A/J3B on the SDA and SCL traces, not near the expanders. It is protecting the whole bus from something arriving at the jack, so it needs to be the first thing that energy meets. C18 goes across TVS2 pins 8 and 4 at the device, in the same place — it is the local source for the clamp current and it does nothing anywhere else.
+—  Place TVS101 immediately at J101/J102 on the SDA and SCL traces, not near the expanders. It is protecting the whole bus from something arriving at the jack, so it needs to be the first thing that energy meets. Its 100nF bypass goes across TVS101 pins 8 and 4 at the device, in the same place — it is the local source for the clamp current and it does nothing anywhere else. The rev 2 board does not have it; the next revision must (§11).
 
-—  Leave the U2 footprint, the interrupt trace, the bus buffer footprint and the Vᴄᴄ series resistor footprints populated as zero-ohm links or unstuffed. Board space is cheap now; a respin is not.
+—  Place Rx04 and Rx05 inside the per-station strip so the strip stays a single replicated block — they are unstuffed on seven strips out of eight and must not become a reason to hand-place one of them. Rx04 and Rx05 sit directly across the Kx01 pole A and pole B NO contacts, in the high-voltage zone with the same 3mm creepage as the ring detector section. They are placed on all eight strips because the strip is laid out once and replicated; a do-not-populate flag in the schematic does not remove a footprint from the board, so replication and correct stuffing are not in tension (§7.9.1). Mark them on silkscreen as tap-only: a strip with Rx04/Rx05 fitted AND Kx01 fitted leaves 22kΩ permanently bridging the contacts, which puts Cx01 and Tx01 partly on the line with the station on-hook. That is a wiring fault, and it is invisible once the board is in the rack.
 
-—  Place R11, R12 and R13 inside the per-station strip so the strip stays a single replicated block — they are unstuffed on seven strips out of eight and must not become a reason to hand-place one of them. R11 and R12 sit directly across the RLY1 pole A and pole B NO contacts, in the high-voltage zone with the same 3mm creepage as the ring detector section. They are placed on all eight strips because the strip is laid out once and replicated; a do-not-populate flag in the schematic does not remove a footprint from the board, so replication and correct stuffing are not in tension (§7.9.1). Mark them on silkscreen as tap-only: a strip with R11/R12 fitted AND RLY1 fitted leaves 22kΩ permanently bridging the contacts, which puts C3 and T2 partly on the line with the station on-hook. That is a wiring fault, and it is invisible once the board is in the rack.
-
-—  Next board revision: add a connector for the audience monitor output on strip 8’s transmit pair, J2 side of R7 and R8, at the low-voltage edge with J1 and J2 (§7.9.8). Type not chosen; it must not be RJ45 (§7.7) or 6P6C (§7.8). On the present board the monitor leaves on a cable soldered to the R7/R8 pads.
+—  The audience monitor output leaves on J106, a two-way terminal on strip 8’s transmit pair, J105 side of R910 and R911, at the low-voltage edge with J104 and J105 (§7.9.8). It is on the rev 2 board, as asked for here at Rev 3.40. It must not be RJ45 (§7.7) or 6P6C (§7.8), and it is neither.
 
 # 13. Safety Notes
 
-—  Ring voltage (90V AC, 20Hz) arrives from the switchboard on tip and ring when a station is being rung. TVS1 clamps the peak; R1a, R1b and the HCPL3700M’s isolation prevent this voltage from reaching any logic. All components in the ring detector path must still be rated for the full peak ring voltage of approximately 127V, since the TVS does not suppress the ring signal itself.
+—  Ring voltage (90V AC, 20Hz) arrives from the switchboard on tip and ring when a station is being rung. Dx01 clamps the peak; Rx06, Rx07 and the HCPL3700M’s isolation prevent this voltage from reaching any logic. All components in the ring detector path must still be rated for the full peak ring voltage of approximately 127V, since the TVS does not suppress the ring signal itself.
 
-—  The loop voltage from the switchboard (24V DC) is present on tip and ring whenever the station jack is connected. Relay contacts, R3, C4 and T2 primary must be rated accordingly. Note that C4 holds this voltage as a standing DC bias.
+—  The loop voltage from the switchboard (24V DC) is present on tip and ring whenever the station jack is connected. Relay contacts, Rx03, Cx03 and Tx01 primary must be rated accordingly. Note that Cx03 holds this voltage as a standing DC bias.
 
 —  The HCPL3700M and the relay contacts together form the isolation barrier between the telephone line and the ESP32 logic. Both relay poles switch line conductors, so nothing on the relay is at logic potential except the coil. Verify the contact-to-contact and contact-to-coil isolation ratings from the relay datasheet before assembly; the optocoupler barrier is rated at 2500 V RMS minimum.
 
-—  The A32 analog inputs and outputs are the second path into the equipment side. T2’s floating secondary is what keeps line voltage off the converter — confirm each transformer’s isolation before the D-Sub cables are connected.
+—  The A32 analog inputs and outputs are the second path into the equipment side. Tx01’s floating secondary is what keeps line voltage off the converter — confirm each transformer’s isolation before the D-Sub cables are connected.
 
 —  One common 24V battery feeds the switchboard, both board types and all loops, so board ground and switchboard battery negative are the same node. Deriving board power from tip and ring is still prohibited — it places a permanent load on the loop that the switchboard reads as a supervision fault — and the 24V distribution must be a star from the PSU terminals. See §10.1.
 
