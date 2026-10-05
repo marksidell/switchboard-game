@@ -207,8 +207,8 @@ scope across Rx06 at seizure.
 
 | Ref | Former name | Value | Symbol | Footprint |
 |---|---|---|---|---|
-| Rx06 | R_LOOP | 220R 2W (trunk Rev 5.41; was 150R) | `Device:R` | `R_Axial_DIN0516_L15.5mm_D5.0mm` |
-| Rx07 | R_DET | 150R (trunk Rev 5.41; was 470R) | `Device:R` | `R_Axial_DIN0207` |
+| Rx06 | R_LOOP | 220R 2W 1% (trunk Rev 5.41, 1% from 5.43; was 150R) | `Device:R` | `R_Axial_DIN0516_L15.5mm_D5.0mm` |
+| Rx07 | R_DET | 150R 1% (trunk Rev 5.41, 1% from 5.43; was 470R) | `Device:R` | `R_Axial_DIN0207` |
 | Ux01 | OC1 | HCPL3700M | `switchboard:HCPL-3700` | `Package_DIP:DIP-8_W7.62mm` |
 | Rx12 | R2 | 4.7k | `Device:R` | `R_Axial_DIN0207` |
 | Cx05 | C5 | 0.1µF | `Device:C` | `C_Disc_D5.1mm_W3.2mm_P5.00mm` |

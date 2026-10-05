@@ -2,7 +2,7 @@
 
 **Trunk Interface Circuit Design**
 
-*Rev 5.42 — 8 Trunks, Constant-Current Loop Feed, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Trunk Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, External Ring Generator*
+*Rev 5.43 — 8 Trunks, Constant-Current Loop Feed, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Trunk Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, External Ring Generator*
 
 # **1. Overview**
 
@@ -147,6 +147,7 @@ Only two amendments to the station document are needed, and both are flagged whe
 - Rev 5.40: C19 added, 100nF from U1 pin 18 (/RESET) to GND at the pin (§10.4, §13), the same part as station Rev 3.43 and for the same finding. On the bench, 2026-10-03, this board's expander came back at its power-on configuration — IODIR FF, IPOL 00, so every trunk read seized until the firmware's configuration check (control.md §6.4) restored it — when a ring relay switched, on trunks 1, 2, 7 and 8 and intermittently. Raising the 24V current limit from 0.1A to 1A changed nothing; 100nF across pin 18 and ground on both boards stopped it, with no reset in twelve board tests. R_RST and C19 make 1ms against control.md §6.2's 2ms pulse and 5ms settle; no firmware change. The present board carries C19 as a bodge; the next revision gives it a footprint. Schematic: the root sheet as annotated runs C101–C109, so C19 takes C110.
 - Rev 5.41: the seizure detector is resized (§4.2): R_LOOP 150Ω → 220Ω (2W) and R_DET 470Ω → 150Ω (§3.3, §3.4, §4.1, §13); R1 stays at 100Ω. Found on the bench, 2026-10-03 and 2026-10-04: trunks intermittently reported no seizure with full loop current flowing — up to 27 of 100 off-hooks on one trunk, all-or-nothing, never late — and missed dial makes (control.md Rev 23). With the Analog Discovery across R_LOOP and R_DET, a miss showed 28mA of loop current and 1.90mA into OC1, the same as a good seizure; OC1's output blipped on for about 0.25ms at the relay make and stayed off. §4.2 had modelled the HCPL3700M's DC input as an LED dropping 1.4V and flagged that figure as the one number not measured. The datasheet (onsemi HCPL3700M, 2022-03-15) gives the DC input as the buffer IC's own threshold: V_TH+ 3.35–4.05V at I_TH+ 1.96–3.11mA, V_TH− 2.01–2.86V. Measured, OC1 sat at 3.28V and 1.90mA — below every part's turn-on point and above every part's turn-off point, inside the hysteresis band, so the output stayed wherever the make transient left it. No value of R_DET alone fixes it: 28mA in 150Ω is 4.2V, barely above the 4.05V worst-case threshold with nothing in series. Loop compliance was measured through the switchboard first (§3.3.3); the heaviest configuration, a station-board station on a cord, keeps about 100Ω of spare with these values. Two alternatives were weighed and not taken: R1 to 33Ω as well (more spare, which nothing measured needs, at eight more parts and harder faults), and R1 removed (the most spare, but a shorted Q4 on a normal call then runs OC1 at 83% of its input power rating). §3.3.2's merged-resistor sizing, which had the same 1.4V error, is corrected, and two §16 items are closed. The schematic designators for the changed parts are Rx06 and Rx07 on trunk sheet x.
 - Rev 5.42: the document uses the KiCad designators of the rev 2 board as annotated, in place of its own names, everywhere outside this change history, which is left as written. Strip parts are Rxnn on trunk sheet x, x = trunk number + 1 (trunk 1 is 2nn, trunk 8 is 9nn); root-sheet parts are numbered from 101. The board as built differs from the earlier text in five ways, now recorded: Cx01, the 100µF at each current source that Rev 5.23 deleted, is fitted on every strip (§12.4); U101's address is hardwired, A0 and A1 to +3.3V and A2 to GND, with no links (§10.2); the D-Sub ground link JP4 is two fitted 0R resistors, R102 and R103, one per DB25 (§8.4); C18, the TVS101 bypass, is not on the board and waits for rev 3 (TODO.md); and there are no footprints for a second expander, its decoupling or I²C pull-ups, so U2, C7, R9 and R10 are gone. C19 remains a bodge, C110 at rev 3. "Next board revision" means rev 3.
+- Rev 5.43: corrections from an independent review of Rev 5.41, 2026-10-05, which confirmed the fix — every HCPL3700M turns on at the datasheet limits — and found several of its supporting figures wrong. Rx06 and Rx07 are now 1% parts: at −5% on Rx06 the turn-on margin falls from 0.52V to 0.27V (§4.2, §13). §4.2 gains the loop-current view of the same margin — a worst-case part needs 23.6mA against the 26mA design minimum, and holds down to 15.7mA — and its normal-operation figures are corrected to a 5.24–5.54V node and 3.0–4.4mA into Ux01 at 28.2mA; Rev 5.41's 3–6mA could not happen, since I_IN is at most 4.4mA at 5.0V and the input's curve is monotonic. The input clamp Rev 5.41 used, V_IHC1, applies only with pins 1 and 4 tied to pin 3; with them open, as on this board, the input is about 1kΩ in series with 1V (Broadcom AV02-3699EN) and clamps near 12.5V (V_IHC3). With that, and with Qx01's emitter-base junction clamping Rx02 in a Qx03 short, the fault figures fall: even a shorted Qx03 into a dead-shorted jack keeps every part inside its rating, and Rev 5.41's statement that it overloads Ux01 and Rx07 is withdrawn. Qx03 shorted during ring applied by mistake is recorded as the one case that destroys parts. Also corrected: the compliance cost of Rev 5.41 (45–54Ω of spare, not 25–50Ω, §3.3, §3.3.3), Rx06's dissipation (§3.4), the seizure inrush (§3.2.2), the §3.3.1 design point (320Ω), node B in §8.1.1, and the detector's hold-on figure. The detector now follows dial contact bounce, which control.md Rev 24's two-sample filter rejects (§4.2).
 
 | **Former name** | **Designator** | **Former name** | **Designator** |
 | --- | --- | --- | --- |
@@ -303,13 +304,14 @@ Cx02 also sets the recovery time when a seizure suddenly presents a load. Before
 ```text
   I = (24 - Vce(sat) - Vd) / (Rx02 + Rx05 + Rx06)   with Qx03 saturated
 
-      Rx05 = 100R: 85 mA   ->  12.8 V on Rx06    ->  24 mA into Ux01
-      Rx05 = 0R:  134 mA   ->  20.1 V on Rx06    ->  40 mA into Ux01
+      Rev 5.43, Rx05 100R, Rx06 220R:  ~67 mA  ->  ~14 V at node B  ->  ~11 mA into Ux01
+      Rev 5.40, Rx05 100R, Rx06 150R:   85 mA  ->  12.8 V on Rx06   ->  24 mA into Ux01
+      Rev 5.40, Rx05 0R:               134 mA  ->  20.1 V on Rx06   ->  40 mA into Ux01
 
   duration with Cx02 = 1nF: ~2 us
 ```
 
-So the real figure is 85mA, three times the steady current rather than eight, and 24mA into an optocoupler input rated 50mA average and 140mA surge. The detector is in no difficulty. The spike is worth knowing about only so that nobody finds it on a scope and assumes something is wrong, and it is far too brief for the 100ms seize debounce in §11.1 to register.
+So the real figure is about 67mA, a little over twice the steady current rather than eight, and about 11mA into an optocoupler input rated 50mA average and 140mA surge (Rev 5.43; it was 85mA and 24mA with Rev 5.40's Rx06 and Rx07). Ux01's input is about 1kΩ in series with 1V (§4.2), which is why it takes so little of the spike. The detector is in no difficulty. The spike is worth knowing about only so that nobody finds it on a scope and assumes something is wrong, and it is far too brief for the 100ms seize debounce in §11.1 to register.
 
 ## **3.2.3 Why Not an LM317 or a Depletion FET**
 
@@ -361,13 +363,13 @@ Deleting Rx05 entirely is the tempting simplification and should be resisted. At
 | Rx02 | 22Ω, 0.5W | Sets loop current |
 | Loop current | 28.2mA nominal | V_BE 0.62V / 22Ω |
 | Spread | 26–31mA | V_BE 0.58–0.68V across parts and temperature |
-| Fixed drops at 28mA | 9.1–9.7V | Rx02 0.62 + Rx05 2.82 + Dx03 0.7 + Rx06 4.9–5.5 (Rev 5.41; was 8.4V with Rx06 4.23). Ux01's branch carries 3–6mA of the loop current past Rx06, so the drop is less than 28mA × 220Ω — §4.2. |
-| Compliance for line | 14.3–14.9V | Regulates up to about 505–530Ω of line (Rev 5.41; was 554Ω). Measured loads through the switchboard are 134–357Ω — §3.3.3. |
-| Beyond compliance | Degrades | Behaves as a resistive feed and loop current falls. Our detector holds to 14mA (§4.2), but the switchboard's supervisory relay may not. |
+| Fixed drops at 28mA | 9.4–9.7V | Rx02 0.62 + Rx05 2.82 + Dx03 0.7 + node B 5.24–5.54 (Rev 5.43; was 8.4V with Rx06 4.23 at Rev 5.40). Ux01's branch carries 3.0–4.4mA of the loop current past Rx06, so the drop is less than 28mA × 220Ω — §4.2. |
+| Compliance for line | 14.3–14.6V | Regulates up to about 505–520Ω of line (Rev 5.43; was 554Ω at Rev 5.40). Measured loads through the switchboard are 134–357Ω — §3.3.3. |
+| Beyond compliance | Degrades | Behaves as a resistive feed and loop current falls. A seizure already detected holds down to 15.7mA in the worst case (13.4mA typical), but a new one is not detected below 23.6mA (§4.2); that point is reached only beyond about 670Ω of line. The switchboard's supervisory relay may give out sooner. |
 
-*If the cord circuit measures comfortably below 400Ω, Rx05 can go back up to 220Ω for a cooler Qx03 and a gentler fault case. If it measures above 554Ω, see §3.3.1 — and note that raising the supply rail is not among the options.*
+*If the cord circuit measures comfortably below 400Ω, Rx05 can go back up to 220Ω for a cooler Qx03 and a gentler fault case. If it measures above about 505Ω, see §3.3.1 — and note that raising the supply rail is not among the options.*
 
-The 2mV/°C temperature coefficient of V_BE(Qx01) makes the loop current fall about 0.3% per °C. Over a realistic 25–50°C range that is 28mA down to 26mA, which no part of the design is sensitive to. Do not attempt to compensate it.
+The 2mV/°C temperature coefficient of V_BE(Qx01) makes the loop current fall about 0.3% per °C. Over a realistic 25–50°C range that is 28mA down to 26mA. Do not attempt to compensate it, but keep Qx01 away from Qx03's heatsink: this tempco, not the optocoupler, is the seizure detector's real temperature sensitivity, since the detector's guaranteed turn-on needs 23.6mA (§4.2).
 
 ## **3.3.1 If Compliance Is Short**
 
@@ -383,7 +385,7 @@ That is the real cost of the common battery decision, and it is worth stating pl
 
 The options that remain are all local to this board:
 
-Before listing them, one thing has to be said clearly because it rules out a whole family of apparent fixes. Compliance and the Qx03-short fault current are two views of the same quantity: the total series resistance in the loop. Call everything other than Rx02 R_extra — currently Rx05 plus Rx06, 250Ω. Both figures fall out of it, and neither depends on where that resistance physically sits or on which part of it the detector senses across:
+Before listing them, one thing has to be said clearly because it rules out a whole family of apparent fixes. Compliance and the Qx03-short fault current are two views of the same quantity: the total series resistance in the loop. Call everything other than Rx02 R_extra — Rx05 plus Rx06, 250Ω to Rev 5.40 and 320Ω from Rev 5.41. Both figures fall out of it, and neither depends on where that resistance physically sits or on which part of it the detector senses across:
 
 | **R_extra** | **Compliance at 28.2mA** | **Qx03-short fault current** |
 | --- | --- | --- |
@@ -391,6 +393,7 @@ Before listing them, one thing has to be said clearly because it rules out a who
 | 150Ω | 654Ω | 134mA |
 | 250Ω (as designed to Rev 5.40) | 554Ω | 85mA |
 | 300Ω | 504Ω | 72mA |
+| 320Ω (as designed from Rev 5.41) | 484Ω | 68mA |
 
 So resistance cannot be deleted to buy compliance without giving up fault limiting in exact proportion. An earlier draft of this section listed "move the sense from Rx06 to Rx05" as recovering 150Ω for nothing. It does not, and the row was wrong. Deleting Rx06 takes R_extra from 250Ω to 100Ω, which does give 704Ω of compliance — but it also takes the shorted-Qx03 fault from 85mA to 189mA, putting 3.6W into Rx05 and 54mA into the optocoupler input, past a PC817's continuous rating. The fault-limiting argument that justified keeping Rx05 in §3.2.4 applies just as much to the total.
 
@@ -439,7 +442,7 @@ Trunk 1, as built at Rev 5.40 (Rx05 100Ω, Rx06 150Ω, Rx07 470Ω), the Analog D
 | 6 | Model 500 on the cord, operator off the circuit | 211Ω | 29.5mA | 9.36V | 300Ω |
 | 7 | Station 1 on the switchboard, off-hook through the cord | 357Ω | 29.9mA | 4.83V | 145Ω |
 
-Test 1 checks the method: 326Ω calculated against R3's 330Ω. Test 7 is the heaviest load: a station-board station is 330Ω where a desk set is about 175Ω, and the cord and switchboard add about 27Ω. Every configuration regulates. Rev 5.41 raises the drop across Rx06 from 4.2V to about 4.9–5.5V at these currents, which takes 25–50Ω off every spare: test 7 keeps about 95–120Ω, and Qx03 still has 2.4–2.8V across it with the loop current at the top of its spread (31mA, V_BE 0.68V). The switchboard sees the same current and so the same voltage as before — 5.3V on a desk-set call, 10.7V on a station-board station.
+Test 1 checks the method: 326Ω calculated against R3's 330Ω. Test 7 is the heaviest load: a station-board station is 330Ω where a desk set is about 175Ω, and the cord and switchboard add about 27Ω. Every configuration regulates. Rev 5.41 raises the voltage at node B from 4.2V to about 5.6–5.8V at these currents, which takes 45–54Ω off every spare (Rev 5.43; Rev 5.41 said 25–50Ω): test 7 keeps about 90–100Ω at 29.9mA, and with the loop current at the top of its spread (31mA, V_BE 0.68V) Qx03 still has 2.5–2.7V across it and 64–72Ω spare. The switchboard sees the same current and so the same voltage as before — 5.3V on a desk-set call, 10.7V on a station-board station.
 
 ## **3.4 Dissipation**
 
@@ -449,7 +452,7 @@ Each trunk has its own current source, so the figures below are per trunk and th
 | --- | --- | --- | --- |
 | Qx03 (MJE350) | 0.44W | 3.5W | TO-126, 300V/0.5A. Fit a heatsink — see below. |
 | Rx05 (100Ω) | 0.08W | 0.6W | 1W part — rated for the Qx03-short case, not this one |
-| Rx06 (220Ω) | 0.11–0.14W | 1.1W | 2W part — rated for the Qx03-short case (§4.2) |
+| Rx06 (220Ω) | up to 0.14W | 1.1W | Up to 0.17W at 31mA. 2W part — rated for the Qx03-short case (§4.2) |
 | Relay coils | 0.15W | 1.2W | On the 5V rail |
 | Total loops + coils | 0.79W | ≈6.4W | Per-trunk column is one trunk block; ×8 is the board. Ventilate — see §15 |
 
@@ -490,10 +493,11 @@ Rev 5.41. The HCPL3700M's DC input is not an LED. It is the input of the thresho
 | V_TH−, turn-off voltage | 2.01V | 2.50V | 2.86V |
 | I_TH−, turn-off current | 1.00mA | 1.20mA | 1.62mA |
 | I_IN at V_IN = 5.0V | 3.0mA | 3.7mA | 4.4mA |
-| V_IHC1, input clamp at 10mA | 5.4V | 6.3V | 6.6V |
+| V_IHC3, input clamp at 15mA, pins 1 and 4 open (this board) | — | 12.5V | 13.4V |
+| V_IHC1, input clamp at 10mA, pins 1 and 4 tied to pin 3 — not this board | 5.4V | 6.3V | 6.6V |
 | Absolute maximum | 50mA average input current, 230mW input power | | |
 
-Every part turns on once its input reaches 4.05V, and draws at most 3.11mA doing it. Rx06 is fed by the current source, so the node it sits on is a source of I × Rx06 behind Rx06 itself, and with Rx07 in series the input at worst-case turn-on is
+With pins 1 and 4 open the DC input behaves as about 1kΩ in series with 1V (Broadcom AV02-3699EN, the original HCPL-3700 data sheet), monotonic up to the V_IHC3 clamp near 12.5V. Every part turns on once its input reaches 4.05V, and draws at most 3.11mA doing it. Rx06 is fed by the current source, so the node it sits on is a source of I × Rx06 behind Rx06 itself, and with Rx07 in series the input at worst-case turn-on is
 
 ```text
   V_in = Rx06 x (I_loop - 3.11mA) - 3.11mA x Rx07         must be >= 4.05V
@@ -502,14 +506,20 @@ Every part turns on once its input reaches 4.05V, and draws at most 3.11mA doing
 ```text
                           I_loop 26mA (low end, §3.3)   at 28.2mA
   Rev 5.40: 150R / 470R   V_in 1.97V  - never           measured 3.28V, 1.90mA
-  Rev 5.41: 220R / 150R   V_in 4.57V  - 0.52V margin    node 4.9-5.5V, 3-6mA into Ux01
+  Rev 5.41: 220R / 150R   V_in 4.57V  - 0.52V margin    node 5.24-5.54V, 3.0-4.4mA into Ux01
 ```
 
 Rev 5.40 assumed a 1.4V forward drop and found 6mA and 1.93x margin. Measured on the bench, Ux01 sat at 3.28V and 1.90mA, below every part's turn-on point and above every part's turn-off point: inside the hysteresis band, where the output keeps whatever state it was in. The make transient decided it, which is why seizures and dial makes were missed all-or-nothing, at a rate that differed by part and drifted with temperature (Rev 5.41 change entry).
 
-The node voltage at 28.2mA depends on where Ux01's own input settles, which the datasheet bounds only through I_IN at 5.0V: for an input between 4.0V and 5.0V, Ux01 takes 3–6mA and the node sits at 4.9–5.5V. That current is diverted past Rx06, which is why the compliance cost in §3.3 is less than 28mA × 70Ω. Once on, the input is far above V_TH− max, so a seized trunk does not drop out, and each dial make turns the detector on cleanly.
+The same margin as a loop current: a worst-case part (V_TH+ 4.05V at I_TH+ 3.11mA) needs (4.05V + 3.11mA × 370Ω) / 220Ω = 23.6mA to turn on, a typical one 21.3mA and the best 18.5mA, against the 26mA bottom of the current source's spread. Once on, a worst-case part holds down to (2.86V + 1.62mA × 370Ω) / 220Ω = 15.7mA, typical 13.4mA, and every part turns off on a break, which takes the input to 0V. The margin is modest — 9% in current at the worst corner — which is why Rx06 and Rx07 are 1% parts (Rev 5.43): at −5% on Rx06 the 0.52V becomes 0.27V and the floor rises to 24.7mA.
 
-**Faults.** A shorted Qx03 is a single fault and must not take out anything else. With a real loop on the trunk it does not: into the lightest load measured, 134Ω (§3.3.3), the loop rises to 56mA and Ux01 takes 16mA and 103mW, Rx07 0.04W, Rx06 0.36W, Rx05 0.32W. A shorted Qx03 *and* a dead short across the jack is a double fault: 92mA, of which Ux01 takes about 37mA and 241mW — 5% over its 230mW absolute maximum — with Rx07 at 0.21W of 0.25W, Rx06 0.66W of 2W and Rx05 0.85W of 1W. Rev 5.40's 470Ω kept Ux01 to 77mW in that case only because it starved the detector in normal use. Guarding the double fault fully would take a clamp across Rx06, and it does not justify one.
+The node voltage at 28.2mA depends on where Ux01's own input settles, which the datasheet bounds through I_IN at 5.0V (3.0–4.4mA): Ux01 takes 3.0–4.4mA at 4.58–5.09V, and node B sits at 5.24–5.54V (4.75–5.29V at 26mA, 5.61–5.92V at 29.9mA). That current is diverted past Rx06, which is why the compliance cost in §3.3 is less than 28mA × 70Ω. A seized trunk does not drop out, and each dial make turns the detector on cleanly.
+
+**Dial contact bounce.** Driven this far past its threshold, the detector follows every bounce of the dial contacts longer than its tens-of-microseconds response; Cx04 hides only bounce-opens shorter than about 0.1ms. One 5ms sample caught inside a bounce would read as a short break inside a digit, or split a break, and spoil the digit. control.md Rev 24's two-sample filter rejects anything shorter than one sample interval. The bounce of the switchboard's dial through the real cord circuit is still to be measured (§16). Do not filter it with a capacitor across Rx06: node B is the RING conductor.
+
+**Faults** (Rev 5.43). A shorted Qx03 is a single fault and must not take out anything else. With Qx03 shorted, Qx01's emitter-base junction sits directly across Rx02 and clamps it at about 0.85V, so Rx02 no longer limits the current; Qx01's base carries the excess, about 39mA and 33mW in the dead-short case below. The 2N3906 has no base-current rating, so that is probably survivable rather than specified. Into the lightest load measured, 134Ω (§3.3.3), the loop rises to 53mA and Ux01 takes 7.8mA and 69mW, Rx07 0.01W, Rx06 0.45W, Rx05 0.28W. A shorted Qx03 *and* a dead short across the jack is a double fault: 78mA, of which Ux01 takes 12–14mA and 150–170mW, against its 230mW absolute maximum, with Rx07 at 0.02W, Rx06 0.97W of 2W and Rx05 0.61W of 1W. Every part stays inside its rating in both cases. Whatever Ux01's curve, maximum power transfer bounds its input at 112mW in the single fault and 272mW in the double, and exceeding 230mW would need an input clamping near 7.7V, which the pins-open input is not.
+
+One case does destroy parts: Qx03 shorted while ring is applied by mistake from the switchboard (§5). Nothing then limits the 151V peak, and Ux01 and Rx06 would be lost. It needs a failed transistor and an operator's slip together; it is recorded, not designed for.
 
 A cheaper part would work here. With the fault currents bounded by the current source there is nothing left for a threshold optocoupler to protect against, and a PC817 with Rx07 at 600Ω would give the same 5mA of LED current. The HCPL3700M is specified anyway for one part number across both boards and for the guaranteed threshold limits, but with only eight fitted per board this is a smaller saving than it was and commonality probably wins.
 
@@ -741,7 +751,7 @@ At 0.47µF the −3dB point against the 600Ω primary is about 565Hz, which is i
 One artifact comes with the move and it is worth writing down rather than discovering on a scope. Cx04 sits at a different DC potential in the two relay states, so each transition pushes a brief current through the primary:
 
 ```text
-  seized:   node A 16.5V   node B 4.2V    Cx04 holds 12.2V
+  seized:   node A 16.5V   node B ~5.4V   Cx04 holds ~11V    (Rev 5.43; 4.2V and 12.2V at Rev 5.40)
   ringing:  node A 23.8V   node B 0.0V    Cx04 holds 23.8V
 
   step on each transition = 11.6V  ->  19mA peak into the 600R primary,
@@ -1141,8 +1151,8 @@ Per trunk, ×8 on the board, unless marked otherwise. Designators are the KiCad 
 | Cx02 ×8 | 1nF ceramic | Current source loop compensation, Qx03 base to emitter. Fit a footprint accepting 100pF–10nF — see §3.2.2. Formerly C_C. |
 | Rx05 ×8 | 100Ω, 1W | Fault limiting, not thermal relief — see §3.2.4. 1W is for the Qx03-short case. Revised down from 220Ω to recover compliance. Formerly R1. |
 | Dx03 ×8 | 1N4007 | Blocks reverse current during an accidental ring. Formerly D1. |
-| Rx06 ×8 | 220Ω, 2W | Loop current sense. 220Ω from Rev 5.41 (was 150Ω), to drive Ux01 past its DC threshold — see §4.2. 2W covers a shorted Qx03, 0.66W even into a dead short. Formerly R_LOOP. |
-| Rx07 ×8 | 150Ω, 0.25W | Sets Ux01 input current, 3–6mA. 150Ω from Rev 5.41 (was 470Ω, which held Ux01 inside its hysteresis band) — see §4.2. Formerly R_DET. |
+| Rx06 ×8 | 220Ω, 2W, 1% — Stackpole RSF2FT220R | Loop current sense. 220Ω from Rev 5.41 (was 150Ω), to drive Ux01 past its DC threshold; 1% from Rev 5.43, since −5% halves the turn-on margin — see §4.2. 2W covers a shorted Qx03, about 1.0W even into a dead short. Formerly R_LOOP. |
+| Rx07 ×8 | 150Ω, 0.25W, 1% metal film — e.g. Yageo MFR-25FBF52-150R | Sets Ux01 input current, 3.0–4.4mA. 150Ω from Rev 5.41 (was 470Ω, which held Ux01 inside its hysteresis band); 1% from Rev 5.43 — see §4.2. Formerly R_DET. |
 | Ux01 ×8 | HCPL3700M (onsemi) | Seizure detect, DC input mode — pins 2/3 driven, pins 1/4 OPEN. 8-pin PDIP. Note this is the opposite wiring from the station board ring detector. Formerly OC1. |
 | Rx12 ×8 | 4.7kΩ, 0.25W | Ux01 output pull-up to 3.3V. Formerly R2. |
 | Cx05 ×8 | 0.1µF ceramic | Ux01 V_CC bypass, pins 8–5, at the device. Required. Formerly C5. |
@@ -1255,6 +1265,7 @@ Everything below is a number this design assumes rather than knows. Each has a f
 
 | **Item** | **Why it matters** | **Section** |
 | --- | --- | --- |
+| Dial contact bounce through the 551 cord circuit | control.md Rev 24's two-sample filter assumes every bounce is shorter than one 5ms sample; the Rev 5.41 detector follows bounce faithfully. Measure on SEIZE or across Rx06 at a high sample rate while dialling. | §4.2 |
 | ~~551 trunk cord circuit DC resistance~~ | Measured at Rev 5.41: 134–211Ω through the switchboard to a desk set, 357Ω to a station-board station; compliance 505–530Ω. §3.3.1 is not needed. | §3.3.3 |
 | Switchboard trunk supervisory relay operate current | Bounds how far loop current can be reduced; gates the cheapest compliance fix | §3.3.1 |
 | ~~HCPL3700M DC input forward drop at 6mA~~ | Closed at Rev 5.41: the DC input is a threshold buffer, V_TH+ 3.35–4.05V; measured 3.28V at 1.90mA with the Rev 5.40 values. | §4.2 |

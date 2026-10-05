@@ -2,7 +2,7 @@
 
 **Station Interface Circuit Design**
 
-*Rev 3.44 — 8 Strips Per Board, Three Boards (22 Stations, the Operator Tap and the Audience Monitor Output) Plus 8 Trunk Circuits, HCPL3700M Ring Detection, DPDT Double-Pole Off-Hook, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Station Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, 32-Slot Pilot Tone Comb, Operator Tap and Monitor Options on Two Strips, Common-Battery Power*
+*Rev 3.45 — 8 Strips Per Board, Three Boards (22 Stations, the Operator Tap and the Audience Monitor Output) Plus 8 Trunk Circuits, HCPL3700M Ring Detection, DPDT Double-Pole Off-Hook, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Station Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, 32-Slot Pilot Tone Comb, Operator Tap and Monitor Options on Two Strips, Common-Battery Power*
 
 # 1. Overview
 
@@ -303,6 +303,12 @@ The ESP32 and the host exchange state over MQTT: the ESP32 reports debounced rin
 —  C19 added: 100nF from U1 pin 18 (/RESET) to GND, at the pin, one per board (§9.4, §11). Found on the bench, 2026-10-03, with station board 1 and the trunk board wired together and the serial console attached through repeated board tests: both expanders came back at their power-on configuration — IODIR FF, IPOL 00 — about once per run, each time while a ring relay or an off-hook relay switched. Raising the 24V supply's current limit from 0.1A to 1A changed nothing. With 100nF bodged across pin 18 and ground on both boards there was no reset in twelve runs, against four in the four runs before it. /RESET crosses the bus cord and every board with nothing on it but a 10kΩ pull-up, and the MCP23017 resets on a pulse of about a microsecond, so a spike coupled into the cord was enough. R18 and C19 make a 1ms time constant, and boards in parallel keep it at 1ms; control.md §6.2 holds /RESET low for 2ms and waits 5ms after releasing it, so the deliberate reset still works with no firmware change.
 
 —  The present boards carry C19 as a bodge. The next board revision gives it a footprint at U1 pin 18. Schematic: the root sheet as annotated runs C101–C108, so C19 takes C109 there.
+
+## 1.24 Changes in Rev 3.45
+
+—  The audience monitor cable's shield is not connected at the board (§7.9.8). J106 has hot and cold only, and Rev 3.44 sent the shield to the channel 8 D-Sub ground, J105 pin 2. Mark's decision, 2026-10-05: leave it unconnected at this end, on the same reasoning as §7.6, which earths an audio connection's screen at one end only — the far end — to keep it out of the loop through board GND, the PSU and mains earth. The shield is earthed at the amplifier. If the monitor hums or picks up ring clicks, the remedy is the same as §7.6's: try it, and connect at the board only if that is better.
+
+—  No hardware change.
 
 ## 1.23 Changes in Rev 3.44
 
@@ -872,14 +878,14 @@ Strip 8 of board 3 carries the audience monitor. The filtered, limited mix of §
                pin 2  AOUT+_8, hot   (J105 pin 1, the J105-side pad of R910)
                pin 1  AOUT−_8, cold  (J105 pin 14, the J105-side pad of R911)
   CABLE        shielded pair from J106 to the amplifier;
-               shield to the channel 8 D-Sub ground, J105 pin 2
+               shield not connected at the board, earthed at the amplifier
 ```
 
 T901 is not fitted because it would put 2kΩ of R910/R911 and a transformer between the A32 and the amplifier for nothing: the A32 output is already balanced, and the amplifier is not a telephone line. J106 picks the signal up where the A32 delivers it, on the J105 side of R910 and R911.
 
-The shield goes to the channel’s own D-Sub ground pin, which is part of the D-Sub ground node of §7.6 rather than board GND directly, so it follows whatever R106 does: with R106 fitted, as built, the node is at board GND; lifted, the shield is earthed at the A32 end only and the monitor run stays out of the ground loop §7.6 describes. At the amplifier end, terminate as its balanced input expects.
+The shield is not connected at the board (Rev 3.45). It is earthed at the amplifier end only, which keeps the monitor run out of the ground loop §7.6 describes — board GND to the PSU, the PSU to mains earth, and earth back through the amplifier's chassis. At the amplifier end, terminate as its balanced input expects. If the run hums or picks up clicks when a station is rung, try the shield on the board's GND as well, as §7.6 does for the D-Sub grounds, and keep whichever is quieter.
 
-The rev 2 board carries J106 for it, a two-way terminal at the low-voltage edge. Rev 3.40 to Rev 3.43 described the first board, which had no connector and took the cable on two resistor pads. J106 carries hot and cold only; the shield still lands on the channel's D-Sub ground (§7.6).
+The rev 2 board carries J106 for it, a two-way terminal at the low-voltage edge. Rev 3.40 to Rev 3.43 described the first board, which had no connector and took the cable on two resistor pads. J106 carries hot and cold only, and the shield stays unconnected at this end.
 
 Level. Channel 24’s A32 analog reference and digital trim (§7.4) set the output level for the amplifier’s input sensitivity, and are recorded with the other commissioning values; the audio program’s gain and limiter sit ahead of them (§8.8, audio.md §10).
 
