@@ -573,7 +573,7 @@ Terminate the jack shields to chassis at the board end only.
 | Ref | Doc name | Value | Symbol | Footprint |
 |---|---|---|---|---|
 | J104, J105 | J1, J2 | NorComp 182-025-213R561, DB25 female | `Connector:DB25_Female` | `Connector_Dsub:DSUB-25_..._EdgePinOffset*` — see §6 |
-| R105, R106 | JP1 | 0R | `Device:R` | DIN0207 — D-Sub ground to board GND, one per connector (R105 J104, R106 J105); **fitted** as built |
+| R105, R106 | JP1 | 0R | `Device:R` | DIN0207 — D-Sub ground to board GND, one per connector (R105 J104, R106 J105); **DO NOT FIT** — unfitted as built |
 
 J104 = 8 board outputs to A32 inputs. J105 = 8 A32 outputs to board inputs. Same pin pattern
 on both. Board channel n = station n on that board; A32 channel = (board − 1) × 8 + n.
@@ -588,8 +588,8 @@ Pin 13 not connected.
 
 **The ground pins of each connector are commoned into one node per connector**, and each
 node goes to board GND through its own 0Ω link: R105 for J104, R106 for J105. As built
-both are **fitted**, so on the rev 2 boards the D-Sub grounds are at board GND; lift them
-if the system hums. Tx01 isolates and nothing in the secondary needs board ground;
+both are **unfitted**, so on the rev 2 boards the D-Sub grounds float at the board; fit
+them only if ring events click. Tx01 isolates and nothing in the secondary needs board ground;
 grounding both ends closes a hum loop through the PSU, mains earth and the A32 chassis.
 The link exists so the decision can be revisited on the bench if ring events produce
 clicks through Tx01's interwinding capacitance (station §7.6). The middle position — 100Ω in

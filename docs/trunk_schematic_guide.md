@@ -490,7 +490,7 @@ pin above.
 | Ref | Former name | Value | Symbol | Footprint |
 |---|---|---|---|---|
 | J104, J105 | J1, J2 | DB25 female | `Connector:DB25_Female` | `Connector_Dsub:DSUB-25_Female_Horizontal_P2.77x2.84mm_EdgePinOffset*` — see §5 |
-| R102, R103 | JP4 | 0R | `Device:R` | `R_Axial_DIN0207` — D-Sub gnd to board GND, one per DB25 (R102 J104, R103 J105), **fitted** on the rev 2 board |
+| R102, R103 | JP4 | 0R | `Device:R` | `R_Axial_DIN0207` — D-Sub gnd to board GND, one per DB25 (R102 J104, R103 J105), **DO NOT FIT** — unfitted on the rev 2 board |
 
 J104 = 8 board outputs to A32 inputs. J105 = 8 A32 outputs to board inputs.
 Same pin pattern on both connectors. Board channel n = trunk n = A32 channel 24+n.
@@ -504,7 +504,7 @@ Same pin pattern on both connectors. Board channel n = trunk n = A32 channel 24+
 Pin 13 not connected.
 
 **The eight ground pins float at this board.** Common them into a single node per
-connector — or one node for both — and take a link from there to board GND. The design asked for one link, unstuffed; the rev 2 board has two, R102 and R103, fitted with 0R (trunk §8.4, Rev 5.42).
+connector — or one node for both — and take a link from there to board GND. The design asked for one link, unstuffed; the rev 2 board has two footprints, R102 and R103, both unfitted (trunk §8.4, Rev 5.43).
 Tx01 isolates and nothing in the secondary needs board ground; grounding both ends would
 close a hum loop through the PSU, mains earth and the A32 chassis. The link exists so the
 decision can be revisited on the bench if ring transients come through Tx01's interwinding
@@ -764,7 +764,7 @@ Root sheet:
 | `/A32_IN_H_1` … `_8`, `/A32_IN_C_1` … `_8` | Sheet pins to J104 |
 | `/A32_OUT_H_1` … `_8`, `/A32_OUT_C_1` … `_8` | J105 to sheet pins |
 | U101 pins 15, 16 to +3V3, pin 17 to GND | Address, hardwired; no labels needed |
-| J104 and J105 ground pins to R102 and R103 [`DSUB_GND`] | Tied to GND through the fitted 0R parts (§4.6). ERC will report it undriven; that is correct |
+| J104 and J105 ground pins to R102 and R103 [`DSUB_GND`] | Floats: R102 and R103 are not fitted (§4.6). ERC will report it undriven; that is correct |
 
 Strip sheet, ×8:
 
