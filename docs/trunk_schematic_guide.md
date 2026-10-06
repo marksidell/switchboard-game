@@ -170,7 +170,7 @@ not copy the station sheet's contact wiring.
 | Qx01 | Q3 | 2N3906 | `Transistor_BJT:Q_PNP_EBC` | `Package_TO_SOT_THT:TO-92_Inline` |
 | Rx02 | R_set | 22R 0.5W 1% | `Device:R` | `R_Axial_DIN0309_L9.0mm_D3.2mm` |
 | Rx04 | R_bias | 10k | `Device:R` | `R_Axial_DIN0207_L6.3mm_D2.5mm` |
-| Rx05 | R1 | 100R 1W | `Device:R` | `R_Axial_DIN0414_L11.9mm_D4.5mm` |
+| Rx05 | R1 | 33R 1W, Stackpole RSF1JT33R0 (trunk Rev 5.44; was 100R) | `Device:R` | `R_Axial_DIN0414_L11.9mm_D4.5mm` |
 | Cx02 | C_C | 1nF C0G | `Device:C` | `C_Disc_D5.0mm_W2.5mm_P5.00mm` |
 | Dx03 | D1 | 1N4007 | `Diode:1N4007` | `D_DO-41_SOD81_P10.16mm_Horizontal` |
 
