@@ -2,7 +2,7 @@
 
 **Trunk Interface Circuit Design**
 
-*Rev 5.45 — 8 Trunks, Constant-Current Loop Feed, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Trunk Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, External Ring Generator*
+*Rev 5.46 — 8 Trunks, Constant-Current Loop Feed, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Trunk Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, External Ring Generator*
 
 # **1. Overview**
 
@@ -150,6 +150,7 @@ Only two amendments to the station document are needed, and both are flagged whe
 - Rev 5.43: corrections from an independent review of Rev 5.41, 2026-10-05, which confirmed the fix — every HCPL3700M turns on at the datasheet limits — and found several of its supporting figures wrong. Rx06 and Rx07 are now 1% parts: at −5% on Rx06 the turn-on margin falls from 0.52V to 0.27V (§4.2, §13). §4.2 gains the loop-current view of the same margin — a worst-case part needs 23.6mA against the 26mA design minimum, and holds down to 15.7mA — and its normal-operation figures are corrected to a 5.24–5.54V node and 3.0–4.4mA into Ux01 at 28.2mA; Rev 5.41's 3–6mA could not happen, since I_IN is at most 4.4mA at 5.0V and the input's curve is monotonic. The input clamp Rev 5.41 used, V_IHC1, applies only with pins 1 and 4 tied to pin 3; with them open, as on this board, the input is about 1kΩ in series with 1V (Broadcom AV02-3699EN) and clamps near 12.5V (V_IHC3). With that, and with Qx01's emitter-base junction clamping Rx02 in a Qx03 short, the fault figures fall: even a shorted Qx03 into a dead-shorted jack keeps every part inside its rating, and Rev 5.41's statement that it overloads Ux01 and Rx07 is withdrawn. Qx03 shorted during ring applied by mistake is recorded as the one case that destroys parts. Also corrected: the compliance cost of Rev 5.41 (45–54Ω of spare, not 25–50Ω, §3.3, §3.3.3), Rx06's dissipation (§3.4), the seizure inrush (§3.2.2), the §3.3.1 design point (320Ω), node B in §8.1.1, and the detector's hold-on figure. The detector now follows dial contact bounce, which control.md Rev 24's two-sample filter rejects (§4.2). Also corrected here: R102 and R103 are footprints left unfitted, not fitted as Rev 5.42 recorded (Mark, 2026-10-05), so the D-Sub grounds float at this board as §8.4 intends.
 - Rev 5.44: Rx05 (R1) goes from 100Ω to 33Ω, 1W (Stackpole RSF1JT33R0); Rx06 220Ω 2W 1% and Rx07 150Ω 1% are unchanged from Rev 5.41 and Rev 5.43 — Mark's decision, 2026-10-05 (§3.2, §3.2.4, §3.3, §3.3.1, §3.3.3, §3.4, §4.2, §13). Measured the same day on trunk 1 (§3.3.3, tests 8 and 9): the 551's dial relay pulls in at the first dial pulse and holds until the operator switches out, and with the operator in after dialling the trunk sees about 440Ω — heavier than any configuration tested before, and the same whether or not a station is on the cord, because the operator's key takes the station out of the trunk loop until she switches out. At 440Ω the Rev 5.41 values left about 8–17Ω of spare and would lose regulation at the top of the current spread; with Rx05 at 33Ω the spare is about 75–84Ω, about 50Ω at 31mA. Rx05 + Rx06 is 253Ω, close to the Rev 5.40 total, so compliance is about 575–585Ω at 28.2mA. The cost is the double fault: a shorted Qx03 into a dead-shorted jack now puts about 450mW into Ux01, past its 230mW maximum (§4.2), where Rev 5.43 had every part within rating; no Rx05 low enough for compliance avoids that, and it is accepted as a double fault — Ux01 is a DIP and can be socketed. The single fault, a shorted Qx03 on a real loop, stays within every rating. Current-source stability was measured in the same session and closes the §16 item: dial makes overshoot for under 40µs and settle with no ringing, and Cx02 stays at 1nF (§3.3.3).
 - Rev 5.45: §3.3's figure for where a new seizure is lost beyond compliance, about 670Ω of line, was the Rev 5.43 value with Rx05 at 100Ω and was not updated in Rev 5.44; with Rx05 at 33Ω it is about 730Ω (23.6mA, Qx03 saturated). The highest-resistance loop load is no longer called the heaviest (§3.3, §3.3.3): for a current source the load that strains it is the one with the most resistance, the opposite of the usual sense. Wording and one figure; no change to the board.
+- Rev 5.46: §4.4 records a seizure detector for a future revision, not adopted: an optocoupler's LED in series with the loop beside Dx03, with Rx05 and Rx06 merged into one resistor in the ring leg. It detects the loop current itself with a wide margin and removes Ux01 from the RING conductor, at about 1.2V of compliance and an LED that a shorted Qx03 overloads. The present board keeps the §4.1 detector with the Rev 5.44 values, the smallest change that makes it reliable (Mark, 2026-10-06). No change to the board.
 
 | **Former name** | **Designator** | **Former name** | **Designator** |
 | --- | --- | --- | --- |
@@ -552,6 +553,45 @@ When the trunk board applies ring, relay pole 2 lifts the ring conductor off Rx0
 When ring is applied from the switchboard by mistake, the relay is de-energised and the ring current does flow through the DC feed path — but the current source caps it at 28mA, so the detector asserts on the aiding half-cycles and produces a 20Hz pulse train on SEIZE_n. This does not need masking, because it does not look like a seizure. The debounce in §11.1 separates the two on timing alone, and the pulse train is itself a reportable diagnostic — see §5.2.
 
 The audio path does not disturb either case. Tx01 returns to node B, above Rx06, so the audio loop closes back through the relay to the line and does not pass through the sense resistor. Rx06 carries loop DC only.
+
+## **4.4 For a Future Revision: the Optocoupler in the Loop**
+
+Recorded 2026-10-06, not adopted. The board keeps the §4.1 detector with the Rev 5.44 values, which is the smallest change that makes it reliable; this is the design to consider if the board is drawn again.
+
+An optocoupler's LED in series with the loop, on Qx03's side of Dx03, detects the loop current itself:
+
+```text
+  Qx03 collector -- LED (PC817-class) -- Dx03 -- Kx01 pole 1 NC ---- TIP
+  RING ---- Kx01 pole 2 NC ---- R_LOOP (one resistor, ~180R 3W) ---- GND
+  opto collector -- SEIZE_n (Rx12 pull-up), opto emitter -- GND
+```
+
+Dx03 stays: it stands off the 127V of an accidental ring's opposing half-cycle (§3.2), against an LED's 6V or so. Rx05 and Rx06 merge into one resistor in the ring leg, as §3.3.2 proposed, so RING keeps its resistance to ground; only the total matters to compliance and to the Qx03-short fault (§3.3.1).
+
+What it gives:
+
+- A seizure is 0 against 28mA through the LED, which saturates a PC817 with a large margin. There is no threshold near the operating point, no hysteresis band, and detection holds far past compliance, down to a few milliamps, where §4.2's detector needs 23.6mA to turn on.
+- Ux01 comes off node B, the RING conductor. The output is on the logic side, where a filter capacitor against dial bounce (§4.2) is allowed.
+- Ring behaves as §4.3: trunk-applied ring lifts the line off the feed, and switchboard ring by mistake is capped at 28mA and gives the same 20Hz pulse train.
+- Rx07, Ux01, Cx05 and one of Rx05 or Rx06 go; one optocoupler is added. The HCPL3700M is then no longer common to the station and trunk boards.
+
+What it costs:
+
+- Compliance. The LED drops about 1.2V. With the single 180Ω resistor, at the dial relay's 440Ω (§3.3.3), the spare is about 55Ω at 31mA and about 125Ω at 28.2mA, against about 50Ω at 31mA with Rev 5.44.
+- A single fault overloads the LED. With Qx03 shorted, Qx01 clamps Rx02 at 0.85V and only the resistor limits the current:
+
+```text
+  R_LOOP   Qx03 short, 134R loop   + dead-short jack     PC817: 50mA continuous
+  180R     67mA                    123mA
+  220R     60mA                    101mA
+  270R     52mA                     82mA
+```
+
+Keeping the LED within rating needs about 290Ω, which fails compliance at 440Ω. Adopting the design means either accepting the LED as a casualty of a shorted Qx03, against §4.2's rule that a single fault takes out nothing else, or finding an optocoupler rated for more forward current (CNY17 and TCET1100 are 60mA, not enough at 180Ω).
+
+It could be tried on one trunk of the present board without a respin: Ux01 pulled, a PC817 in series with Dx03, its output to Ux01's pins 6 and 5, Rx05 at Rev 5.44's 33Ω and Rx06 left at the as-built 150Ω. That is 183Ω in total, about 74Ω of spare at 440Ω and 29.9mA, and about 70mA through the LED with Qx03 shorted on a 134Ω loop. Rx05 must be the 33Ω part: with the as-built 100Ω the spare is about 7Ω.
+
+Two other ways were weighed the same day and not preferred. A PNP in parallel with Qx01's base-emitter junction copies Qx01's current, which is about 2mA while the source regulates and nothing when idle, and drives an NPN into SEIZE_n. Its threshold tracks the set current, but it reads whether the source is regulating rather than whether current flows, so it drops out about 200Ω past compliance, at about 22.5mA. An LED in Qx01's own collector does the same with fewer parts, but needs a diode in Qx03's base lead to give Qx01 the headroom (it has about 1.3V), puts that diode inside the loop, and runs the LED at about 2mA, where a PC817's CTR is marginal.
 
 # **5. Accidental Ring from the Switchboard**
 
