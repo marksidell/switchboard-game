@@ -2,7 +2,7 @@
 
 **Trunk Interface Circuit Design**
 
-*Rev 5.46 — 8 Trunks, Constant-Current Loop Feed, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Trunk Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, External Ring Generator*
+*Rev 5.47 — 8 Trunks, Constant-Current Loop Feed, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Trunk Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, External Ring Generator*
 
 # **1. Overview**
 
@@ -151,6 +151,7 @@ Only two amendments to the station document are needed, and both are flagged whe
 - Rev 5.44: Rx05 (R1) goes from 100Ω to 33Ω, 1W (Stackpole RSF1JT33R0); Rx06 220Ω 2W 1% and Rx07 150Ω 1% are unchanged from Rev 5.41 and Rev 5.43 — Mark's decision, 2026-10-05 (§3.2, §3.2.4, §3.3, §3.3.1, §3.3.3, §3.4, §4.2, §13). Measured the same day on trunk 1 (§3.3.3, tests 8 and 9): the 551's dial relay pulls in at the first dial pulse and holds until the operator switches out, and with the operator in after dialling the trunk sees about 440Ω — heavier than any configuration tested before, and the same whether or not a station is on the cord, because the operator's key takes the station out of the trunk loop until she switches out. At 440Ω the Rev 5.41 values left about 8–17Ω of spare and would lose regulation at the top of the current spread; with Rx05 at 33Ω the spare is about 75–84Ω, about 50Ω at 31mA. Rx05 + Rx06 is 253Ω, close to the Rev 5.40 total, so compliance is about 575–585Ω at 28.2mA. The cost is the double fault: a shorted Qx03 into a dead-shorted jack now puts about 450mW into Ux01, past its 230mW maximum (§4.2), where Rev 5.43 had every part within rating; no Rx05 low enough for compliance avoids that, and it is accepted as a double fault — Ux01 is a DIP and can be socketed. The single fault, a shorted Qx03 on a real loop, stays within every rating. Current-source stability was measured in the same session and closes the §16 item: dial makes overshoot for under 40µs and settle with no ringing, and Cx02 stays at 1nF (§3.3.3).
 - Rev 5.45: §3.3's figure for where a new seizure is lost beyond compliance, about 670Ω of line, was the Rev 5.43 value with Rx05 at 100Ω and was not updated in Rev 5.44; with Rx05 at 33Ω it is about 730Ω (23.6mA, Qx03 saturated). The highest-resistance loop load is no longer called the heaviest (§3.3, §3.3.3): for a current source the load that strains it is the one with the most resistance, the opposite of the usual sense. Wording and one figure; no change to the board.
 - Rev 5.46: §4.4 records a seizure detector for a future revision, not adopted: an optocoupler's LED in series with the loop beside Dx03, with Rx05 and Rx06 merged into one resistor in the ring leg. It detects the loop current itself with a wide margin and removes Ux01 from the RING conductor, at about 1.2V of compliance and an LED that a shorted Qx03 overloads. The present board keeps the §4.1 detector with the Rev 5.44 values, the smallest change that makes it reliable (Mark, 2026-10-06). No change to the board.
+- Rev 5.47: §7.5.1 records ring trip for a future revision, not adopted. Ring superimposed on the feed, as an exchange does it, is ruled out by the floating ring bus shared with the switchboard; sensing ring current in each trunk's ring return with an AC-input HCPL3700M, wire-ORed onto SEIZE_n, is the plausible way, pending a measurement of the 551's trunk ring detector impedance and a series resistor to protect the generator. No change to the board (Mark, 2026-10-06).
 
 | **Former name** | **Designator** | **Former name** | **Designator** |
 | --- | --- | --- | --- |
@@ -767,6 +768,26 @@ The trunk board cannot detect seizure while it is ringing, because pole 2 has li
 The cadence itself — 2s on, 4s off, and the reasoning about answer latency — is a firmware constant and lives in control.md §8.3 as of Rev 5.35. What this board requires of it is only that the relay is released for long enough each cycle for the seizure detector to settle, which at a 100ms debounce any plausible cadence satisfies.
 
 Releasing the relay mid-cycle interrupts up to 28mA at up to 127V, which is 3.6VA against the relay's 500VA rating. No zero-crossing logic is needed.
+
+## **7.5.1 For a Future Revision: Ring Trip**
+
+Recorded 2026-10-06, not adopted. As built, an answer during a 2s burst is seen when the burst ends, up to 2s late and never missed; the game's short ring (control.md Rev 25) covers the case that mattered. A real exchange does better with ring trip: it removes ring within a cycle or two of the answer. Two ways this board could do it were weighed.
+
+**Exchange style: ring superimposed on the feed.** The exchange puts its ring generator in series with the battery, so the line carries ring on top of DC. Idle, only AC flows, because the ringer is behind a capacitor; an answer closes a DC path, and a ring-trip relay blind to the AC sees the DC and drops the ring. Here that meets four obstacles:
+
+- The current source passes DC one way only and caps it at 28mA, so ring needs a path around it — a capacitor of several µF, 250V, from TIP to ground, switched in by the relay.
+- The generator would sit in series with this board's feed, tying one leg of the ring bus to GND. The bus is floating and shared with the switchboard, which breaks both legs to keep it so (§7.1.1). Keeping it floating means an isolating transformer per trunk. This is the obstacle that rules the approach out.
+- After an answer the current source sees the 24V feed and the ring in series, which is §5's accidental-ring case: about 1.3W average in Qx03 and a 20Hz pulse train on the detector, both acceptable for the 100ms or so until the trip.
+- The detector must be on the DC-only path. §4.4's LED beside Dx03 is; the AC returns through the capacitor.
+
+**Sensing the ring current.** The more plausible way. Keep §7.2's relay and the feed unchanged, and add a sense resistor and an HCPL3700M in each trunk's ring return, wired AC-input through its bridge — the use the part is designed for. Idle, the ring current is whatever the 551's trunk ring detector draws; when the operator answers, the plug closes a DC loop of about 181Ω across the ring (§3.3.3, test 3) and the current rises. The HCPL3700M's output is open-collector and can be wire-ORed onto SEIZE_n: the firmware knows when it is ringing, so SEIZE_n during ring reads as ring trip, with no new expander pin.
+
+It needs two things settled first:
+
+- The 551's trunk ring detector impedance at 20Hz, unmeasured (§7.1.1 already names the trunk side as the unknown ring load). The threshold sits between that current and the answered one.
+- A series resistor in the ring feed. Without one an answer puts about 0.4A on the shared generator — 90V into 181Ω plus about 46Ω of winding. Its value trades ring voltage at the switchboard against generator load and its own heat: 2.2kΩ, for example, holds an answer to about 37mA and dissipates about 3W while ringing.
+
+Cost: one resistor and one optocoupler per trunk, plus a firmware ring-trip path in control.md §8.3, after one bench measurement.
 
 ## **7.6 Concurrent Ring Limit and Generator Enable**
 
