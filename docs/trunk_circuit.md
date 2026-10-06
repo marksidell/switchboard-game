@@ -2,7 +2,7 @@
 
 **Trunk Interface Circuit Design**
 
-*Rev 5.47 — 8 Trunks, Constant-Current Loop Feed, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Trunk Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, External Ring Generator*
+*Rev 5.48 — 8 Trunks, Constant-Current Loop Feed, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Trunk Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, External Ring Generator*
 
 # **1. Overview**
 
@@ -152,6 +152,7 @@ Only two amendments to the station document are needed, and both are flagged whe
 - Rev 5.45: §3.3's figure for where a new seizure is lost beyond compliance, about 670Ω of line, was the Rev 5.43 value with Rx05 at 100Ω and was not updated in Rev 5.44; with Rx05 at 33Ω it is about 730Ω (23.6mA, Qx03 saturated). The highest-resistance loop load is no longer called the heaviest (§3.3, §3.3.3): for a current source the load that strains it is the one with the most resistance, the opposite of the usual sense. Wording and one figure; no change to the board.
 - Rev 5.46: §4.4 records a seizure detector for a future revision, not adopted: an optocoupler's LED in series with the loop beside Dx03, with Rx05 and Rx06 merged into one resistor in the ring leg. It detects the loop current itself with a wide margin and removes Ux01 from the RING conductor, at about 1.2V of compliance and an LED that a shorted Qx03 overloads. The present board keeps the §4.1 detector with the Rev 5.44 values, the smallest change that makes it reliable (Mark, 2026-10-06). No change to the board.
 - Rev 5.47: §7.5.1 records ring trip for a future revision, not adopted. Ring superimposed on the feed, as an exchange does it, is ruled out by the floating ring bus shared with the switchboard; sensing ring current in each trunk's ring return with an AC-input HCPL3700M, wire-ORed onto SEIZE_n, is the plausible way, pending a measurement of the 551's trunk ring detector impedance and a series resistor to protect the generator. No change to the board (Mark, 2026-10-06).
+- Rev 5.48: new §5.3 — an operator ringing a trunk while this board rings it shorts the ring bus through the cord if the switchboard's ring keys and pole 1 put opposite legs on TIP: about 0.8A, limited by the generator's winding, until a fuse opens; nothing is damaged. §7.1.1 gains the one-time polarity check at commissioning (Mark, 2026-10-06). No change to the board.
 
 | **Former name** | **Designator** | **Former name** | **Designator** |
 | --- | --- | --- | --- |
@@ -628,6 +629,12 @@ An accidental ring produces a distinctive signature on SEIZE_n that costs nothin
 
 A genuine seizure asserts continuously. An accidental ring never asserts for longer than about 27ms before dropping out. Requiring 100ms of continuous assertion before declaring a seizure therefore rejects the ring case with roughly four times margin, and the transitions that fail the test are exactly the evidence that ring is present. Firmware reports it as a fault rather than silently discarding it — an operator who has rung a trunk and is waiting for an answer that will never come is a support call otherwise, and the host is the only place that can put it on screen.
 
+## **5.3 Ringing Into a Trunk That Is Ringing**
+
+If the operator rings a trunk while this board is ringing it — a cord in the jack and a ring or ring-back key held during a burst — both ends have the ring bus across the same pair. With the polarity agreeing that is harmless (§7.1.1). With it reversed the cord joins RING_HI to RING_LO outside the generator, and the only thing limiting the current is the generator's output winding: about 106Ω with its drive side referred up, so about 0.8A RMS (ring_generator.md §7.6). The cord, key contacts and relay add a few ohms. F2 on the generator's switchboard branch or F101 at J102 opens — which, depends on the legs the fuses sit in, and failing both the generator's F1 does — and ring_generator.md §7.6 has the generator surviving a shorted bus. Nothing is damaged, but switchboard or trunk ringing is dead until a fuse is replaced, possibly mid-game.
+
+The firmware cannot help: nothing tells it a ring key is pressed. The protection is the commissioning check in §7.1.1. A series resistor in the trunk ring feed, as §7.5.1 sketches for ring trip, would also cover it — 2.2kΩ holds a reversed short to about 35mA.
+
 # **6. Overvoltage Protection — TVS**
 
 A bidirectional TVS across tip and ring at each trunk jack clamps transients from the switchboard side before they reach the audio transformer or the relay contacts.
@@ -687,7 +694,7 @@ Ring voltage is generated on a separate board, designed separately, and arrives 
 
 ## **7.1.1 Sharing the Generator with the Switchboard**
 
-The same generator supplies the switchboard's own ringing, so the operator rings stations from it as well. Three consequences, none of which change the trunk board circuit but two of which change what the document previously claimed.
+The same generator supplies the switchboard's own ringing, so the operator rings stations from it as well. Four consequences, none of which change the trunk board circuit but two of which change what the document previously claimed; the fourth is a check at commissioning.
 
 First, the bus is genuinely floating and stays that way. The switchboard isolates its ring supply from the line circuits with DPDT switches, breaking both legs when not ringing — which is the signature of a floating source, since a supply with one leg bonded to battery would only need single-pole keys. An earlier draft of this section predicted the opposite and it was wrong. Both ends of the system therefore treat the bus identically: two poles, both legs broken, complete isolation when idle. The original floating-pair specification stands, and pole 2's justification in §7.2 is restored in full — it keeps ring current out of the ground plane as well as lifting Tx01's cold end.
 
@@ -698,6 +705,12 @@ It also means the bus carries no load at all when nothing is ringing. Neither en
 Second, the generator can no longer be gated on trunk ring. The operator must be able to ring a station at any moment, so the generator has to be running whenever the system is up — see §7.6.
 
 Third, the station boards are a very light ring load and this is good news for the generator budget. A station's ring detector draws about 4mA RMS through its 20kΩ dropper (station §3.4), against the 20mA or more a real telephone ringer would take. Even with several stations being rung the switchboard side contributes little; the trunk side, loading the switchboard's own trunk circuits, remains the unknown.
+
+Fourth, both ends must put the same leg on the same conductor. Pole 1 puts RING_HI on TIP (§7.2); the switchboard's ring and ring-back keys put whichever leg its wiring gives them on the cord's tip. If the two disagree, an operator who rings into a trunk while this board is ringing it joins RING_HI to RING_LO through the cord — §5.3. Since there is one generator, agreeing ends are two sources in parallel, in phase, and nothing flows. Polarity is a property of the wiring, not of anything the operator does, so it is checked once at commissioning, with the generator off:
+
+1. Hold a ring key with no plug in the cord. An ohmmeter from the switchboard's RING_HI lead at the generator's J8 to the cord's tip should read continuity; continuity to the cord's ring conductor instead means the pair is reversed. Swap it at J8, the switchboard branch, not at J7.
+2. Repeat with the ring-back key, and on more than one cord pair, in case a key is wired differently from the rest.
+3. Label the J8 pair, so that a later re-termination of J7, J8 or the switchboard ring cable keeps the polarity.
 
 ## **7.2 Relay Contact Configuration**
 
