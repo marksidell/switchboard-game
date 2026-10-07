@@ -2,7 +2,7 @@
 
 **Ring Generator Circuit Design**
 
-*Rev 73 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C14 at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J3, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7*
+*Rev 74 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C14 at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J3, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7*
 
 # 1. Overview
 
@@ -355,6 +355,8 @@ Rev 15 exists because the gate-drive logic threshold in Rev 14 was checked again
 §9.7 is not renamed: its designators are the `kicad/control2` schematic's. The subtitle's J10 (the ring drive monitor) is corrected to J3, which Rev 68 missed. References to the trunk and station boards follow the designators those boards carry (trunk J102 for its ring input, F101 and F102 for its fuses, station Cx03 for the ring detector's blocking capacitor). No design change.
 
 — Rev 73: no design change. §9.7 records, as being considered (Mark, 2026-10-07), a second secondary on T101 to give the trunks their own ring source: trunk_circuit.md §7.5.1 (Rev 5.49) needs a ground-referenced source in series with each trunk's DC loop for exchange-style ring trip, and the ring bus has to stay floating for the switchboard. A second winding, rectifier and bus, with a second stage 2 and its own isolated drive, provides it from the same core; on this board the same job is done by a separate 20Hz transformer off the ring bus.
+
+— Rev 74: no design change. §9.7 gains T101's winding plan on the core Mark has bought, a TDK E 25/13/7 (EF 25) — 20 primary turns of 0.5mm, about 0.11T peak at 50kHz from ±24V, and about 100 turns of 0.25mm per secondary for a 115V bus — replacing the TY-311P placeholder as the description of T101 (the drawing's symbol is unchanged). The second secondary for the trunks, being considered at Rev 73, fits the window. Material, gap and coil former are assumed (ungapped N87, B66208) until confirmed.
 
 # 2. Signal Path
 
@@ -976,6 +978,26 @@ What drawing it found that the cost list above missed: the bus must float, and a
 — Layout: the bus negative is a second ground domain — the module output, the 78L05, the bus side of the isolators, U4 and U5 COM, and the stage-2 gate networks. Keep it together and apart from GND; only the module and the optocouplers bridge the two. Each 6N137 takes 100nF across its bus-side supply.
 
 Stage 1. U102 and U103, IR2104s, drive four IRLZ44Ns from +24V into T101, a transformer Mark is to wind himself; the TY-311P in the drawing is a placeholder symbol. C105, a 1µF 250V R82 film capacitor — the C_OUT part, chosen to share a BOM line — is in series with the primary. Because the primary can then carry no DC, stage 1 is driven from one GPIO, with its complement made in hardware. GPIO4, with a 10k pull-up (R106), goes through 74HCT04 gate 6 to U102 IN, and on through gate 5 to U103 IN. A wave that stops with one leg high and the other low charges C105 to 24V through the primary and then carries nothing: at worst 48µC and about 0.3mJ, and the core may saturate during the charge, which the MOSFETs absorb. Three conditions go with it. The firmware starts LEDC before raising SD and drops SD before stopping LEDC, since a parked wave with SD high leaves C105 charged and puts 48V across the primary on the first half-cycle. C105 resonates with T101's leakage: at 10µH of leakage the resonance is 50kHz, on the switching frequency, so measure the leakage once T101 is wound; two R82s in parallel would put the resonance near 36kHz. And the first half-cycle starts from zero flux and reaches twice the steady-state peak, so scope the primary current at start and use a half-length first pulse if it shows a saturation spike. Stage 1 runs at 50kHz and stage 2 at 40kHz, so stage 1 has its own LEDC timer.
+
+T101 winding plan, Rev 74. The core Mark has bought is a TDK E 25/13/7 (EF 25), B66317: Ae 52.5mm², Amin 51.5mm², le 57.5mm. Assumed until confirmed: ungapped N87 (A_L 1850nH; N27 serves equally at 50kHz), on the B66208 coil former, window AN 61mm², mean turn lN 50mm. The full bridge puts ±24V on the primary, 240µVs per 10µs half-cycle at 50kHz:
+
+```text
+  N_pri   ΔB p-p    B_peak
+   18     0.25 T    0.13 T
+   20     0.23 T    0.11 T    <- chosen
+   23     0.20 T    0.10 T
+```
+
+At 20 turns the first half-cycle, which starts from zero flux, reaches 0.23T against N87's saturation of about 0.39T at 100°C, so the half-length first pulse above should not be needed. Core loss, scaled from the datasheet's 1.6W per set at 200mT and 100kHz, is about 0.1W. Magnetizing inductance is 20² × 1.85µH ≈ 0.74mH, about ±0.16A of magnetizing current, and with C105 it resonates near 5.9kHz, well below the switching frequency; C105's resonance with the leakage is the one above that needs measuring.
+
+```text
+  winding                        current   wire (~4A/mm²)     turns   layers on ~15mm
+  primary                        ~0.8A     0.5mm (AWG 24)      20     1
+  secondary, switchboard bus     ~0.2A     0.25mm (AWG 30)    ~100    2
+  secondary, trunk bus (option)  ~0.2A     0.25mm (AWG 30)    ~100    2
+```
+
+The currents assume about 20VA in all: the switchboard's station ringing, and on the trunk bus the concurrent-ring cap of four trunks at about 20mA and 80V, with margin. The ratio is about 1:5 for a 115V bus; set the secondary turns on the bench from the bus voltage measured. The 0.5mm primary wire is under twice the skin depth at 50kHz (0.29mm), so solid wire serves. The build is about 2mm with tape, half the window's depth of about 4mm, so the second secondary — being considered, see below — fits whether or not it is wanted now. Two or three layers of polyester tape go between the primary and the secondaries and between the two secondaries; they are a few hundred volts apart at most, so tape suffices and triple-insulated wire is not needed. Wind the switchboard secondary first, next to the primary, and the trunk secondary outside it.
 
 Level translation. One 74HCT04 gate per signal, not two, with pull-ups to +3.3V at the GPIOs in place of §5's pull-downs. A pulled-up GPIO puts IN low, so the boot state is the parked state §5.3 requires, and ESP32 reset or panic floats the pins into it. The firmware sets LEDC's output-invert when it attaches the pins (`ledcOutputInvert()` in core 3.x), which keeps the duty tables, the park at duty 0 and the start phase as they are now. If the invert were lost, duty 0 would put both INs high — the zero vector, not a fault. SD becomes active LOW at GPIO14, so the firmware names the level rather than writing LOW as if LOW were safe. §5's argument against single inversion came from the 74HCT02's cross-coupling, which Rev 40 removed. The gates are 1 for GPIO33, 2 for GPIO32, 3 for GPIO14, and 6 and 5 for stage 1; gate 4 is spare and its input goes to GND.
 
