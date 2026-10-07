@@ -2,7 +2,7 @@
 
 **Ring Generator Circuit Design**
 
-*Rev 72 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C14 at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J3, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7*
+*Rev 73 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C14 at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J3, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7*
 
 # 1. Overview
 
@@ -353,6 +353,8 @@ Rev 15 exists because the gate-drive logic threshold in Rev 14 was checked again
 | U_ESP32 | U6 | FH1, FH2 | the holders of F1, F2 | R_SD_PD2, J4 | not on the board |
 
 §9.7 is not renamed: its designators are the `kicad/control2` schematic's. The subtitle's J10 (the ring drive monitor) is corrected to J3, which Rev 68 missed. References to the trunk and station boards follow the designators those boards carry (trunk J102 for its ring input, F101 and F102 for its fuses, station Cx03 for the ring detector's blocking capacitor). No design change.
+
+— Rev 73: no design change. §9.7 records, as being considered (Mark, 2026-10-07), a second secondary on T101 to give the trunks their own ring source: trunk_circuit.md §7.5.1 (Rev 5.49) needs a ground-referenced source in series with each trunk's DC loop for exchange-style ring trip, and the ring bus has to stay floating for the switchboard. A second winding, rectifier and bus, with a second stage 2 and its own isolated drive, provides it from the same core; on this board the same job is done by a separate 20Hz transformer off the ring bus.
 
 # 2. Signal Path
 
@@ -994,6 +996,14 @@ Drawing defects in the 19:08 save, for whoever picks it up:
 — U1 pins 8 and 9, gate 4, are unconnected. Tie pin 9 to GND.
 — J3 brings the raw stage-1 switching nodes to a header: 24V plus ringing, near the AD3's range. §8.7's monitor (J3 on this board, J10 before Rev 68) filters.
 — Cosmetic: D103–D106 use the 1N4004 symbol and Q1–Q4 the IRLZ44N symbol, with the values changed. The DO-41 and TO-220 G-D-S footprints match.
+
+Being considered, 2026-10-07: a second output for the trunks. trunk_circuit.md §7.5.1 (Rev 5.49) works out exchange-style ring trip, which puts a ring source with one end on GND in series with each trunk's DC loop. The ring bus cannot be that source, because it has to stay floating for the switchboard (trunk §7.1.1). On the present board the answer is a separate 1:1 transformer of 30–50VA off the ring bus. On this one, T101 can supply it directly:
+
+— A second secondary on T101, the same turns as the first, with its own rectifier, bus capacitor and bleeder: a second isolated bus of about 115V. Stage 1 and the core are shared and sized for both loads together, a few tens of VA at 50kHz.
+— A second stage 2 on that bus: four MOSFETs, two IR2104s and their bootstraps, the split LC filter and damping resistors, and an output fuse. The two outputs cannot share one bus. Grounding a leg of the trunk output ties the bus to GND through that bridge's switching, so the bus negative would swing against GND at the PWM rate and the switchboard output, on the same bus, would carry 115V of 40kHz common mode.
+— A second isolated drive domain — supply, PWM isolators and SD isolator — since the trunk bridge's bus negative still switches relative to GND even with an output leg grounded. The PWM GPIOs can be shared, both outputs carrying the same sine; a separate SD lets each output stop on its own.
+— Winding: insulate between the two secondaries as well as from the primary. The trunk bus is tied to GND through its output and the switchboard bus floats, so the gap between them carries the full ring swing plus whatever common mode the switchboard picks up.
+— Neither bus is regulated, so a load on one pulls the other down slightly through the shared primary and the leakage. At these loads that is a few volts; measure it on the bench with one output loaded and the other open, then the reverse.
 
 Where it stands. Drawn out, the alternative adds, against this board: a second H-bridge (two IR2104s, four MOSFETs, bootstraps, gate resistors); a wound ferrite, its DC block, a four-diode bridge, a bus capacitor and a bleeder; two inductors, two damping resistors and a second output fuse; an isolated supply, a regulator, three optocouplers and their resistors; a second ground domain; and 115V DC on the board. This board does the same job with one transformer and one capacitor, and gets its current limit from the winding copper. It has also rung a bell. Mark's reading on 2026-09-25 was that the working design looks the more attractive of the two, the transformer's size being its only drawback. The conclusion above stands, and so does the list of conditions under which the balance would tip.
 
