@@ -1,0 +1,167 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="900" viewBox="0 0 1000 900" font-family="Helvetica, Arial, sans-serif" font-size="13">
+<rect width="1000" height="900" fill="#fff"/>
+<text x="20" y="24" font-size="17" font-weight="bold">Trunk ring over battery — one trunk, relay energised (ringing)</text>
+<text x="20" y="44" fill="#555">Sketch for discussion, not a design. Values are first guesses.</text>
+
+<!-- loop overlays (drawn first, under the wires) -->
+<g fill="none" stroke-linejoin="round" stroke-width="9" opacity="0.35">
+  <!-- DC loop, red -->
+  <polyline stroke="#d62728" points="150,70 150,293 815,293 815,567 560,567 513,607 513,847 70,847 70,70 150,70"/>
+  <!-- AC loop, blue -->
+  <polyline stroke="#1f77b4" points="527,707 527,600 560,553 845,553 845,307 360,307 397,380 397,833 527,833 527,707"/>
+</g>
+
+<!-- supply -->
+<line x1="70" y1="70" x2="70" y2="420" stroke="#000"/>
+<line x1="50" y1="420" x2="90" y2="420" stroke="#000" stroke-width="2"/>
+<line x1="60" y1="432" x2="80" y2="432" stroke="#000" stroke-width="4"/>
+<line x1="70" y1="432" x2="70" y2="840" stroke="#000"/>
+<text x="20" y="410">+24 V</text>
+<text x="15" y="455" fill="#555">supply</text>
+<line x1="70" y1="70" x2="150" y2="70" stroke="#000"/>
+
+<!-- current source -->
+<rect x="105" y="85" width="90" height="55" fill="#fff" stroke="#000"/>
+<text x="150" y="106" text-anchor="middle">current</text>
+<text x="150" y="122" text-anchor="middle">source</text>
+<text x="150" y="136" text-anchor="middle" font-size="11">28 mA, one way</text>
+<line x1="150" y1="70" x2="150" y2="85" stroke="#000"/>
+<text x="205" y="110" font-size="11" fill="#555">Qx01, Qx03, Rx02</text>
+<text x="205" y="124" font-size="11" fill="#555">(blocks AC)</text>
+
+<!-- opto LED -->
+<line x1="150" y1="140" x2="150" y2="165" stroke="#000"/>
+<polygon points="138,165 162,165 150,185" fill="#fff" stroke="#000"/>
+<line x1="138" y1="185" x2="162" y2="185" stroke="#000"/>
+<path d="M166,170 l12,-8 M174,162 l4,0 l0,4 M166,180 l12,-8 M174,172 l4,0 l0,4" stroke="#000" fill="none"/>
+<rect x="125" y="152" width="170" height="44" fill="none" stroke="#888" stroke-dasharray="4 3"/>
+<text x="190" y="170" font-size="12">opto (PC817)</text>
+<text x="190" y="186" font-size="12">→ SEIZE_n</text>
+<text x="305" y="170" font-size="11" fill="#555">the ring-trip relay:</text>
+<text x="305" y="184" font-size="11" fill="#555">lit only by DC</text>
+
+<!-- Dx03 -->
+<line x1="150" y1="185" x2="150" y2="225" stroke="#000"/>
+<polygon points="138,225 162,225 150,245" fill="#fff" stroke="#000"/>
+<line x1="138" y1="245" x2="162" y2="245" stroke="#000"/>
+<text x="172" y="240" font-size="12">Dx03</text>
+<line x1="150" y1="245" x2="150" y2="300" stroke="#000"/>
+
+<!-- TIP rail -->
+<line x1="150" y1="300" x2="760" y2="300" stroke="#000" stroke-width="1.6"/>
+<circle cx="740" cy="300" r="4" fill="#000"/>
+<text x="722" y="290" font-weight="bold">TIP</text>
+
+<!-- pole 1 -->
+<line x1="360" y1="300" x2="360" y2="330" stroke="#000"/>
+<circle cx="360" cy="330" r="3" fill="#000"/>
+<line x1="360" y1="330" x2="390" y2="375" stroke="#000" stroke-width="2"/>
+<circle cx="330" cy="378" r="3" fill="#fff" stroke="#000"/>
+<circle cx="390" cy="378" r="3" fill="#fff" stroke="#000"/>
+<text x="300" y="350" font-size="11">NC</text>
+<text x="398" y="372" font-size="11">NO</text>
+<text x="372" y="326" font-size="12" font-weight="bold">pole 1</text>
+
+<!-- C_bypass -->
+<line x1="390" y1="381" x2="390" y2="420" stroke="#000"/>
+<line x1="372" y1="420" x2="408" y2="420" stroke="#000" stroke-width="2.5"/>
+<line x1="372" y1="430" x2="408" y2="430" stroke="#000" stroke-width="2.5"/>
+<line x1="390" y1="430" x2="390" y2="840" stroke="#000"/>
+<text x="415" y="420" font-size="12">C_bypass</text>
+<text x="415" y="435" font-size="11" fill="#555">~10 µF 250 V film</text>
+<text x="415" y="449" font-size="11" fill="#555">AC path round the source</text>
+
+<!-- Tx01 (lifted) -->
+<g stroke="#999" stroke-dasharray="4 3" fill="none">
+  <line x1="330" y1="381" x2="330" y2="410"/>
+  <path d="M330,410 a8,8 0 0 1 0,16 a8,8 0 0 1 0,16 a8,8 0 0 1 0,16 a8,8 0 0 1 0,16"/>
+  <line x1="330" y1="474" x2="330" y2="520"/>
+  <line x1="250" y1="520" x2="517" y2="520"/>
+</g>
+<text x="240" y="445" font-size="12" fill="#888">Tx01</text>
+<text x="208" y="461" font-size="11" fill="#888">(audio, lifted)</text>
+
+<!-- R_LOOP (idle in ring) -->
+<g stroke="#999" fill="none">
+  <line x1="250" y1="520" x2="250" y2="545" stroke-dasharray="4 3"/>
+  <rect x="242" y="545" width="16" height="45" fill="#fff"/>
+  <line x1="250" y1="590" x2="250" y2="840" stroke-dasharray="4 3"/>
+</g>
+<text x="175" y="568" font-size="12" fill="#888">R_LOOP</text>
+<text x="160" y="584" font-size="11" fill="#888">~180 Ω (§4.4)</text>
+<text x="300" y="514" font-size="11" fill="#888">node B</text>
+
+<!-- RING rail -->
+<line x1="560" y1="560" x2="760" y2="560" stroke="#000" stroke-width="1.6"/>
+<circle cx="740" cy="560" r="4" fill="#000"/>
+<text x="715" y="585" font-weight="bold">RING</text>
+
+<!-- pole 2 -->
+<circle cx="560" cy="560" r="3" fill="#000"/>
+<line x1="560" y1="560" x2="523" y2="598" stroke="#000" stroke-width="2"/>
+<circle cx="520" cy="520" r="3" fill="#fff" stroke="#000"/>
+<circle cx="520" cy="600" r="3" fill="#fff" stroke="#000"/>
+<text x="527" y="516" font-size="11">NC</text>
+<text x="480" y="604" font-size="11">NO</text>
+<text x="572" y="545" font-size="12" font-weight="bold">pole 2</text>
+
+<!-- R_series -->
+<line x1="520" y1="603" x2="520" y2="625" stroke="#000"/>
+<rect x="512" y="625" width="16" height="45" fill="#fff" stroke="#000"/>
+<line x1="520" y1="670" x2="520" y2="710" stroke="#000"/>
+<text x="538" y="645" font-size="12">R_series</text>
+<text x="538" y="660" font-size="11" fill="#555">2.2 kΩ — limits answer,</text>
+<text x="538" y="674" font-size="11" fill="#555">wrong-polarity and core DC</text>
+
+<!-- T_ring -->
+<path d="M520,710 a9,9 0 0 1 0,18 a9,9 0 0 1 0,18 a9,9 0 0 1 0,18 a9,9 0 0 1 0,18 a9,9 0 0 1 0,18" fill="none" stroke="#000" stroke-width="1.6"/>
+<line x1="520" y1="800" x2="520" y2="840" stroke="#000"/>
+<line x1="543" y1="708" x2="543" y2="802" stroke="#000" stroke-width="2"/>
+<line x1="549" y1="708" x2="549" y2="802" stroke="#000" stroke-width="2"/>
+<path d="M572,710 a9,9 0 0 0 0,18 a9,9 0 0 0 0,18 a9,9 0 0 0 0,18 a9,9 0 0 0 0,18 a9,9 0 0 0 0,18" fill="none" stroke="#000" stroke-width="1.6"/>
+<line x1="572" y1="710" x2="900" y2="710" stroke="#000"/>
+<line x1="572" y1="800" x2="900" y2="800" stroke="#000"/>
+<text x="600" y="826" font-size="12" font-weight="bold">T_ring</text>
+<text x="652" y="826" font-size="11" fill="#555">1:1, ≥360 V windings, one per board. Secondary: one end GND,</text>
+<text x="652" y="840" font-size="11" fill="#555">the other (RING_T) to every trunk's pole 2 via its own R_series</text>
+<text x="600" y="704" font-size="12">RING_HI</text>
+<text x="600" y="795" font-size="12">RING_LO</text>
+<text x="620" y="740" font-size="12">ring bus, floating — from the generator (Antek),</text>
+<text x="620" y="756" font-size="12">shared with the switchboard (J8), stays floating</text>
+
+<!-- ground bus -->
+<line x1="70" y1="840" x2="560" y2="840" stroke="#000" stroke-width="1.6"/>
+<line x1="300" y1="840" x2="300" y2="855" stroke="#000"/>
+<line x1="285" y1="855" x2="315" y2="855" stroke="#000" stroke-width="2"/>
+<line x1="290" y1="861" x2="310" y2="861" stroke="#000" stroke-width="2"/>
+<line x1="295" y1="867" x2="305" y2="867" stroke="#000" stroke-width="2"/>
+<text x="330" y="866">GND</text>
+
+<!-- load -->
+<line x1="760" y1="300" x2="830" y2="300" stroke="#000"/>
+<line x1="760" y1="560" x2="830" y2="560" stroke="#000"/>
+<line x1="830" y1="300" x2="830" y2="360" stroke="#000"/>
+<line x1="830" y1="500" x2="830" y2="560" stroke="#000"/>
+<rect x="770" y="360" width="200" height="140" fill="#fff" stroke="#000"/>
+<text x="870" y="385" text-anchor="middle" font-weight="bold">the 551 (or a phone)</text>
+<text x="870" y="410" text-anchor="middle" font-size="12">on-hook: ringer</text>
+<text x="870" y="425" text-anchor="middle" font-size="11" fill="#555">capacitor + coil, blocks DC</text>
+<text x="870" y="452" text-anchor="middle" font-size="12">answered: DC path</text>
+<text x="870" y="467" text-anchor="middle" font-size="11" fill="#555">~180–440 Ω</text>
+<text x="870" y="490" text-anchor="middle" font-size="11" fill="#555">via the cord / jack</text>
+
+<!-- legend -->
+<rect x="600" y="70" width="380" height="150" fill="#fafafa" stroke="#ccc"/>
+<line x1="615" y1="95" x2="655" y2="95" stroke="#1f77b4" stroke-width="9" opacity="0.35"/>
+<text x="665" y="92" font-weight="bold">AC ring loop</text>
+<text x="665" y="108" font-size="12">whenever ringing; rings the bell.</text>
+<text x="665" y="122" font-size="12">Returns through C_bypass, not the source.</text>
+<line x1="615" y1="145" x2="655" y2="145" stroke="#d62728" stroke-width="9" opacity="0.35"/>
+<text x="665" y="142" font-weight="bold">DC loop</text>
+<text x="665" y="158" font-size="12">only once answered (~8 mA via R_series):</text>
+<text x="665" y="172" font-size="12">opto lights → firmware drops the ring.</text>
+<line x1="615" y1="198" x2="655" y2="198" stroke="#999" stroke-dasharray="4 3"/>
+<text x="665" y="202" font-size="12">idle during ring; normal feed when released</text>
+
+<text x="20" y="890" font-size="11" fill="#555">Relay released (not ringing): pole 1 puts Tx01 on TIP, pole 2 returns RING to node B and R_LOOP — the normal §4.4 feed. C_bypass and T_ring are out of circuit.</text>
+</svg>

@@ -2,7 +2,7 @@
 
 **Trunk Interface Circuit Design**
 
-*Rev 5.48 — 8 Trunks, Constant-Current Loop Feed, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Trunk Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, External Ring Generator*
+*Rev 5.49 — 8 Trunks, Constant-Current Loop Feed, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Trunk Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, External Ring Generator*
 
 # **1. Overview**
 
@@ -153,6 +153,7 @@ Only two amendments to the station document are needed, and both are flagged whe
 - Rev 5.46: §4.4 records a seizure detector for a future revision, not adopted: an optocoupler's LED in series with the loop beside Dx03, with Rx05 and Rx06 merged into one resistor in the ring leg. It detects the loop current itself with a wide margin and removes Ux01 from the RING conductor, at about 1.2V of compliance and an LED that a shorted Qx03 overloads. The present board keeps the §4.1 detector with the Rev 5.44 values, the smallest change that makes it reliable (Mark, 2026-10-06). No change to the board.
 - Rev 5.47: §7.5.1 records ring trip for a future revision, not adopted. Ring superimposed on the feed, as an exchange does it, is ruled out by the floating ring bus shared with the switchboard; sensing ring current in each trunk's ring return with an AC-input HCPL3700M, wire-ORed onto SEIZE_n, is the plausible way, pending a measurement of the 551's trunk ring detector impedance and a series resistor to protect the generator. No change to the board (Mark, 2026-10-06).
 - Rev 5.48: new §5.3 — an operator ringing a trunk while this board rings it shorts the ring bus through the cord if the switchboard's ring keys and pole 1 put opposite legs on TIP: about 0.8A, limited by the generator's winding, until a fuse opens; nothing is damaged. §7.1.1 gains the one-time polarity check at commissioning (Mark, 2026-10-06). No change to the board.
+- Rev 5.49: §7.5.1's exchange-style ring trip is worked out, with a sketch, `docs/ring_over_battery_sketch.svg`. It is not ruled out after all: one isolating transformer for the board, not one per trunk, keeps the bus floating, since each trunk detects in its own current-source path; a switched capacitor carries the ring around the current source; and §4.4's LED is the detector, independent of the ringer load. Capacitive coupling of the bus to TIP and RING without it is recorded as not working. R_series also removes §5.3's hazard. Still a future revision, not adopted (Mark, 2026-10-07). No change to the board.
 
 | **Former name** | **Designator** | **Former name** | **Designator** |
 | --- | --- | --- | --- |
@@ -786,12 +787,27 @@ Releasing the relay mid-cycle interrupts up to 28mA at up to 127V, which is 3.6V
 
 Recorded 2026-10-06, not adopted. As built, an answer during a 2s burst is seen when the burst ends, up to 2s late and never missed; the game's short ring (control.md Rev 25) covers the case that mattered. A real exchange does better with ring trip: it removes ring within a cycle or two of the answer. Two ways this board could do it were weighed.
 
-**Exchange style: ring superimposed on the feed.** The exchange puts its ring generator in series with the battery, so the line carries ring on top of DC. Idle, only AC flows, because the ringer is behind a capacitor; an answer closes a DC path, and a ring-trip relay blind to the AC sees the DC and drops the ring. Here that meets four obstacles:
+**Exchange style: ring superimposed on the feed.** The exchange puts its ring generator in series with the battery, so the line carries ring on top of DC. Idle, only AC flows, because the ringer is behind a capacitor; an answer closes a DC path, and a ring-trip relay blind to the AC sees the DC and drops the ring. Worked out for this board on 2026-10-07; sketch in `docs/ring_over_battery_sketch.svg`:
 
-- The current source passes DC one way only and caps it at 28mA, so ring needs a path around it — a capacitor of several µF, 250V, from TIP to ground, switched in by the relay.
-- The generator would sit in series with this board's feed, tying one leg of the ring bus to GND. The bus is floating and shared with the switchboard, which breaks both legs to keep it so (§7.1.1). Keeping it floating means an isolating transformer per trunk. This is the obstacle that rules the approach out.
-- After an answer the current source sees the 24V feed and the ring in series, which is §5's accidental-ring case: about 1.3W average in Qx03 and a 20Hz pulse train on the detector, both acceptable for the 100ms or so until the trip.
-- The detector must be on the DC-only path. §4.4's LED beside Dx03 is; the AC returns through the capacitor.
+```text
+  ring bus (floating, unchanged) -- T_ring primary          one T_ring per board, 1:1
+  T_ring secondary: one end GND, the other RING_T, shared by every trunk
+
+  per trunk, relay energised:
+    pole 1:  TIP  -- C_bypass (~10uF 250V film) -- GND       AC path round the current source
+    pole 2:  RING -- R_series (~2.2k) -- RING_T              DC loop returns through the secondary
+    current source stays on TIP; §4.4's LED beside Dx03 is the ring-trip detector
+  relay released: pole 1 puts Tx01 on TIP, pole 2 returns RING to node B -- the §4.4 feed
+```
+
+- Two loops. The AC loop — T_ring, R_series, RING, the load, TIP, C_bypass, ground — exists whenever the trunk rings and rings the bell. The DC loop — +24V, current source, LED, Dx03, TIP, the load, RING, R_series, T_ring's secondary, ground — exists only when the load passes DC, which a ringer behind its capacitor does not. The LED therefore lights on an answer and on nothing else, however many ringers are on the line: unlike sensing the ring current below, the decision does not depend on the load.
+- The current source passes DC one way only, so the ring cannot return through it as it returns through an exchange battery; C_bypass is the path. Capacitors alone, coupling the bus to TIP and RING with the feed left in place, do not work: RING is held near ground by R_LOOP, the whole swing lands on TIP, the current source conducts on every negative excursion and rectifies, and C_bypass charges until TIP swings about 22–248V — about 135V DC across the pair with the ring on top. Feed chokes would cure it, but at well over 100H per leg.
+- T_ring gives the trunks a ground-referenced source while the bus stays floating for the switchboard (§7.1.1). Grounding one leg of the bus instead is untested, and the concern is the station boards: while the operator rings a station, the bus is across a line the station board feeds from +24V and ground. One transformer serves all eight trunks, because each trunk's detector is in its own current-source path and the shared secondary may carry their DC together.
+- Answered during ring, the loop carries about 21V / (R_series + loop + secondary copper), 7.5–8.7mA with 2.2kΩ, with the ring current on top; the current source is out of regulation and the LED is lit. The secondary's copper costs under 1mA of that. What the DC does matter for is T_ring's core: a 50/60Hz transformer takes a third of its rated voltage at 20Hz, so a 240V winding carrying 80V is already at rated flux, and each answered trunk adds about 8mA of DC bias. Take the windings at 360V or more, or a larger core.
+- T_ring is sized by 20Hz flux rather than by power. The load is the concurrent-ring cap (four, control.md §8.4) times the per-trunk ring current — about 6–10VA at 80V on §7.6's 20mA estimate, more for an answered trunk until the trip — and a mains part delivers only a third of its rating at 20Hz, so a part of about 30–50VA.
+- After an answer the current source sees ring as well as the feed until the trip, §5's accidental-ring case: about 1.3W average in Qx03 for 100ms or so.
+- R_series does three jobs: it limits the answered loop's ring current and protects the generator, it limits the DC bias in T_ring, and it removes §5.3's hazard. With an operator ringing into a ringing trunk, the switchboard's bus now sees C_bypass, T_ring's secondary and R_series in series between TIP and RING — no low-resistance path — so reversed polarity gives about 160V RMS into about 2.3kΩ, about 70mA, and agreeing polarity gives none. The polarity check in §7.1.1 stops mattering.
+- Cost: one transformer per board and, per trunk, C_bypass, R_series and rewired relay poles, on top of §4.4's detector, which this needs — sensing at R_LOOP would see the ring current as well.
 
 **Sensing the ring current.** The more plausible way. Keep §7.2's relay and the feed unchanged, and add a sense resistor and an HCPL3700M in each trunk's ring return, wired AC-input through its bridge — the use the part is designed for. Idle, the ring current is whatever the 551's trunk ring detector draws; when the operator answers, the plug closes a DC loop of about 181Ω across the ring (§3.3.3, test 3) and the current rises. The HCPL3700M's output is open-collector and can be wire-ORed onto SEIZE_n: the firmware knows when it is ringing, so SEIZE_n during ring reads as ring trip, with no new expander pin.
 
