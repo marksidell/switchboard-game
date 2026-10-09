@@ -5914,6 +5914,27 @@
     "text_sha": "9ec0c1d333db2e53",
     "voice_sha": "8b4ed5260dcb435d"
   },
+  "tutor.intro-cords": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "0a61ed2a4da92975",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "tutor.intro-jacks": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "816587a88556dfa5",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "tutor.intro-switches": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "79ebcac077865b54",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
   "tutor.ready-manual": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
