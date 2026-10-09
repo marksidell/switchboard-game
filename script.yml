@@ -132,6 +132,9 @@ cast:
     # The voice of tutor mode (game_control.md 4.9): a senior operator who
     # talks the player through each call over the loudspeaker. Her lines
     # are under tutor: below, not in any scene.
+    # Her voice is cloned from a public-domain Bell System training film
+    # (tts/voices/tutor.wav and .json, tts_task.md 5.1), not designed; sample:
+    # and voice: are kept for a designed voice, should one be wanted.
     tutor:
         sex: female
         accent: mid-Atlantic

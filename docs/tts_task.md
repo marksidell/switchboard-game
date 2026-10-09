@@ -154,7 +154,9 @@ git checkout <that commit> -- tts/voices/thornhill.* tts/voices/marysmith.*
 tts/aws/generate --dry          # every Thornhill and Mary Smith line, "reference voice changed"
 ```
 
-The designed voices, Thornhill's take 4 and Mary Smith's take 1, are in the repository's history before 2026-09-30. Until then, run `tts/choose` with `--only`, naming the people just re-designed: without it, `choose` promotes a candidate for every cast member and would put designed voices back over the two recordings. Nothing else in the cast is modelled on a real person, and the prompts rule above still holds for every voice designed.
+The designed voices, Thornhill's take 4 and Mary Smith's take 1, are in the repository's history before 2026-09-30. Until then, run `tts/choose` with `--only`, naming the people just re-designed: without it, `choose` promotes a candidate for every cast member and would put designed voices back over the two recordings. Nothing else in the cast is modelled on a real person, but the tutor below, and the prompts rule above still holds for every voice designed.
+
+**The tutor — a reference recording from a Bell System training film** (Mark, 2026-10-09). `tts/voices/tutor.wav` is a short clip of the narrator of a Bell System training film, which is in the public domain and was posted by the Connections Museum on its YouTube channel. `tts/voices/tutor.json` carries the clip's exact transcript as `sample_text`, and its `source` (film, URL, start and end) and `licence`. Unlike the two film recordings above, it belongs to the public build too, by Mark's decision: the recording is public domain, and the narrator speaks as a trainer of operators, which is the part. The tutor is not designed: run `tts/choose` only with `--only` naming others, or it puts a designed candidate over the clip. The full recording is kept in the Syncthing share, not in the repository.
 
 ## 5.2 The Sample Text
 
