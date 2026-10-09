@@ -297,13 +297,60 @@ static uint32_t last_config_check_ms = 0;   // 6.4, Rev 19
 /* Where a long loop pass goes: the worst of each section since the banner last
  * printed. Diagnostic only; the banner shows them beside the loop timing. */
 enum { T_NET, T_VERIFY, T_INPUTS, T_STATION, T_TRUNK, T_FLUSH, T_BEAT, T_FAILSAFE,
-       T_REPUB, T_OTA, T_N };
+       T_REPUB, T_OTA, T_ENABLE, T_SCAN, T_SERIAL, T_N };
 static const char* const T_NAMES[T_N] = { "net", "verify", "inputs", "station", "trunk",
-                                          "flush", "beat", "failsafe", "republish", "ota" };
+                                          "flush", "beat", "failsafe", "republish", "ota",
+                                          "enable", "scan", "serial" };
 static uint32_t t_max_us[T_N];
+/* control.md 9.1, Rev 27: each section's time since the last poll tick, so a
+ * long gap between ticks can be put down to what ran in it. */
+static uint32_t t_cur_us[T_N];
 #define TIMED(k, stmt) do { const uint32_t _t0 = micros(); stmt; \
                             const uint32_t _d = micros() - _t0; \
+                            t_cur_us[k] += _d; \
                             if (_d > t_max_us[k]) t_max_us[k] = _d; } while (0)
+
+/* Gaps between poll ticks of LONG_GAP_MS or more, kept for the banner rather
+ * than printed as they happen: a line on the serial port blocks for longer than
+ * the gaps being looked for. */
+static constexpr uint32_t LONG_GAP_MS = 20;
+static constexpr uint8_t  LONG_GAPS   = 16;
+struct LongGap {
+  uint32_t at_ms;        // millis() at the tick that ended it
+  uint16_t gap_ms;
+  uint16_t passes;       // loop() passes between the two ticks
+  uint8_t  top;          // the section that took longest in it
+  uint32_t top_us;
+  uint32_t untimed_us;   // the gap less every timed section: other tasks, delay()
+};
+static LongGap long_gaps[LONG_GAPS];
+static uint8_t  long_gap_count   = 0;     // kept, at most LONG_GAPS
+static uint32_t long_gap_dropped = 0;     // seen after the buffer filled
+static uint16_t passes_since_tick = 0;
+
+static void noteGap(uint32_t now, uint32_t gap_ms) {
+  if (gap_ms >= LONG_GAP_MS) {
+    uint32_t sum = 0;
+    uint8_t  top = 0;
+    for (uint8_t k = 0; k < T_N; ++k) {
+      sum += t_cur_us[k];
+      if (t_cur_us[k] > t_cur_us[top]) top = k;
+    }
+    if (long_gap_count < LONG_GAPS) {
+      LongGap& g = long_gaps[long_gap_count++];
+      g.at_ms      = now;
+      g.gap_ms     = (uint16_t)(gap_ms > 65535 ? 65535 : gap_ms);
+      g.passes     = passes_since_tick;
+      g.top        = top;
+      g.top_us     = t_cur_us[top];
+      g.untimed_us = gap_ms * 1000 > sum ? gap_ms * 1000 - sum : 0;
+    } else {
+      long_gap_dropped++;
+    }
+  }
+  for (uint8_t k = 0; k < T_N; ++k) t_cur_us[k] = 0;
+  passes_since_tick = 0;
+}
 
 static uint8_t presentMask() {
   uint8_t m = 0;
@@ -567,6 +614,21 @@ static void printBanner() {
     t_max_us[k] = 0;
   }
   Serial.println();
+  /* Rev 27: every gap of LONG_GAP_MS or more since the last banner, with what
+   * ran in it. The banner's own printing shows as the first, under "serial". */
+  Serial.printf("  long gaps    %u of %lu ms or more", (unsigned)long_gap_count,
+                (unsigned long)LONG_GAP_MS);
+  if (long_gap_dropped) Serial.printf(", and %lu more not kept", (unsigned long)long_gap_dropped);
+  Serial.println();
+  for (uint8_t i = 0; i < long_gap_count; ++i) {
+    const LongGap& g = long_gaps[i];
+    Serial.printf("    %lus before: %u ms over %u pass(es), %s %lu us, untimed %lu us\n",
+                  (unsigned long)((now - g.at_ms) / 1000), (unsigned)g.gap_ms,
+                  (unsigned)g.passes, T_NAMES[g.top], (unsigned long)g.top_us,
+                  (unsigned long)g.untimed_us);
+  }
+  long_gap_count   = 0;
+  long_gap_dropped = 0;
   loop_max_us     = 0;
   poll_gap_max_ms = 0;
   timing_since_ms = now;
@@ -865,7 +927,7 @@ void loop() {
       (reconnected || sync_asked || (now - last_republish_ms >= STATE_REPUBLISH_MS))) {
     last_republish_ms = now;
     requestRepublish();              // spread, one circuit per poll tick (9.2)
-    if (reconnected) netPublishI2cScan(expanders_all_present);
+    if (reconnected) TIMED(T_SCAN, netPublishI2cScan(expanders_all_present));
   }
 
   /* ---- the 200Hz sample stream (6.3) --------------------------------
@@ -873,6 +935,7 @@ void loop() {
   if (now - last_poll_ms >= POLL_PERIOD_MS) {
     const uint32_t gap = now - last_poll_ms;
     if (last_poll_ms != 0 && gap > poll_gap_max_ms) poll_gap_max_ms = gap;
+    if (last_poll_ms != 0) noteGap(now, gap);
     last_poll_ms = now;
 
     /* 6.4 (Rev 19): one expander's configuration a second, before the poll, so
@@ -897,16 +960,17 @@ void loop() {
     TIMED(T_REPUB, republishStep()); // at most one circuit's state per tick
   }
 
-  serviceEnable();
+  TIMED(T_ENABLE, serviceEnable());
 
   TIMED(T_OTA, serviceOta());
 
   const uint32_t pass_us = micros() - pass_start_us;
   if (pass_us > loop_max_us) loop_max_us = pass_us;
+  passes_since_tick++;
 
   if (Serial.available()) {
     while (Serial.available()) Serial.read();
-    printBanner();
+    TIMED(T_SERIAL, printBanner());
   }
 
   /* 1ms, so the idle task runs and mqtt.loop() is still called five times per

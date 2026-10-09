@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 26 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
+*Rev 27 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
 
 # 1. Overview
 
@@ -113,6 +113,12 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 — Firmware updates over the network (§2.1), so that the installed board can be reflashed without a USB cable. A cable left attached would join portland's ground to the system's 24V ground, which PoE's isolation keeps apart, and anything that opened the port would reset the board; Mark weighed powering the Olimex from USB and chose to stay on PoE (with a TL-SG105PE PoE switch in place of a separate injector) and update over the network instead. The generator §3.4 recommendation to prefer OTA in the installed system is now something the firmware can do.
 
 — Firmware consequence, for Claude Code, made in the same commit: ArduinoOTA started once Ethernet has an address, with the hostname `sbgame-esp32` and a SHA-256 password hash from `secrets.h` (`OTA_PASSWORD_SHA256`; without it the firmware builds with OTA off). The start callback stops the waveform and releases every relay before anything is written to flash; an error after that point restarts the board. §10 gains the row.
+
+## 1.27 Changes in Rev 27
+
+— Diagnostics only: the banner lists every gap between poll ticks of 20ms or more since it last printed, each with how long ago it was, its length, the number of loop passes in it, the section that took longest in it and for how long, and the time no section accounts for (§11). Found on the bench, 2026-10-09: after an unplanned outage the controller came back stalling for about 100ms at a time — commands echoed 108–139ms late and the station dial's breaks stretched to 88–122ms, outside §8.2's window — until a reset cleared it; and even healthy, the banner reported an 81ms poll gap when its longest pass was 13ms, so most of that gap ran in no timed section. One such gap was the banner itself, which printed after the pass timing and so landed between ticks unmeasured. The gaps are kept in a buffer of sixteen and printed with the banner, not as they happen, because a line on the serial port blocks for longer than the gaps being looked for. The enable check, the ctl/i2c publish on reconnect and the banner's own printing are now timed sections, so the banner's stall shows as the first gap, under "serial".
+
+— Firmware consequence, for Claude Code, made in the same commit: in `control.ino`, `TIMED` also accumulates each section's time since the last poll tick; the tick computes the gap and, at 20ms or more, records it with the largest section and the untimed remainder; `printBanner()` prints and clears the buffer. Sections `enable`, `scan` and `serial` added. FIRMWARE_SPEC_REV 27.
 
 ## 1.26 Changes in Rev 26
 
@@ -532,4 +538,4 @@ What the firmware cannot do is make the ring bus safe: the generator runs whenev
 - ~~Dial pulse timing through the real 551 trunk cord circuit and dial~~ — measured 2026-10-05 (Rev 26): breaks 68.7–81.5ms, makes 37.0–41.8ms, 8.4–9.2pps, bounce at break start only, re-closes of 0.96ms at most, inside every §8.2 window and the Rev 24 glitch filter. Still open: the firmware's decode of those digits end to end, which waits on the trunk Rev 5.41 resistors.
 - The 1ms /RESET pulse width is chosen as safe, not read from the MCP23017 datasheet; confirm.
 - The three-error bus-fault threshold (§6.2) and the two-interval ring threshold (§8.1) are judgement values; revisit both once there is a bus and a switchboard to measure against.
-- Read the banner's loop timing — longest pass and longest poll gap — with the broker up and a republish cycle in the window, and confirm the gap stays at the 5ms nominal.
+- Read the banner's loop timing — longest pass and longest poll gap — with the broker up and a republish cycle in the window, and confirm the gap stays at the 5ms nominal. From Rev 27 the banner lists each gap of 20ms or more with what ran in it: find what holds the loop when no section accounts for the time, and reproduce the 2026-10-09 degraded state after an outage (Rev 27 change entry) with the Ethernet unplugged for 30s and the serial log running.
