@@ -124,20 +124,37 @@ def silence(seconds: float) -> np.ndarray:
 #   ("route", what)                       she rings the station or dials the number
 #   ("line", Utterance)                   a line played
 #   ("tone", kind, seconds), ("silence", seconds)
+#   ("tutor", Utterance)                  --tutor: her line on the loudspeaker
 Step = tuple
 
 
-def steps(raw: dict, lines: list[Utterance], script: Script) -> Iterator[Step]:
+def steps(raw: dict, lines: list[Utterance], script: Script,
+          tutor: bool = False) -> Iterator[Step]:
+    """The scene's steps; with `tutor`, her lines where tutor mode says them
+    (game_control.md 4.9, as engine/sbgame/flows.py places them)."""
     stations, outside = script.stations, script.outside
     ops = script.by_name()
     calling, called = raw["calling"], raw.get("called")
     from_line = calling["line"]
     to_line = called["line"] if called else ""
     trunk_side = {"caller": from_line in outside, "called": to_line in outside}
+    waits = [i for i, u in enumerate(lines[1:]) if u.wait]
+    last_wait = waits[-1] if waits else None
 
-    def say(u: Utterance, what: str) -> Iterator[Step]:
+    def tut(key: str) -> Iterator[Step]:
+        if tutor and key in script.tutor:
+            yield ("tutor", script.tutor[key])
+
+    def say(u: Utterance, what: str, i: int | None = None) -> Iterator[Step]:
         if u.after_operator:
+            # flows.py _operator_speaks / Tutor.say_key: the Say prompt, or
+            # greet for the request, or respond
+            key = f"say-{u.operator}"
+            yield from tut(key if u.operator and key in script.tutor
+                           else "greet" if i is None else "respond")
             yield ("operator", what, ops.get(u.operator))
+            if i is not None and i == last_wait:
+                yield from tut("center")
         if u.pause:
             yield ("note", f"… {u.pause:g}s pause")
             yield ("silence", u.pause)
@@ -149,34 +166,55 @@ def steps(raw: dict, lines: list[Utterance], script: Script) -> Iterator[Step]:
     request, conversation = lines[0], lines[1:]
     closing = ops.get(script.closings.get(request.scene, ""))
     yield ("note", f"{'rings' if from_line in outside else 'lamp lights'}: {from_line}")
+    if from_line in outside:
+        yield from tut("answer-trunk")
+        yield from tut("talk")
+    else:
+        yield from tut("answer-station")
     yield from say(request, "operator answers")
 
     if not called:
-        for u in conversation:
-            yield from say(u, "operator speaks")
+        for i, u in enumerate(conversation):
+            yield from say(u, "operator speaks", i)
         if closing:
             yield ("operator", "operator closes", closing)
         yield ("note", "(caller hangs up)")
+        yield from tut("hangup-one")
+        yield from tut("ready-manual")
         return
 
     if to_line in stations:
+        jack = next((j["jack"] for j in script.jacks if j.get("station") == to_line), None)
+        yield from tut(f"ring-{'rear' if from_line in outside else 'front'}-{jack}")
         yield ("route", f"operator rings {to_line}")
+        if from_line in outside and last_wait is None:
+            yield from tut("center-ringing")
     else:
+        yield from tut("trunk-front")
+        yield from tut("dial-operator" if raw.get("dial") == "0" or
+                       str(outside[to_line].get("number", "")) == "0" else f"dial-{to_line}")
         yield ("route", f"operator dials {outside[to_line].get('number', '')} ({to_line})")
     if called.get("busy"):
         yield ("note", "… busy")
         yield ("tone", "busy", BUSY_FOR)
-        for u in conversation:
-            yield from say(u, "operator speaks to the caller")
+        yield from tut("busy-heard")
+        for i, u in enumerate(conversation):
+            yield from say(u, "operator speaks to the caller", i)
         if closing:
             yield ("operator", "operator closes", closing)
         yield ("note", "(caller hangs up)")
+        yield from tut("hangup-pair")
+        yield from tut("ready-manual")
         return
     if to_line in outside:
+        if last_wait is None:
+            yield from tut("center-dialled")
         yield ("tone", "ringback", RING_OUT)
-    for u in conversation:
-        yield from say(u, f"operator speaks to the {'caller' if u.role == 'caller' else 'called party'}")
+    for i, u in enumerate(conversation):
+        yield from say(u, f"operator speaks to the {'caller' if u.role == 'caller' else 'called party'}", i)
     yield ("note", "(both hang up)")
+    yield from tut("hangup-pair")
+    yield from tut("ready-manual")
 
 
 def show(u: Utterance) -> None:
@@ -193,7 +231,7 @@ def play_scene(raw: dict, lines: list[Utterance], script: Script, p: Player, wav
             said = step[2] if kind == "operator" else None
             print(f"    ⏸  {step[1]}" + (f': "{said.text}"' if said else ""), end="")
             input(" — <enter> ")
-        elif kind == "line":
+        elif kind in ("line", "tutor"):
             show(step[1])
             p.out(wav_audio(wav / step[1].filename))
         elif kind == "tone":
@@ -202,16 +240,18 @@ def play_scene(raw: dict, lines: list[Utterance], script: Script, p: Player, wav
             p.out(silence(step[1]))
 
 
-def render_scene(raw: dict, lines: list[Utterance], script: Script, wav: Path) -> np.ndarray:
-    """The whole scene as one recording, the operator's lines in their places."""
+def render_scene(raw: dict, lines: list[Utterance], script: Script, wav: Path,
+                 tutor: bool = False) -> np.ndarray:
+    """The whole scene as one recording, the operator's lines in their places,
+    and with `tutor` the tutor's."""
     parts: list[np.ndarray] = []
-    for step in steps(raw, lines, script):
+    for step in steps(raw, lines, script, tutor):
         kind = step[0]
         if kind == "operator":
             parts += [silence(TURN), wav_audio(wav / step[2].filename)]
         elif kind == "route":
             parts.append(silence(ROUTE))
-        elif kind == "line":
+        elif kind in ("line", "tutor"):
             parts += [silence(TURN), wav_audio(wav / step[1].filename)]
         elif kind == "tone":
             parts.append(tone_audio(step[1], step[2]))
@@ -221,10 +261,14 @@ def render_scene(raw: dict, lines: list[Utterance], script: Script, wav: Path) -
     return np.concatenate(parts)
 
 
-def needs(sid: str, lines: list[Utterance], script: Script, wav: Path) -> list[str]:
+def needs(sid: str, lines: list[Utterance], script: Script, wav: Path,
+          tutor: bool = False) -> list[str]:
     """What a recording of the scene still lacks: missing wavs, unwritten operator lines."""
     ops = script.by_name()
     out = [u.filename for u in lines if not (wav / u.filename).exists()]
+    if tutor:
+        out += [s[1].filename for s in steps(script.scenes[sid], lines, script, True)
+                if s[0] == "tutor" and not (wav / s[1].filename).exists()]
     for u in lines:
         if not u.after_operator:
             continue
@@ -238,20 +282,45 @@ def needs(sid: str, lines: list[Utterance], script: Script, wav: Path) -> list[s
     return out
 
 
-def batch(script: Script, wav: Path, out: Path, gain_db: float, only: list[str]) -> int:
+def tutor_intro(script: Script, wav: Path) -> np.ndarray:
+    """A tutored game's start in manual pacing: the introduction, then Next Call."""
+    parts: list[np.ndarray] = []
+    for key in ("intro", "begin-manual"):
+        parts += [silence(TURN), wav_audio(wav / script.tutor[key].filename)]
+    return np.concatenate(parts + [silence(TURN)])
+
+
+def batch(script: Script, wav: Path, out: Path, gain_db: float, only: list[str],
+          tutor: bool = False) -> int:
     out.mkdir(parents=True, exist_ok=True)
     gain = 10.0 ** (gain_db / 20.0)
     made, skipped = 0, []
+    written: dict[str, np.ndarray] = {}
+
+    def write(name: str, audio: np.ndarray) -> None:
+        audio = np.clip(audio * gain, -1.0, 1.0)
+        sf.write(str(out / f"{name}.mp3"), audio, RATE, format="MP3")
+        print(f"{out / (name + '.mp3')}  {len(audio) / RATE:.1f}s")
+
+    if tutor:
+        write("intro", intro := tutor_intro(script, wav))
     for sid in only or list(script.scenes):
         lines = script.scene_lines(sid)
-        lacking = needs(sid, lines, script, wav)
+        lacking = needs(sid, lines, script, wav, tutor)
         if lacking:
             skipped.append((sid, lacking))
             continue
-        audio = np.clip(render_scene(script.scenes[sid], lines, script, wav) * gain, -1.0, 1.0)
-        sf.write(str(out / f"{sid}.mp3"), audio, RATE, format="MP3")
-        print(f"{out / (sid + '.mp3')}  {len(audio) / RATE:.1f}s")
+        audio = render_scene(script.scenes[sid], lines, script, wav, tutor)
+        write(sid, audio)
+        written[sid] = audio
         made += 1
+    if tutor:
+        # A tutored game's first calls: the introduction, then the first scene
+        # of each lesson group (the game picks one of each at random).
+        firsts = [g[0] for g in script.lessons if g and g[0] in written]
+        if firsts:
+            write("demo", np.concatenate([intro] + [written[s] for s in firsts]))
+            print(f"  demo: intro, then {', '.join(firsts)}")
     for sid, lacking in skipped:
         print(f"skipped {sid}: {len(lacking)} missing — {', '.join(lacking[:4])}"
               + (" …" if len(lacking) > 4 else ""), file=sys.stderr)
@@ -276,6 +345,11 @@ def main() -> int:
     ap.add_argument("--out", type=Path, default=Path("mp3"), help="--batch: where (default mp3/)")
     ap.add_argument("--only", default="", metavar="SCENES",
                     help="--batch: comma-separated scene ids, active or not (default every scene)")
+    ap.add_argument("--tutor", action="store_true",
+                    help="--batch: tutor mode (game_control.md 4.9): her lines in their places, "
+                         "the scenes of tutor: lessons: unless --only, plus intro.mp3 and demo.mp3 "
+                         "(the introduction and the first scene of each lesson group); "
+                         "default --out mp3/tutor/")
     args = ap.parse_args()
 
     if not 0 <= args.channel < CHANNELS:
@@ -295,6 +369,13 @@ def main() -> int:
         if unknown:
             print(f"not a scene: {', '.join(unknown)}", file=sys.stderr)
             return 1
+        if args.tutor:
+            if not script.tutor:
+                print("script.yml has no tutor: section", file=sys.stderr)
+                return 1
+            only = only or [s for g in script.lessons for s in g]
+            out = args.out if args.out != Path("mp3") else Path("mp3/tutor")
+            return batch(script, args.wav, out, args.gain, only, tutor=True)
         return batch(script, args.wav, args.out, args.gain, only)
 
     scenes = script.active_scenes()
