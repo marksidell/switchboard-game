@@ -26,6 +26,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import logging
+import random
 import time
 from dataclasses import dataclass
 
@@ -44,6 +45,12 @@ from .tutor import NO_LIMIT, Tutor
 
 log = logging.getLogger("game")
 
+
+
+def pick_lessons(groups, seed: int) -> list[str]:
+    """One scene from each group, in order, from the game's seed (§4.9, Rev 30)."""
+    rng = random.Random(f"lessons {seed}")
+    return [rng.choice(g) for g in groups]
 
 
 class Game:
@@ -82,6 +89,7 @@ class Game:
         self.tutor: Tutor | None = None
         self._tutor_task: asyncio.Task | None = None
         self._intro = False             # the tutor task is the introduction
+        self._lessons: list[str] = []   # the scenes a tutored game starts with
         # Station numbers to the script's line names, for holding a station
         # under test out of dealing (§7.5).
         self._station_lines: dict[int, frozenset[str]] = {}
@@ -281,6 +289,7 @@ class Game:
             t.cancel()
             await asyncio.gather(t, return_exceptions=True)
         self._intro = False
+        self._lessons = []
         if self.tutor is not None:
             await self.tutor.stop()
             self.tutor = None
@@ -354,6 +363,12 @@ class Game:
             # for her to finish, in every pacing.
             self.tutor = self._new_tutor()
             self.slots.timeless = True
+            # §4.9, Rev 30: one scene of each kind first, picked from the
+            # game's seed apart from the deck's own shuffle, so a replay
+            # picks the same and a restart most likely does not.
+            self._lessons = pick_lessons(self.gs.lessons, self.deck.seed)
+            if self._lessons:
+                await self._say("tutor lessons: " + ", ".join(self._lessons))
             self._intro = True
             self._tutor_task = asyncio.create_task(self._tutor_intro(), name="tutor-intro")
         elif self.pacing.automatic:
@@ -490,6 +505,13 @@ class Game:
                 assert self.link is not None
                 await self.link.state("game/queue", "")
                 await self._say(f"chosen scene {q.id} dealt")
+        if scene is None and self.tutor is not None and self._lessons:
+            # §4.9, Rev 30: the next lesson, taken out of the deck as a
+            # chosen scene is (§4.8).
+            q = self.gs.scenes.get(self._lessons.pop(0))
+            if q is not None and self.deck.take(q, self._held()):
+                scene = q
+                await self._say(f"lesson {q.id} dealt")
         if scene is None:
             scene, why = self.deck.deal(self._held())
             if scene is None:

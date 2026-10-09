@@ -148,6 +148,9 @@ class Script:
     # tutor mode's lines, by key: "intro", "ring-front-21", "dial-pizza",
     # "say-operator.1" (game_control.md 4.9). Empty without a tutor: section.
     tutor: dict[str, Utterance] = field(default_factory=dict)
+    # tutor: lessons:, the scenes a tutored game starts with, one picked from
+    # each group (game_control.md 4.9, Rev 30). Empty without it.
+    lessons: list[list[str]] = field(default_factory=list)
 
     def by_speaker(self) -> dict[str, list[Utterance]]:
         out: dict[str, list[Utterance]] = {p: [] for p in self.cast}
@@ -586,6 +589,9 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
     tutor = _tutor_lines(data.get("tutor"), cast, board, stations, outside,
                          utterances, bad)
     utterances.extend(tutor.values())
+    lessons = _lessons((data.get("tutor") or {}).get("lessons")
+                       if isinstance(data.get("tutor"), dict) else None,
+                       scenes, stations, bad)
 
     if fail:
         raise ScriptError(path, fail)
@@ -593,7 +599,51 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
     return Script(path=path, setting=data.get("setting") or {}, cast=cast,
                   outside=outside, stations=stations, scenes=scenes,
                   jacks=board, utterances=utterances, operator_lines=stock,
-                  closings=closings, tutor=tutor)
+                  closings=closings, tutor=tutor, lessons=lessons)
+
+
+def scene_kind(scene: dict, stations: dict) -> str:
+    """Which kind of call a scene is, as game_control.md 4.3 tells them apart."""
+    called = scene.get("called")
+    if not isinstance(called, dict):
+        return "to the operator"
+    if called.get("busy"):
+        return "busy"
+    calling = scene.get("calling") if isinstance(scene.get("calling"), dict) else {}
+    from_room, to_room = calling.get("line") in stations, called.get("line") in stations
+    if from_room:
+        return "between rooms" if to_room else "out to a number"
+    return "in from outside"
+
+
+def _lessons(raw: object, scenes: dict, stations: dict, bad) -> list[list[str]]:
+    """tutor: lessons:, checked: groups of scene ids, one kind of call to a group."""
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        bad("tutor.lessons", "not a list of groups")
+        return []
+    out: list[list[str]] = []
+    for i, group in enumerate(raw):
+        at = f"tutor.lessons[{i}]"
+        if not isinstance(group, list) or not group:
+            bad(at, "not a list of scene ids")
+            continue
+        kinds: dict[str, str] = {}
+        for sid in group:
+            sc = scenes.get(sid)
+            if not isinstance(sc, dict):
+                bad(at, f"{sid!r} is not a scene")
+                continue
+            if sc.get("active") is not True:
+                bad(at, f"{sid} is not active")
+            if sc.get("after") is not None:
+                bad(at, f"{sid} follows {sc['after']}, so it is never dealt")
+            kinds[sid] = scene_kind(sc, stations)
+        if len(set(kinds.values())) > 1:
+            bad(at, "mixes kinds of call: " + ", ".join(f"{k} {v}" for k, v in kinds.items()))
+        out.append([str(x) for x in group])
+    return out
 
 
 def jack_words(label: str) -> str:
@@ -638,7 +688,7 @@ def _tutor_lines(raw: object, cast: dict, board: list[dict], stations: dict,
         return {}
     if TUTOR not in cast:
         bad("cast", f"no {TUTOR}, who speaks the lines under tutor:")
-    for key in sorted(set(map(str, raw)) - set(TUTOR_KEYS)):
+    for key in sorted(set(map(str, raw)) - set(TUTOR_KEYS) - {"lessons"}):
         bad(f"tutor.{key}", "is not one of the tutor's lines (game_control.md 4.9)")
     texts: dict[str, str] = {}
     for key, field_ in TUTOR_KEYS.items():

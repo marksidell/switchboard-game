@@ -26,7 +26,7 @@ from tts.script import load
 from test_flows import Harness, scene, speech, answers, request_heard
 from test_game import StateLink
 from sbgame.config import Config
-from sbgame.game import Game
+from sbgame.game import Game, pick_lessons
 from sbgame.session import SessionLog
 from test_sim import D
 
@@ -200,6 +200,28 @@ async def main() -> int:
           "each said by the tutor, as tutor.<key>")
     check(all(len(u.name) <= 31 for u in t.values()), "every name fits audio.md §7.1")
 
+    print("\n== the lessons (§4.9, Rev 30)")
+    from tts.script import scene_kind, ScriptError
+    kinds = [{scene_kind(s.scenes[i], s.stations) for i in g} for g in s.lessons]
+    check(kinds == [{"between rooms"}, {"out to a number"}, {"in from outside"},
+                    {"to the operator"}], f"four groups, one kind each, in order: {kinds}")
+    picks = {tuple(pick_lessons(s.lessons, seed)) for seed in range(20)}
+    check(len(picks) > 10, f"different games pick differently: {len(picks)} of 20")
+    check(pick_lessons(s.lessons, 7) == pick_lessons(s.lessons, 7), "the same seed picks the same")
+    real = Path("../script.yml").read_text(encoding="utf-8")
+    with tempfile.TemporaryDirectory() as td:
+        for what, old, new in (
+                ("a scene of another kind", "-   [times-pike,", "-   [crane-wakeup, times-pike,"),
+                ("an after: scene", "-   [times-pike,", "-   [taxi-pike, times-pike,"),
+                ("no such scene", "-   [times-pike,", "-   [nosuch, times-pike,")):
+            f = Path(td) / "bad.yml"
+            f.write_text(real.replace(old, new, 1), encoding="utf-8")
+            try:
+                load(f)
+                check(False, f"refused: {what}")
+            except ScriptError as e:
+                check(any("lessons" in x for x in e.failures), f"refused: {what}")
+
     print("\n== a call between rooms, tutored")
     h = tutored(scene(Shape.STATION_TO_STATION))
     out = await run(h, station_to_station, tutored_station_operator)
@@ -270,6 +292,9 @@ async def main() -> int:
         check(g.tallies.started == 0, "and no call yet, in manual")
         await g.on_command("next", "")
         check(g.tallies.started == 1, "Next deals one")
+        first = link.state_v.get("game/call/1/scene")
+        check(first in g.gs.lessons[0] and len(g._lessons) == 3,
+              f"the first lesson, between rooms: {first}")
         await g.on_command("next", "")
         check(g.tallies.started == 1 and "one call at a time" in link.state_v.get("game/error", ""),
               "a second is refused while it runs")

@@ -93,6 +93,8 @@ class GameScript:
     # play, so a missing one is not a fault at load; tutor mode is refused.
     tutor: dict[str, Speech] = field(default_factory=dict)
     tutor_missing: tuple[str, ...] = ()
+    # The scenes a tutored game starts with, one from each group (§4.9, Rev 30).
+    lessons: tuple[tuple[str, ...], ...] = ()
 
     def jack_of(self, station: int) -> int | None:
         """The switchboard jack station circuit n is cabled to (§6.3)."""
@@ -181,7 +183,8 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
             missing.append(u.name)
 
     return GameScript(script=s, scenes=scenes, people=people, jacks=_jacks(s),
-                      tutor=tutor, tutor_missing=tuple(missing))
+                      tutor=tutor, tutor_missing=tuple(missing),
+                      lessons=tuple(tuple(g) for g in s.lessons))
 
 
 N_STATIONS, N_TRUNKS = 22, 8
@@ -218,7 +221,11 @@ def fit(gs: GameScript, stations: int = N_STATIONS,
     keep = {i: s for i, s in gs.scenes.items() if i not in why}
     fitted = GameScript(script=gs.script, scenes=keep,
                         people={i: p for i, p in gs.people.items() if i in keep},
-                        jacks=gs.jacks, tutor=gs.tutor, tutor_missing=gs.tutor_missing)
+                        jacks=gs.jacks, tutor=gs.tutor, tutor_missing=gs.tutor_missing,
+                        # A lesson left out goes from its group; an emptied
+                        # group goes altogether (§6.5).
+                        lessons=tuple(g for g in (tuple(i for i in grp if i in keep)
+                                                  for grp in gs.lessons) if g))
     return fitted, [f"{i}: {w}" for i, w in why.items()]
 
 

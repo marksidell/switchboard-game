@@ -470,7 +470,7 @@ operator_lines:
 #     say                    {line}, for every operator line, under
 #                            operator_lines: or a scene's own: tutor.say-<name>,
 #                            as tutor.say-operator.1.
-# Every other entry is said as written.
+# Every other entry is said as written, but lessons:, which is not a line.
 #
 tutor:
     intro: >
@@ -550,6 +550,23 @@ tutor:
         The lamp in front of the cord tells you the caller has hung up. Pull
         the cord out, and check that the black switches are centered.
     ready-manual: Press Next Call when you are ready for another.
+
+    # The first calls of a game in tutor mode, one of each kind in this
+    # order (game_control.md 4.9, Rev 30): each game picks one scene from
+    # each group at random, so a restart does not repeat the last. Then the
+    # deck deals as usual. Every scene in a group is the same kind of call,
+    # active, and not an after: scene.
+    lessons:
+        # Between rooms.
+        -   [desk-hollis, martha-squirrel, lindqvist-valet, nbn-valet,
+             hollis-valet, housekeeping-martha, frontdesk-vance]
+        # From a room to an outside number.
+        -   [lindqvist-rays, dobbs-paramount, dobbs-rays, martha-pizza, dobbs-ferries]
+        # From outside to a room.
+        -   [times-pike, times-hollis, ld-pike, ld-hollis]
+        # To the operator.
+        -   [crane-wakeup, martha-mailman, martha-cat, dobbs-stamp, hollis-wakeup,
+             vance-wakeup]
 
 # Locations reached via public trunks, like local businesses.
 # The number is what the operator must dial. Quoted so it stays a string.
