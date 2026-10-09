@@ -92,10 +92,18 @@ static void ctlTopic(const char* leaf, char* out, size_t n) {
 /* ---- publishing --------------------------------------------------------- */
 
 void netPublishState(const CircuitMap& c, const char* leaf, const char* payload) {
-  if (!mqtt.connected()) return;
   char topic[64];
   circuitTopic(c, leaf, topic, sizeof topic);
-  mqtt.publish(topic, payload, /*retained=*/true, /*qos=*/1);
+  /* control.md 9.2, Rev 28: a state change that does not reach the broker is
+   * logged. Only the 30s republish would otherwise put it right, and on the
+   * bench, 2026-10-09, seize changes arrived only with it. */
+  if (!mqtt.connected()) {
+    Serial.printf("mqtt: %s \"%s\" not sent - not connected\n", topic, payload);
+    return;
+  }
+  if (!mqtt.publish(topic, payload, /*retained=*/true, /*qos=*/1))
+    Serial.printf("mqtt: %s \"%s\" publish failed, error %d\n",
+                  topic, payload, (int)mqtt.lastError());
 }
 
 void netPublishEvent(const CircuitMap& c, const char* leaf, const char* payload) {

@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 27 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
+*Rev 28 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
 
 # 1. Overview
 
@@ -113,6 +113,12 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 — Firmware updates over the network (§2.1), so that the installed board can be reflashed without a USB cable. A cable left attached would join portland's ground to the system's 24V ground, which PoE's isolation keeps apart, and anything that opened the port would reset the board; Mark weighed powering the Olimex from USB and chose to stay on PoE (with a TL-SG105PE PoE switch in place of a separate injector) and update over the network instead. The generator §3.4 recommendation to prefer OTA in the installed system is now something the firmware can do.
 
 — Firmware consequence, for Claude Code, made in the same commit: ArduinoOTA started once Ethernet has an address, with the hostname `sbgame-esp32` and a SHA-256 password hash from `secrets.h` (`OTA_PASSWORD_SHA256`; without it the firmware builds with OTA off). The start callback stops the waveform and releases every relay before anything is written to flash; an error after that point restarts the board. §10 gains the row.
+
+## 1.28 Changes in Rev 28
+
+— Diagnostics only. A state publish that does not reach the broker is logged on the serial console, with the topic, the payload and the client's error, as is one skipped because the client is not connected; and each trunk's `seize`, `ring` and `fault` change is logged as it is published. Found on the bench, 2026-10-09, with trunk 1 through the switchboard: a cord plugged in or pulled out produced the `fault` message at once, but its `seize` change arrived only with the next 30s republish (§9.2), and no non-empty `fault` arrived at all, while the heartbeat came every second and the broker logged nothing. In a game the program would wait up to 30s to see the operator answer.
+
+— Firmware consequence, for Claude Code, made in the same commit: `netPublishState()` in `sb_net.cpp` checks `publish()`'s result and logs `lastError()`; `publishBoolIfChanged()` and `setFault()` in `sb_trunk.cpp` log the change. FIRMWARE_SPEC_REV 28.
 
 ## 1.27 Changes in Rev 27
 
