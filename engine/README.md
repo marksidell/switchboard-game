@@ -15,6 +15,7 @@ sbgame/calls.py        the eight slots, the stages, the tallies (5, 6.1)
 sbgame/gamelog.py      the page's log (6.2)
 sbgame/session.py      the SQLite record
 sbgame/game.py         start, stop, dealing, page commands (3-8)
+sbgame/tutor.py        tutor mode's voice on the loudspeaker (4.9)
 sbgame/main.py         the entry point
 sbgame/simulate.py     a stand-in for the hardware, until the boards arrive
 sbgame/streamdeck.py   the Stream Deck+ that carries the controls (7.4)
@@ -55,6 +56,10 @@ the log at start; `--check` lists them too:
 ```sh
 /opt/sbgame/venv/bin/sbgame --check -c /etc/sbgame/game.toml --stations 8 --trunks 2
 ```
+
+**Tutor mode** (game_control.md §4.9) is switched on the deck's key 8. It is
+refused, on the page's error line, until every one of the tutor's lines has a
+wav in `/srv/sbgame/wav`; `tts/README.md` has how to make them.
 
 ## The Stream Deck
 

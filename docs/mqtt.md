@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 26 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
+*Rev 27 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
 
 # 1. Overview
 
@@ -204,6 +204,10 @@ This document specifies the messages: the topic names, who publishes each, what 
 
 — `trunk/<n>/shortring/set` added (§6, §8.4), following control.md Rev 25, 2026-10-05: `"on"` rings the trunk once for 0.5s, `"off"` cancels the burst; the ESP32 echoes the relay on the existing `ring` topic, `"on"` then `"off"`. The game program uses it to signal a call in on a trunk (game_control.md Rev 28). It is the third command that is not absolute state, after `next/set` and the station's `dial/set`: a duplicate delivered after the first burst has ended rings once more. That is harmless — the switchboard's trunk signal latches, and a second burst on an unanswered trunk changes nothing the operator sees; a duplicate during the burst, or after the trunk is seized, is ignored by the controller. QoS 1 as for every command. The ESP32 subscribes to one more pattern. No existing topic or payload changes.
 
+## 1.27 Changes in Rev 27
+
+— `audio/monitor/play/set` and its echo `audio/monitor/play` added (§5, §6), following audio.md Rev 11, 2026-10-08: a file on the loudspeaker, summed into the monitor, for the tutor's voice. And `game/tutor/set` and its echo `game/tutor` (§6.1, §6.2), following game_control.md Rev 29: tutor mode's switch, `"on"` or `"off"`, from the Stream Deck. The access list already covers all four: the audio program and the game program read and write `sbgame/#`, and the deck writes `sbgame/game/+/set`. The audio program subscribes to one more pattern. No existing topic or payload changes.
+
 # 2. Design Rules
 
 These hold across every topic. A new topic that breaks one of them needs a reason recorded here.
@@ -270,6 +274,7 @@ The audio program publishes what its pilot detector finds, per circuit; the stat
 | `sbgame/trunk/<1-8>/op` | `"on"` or `"off"` | yes | The same for a trunk. |
 | `sbgame/station/<1-22>/play`, `sbgame/trunk/<1-8>/play` | base filename, `""` or `"missing"` | yes | The file now playing on this circuit's output. Empty when nothing is — which is how a file's finishing is reported (audio.md §7.4). `"missing"`: the last `play/set` named a file that could not be loaded; persists until the next `play/set`. |
 | `sbgame/audio/tap/play` | base filename, `""` or `"missing"` | yes | The file now playing on the operator tap's output, over the operator tone, as `play` for a circuit (audio.md §7, Rev 10; Rev 23). |
+| `sbgame/audio/monitor/play` | base filename, `""` or `"missing"` | yes | The file now playing on the loudspeaker, summed into the monitor, as `play` for a circuit (audio.md §10.4, Rev 11; Rev 27). |
 | `sbgame/trunk/<1-8>/tone` | `"dial"`, `"ringback"`, `"busy"` or `""` | yes | The tone now playing on this trunk. Empty when none. |
 | `sbgame/station/<1-22>/listen`, `sbgame/trunk/<1-8>/listen` | `"listening"`, `"speech"`, `"silence"`, `"timeout"` or `""` | yes | The listen on this circuit as it runs: `"listening"` from the command; `"speech"` when speech starts, and the listen continues; `"silence"` when it ends, which finishes the listen; `"timeout"` if speech never started within the commanded seconds or never ended within the program's cap. The final value persists until the next `listen/set`; empty after a cancel (audio.md §9.1). |
 | `sbgame/audio/monitor` | `"off"` or gain in dB | yes | The loudspeaker feed: muted, or the gain applied, as a signed decimal string. Echoes `monitor/set` after clamping to range (audio.md §10.2). |
@@ -296,6 +301,7 @@ The game program is the only client that commands the ESP32 and the audio progra
 | `sbgame/trunk/<1-8>/ring/set` | `"on"` or `"off"` | no | ESP32 | Start / stop ringing this trunk. The ESP32 runs the cadence and the 30s timeout (`control.md` §8) and echoes the relay state on `ring`. |
 | `sbgame/station/<1-22>/play/set`, `sbgame/trunk/<1-8>/play/set` | base filename, or `"stop"` | no | audio | Play `<wav-dir>/<name>.wav` on this circuit's output, replacing whatever it is playing; `"stop"` stops it. Echoed on `play`; finishing is `play` going empty. |
 | `sbgame/audio/tap/play/set` | base filename, or `"stop"` | no | audio | Play a file on the operator tap's output, over the operator tone, which is never displaced; `"stop"` stops it. Echoed on `audio/tap/play`. Only the game program's diagnostics use it (game_control.md §7.5; Rev 23). |
+| `sbgame/audio/monitor/play/set` | base filename, or `"stop"` | no | audio | Play a file on the loudspeaker, summed into the monitor under its gain; `"stop"` stops it. Echoed on `audio/monitor/play`. The game program's tutor (game_control.md §4.9; Rev 27). |
 | `sbgame/trunk/<1-8>/tone/set` | `"dial"`, `"ringback"`, `"busy"` or `"off"` | no | audio | Play this tone on the trunk until told otherwise; a new value replaces the current tone. Trunks only — a station is the telephone and sends none of them. Echoed on `tone`. |
 | `sbgame/station/<1-22>/listen/set`, `sbgame/trunk/<1-8>/listen/set` | timeout in seconds, or `"0"` | no | audio | Listen on this circuit's receive channel, allowing this long for speech to start; `"0"` cancels. The sequence — start of speech, then end or timeout — is reported on `listen`. |
 | `sbgame/audio/monitor/set` | `"off"` or gain in dB | no | audio | Feed the monitor's source to the loudspeaker at this gain, 0 being unity into A32 output 24, range −60 to +20; or mute. Echoed on `monitor`. |
@@ -337,6 +343,7 @@ Published by the game program for the status page and the log (Rev 10). All reta
 | `sbgame/game/call/<1-8>/digits` | digits, or `""` | yes | Digits dialled so far on an outgoing call. |
 | `sbgame/game/scenes` | scene ids, one per line | yes | The scenes that can be chosen as the next one: active, without `after:`, and within the circuits fitted (game_control.md §4.8; Rev 23). Published at start. |
 | `sbgame/game/queue` | scene id, or `""` | yes | The chosen next scene, until it is dealt, cleared or the game stops. Echoes `queue/set` (Rev 23). |
+| `sbgame/game/tutor` | `"on"` or `"off"` | yes | Tutor mode (game_control.md §4.9). Echoes `tutor/set`; `"off"` at start (Rev 27). |
 | `sbgame/game/stations`, `sbgame/game/trunks` | integer | yes | How many stations (0–22) and trunks (0–8) are fitted, from the configuration (game_control.md §6.5; Rev 23). Published at start. |
 | `sbgame/game/diag/<target>/<test>` | `"on"` or `"off"` | yes | A diagnostic's state: `<target>` is `station/<1-22>`, `trunk/<1-8>` or `tap`; `<test>` is `hook` (stations), `ring` (trunks), `tone`, `voice` or `monitor` (game_control.md §7.5; Rev 23). All `"off"` at start. |
 | `sbgame/game/log` | text | yes | The last 50 events, newest first, one per line (game_control.md §6.2). |
@@ -356,6 +363,7 @@ The page's commands, consumed by the game program only (Rev 10). The Stream Deck
 | `sbgame/game/jitter/set` | percent | no | game | Spread of the automatic wait, 0–100. Echoed on `jitter` (Rev 19). |
 | `sbgame/game/pause/set` | seconds | no | game | Listen's wait after the board empties, 0–60. Echoed on `pause` (Rev 22). |
 | `sbgame/game/queue/set` | scene id, or `""` | no | game | Deal this scene next, or clear the choice. Refused on `error` if not in `game/scenes`. Echoed on `queue` (Rev 23). |
+| `sbgame/game/tutor/set` | `"on"` or `"off"` | no | game | Tutor mode on or off; from the Stream Deck's key 8. Refused on `error` while any of the tutor's lines has no wav. Echoed on `tutor` (Rev 27). |
 | `sbgame/game/diag/<target>/<test>/set` | `"on"` or `"off"` | no | game | Start or stop a diagnostic (game_control.md §7.5). Refused on `error` for a circuit in a call or not fitted. Echoed on `diag/<target>/<test>` (Rev 23). |
 | `sbgame/game/next/set` | ignored | no — and QoS 0, §2 | game | Start the next call now, if a game is running and a scene can be dealt; otherwise reported on `error`. Shows as `started` going up by one (Rev 11; a call number through Rev 10). |
 

@@ -64,6 +64,8 @@ public:
     void render_for_test()                       { render(); }
     void drain_for_test()                        { drain_commands(); }
     void set_monitor_row_for_test(float v)       { std::fill(mon_row_.begin(), mon_row_.end(), v); }
+    void capture_for_test()                      { process_capture(); }
+    const std::vector<float>& monitor_row() const { return mon_row_; }
     const std::vector<int32_t>& playback() const { return obuf_; }
 
     // monitor_ripple_db() / monitor_lowpass()                            [any]
@@ -167,12 +169,16 @@ private:
     bool mon_out_[chan::N_PLAY_CH + 1] = { false };  // --monitor-ch, by channel
 
     // ---- monitor (audio.md 10): capture 23 (the tap) -> mon_hp_ ->
-    // mon_lp_[0..3] -> gain -> lim_ -> mon_row_ -> the playback channels
-    // --monitor-ch names, 24 by default
+    // mon_lp_[0..3] -> + a file on prog_[24] through its own mon_lp_ ->
+    // gain -> lim_ -> mon_row_ -> the playback channels --monitor-ch names,
+    // 24 by default
     Biquad                   mon_hp_;       // 150 Hz high-pass
     std::vector<Biquad>      mon_lp_;       // elliptic low-pass, 4 sections
     BiquadState              mon_hp_s_;
     std::vector<BiquadState> mon_lp_s_;
+    std::vector<BiquadState> mon_file_lp_s_;  // the file's own copy (10.4)
+    double  mon_file_lin_ = 1.0;            // --monitor-file-trim, linear
+    double  mon_file_on_tap_ = 1.0;         // the same, less the tap trim
     Limiter                  lim_;
     double  mon_ripple_db_ = 0.0;
     // audio.md 10.3. The commanded gain is kept apart from the ramp's target

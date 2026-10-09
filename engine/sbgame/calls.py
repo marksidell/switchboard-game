@@ -99,6 +99,9 @@ class Slots:
         # publish(key, value) -> awaitable; Link.state in the real program.
         self._publish = publish
         self._calls: dict[int, Call] = {}
+        # Tutor mode (game_control.md §4.9): no stage has a deadline, so the
+        # page shows none.
+        self.timeless = False
 
     def __len__(self) -> int:
         return len(self._calls)
@@ -124,7 +127,7 @@ class Slots:
                         deadline: float | None = None) -> None:
         """§6.1: since and deadline before stage."""
         call.since = time.time()
-        call.deadline = deadline
+        call.deadline = None if self.timeless else deadline
         call.stage = stage
         await self._publish(f"game/call/{call.slot}/since", _t(call.since))
         await self._publish(f"game/call/{call.slot}/deadline", _t(call.deadline))

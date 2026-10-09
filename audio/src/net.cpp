@@ -34,6 +34,10 @@ static bool topic_for(Topic t, int idx, char* out, size_t n)
         std::snprintf(out, n, "%saudio/tap/play", PREFIX);
         return true;
     }
+    if (t == Topic::Play && idx == chan::MONITOR_CH) {    // audio.md 10.4, Rev 11
+        std::snprintf(out, n, "%saudio/monitor/play", PREFIX);
+        return true;
+    }
     switch (t) {
     case Topic::Play:
     case Topic::Tone:
@@ -152,7 +156,7 @@ void Net::on_connect(int rc)
     // deliver the ESP32's hook and ring commands here to be dropped.
     static const char* subs[] = {
         "sbgame/station/+/play/set",   "sbgame/trunk/+/play/set",
-        "sbgame/audio/tap/play/set",
+        "sbgame/audio/tap/play/set",   "sbgame/audio/monitor/play/set",
         "sbgame/trunk/+/tone/set",
         "sbgame/station/+/listen/set", "sbgame/trunk/+/listen/set",
         "sbgame/audio/monitor/set",    "sbgame/audio/monitor/source/set",
@@ -397,6 +401,10 @@ void Net::on_message(const char* topic, const char* payload)
     if (std::strcmp(topic, "sbgame/audio/tap/play/set") == 0) {
         handle_play(chan::TAP_CH, "tap", payload); return;
     }
+    // audio.md 10.4, Rev 11: a file on the monitor, the tutor's voice.
+    if (std::strcmp(topic, "sbgame/audio/monitor/play/set") == 0) {
+        handle_play(chan::MONITOR_CH, "monitor", payload); return;
+    }
     if (std::strcmp(topic, "sbgame/audio/monitor/set") == 0) { handle_monitor(payload); return; }
     if (std::strcmp(topic, "sbgame/audio/monitor/source/set") == 0) {
         handle_monitor_source(payload); return;
@@ -485,6 +493,7 @@ void Net::publish_initial()
             topic_for(Topic::Tone, s, topic, sizeof topic))   publish(topic, "");
     }
     if (topic_for(Topic::Play, chan::TAP_CH, topic, sizeof topic)) publish(topic, "");
+    if (topic_for(Topic::Play, chan::MONITOR_CH, topic, sizeof topic)) publish(topic, "");
     topic_for(Topic::Monitor, 0, topic, sizeof topic);
     publish(topic, monitor_state_.c_str());
     topic_for(Topic::MonitorSrc, 0, topic, sizeof topic);
@@ -685,6 +694,7 @@ void Net::shutdown()
             topic_for(Topic::Tone, s, topic, sizeof topic))   publish(topic, "");
     }
     if (topic_for(Topic::Play, chan::TAP_CH, topic, sizeof topic)) publish(topic, "");
+    if (topic_for(Topic::Play, chan::MONITOR_CH, topic, sizeof topic)) publish(topic, "");
     for (int ch = 1; ch <= chan::N_PLAY_CH; ++ch) {
         topic_for(Topic::Test, ch, topic, sizeof topic);
         publish(topic, "off");

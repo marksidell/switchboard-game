@@ -39,7 +39,7 @@ def live(t: float = 0.0, **state: str) -> Panel:
 
 
 def main() -> int:
-    START, STOP, PACE, NEXT, HEALTH = 0, 1, 2, 3, 7
+    START, STOP, PACE, NEXT, TUTOR = 0, 1, 2, 3, 7
 
     print("== keys")
     p = live()
@@ -138,11 +138,18 @@ def main() -> int:
     check(p.error_until == 10, "shown for 5s when it appears")
     p.on_touch(6)
     check(p.error_until == 0, "a touch on the strip dismisses it")
-    p.on_key(HEALTH, 7)
-    check(p.error_until == 12, "Health shows it again")
     p.on_message("game/error", "", 8)
-    check(p.error_until == 0 and p.on_key(HEALTH, 9) == [] and p.error_until == 0,
-          "cleared: Health has nothing to show")
+    check(p.error_until == 0, "cleared: the strip has nothing to show")
+
+    print("\n== the tutor key (Rev 29)")
+    p = live()
+    check(p.on_key(TUTOR, 0) == [], "nothing echoed yet: nothing sent")
+    p.on_message("game/tutor", "off", 0)
+    check(p.on_key(TUTOR, 0) == [("game/tutor/set", "on", 1)], "off: a press asks for on")
+    check(p.get("game/tutor") == "off", "and the key does not change until the echo")
+    p.on_message("game/tutor", "on", 0)
+    check(p.on_key(TUTOR, 0) == [("game/tutor/set", "off", 1)], "on: a press asks for off")
+    check(p.on_key(TUTOR, STALE + 0.1) == [], "a stale game: the key does nothing")
 
     print("\n== drawing")
     with tempfile.TemporaryDirectory() as tmp:
@@ -154,6 +161,7 @@ def main() -> int:
                                  game__next_at="1000012", game__success="7",
                                  game__fail="2", game__call__1__scene="x"), 0),
                 ("listen", live(game__run="on", game__pace="listen", game__pause="3"), 0),
+                ("tutor", live(game__tutor="on"), 0),
                 ("error", live(game__error="floor: 30 is above gap 20; set to 20"), 0),
                 ("stale", live(), 10),
                 ("no broker", Panel(), 0)):

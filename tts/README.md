@@ -36,6 +36,19 @@ tts/.venv/bin/python -m tts.process             # tts/raw -> wav/
 tts/aws/status                                  # nothing should be running
 ```
 
+**The tutor** (game_control.md §4.9) is a cast member like any other, and her
+lines are generated from script.yml's `tutor:` by the loader: one whole
+sentence per jack, outside number and operator line they name, about 120 in
+all. Her voice first, alone, then every line that is new:
+
+```sh
+tts/aws/design --only tutor
+tts/.venv/bin/python -m tts.process --raw tts/voices/candidates --out tts/voices/preview --no-script
+tts/audition                                    # choose hers
+tts/choose --only tutor
+tts/aws/generate && tts/.venv/bin/python -m tts.process
+```
+
 `tts/audition` and `tts/choose` re-exec themselves under `tts/.venv`, so they can be
 run straight from the repo root with no prefix and from any directory. If either one
 fails with `ModuleNotFoundError`, step 0 has not been run: there is no venv for them to

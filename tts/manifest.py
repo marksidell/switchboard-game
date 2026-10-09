@@ -44,7 +44,7 @@ class Job:
     """One line to generate, and everything the model needs to do it."""
     name: str
     scene: str
-    id: int
+    id: int | str        # a tutor line's id is its key (script.py)
     speaker: str
     text: str            # after substitution — what is actually spoken
     ref_wav: str         # relative to the repo, uploaded with the job

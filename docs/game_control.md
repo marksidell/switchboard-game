@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 28 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built*
+*Rev 29 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call*
 
 # 1. Overview
 
@@ -175,6 +175,16 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 — The page's countdown says "waiting" while a game runs in automatic pacing and no next call is scheduled — `next_at` empty, because in auto the latest call is not yet connected or ended, and in listen the board is not yet empty (§4.2) — and "–" when no game runs (§7.1), Mark's request, 2026-09-28. It said "–" in both. The deck's Next key already said "waiting" in that case; §7.4 now says so too. It is on the countdown rather than on the Next Call button because the button is hidden with the controls and the countdown is not.
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
+
+## 1.29 Changes in Rev 29
+
+— Tutor mode (§4.9), Mark's request, 2026-10-08, in place of an instruction sheet: a new player has too many steps to take in from paper. With it on, a senior operator's voice on the audience loudspeaker says what to do at each step of a call — which cord, which jack, which switch, what to say, what to dial — at the moment the game sees the step is due, and the game waits for her. She introduces the board when the game starts. One call is in progress at a time, nothing fails for being slow, a prompt not acted on is said again, and the next call waits for the cords to come out. Her lines are rendered offline like every other, from a `tutor:` section of script.yml, one whole sentence for every jack, number and operator line they name.
+
+— The Stream Deck's key 8 is the tutor switch (§7.4). It showed three health lamps, which the page already shows; the error that turned it red is on the strip as before. `game/tutor/set` and `game/tutor` are new (mqtt.md Rev 27), and the page's state line says "Tutor" while it is on (§7.1).
+
+— She is on the loudspeaker, not in the headset, which is the reason for most of §4.9's rules. In the headset her voice would go out on the line the operator is bridged to and set off that line's speech detection. On the loudspeaker it reaches the operator's microphone acoustically, so she is still never speaking while the game listens. The audio program needed a file source on the monitor for it: audio.md Rev 11.
+
+— Code consequence for Claude Code, made the same day: `tutor.py`; hooks in `flows.py` at each step; the switch, the introduction, one call at a time and the end of a call in `game.py`; `Slots.timeless`; `script_data.py` loads her wavs, and refuses tutor mode while any is missing rather than refusing to start; the loader in `tts/script.py` renders `tutor:`; key 8 in `streamdeck.py`; `app.js`; `test_tutor.py`.
 
 ## 1.28 Changes in Rev 28
 
@@ -357,6 +367,41 @@ At most eight calls are in progress at once — the number of call slots (§6.1)
 ## 4.8 A Chosen Next Scene
 
 Rev 25. A long press on Next Call lists every scene that could be dealt — the active ones without `after:`, within the circuits fitted (§6.5) — from `game/scenes`, one id per line. The page shows them in alphabetical order of id (Rev 26). Choosing one publishes `game/queue/set` with its id; the game program echoes it on `game/queue`. The next call dealt, by Next Call or by the automatic schedule, is that scene rather than the deck's, if its lines and people are free; it is then taken out of the current deck, so it does not come round again until the reshuffle, and `game/queue` goes empty. If they are not free, the call is dealt from the deck as usual and the choice stays for the call after. `game/queue/set` with an empty payload clears the choice. It may be made while no game is running, and the first call of the next game is then that scene; Stop forgets it. An id that is not in `game/scenes` is refused on `game/error`.
+
+## 4.9 Tutor Mode
+
+Rev 29. A voice on the audience loudspeaker talks a new player through each call: a senior operator, cast member `tutor`, calm and unhurried. Her lines are in script.yml under `tutor:`, rendered offline in her voice like every other line, and played on the monitor with `audio/monitor/play/set` (audio.md §10.4). The game program decides when she speaks, from the same topics it runs the calls on.
+
+**The switch.** `game/tutor/set` `"on"` or `"off"`, echoed on `game/tutor`, from the Stream Deck's key 8 (§7.4). Off at the game program's start. It may be changed whether or not a game runs. On takes effect from the next Start, or from the next call if a game is running. Off takes effect at once: she stops mid-word, and calls in progress go on without her. On is refused on `game/error` while any of her lines has no wav, naming them, since a tutor with gaps is worse than none; the game program does not refuse to start for it.
+
+**When she speaks.** At each step, before the player has to act, with the call held until she has finished:
+
+| **Step** | **She says** | **The game then waits for** |
+| --- | --- | --- |
+| Start | the introduction, then in manual pacing "press Next Call" | — |
+| A room's lamp lights | which cord, the lit jack, and the switch to push. One line: the game cannot see a cord go into a station jack | the caller's `op` |
+| A trunk's lamp lights | which cord, and the trunk jack | the trunk's `seize`, which the cord makes |
+| The trunk is seized | the switch to push | the trunk's `op` |
+| Before every listen | "Say:" and the operator line the script gives there (§4.7), or "Greet the caller" for a request, or "Now it is your turn to speak" | the listen |
+| Ringing a room | the cord, the jack for that room by name, and the switch that rings it: the front cord and the near switch for a call from a room, the rear cord and the far switch for a call from a trunk | that station's `ring` |
+| The room rings, call from a trunk | return the near switch to the centre, before the room answers | — |
+| Calling out | the front cord, into any free trunk | any trunk's `seize` |
+| The trunk is seized | keep the switch pushed, and the number to dial when dial tone comes, as the operator's card prints it: "Sunset four, four one oh one", or "zero, for the operator" | the first digit |
+| Ringback | return the switch to the centre when the party answers. Ringback runs on until she has finished, so she does not talk over the far end's first line | — |
+| Busy tone | "That is a busy signal. Tell the caller", then the Say prompt | the listen |
+| After the last `wait:` line | return the switch to the centre. In a call with a `wait:` line this replaces the two above: the call still needs her | — |
+| The call ends | both cords out and the switches centred; for a call to the operator, the one cord | every `op` and `peer` of the call's circuits clear and its trunk released |
+| Cleared, in manual pacing | "press Next Call when you are ready" | — |
+
+**Never over a listen.** The operator's microphone hears the loudspeaker, so a listen while she speaks would hear her as the operator. Every listen in tutor mode is preceded by one of her lines, which ends before the listen starts, and saying a line stops any line still repeating.
+
+**Said again.** A prompt the player does not act on is said again 20s after it ended, and again 20s after that, then not again. A Say prompt whose listen hears nothing in 20s is said again the same way; after the third, the line plays as after any listen that times out.
+
+**One call at a time.** No call is dealt while one is in progress, an `after:` scene is waiting, she is introducing the board, or the cords of the last call are still up. Next Call is refused on `game/error` while that holds, except during the introduction, which it cuts short. The automatic schedule waits for all of it, as listen pacing waits for an empty board (§4.2), then runs its gap.
+
+**Nothing fails for being slow.** The answer and connect timeouts are lifted for calls dealt in tutor mode, and the call slots show no deadline (§6.1). A wrong jack or a wrong number is no more a failure than in any game (§5); she does not say it is wrong, but her prompt comes round again. A call can still fail by being cut off. The tallies count as in any game, and the game log records `tutor on` and `tutor off`.
+
+**Her lines** (script.yml `tutor:`). Each key is one line, rendered as `tutor.<key>`. Three keys are templates rendered once for every value they take: `ring-front` and `ring-rear` for each jack a station is cabled to (`{jack}`, "room 403" for a numbered jack, else its label), `dial` for each outside line but the operator (`{number}`, as above), and `say` for each operator line (`{line}`). A whole sentence for each, not a phrase spliced into a sentence at play time, so each is spoken as one. Her voice is designed and chosen as any cast member's (`tts/aws/design --only tutor`, `tts/audition`, `tts/choose --only tutor`); her lines are rendered and band-limited with the rest.
 
 ## 4.5 Not Yet: Calls Before Connection
 
@@ -625,15 +670,15 @@ It follows every rule of §7.2. It shows only what was echoed, and a press chang
 | 5 Calls | `started` and in progress | nothing |
 | 6 Score | success and fail | nothing |
 | 7 Percent | success percentage of handled | nothing |
-| 8 Health | a lamp each for the game program, the controller and the audio program, red when offline or its heartbeat is 2.5s late; the whole key red while `game/error` is set | shows the last `game/error` on the strip again |
+| 8 Tutor | "Tutor" over "on" or "off", from `game/tutor`, lit amber while on (Rev 29) | `tutor/set` with the other of the echoed value. Nothing until a value has been echoed. Until Rev 29 key 8 showed a health lamp for each client, and the whole key red while `game/error` was set; the page shows both. |
 
 **Dials**, left to right: `gap`, `ramp`, `floor`, `jitter`. One detent is one step of the page's stepper: 5s, 1s, 1s and 10%. A push does nothing at Rev 13. The strip segment above each dial shows its name and its echoed value, and above `gap` also `gap_now` while a game runs. The four are dimmed in manual pacing but still turn, so the values can be set before switching to auto. In listen the first dial sets `pause` instead, 1s a detent, and its segment reads `pause`; the other three show auto's values, name and value both dimmer than manual's, and do nothing (Rev 17; dimmer Rev 18), so the one live dial stands out. A dial's pending target is dropped when the pace changes, since the dial may now set a different value.
 
 **Turning a dial.** The dial reports steps and the command is absolute, so the program keeps a target. The first detent starts the target at the echoed value; each detent adds a step to the target, clamped to the §4.3 range, and publishes it. The target is held while detents keep coming and is dropped when the echo equals it or 1s after the last detent, so a fast turn loses no steps and a value the game clamped differently — `floor` above `gap` — settles on the echo. A dial whose value has not been echoed yet does nothing.
 
-**Errors.** When `game/error` changes to a non-empty value, the strip shows it across its whole width for 5s and then returns to the dials. Key 8 stays red until the error clears, and a press on it shows the error again. A touch on the strip dismisses it.
+**Errors.** When `game/error` changes to a non-empty value, the strip shows it across its whole width for 5s and then returns to the dials. A touch on the strip dismisses it. Through Rev 28 key 8 also stayed red until the error cleared, and a press on it showed the error again.
 
-**Staleness.** With the broker lost, every key is greyed and the strip says so. With the game program offline or its heartbeat 2.5s late, keys 1–7 and the dials are greyed and do nothing; key 8 still shows the three clients. A press that does nothing gives no other sign; the greyed key is the sign.
+**Staleness.** With the broker lost, every key is greyed and the strip says so. With the game program offline or its heartbeat 2.5s late, the keys and the dials are greyed and do nothing (key 8 too, from Rev 29). A press that does nothing gives no other sign; the greyed key is the sign.
 
 **No deck.** The program runs whether or not a deck is plugged in. It looks for one every 2s, and draws a deck found or replugged from the state it already holds. It drives the first Stream Deck+ it finds and ignores any other. On a clean stop it clears the deck, so it is blank rather than showing controls that no longer work. A crash leaves the last images on the keys; systemd restarts the program within 5s, and the first thing it does is redraw them.
 
@@ -641,7 +686,7 @@ It follows every rule of §7.2. It shows only what was echoed, and a press chang
 
 # 8. What the Game Program Checks
 
-Every value arriving on `game/+/set` is checked by the game program; the access list keeps the page off hardware topics but does nothing about a bad value on the game's own. A value out of range is clamped and the applied value echoed; a value that is not understood — `run/set` other than `"on"` or `"off"`, `pace/set` other than `"manual"`, `"auto"` or `"listen"`, a number that does not parse — is dropped, logged, and reported on `game/error`. Accepted commands are logged with `page:` in front (§6.2). A command from the Stream Deck arrives on the same topic and is logged the same way; the game program cannot tell them apart and does not need to (Rev 13).
+Every value arriving on `game/+/set` is checked by the game program; the access list keeps the page off hardware topics but does nothing about a bad value on the game's own. A value out of range is clamped and the applied value echoed; a value that is not understood — `run/set` or `tutor/set` other than `"on"` or `"off"`, `pace/set` other than `"manual"`, `"auto"` or `"listen"`, a number that does not parse — is dropped, logged, and reported on `game/error`. Accepted commands are logged with `page:` in front (§6.2). A command from the Stream Deck arrives on the same topic and is logged the same way; the game program cannot tell them apart and does not need to (Rev 13).
 
 # 9. Commissioning
 
@@ -657,9 +702,10 @@ Before step 1: the certificate is issued (`mqtt.md` §9.1), nginx is configured 
 8. **Wiring check** (Rev 5). With no game running, put an answering cord into each cabled station jack in turn and ring it. The tile for that jack flashes. If another tile flashes, or none does, the cable and script.yml's `jacks:` disagree about that station (Rev 11; each station's `switchboard:` at Rev 7–10, `wiring.yml` at Rev 5–6). A labelled jack with nothing cabled looks like any other at rest, so a tile that never flashes is not by itself proof of a fault — tap it: its circuit reads none. For trunks, seize each trunk jack in turn: the tile for that jack shows busy. This checks the cabling against the script using only topics that already exist.
 9. **The loudspeaker follows the call** (Rev 6). Start a game. The page shows the monitor's source as `tap`. Start a call from a station and answer it: the source changes to that station's label and the audience hears the request. Put the call through and release the operator: the conversation stays on the loudspeaker. Do the same for a call from a trunk, and confirm the source does not change while the trunk is ringing. Stop the game: the source returns to `tap`.
 10. **Certificate reload** (Rev 10). Nothing to check. Mosquitto holds no certificate: nginx terminates TLS and rereads the certificate on `systemctl reload`, which starts new workers and lets the old ones finish, so no client is disconnected and no client of Mosquitto is touched at all. Rev 8 and Rev 9 had this step decide between SIGHUP and a 04:00 restart, because whether Mosquitto's libwebsockets listener reloads a certificate on SIGHUP was unconfirmed. Both are withdrawn (`mqtt.md` §9.1). Confirm the renewal path itself instead, without spending an issuance: `sudo certbot renew --dry-run` runs the DNS-01 challenge against staging and the deploy hook, and must report success.
-11. **The Stream Deck** (Rev 13). With `sbgame-streamdeck` running and the deck plugged in: the keys draw within 2s. Start and Stop start and stop a game, Stop only on the second press. The pacing key switches the page's pacing. Turn each dial one detent each way and check the page shows the step, then turn `gap` quickly through ten detents and check it moves 50s. Next Call starts one call per press, however fast it is pressed. Stop the game program: keys 1–7 grey within 2.5s and key 8 shows the game red. Unplug the deck and plug it in again: it redraws with the current state. `systemctl stop sbgame-streamdeck`: the deck goes blank. Then hide the page's controls with its Controls switch (§7.1), reload the page, and check they stay hidden and the line reads the game's state.
+11. **The Stream Deck** (Rev 13). With `sbgame-streamdeck` running and the deck plugged in: the keys draw within 2s. Start and Stop start and stop a game, Stop only on the second press. The pacing key switches the page's pacing. Turn each dial one detent each way and check the page shows the step, then turn `gap` quickly through ten detents and check it moves 50s. Next Call starts one call per press, however fast it is pressed. Stop the game program: every key greys within 2.5s (keys 1–7 grey and key 8 shows the game red, through Rev 28). Unplug the deck and plug it in again: it redraws with the current state. `systemctl stop sbgame-streamdeck`: the deck goes blank. Then hide the page's controls with its Controls switch (§7.1), reload the page, and check they stay hidden and the line reads the game's state.
 
     Run 2026-09-26 (Rev 15). Passed: the keys drew; Start and Stop, Stop on the second press; the pacing key; each dial one step per detent (`gap` 5s, `ramp` and `floor` 1, `jitter` 10), and eight quick `gap` detents moved it 40s, published in order within a second; with the game program stopped the keys greyed and key 8 went red; replugged, the deck redrew; with `sbgame-streamdeck` stopped it went blank; the page's controls stayed hidden across a reload. A fast turn can carry two detents in one message (`jitter` 100 → 80); the total comes out right. Next Call pressed fast, checked the same day with `sbaudio` running: six presses about 0.4s apart gave six `next/set` and six calls, each a different scene, none doubled or lost. With the audio program offline this could not be checked, since every call fails at once and the game stops (§3).
+12. **Tutor mode** (Rev 29). With her lines rendered and in `/srv/sbgame/wav`, and the loudspeaker on: press key 8, which lights. Start a game in manual pacing: she introduces the board and asks for Next Call, and a press during the introduction cuts it short. Take a call from a room, one in on a trunk, and one out, following her, and check that every step is prompted before it is due and that she never speaks while the page shows a line `listening`. Leave a lamp lit: she says it twice more, 20s apart, then stops. Finish a call and leave a cord in: Next Call is refused and the page's error says why; pull it, and she asks for Next Call. Set the level of her voice against the calls' with `--monitor-file-trim` (audio.md §10.4), with the monitor at the level the room wants for the calls. Press key 8 again mid-call: she stops at once and the call goes on.
 
 # 10. Open Items
 
@@ -675,4 +721,6 @@ Before step 1: the certificate is issued (`mqtt.md` §9.1), nginx is configured 
 - **Dial push** (§7.4). Unused at Rev 13. Candidates: a finer step while held, or back to the configured value — the program does not know the configured values, and the game program would have to publish them.
 - **Error on the strip** (§7.4). 5s may be too short to read a long error, or too long to lose the dials during a game. Wants use.
 - **Next Call on GPIO36** (`control.md` §11). A third way to publish `next/set`, needing the same guard as the page and the deck.
+- **The tutor and a wrong move** (§4.9). She does not say a jack or a number is wrong; her prompt only comes round again. A line per jack for "that is not room 403" would be one more template. Wants play with a new player first.
+- **The tutor's voice in the headset.** Rev 29 puts her on the loudspeaker, which the audience hears too. If the room wants her private, the headset needs her kept off the line the operator is bridged to, which the tap cannot do (§4.9).
 - **Screen wake lock** (§7.3, Rev 8). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.

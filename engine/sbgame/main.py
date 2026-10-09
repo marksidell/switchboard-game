@@ -70,6 +70,8 @@ async def run(cfg: Config) -> int:
     log.info("script: %d active scenes of %d, %d in the deck, %d jacks",
              len(gs.scenes), len(gs.script.scenes), len(gs.deck_scenes()),
              sum(1 for j in gs.jacks if j.circuit))
+    log.info("tutor: %d lines, %d with no wav%s", len(gs.tutor) + len(gs.tutor_missing),
+             len(gs.tutor_missing), " — tutor mode is refused" if gs.tutor_missing else "")
 
     session = SessionLog(cfg.resolved("session_db"))
     await session.open()
@@ -163,6 +165,8 @@ def main(argv: list[str] | None = None) -> int:
               f"of {len(gs.script.scenes)}, "
               f"{len(gs.deck_scenes())} in the deck, "
               f"{sum(1 for j in gs.jacks if j.circuit)} jacks cabled")
+        print(f"tutor (§4.9): {len(gs.tutor) + len(gs.tutor_missing)} lines, "
+              f"{len(gs.tutor_missing)} with no wav")
         return 0
 
     return asyncio.run(run(cfg))

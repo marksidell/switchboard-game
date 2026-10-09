@@ -15,6 +15,8 @@ carrying every failure found rather than only the first.
 
 from __future__ import annotations
 
+import csv
+import string
 import sys
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -55,6 +57,26 @@ HOTEL_OPERATOR = "hotel_operator"
 # were a scene of that name, so no scene may take it.
 OPERATOR_SCENE = "operator"
 
+# Tutor mode's lines (game_control.md 4.9, Rev 29), under tutor:, are said by
+# this cast member and named tutor.<key>, so no scene may take the name. Each
+# key is listed with the one placeholder it takes, if any; a template is
+# rendered once per value (see _tutor_lines()).
+TUTOR = "tutor"
+TUTOR_KEYS: dict[str, str | None] = {
+    "intro": None, "begin-manual": None,
+    "answer-station": None, "answer-trunk": None, "talk": None,
+    "say": "line", "greet": None, "respond": None,
+    "ring-front": "jack", "ring-rear": "jack", "center-ringing": None,
+    "trunk-front": None, "dial": "number", "dial-operator": None,
+    "center-dialled": None, "center": None, "busy-heard": None,
+    "hangup-pair": None, "hangup-one": None, "ready-manual": None,
+}
+# The 1958 exchanges, for saying a number as the operator's card prints it
+# (hardcopy/cards.py reads the same file). Not installed on the host, where
+# only the names of the tutor's lines matter; the digits are said alone then.
+EXCHANGES = Path(__file__).resolve().parent.parent / "hardcopy" / "seattle-exchanges.csv"
+DIGIT_WORDS = ("oh", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine")
+
 
 def _seconds(v: object) -> float:
     """A pause: or ringback: that passed validation, else 0."""
@@ -75,11 +97,12 @@ class Utterance:
     """One spoken line: what it is, who says it, and what it is called."""
 
     scene: str
-    id: int
+    id: int | str
     speaker: str
     text: str
     # Which side of the call says it, "caller" or "called" — or "operator" for
-    # the player's own line, which the game never plays. Usually the scene's
+    # the player's own line, which the game never plays, or "tutor" for one of
+    # tutor mode's (Rev 29), whose id is its key under tutor:, not a number. Usually the scene's
     # party on that side is the speaker; a line's own person: overrides that.
     role: str = "caller"
     # wait: true — the game plays it only after the operator has spoken on
@@ -122,6 +145,9 @@ class Script:
     operator_lines: dict[str, Utterance] = field(default_factory=dict)
     # scene id -> the name of the operator line that closes it, if any
     closings: dict[str, str] = field(default_factory=dict)
+    # tutor mode's lines, by key: "intro", "ring-front-21", "dial-pizza",
+    # "say-operator.1" (game_control.md 4.9). Empty without a tutor: section.
+    tutor: dict[str, Utterance] = field(default_factory=dict)
 
     def by_speaker(self) -> dict[str, list[Utterance]]:
         out: dict[str, list[Utterance]] = {p: [] for p in self.cast}
@@ -231,6 +257,8 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
         bad(f"{name}", "is both a station and an outside entry")
     if OPERATOR_SCENE in scenes:
         bad(f"scenes.{OPERATOR_SCENE}", "is reserved for the names of operator_lines:")
+    if TUTOR in scenes:
+        bad(f"scenes.{TUTOR}", "is reserved for the names of the tutor's lines")
     lines = set(stations) | set(outside)
 
     # --- station and outside numbering --------------------------------------
@@ -554,13 +582,114 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
             seen.add(at)
             at = after_of[at]
 
+    # --- the tutor (game_control.md 4.9) -------------------------------------
+    tutor = _tutor_lines(data.get("tutor"), cast, board, stations, outside,
+                         utterances, bad)
+    utterances.extend(tutor.values())
+
     if fail:
         raise ScriptError(path, fail)
 
     return Script(path=path, setting=data.get("setting") or {}, cast=cast,
                   outside=outside, stations=stations, scenes=scenes,
                   jacks=board, utterances=utterances, operator_lines=stock,
-                  closings=closings)
+                  closings=closings, tutor=tutor)
+
+
+def jack_words(label: str) -> str:
+    """How the tutor names a jack: "room 403" for a numbered one, else its label."""
+    return f"room {label}" if label.isdigit() else label
+
+
+def _exchanges() -> dict[str, str]:
+    """"783" -> "Sunset three", from the exchange list, if it is here."""
+    out: dict[str, str] = {}
+    try:
+        with EXCHANGES.open(newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                name, digit = row["Exchange"].split()
+                out[row["Numeric"]] = f"{name.capitalize()} {DIGIT_WORDS[int(digit)]}"
+    except OSError:
+        pass
+    return out
+
+
+def number_words(number: str, exchanges: dict[str, str]) -> str:
+    """783-2250 as an operator says it from the card: "Sunset three, two two five oh"."""
+    digits = "".join(c for c in number if c.isdigit())
+    ex = exchanges.get(digits[:3]) if len(digits) == 7 else None
+    if ex is None:
+        return " ".join(DIGIT_WORDS[int(c)] for c in digits)
+    return f"{ex}, " + " ".join(DIGIT_WORDS[int(c)] for c in digits[3:])
+
+
+def _tutor_lines(raw: object, cast: dict, board: list[dict], stations: dict,
+                 outside: dict, utterances: list[Utterance], bad) -> dict[str, Utterance]:
+    """tutor: expanded into one utterance per line the tutor can say.
+
+    A template is rendered whole for each value it can take, rather than
+    spliced from a sentence and a name at play time, so every line is spoken
+    as one sentence (Mark, 2026-10-08).
+    """
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        bad("tutor", "not a mapping")
+        return {}
+    if TUTOR not in cast:
+        bad("cast", f"no {TUTOR}, who speaks the lines under tutor:")
+    for key in sorted(set(map(str, raw)) - set(TUTOR_KEYS)):
+        bad(f"tutor.{key}", "is not one of the tutor's lines (game_control.md 4.9)")
+    texts: dict[str, str] = {}
+    for key, field_ in TUTOR_KEYS.items():
+        text = raw.get(key)
+        if not isinstance(text, str) or not text.strip():
+            bad(f"tutor.{key}", "missing or empty")
+            continue
+        try:
+            used = {f for _, f, _, _ in string.Formatter().parse(text) if f is not None}
+        except ValueError as e:
+            bad(f"tutor.{key}", f"unreadable placeholder: {e}")
+            continue
+        want = {field_} if field_ else set()
+        if used != want:
+            bad(f"tutor.{key}", "takes " + (f"{{{field_}}}" if field_ else "no placeholder")
+                + (f", not {', '.join('{' + u + '}' for u in sorted(used))}" if used - want else ""))
+            continue
+        texts[key] = " ".join(text.split())
+
+    out: dict[str, Utterance] = {}
+
+    def add(key: str, text: str) -> None:
+        u = Utterance(scene=TUTOR, id=key, speaker=TUTOR, text=text, role=TUTOR)
+        why = name_problem(u.name)
+        if why is not None:
+            bad(f"tutor.{key}", f"file name {u.name!r} is not usable: {why}")
+            return
+        if key in out:
+            bad(f"tutor.{key}", f"{u.name} would be rendered twice: rename the line that makes it")
+            return
+        out[key] = u
+
+    for key, text in texts.items():
+        field_ = TUTOR_KEYS[key]
+        if field_ is None:
+            add(key, text)
+        elif field_ == "jack":
+            for j in board:
+                if j["station"] and isinstance(j["jack"], int):
+                    add(f"{key}-{j['jack']}", text.format(jack=jack_words(j["label"])))
+        elif field_ == "number":
+            ex = _exchanges()
+            for line, entry in outside.items():
+                number = str((entry or {}).get("number", ""))
+                if number and number != "0":
+                    add(f"{key}-{line}", text.format(number=number_words(number, ex)))
+        elif field_ == "line":
+            for u in utterances:
+                if u.role == "operator":
+                    add(f"{key}-{u.name}", text.format(line=u.text))
+    return out
 
 
 def _any_operator_label(scenes: dict) -> bool:

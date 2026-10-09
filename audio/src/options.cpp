@@ -58,6 +58,7 @@ static void usage(const char* p)
 "  --monitor-src SRC      monitor source at startup: tap, station/1-22,\n"
 "                         trunk/1-8 (tap)\n"
 "  --monitor-tap-trim DB  gain added only while the source is the tap (0)\n"
+"  --monitor-file-trim DB gain added to a file on the monitor (0)\n"
 "  --monitor-lp HZ HZ DB  monitor low-pass passband edge, stopband edge,\n"
 "                         stopband dB (3600 5600 70)\n"
 "  --vad-margin DB        speech threshold above floor (10)\n"
@@ -179,6 +180,7 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
                                                 return false;
                                             } }
         else if (a == "--monitor-tap-trim"){ o.monitor_tap_trim_db = atof(nx); ++i; }
+        else if (a == "--monitor-file-trim"){ o.monitor_file_trim_db = atof(nx); ++i; }
         else if (a == "--monitor-lp")     { if (!want(argc, i, 3, "--monitor-lp")) return false;
                                             o.lp_pass = atof(argv[i + 1]);
                                             o.lp_stop = atof(argv[i + 2]);
@@ -222,6 +224,11 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
     if (o.monitor_tap_trim_db < -30.0 || o.monitor_tap_trim_db > 30.0) {
         std::fprintf(stderr, "--monitor-tap-trim: %g dB is outside -30 to +30\n",
                      o.monitor_tap_trim_db);
+        return false;
+    }
+    if (o.monitor_file_trim_db < -30.0 || o.monitor_file_trim_db > 30.0) {
+        std::fprintf(stderr, "--monitor-file-trim: %g dB is outside -30 to +30\n",
+                     o.monitor_file_trim_db);
         return false;
     }
     if (o.lp_stop <= o.lp_pass)           { std::fprintf(stderr, "--monitor-lp: stopband edge must exceed passband edge\n"); return false; }

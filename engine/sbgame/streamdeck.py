@@ -80,6 +80,7 @@ OK = (56, 161, 105)
 DANGER = (197, 48, 48)
 VIOLET = (124, 92, 255)
 BLUE = (59, 110, 165)
+AMBER = (232, 176, 64)
 
 # The pacing key cycles in this order and shows all three, the echoed one lit
 # (§7.4, Rev 16), so the choices are on the key and not in the manual.
@@ -196,12 +197,13 @@ class Panel:
 
     def on_key(self, key: int, now: float) -> list[Command]:
         """Key 0-7 pressed. Returns what to publish."""
-        if key == 7:                     # Health: show the error again
-            if self.get("game/error"):
-                self.error_until = now + ERROR_SHOW
-            return []
-        if key >= 4 or self.game_stale(now):
+        if key in (4, 5, 6) or self.game_stale(now):
             return []                    # a greyed key does nothing (§7.4)
+        if key == 7:                     # Tutor (Rev 29): the other of the echo
+            t = self.get("game/tutor")
+            if t not in ("on", "off"):
+                return []                # nothing echoed yet to switch from
+            return [("game/tutor/set", "off" if t == "on" else "on", 1)]
         running = self.running()
         if key == 0:
             return [] if running else [("game/run/set", "on", 1)]
@@ -269,7 +271,7 @@ class Panel:
     def keys(self, now: float) -> list[Image.Image]:
         return [f(now) for f in (self._k_start, self._k_stop, self._k_pace,
                                  self._k_next, self._k_calls, self._k_score,
-                                 self._k_pct, self._k_health)]
+                                 self._k_pct, self._k_tutor)]
 
     def strip(self, now: float) -> Image.Image:
         img = Image.new("RGB", (STRIP_W, STRIP_H), BG)
@@ -362,18 +364,14 @@ class Panel:
         pct = f"{round(100 * ok / (ok + fail))}%" if ok + fail else "–"
         return _key(pct, "success", fill=BG, ink=ink, size=40)
 
-    def _k_health(self, now: float) -> Image.Image:
-        err = bool(self.get("game/error"))
-        img = Image.new("RGB", (KEY_PX, KEY_PX), (90, 24, 24) if err else BG)
-        d = ImageDraw.Draw(img)
-        rows = (("game", self.game_stale(now)), ("ctl", self.esp_stale(now)),
-                ("audio", self.audio_stale()))
-        for i, (name, stale) in enumerate(rows):
-            y = 14 + i * 34
-            colour = GREY if not self.broker_up else (DANGER if stale else OK)
-            d.ellipse((14, y + 4, 34, y + 24), fill=colour)
-            _text(d, (44, y), name, 22, INK)
-        return img
+    def _k_tutor(self, now: float) -> Image.Image:
+        """Rev 29: tutor mode's switch, lit while the echo says on (§4.9).
+        It replaced the health lamps, which the page shows."""
+        if self.game_stale(now):
+            return _key("Tutor", fill=PANEL, ink=GREY)
+        on = self.get("game/tutor") == "on"
+        return _key("Tutor", "on" if on else "off",
+                    fill=AMBER if on else PANEL, ink=BG if on else DIM)
 
 
 # ---- drawing helpers -------------------------------------------------------

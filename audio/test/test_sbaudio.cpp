@@ -674,6 +674,75 @@ static void test_tap_play()
     check(echoed, "and posts the tap's play echo");
 }
 
+// test_monitor_play()
+//   audio.md 10.4, Rev 11: a file on the monitor plays through the monitor's
+//   gain and low-pass onto channel 24, clears its own play topic when it
+//   ends, and is silent while the monitor is off.
+static void test_monitor_play()
+{
+    std::printf("a file on the monitor (audio.md 10.4, Rev 11)\n");
+    auto sh = std::make_unique<Shared>();
+    AlsaStream st;                          // never opened
+    Engine eng(*sh, st);
+    check(eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
+
+    // 1 kHz, well inside the passband, for 20 periods.
+    const unsigned len = 256 * 20;
+    auto file = [&] {
+        AudioBuffer* b = new AudioBuffer;
+        b->samples.resize(len);
+        for (unsigned i = 0; i < len; ++i)
+            b->samples[i] = 0.25f * (float)std::sin(2.0 * M_PI * 1000.0 * i / chan::SAMPLE_RATE);
+        return b;
+    };
+    auto play = [&](bool on) {
+        Command m;
+        m.verb = Verb::Monitor; m.on = on; m.arg = 0.0f;
+        check(sh->cmdq.push(m), "the monitor command queues");
+        eng.drain_for_test();
+        for (int k = 0; k < 10; ++k) { eng.capture_for_test(); eng.render_for_test(); }
+        Result r;
+        while (sh->res_audio.pop(r)) {}     // let the 20ms ramp and the last file ring out
+        Command c;
+        c.verb = Verb::Play;
+        c.idx  = (int16_t)chan::MONITOR_CH;
+        c.buf  = file();
+        std::snprintf(c.name, sizeof c.name, "tutor.hello");
+        check(sh->cmdq.push(c), "the play command queues");
+        eng.drain_for_test();
+    };
+    auto peak_over = [&](unsigned periods, bool& finished) {
+        double peak = 0.0;
+        finished = false;
+        for (unsigned p = 0; p < periods; ++p) {
+            eng.capture_for_test();
+            eng.render_for_test();
+            const std::vector<int32_t>& out = eng.playback();
+            const int n = (int)out.size() / chan::N_PLAY_CH;
+            for (int f = 0; f < n; ++f) {
+                const size_t i = (size_t)f * chan::N_PLAY_CH + chan::MONITOR_CH - 1;
+                peak = std::max(peak, std::fabs((double)out[i] / 2147483648.0));
+            }
+            Result r;
+            while (sh->res_audio.pop(r))
+                if (r.topic == Topic::Play && r.idx == chan::MONITOR_CH && r.value[0] == '\0')
+                    finished = true;
+        }
+        return peak;
+    };
+
+    play(true);
+    bool finished = false;
+    const double on_peak = peak_over(25, finished);
+    check(on_peak > 0.2 && on_peak < 0.3, "channel 24 carries the file at unity, through the low-pass");
+    check(finished, "and play clears when the file ends");
+
+    play(false);
+    const double off_peak = peak_over(25, finished);
+    check(off_peak < 1e-4, "silent while the monitor is off");
+    check(finished, "and still runs out and clears");
+}
+
 static void test_monitor_source()
 {
     std::printf("monitor source mapping (audio.md 10.3)\n");
@@ -770,6 +839,7 @@ int main()
     test_render_map();
     test_monitor_source();
     test_tap_play();
+    test_monitor_play();
     std::printf("\n%s\n", failures ? "FAILURES" : "all checks passed");
     return failures ? 1 : 0;
 }

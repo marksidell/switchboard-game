@@ -12,6 +12,9 @@ Three shapes of task run under it:
                  automatic gap has elapsed (§4.2).
   a flow task    one per call in progress, cancelled by Stop.
   an after timer one per waiting `after:` scene, cancelled by Stop (§4.4).
+  a tutor task   in tutor mode (§4.9), the introduction after Start, or the
+                 end of a call: her line, then the wait for the cords out.
+                 While it runs no call is dealt.
 
 The command handler is deliberately quick (handover rule 9): it runs inside the
 link's dispatch loop, and no hardware message is processed until it returns. It
@@ -21,6 +24,7 @@ validates, publishes the echo, starts or cancels tasks, and returns.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import logging
 import time
 from dataclasses import dataclass
@@ -36,6 +40,7 @@ from .pacing import PACES
 from .link import Hw, Link
 from .script_data import GameScript, SceneDef, Shape
 from .session import SessionLog
+from .tutor import NO_LIMIT, Tutor
 
 log = logging.getLogger("game")
 
@@ -71,6 +76,12 @@ class Game:
         self._decks_recorded = 0        # how many of deck.orders are in SQLite
         self.diag: Diagnostics | None = None
         self.queued = ""                # the chosen next scene (§4.8)
+        # Tutor mode (§4.9, Rev 29). `tutor_on` is the switch, owned by the
+        # deck; `tutor` is her, while a game runs with it on.
+        self.tutor_on = False
+        self.tutor: Tutor | None = None
+        self._tutor_task: asyncio.Task | None = None
+        self._intro = False             # the tutor task is the introduction
         # Station numbers to the script's line names, for holding a station
         # under test out of dealing (§7.5).
         self._station_lines: dict[int, frozenset[str]] = {}
@@ -115,6 +126,7 @@ class Game:
         # §4.8, §6.5, §7.5 (Rev 25).
         await link.state("game/scenes", "\n".join(self.gs.deck_scenes()))
         await link.state("game/queue", self.queued)
+        await link.state("game/tutor", "on" if self.tutor_on else "off")
         await link.state("game/stations", str(self.cfg.stations))
         await link.state("game/trunks", str(self.cfg.trunks))
         assert self.diag is not None
@@ -165,6 +177,10 @@ class Game:
                     await self._error(f"run: {payload!r} is not on or off")
                 return
 
+            if name == "tutor":
+                await self._tutor_command(payload)
+                return
+
             if name.startswith("diag/"):
                 await self._diag_command(name.removeprefix("diag/"), payload)
                 return
@@ -184,6 +200,12 @@ class Game:
                 if not self.running:
                     await self._error("next: no game is running")
                     return
+                if self._tutor_task is not None and self._intro:
+                    # §4.9: Next during the introduction cuts it short.
+                    self._tutor_task.cancel()
+                    await asyncio.gather(self._tutor_task, return_exceptions=True)
+                    self._tutor_task = None
+                    self._intro = False
                 await self._start_call(asked=True)
                 return
 
@@ -220,6 +242,50 @@ class Game:
             await self._error(f"unknown command {name!r}")
         except Offline as e:
             log.warning("command %s dropped: %s", name, e)
+
+    async def _tutor_command(self, payload: str) -> None:
+        """game/tutor/set (§4.9, Rev 29). On applies from the next call or
+        the next Start; off silences her at once."""
+        assert self.link is not None
+        if payload not in ("on", "off"):
+            await self._error(f"tutor: {payload!r} is not on or off")
+            return
+        on = payload == "on"
+        if on and self.gs.tutor_missing:
+            m = self.gs.tutor_missing
+            await self._error(f"tutor: {len(m)} of her lines have no wav, "
+                              f"{', '.join(m[:3])}{' …' if len(m) > 3 else ''}")
+            return
+        if on != self.tutor_on:
+            self.tutor_on = on
+            await self._say(f"tutor {payload}")
+            if on and self.running:
+                self.tutor = self._new_tutor()
+                assert self.slots is not None
+                self.slots.timeless = True
+            elif not on:
+                await self._end_tutor()
+                if self.running:
+                    await self._reschedule()
+        await self.link.state("game/tutor", payload)
+        await self.link.state("game/error", "")
+
+    def _new_tutor(self) -> Tutor:
+        assert self.hw is not None
+        return Tutor(self.b, self.hw, self.gs.tutor)
+
+    async def _end_tutor(self) -> None:
+        """Her task cancelled, and her voice stopped (§4.9)."""
+        t, self._tutor_task = self._tutor_task, None
+        if t is not None:
+            t.cancel()
+            await asyncio.gather(t, return_exceptions=True)
+        self._intro = False
+        if self.tutor is not None:
+            await self.tutor.stop()
+            self.tutor = None
+        if self.slots is not None:
+            self.slots.timeless = False
 
     async def _diag_command(self, sub: str, payload: str) -> None:
         """game/diag/<target>/<test>/set (§7.5, Rev 25)."""
@@ -282,10 +348,16 @@ class Game:
         await self.link.state("game/run", "on")
         await self.link.state("game/error", "")
         await self._publish_tallies()
-        if self.pacing.automatic:
+        self.pacing.next_at = None
+        if self.tutor_on:
+            # §4.9: she introduces the board first, and the first call waits
+            # for her to finish, in every pacing.
+            self.tutor = self._new_tutor()
+            self.slots.timeless = True
+            self._intro = True
+            self._tutor_task = asyncio.create_task(self._tutor_intro(), name="tutor-intro")
+        elif self.pacing.automatic:
             await self._start_call()                # the first call at once (§3)
-        else:
-            self.pacing.next_at = None
         await self._publish_pacing()
 
     async def stop(self, why: str) -> None:
@@ -299,6 +371,7 @@ class Game:
             return
         assert self.link is not None and self.slots is not None
         self.running = False
+        await self._end_tutor()                     # §4.9
         for t in list(self._flows.values()):
             t.cancel()
         for t in list(self._afters.values()):
@@ -357,8 +430,13 @@ class Game:
         Auto: no call is waiting to be connected. Listen (Rev 16): no call in
         progress at all and no `after:` scene waiting to start, so the next
         call comes only once the story on the board has been heard out.
+        Tutor mode (§4.9): as listen, and not while she is introducing the
+        board or waiting for the cords out after a call.
         """
         assert self.slots is not None
+        if self.tutor is not None:
+            return (not any(True for _ in self.slots) and not self._pending_after
+                    and self._tutor_task is None)
         if self.pacing.pace == "listen":
             return not any(True for _ in self.slots) and not self._pending_after
         return not self._waiting_to_connect()
@@ -386,6 +464,14 @@ class Game:
         """Deal a scene and run it, or say why not."""
         assert self.slots is not None and self.deck is not None
         if not self.running:
+            return
+        if self.tutor is not None and (any(True for _ in self.slots)
+                                       or self._tutor_task is not None):
+            why = ("one call at a time in tutor mode" if self._tutor_task is None
+                   else "the tutor is waiting for the cords to come out")
+            await self._say(f"no call: {why}")
+            if asked:
+                await self._error(why)
             return
         slot = self.slots.free_slot()
         if slot is None:
@@ -453,12 +539,18 @@ class Game:
 
     async def _run_call(self, call: Call, scene: SceneDef, trunk: int | None) -> None:
         assert self.slots is not None and self.hw is not None
-        ctx = Ctx(board=self.b, hw=self.hw, cfg=self.cfg, slots=self.slots,
+        cfg = self.cfg
+        if self.tutor is not None:
+            # §4.9: nobody fails for being slow while she teaches.
+            cfg = dataclasses.replace(cfg, answer_timeout=NO_LIMIT,
+                                      connect_timeout=NO_LIMIT)
+        ctx = Ctx(board=self.b, hw=self.hw, cfg=cfg, slots=self.slots,
                   call=call, scene=scene,
                   say_event=lambda t, n=call.number: asyncio.create_task(
                       self._say(t, n)),
                   mark_connected=lambda: self._connected(call),
-                  set_monitor=self._monitor)
+                  set_monitor=self._monitor,
+                  tutor=self.tutor, jack_of=self.gs.jack_of)
         outcome = Outcome(False, "cancelled")
         try:
             if scene.shape == Shape.OUTSIDE_TO_STATION:
@@ -504,6 +596,12 @@ class Game:
         await self.slots.close(call)
         await self._publish_tallies()
 
+        if self.tutor is not None and self.running:
+            # §4.9: she sees the call down; nothing is dealt meanwhile.
+            self._intro = False
+            self._tutor_task = asyncio.create_task(
+                self._tutor_hangup(call, scene), name=f"tutor-hangup-{call.number}")
+
         # §4.4: an `after:` scene follows only if this call was connected.
         for follower in self.gs.followers(scene.id):
             if call.connected:
@@ -513,6 +611,54 @@ class Game:
                     f"dropped {follower.id}: {scene.id} was never connected")
 
         await self._reschedule()
+
+    # ---- tutor mode (§4.9) ------------------------------------------------
+
+    async def _tutor_intro(self) -> None:
+        t = self.tutor
+        assert t is not None
+        try:
+            await t.say("intro")
+            if not self.pacing.automatic:
+                await t.say("begin-manual")
+        except Exception as e:
+            log.warning("tutor intro: %s", e)
+        finally:
+            if self._tutor_task is asyncio.current_task():
+                self._tutor_task = None
+                self._intro = False
+        if self.running and self.pacing.automatic:
+            await self._start_call()
+
+    async def _tutor_hangup(self, call: Call, scene: SceneDef) -> None:
+        """Her line at the end of a call, then every cord out and every
+        switch back before the next is dealt."""
+        t = self.tutor
+        assert t is not None
+        circuits = [c for c in (
+            f"station/{scene.from_station}" if scene.from_station is not None else "",
+            f"station/{scene.to_station}" if scene.to_station is not None else "",
+            call.trunk) if c]
+        trunks = [c for c in circuits if c.startswith("trunk/")]
+
+        def clear(b: Board) -> bool:
+            return (all(not b.on(f"{c}/op") and not b.get(f"{c}/peer") for c in circuits)
+                    and all(not b.on(f"{c}/seize") for c in trunks))
+
+        key = "hangup-one" if scene.shape == Shape.TO_OPERATOR else "hangup-pair"
+        try:
+            await t.say(key, until=clear)
+            await self.b.wait_until(clear, NO_LIMIT)
+            await t.hush()
+            if not self.pacing.automatic:
+                await t.say("ready-manual")
+        except (TimeoutError, Offline) as e:
+            log.info("tutor: call %d not cleared: %s", call.number, e or "timeout")
+        finally:
+            if self._tutor_task is asyncio.current_task():
+                self._tutor_task = None
+        if self.running:
+            await self._reschedule()
 
     # ---- `after:` scenes (§4.4) -----------------------------------------
 
@@ -533,7 +679,10 @@ class Game:
                 mine = self._pending_after.get(scene.id)
                 others = [h for h in self._held() if h is not mine]
                 lines, people = set(scene.lines), {p for p in self.gs.people[scene.id] if p}
-                if not any(lines & h.lines or people & h.people for h in others):
+                tutor_busy = self.tutor is not None and (
+                    self._tutor_task is not None or any(True for _ in self.slots or ()))
+                if not tutor_busy and not any(lines & h.lines or people & h.people
+                                              for h in others):
                     break
                 await asyncio.sleep(0.5)
             self._pending_after.pop(scene.id, None)

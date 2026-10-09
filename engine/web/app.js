@@ -499,7 +499,9 @@ function renderTop() {
   const runText = get('game/run') === 'on' ? 'Running' : (get('game/run') ? 'Stopped' : '–');
   const paceText = { auto: 'Automatic', manual: 'Manual', listen: 'Listen' }[get('game/pace')] || '–';
   const st = document.getElementById('v-state');
-  st.textContent = `${runText} · ${paceText}`;
+  // Tutor mode (game_control.md §4.9, Rev 29): switched on the deck, shown here.
+  const tutorText = get('game/tutor') === 'on' ? ' · Tutor' : '';
+  st.textContent = `${runText} · ${paceText}${tutorText}`;
   st.parentElement.classList.toggle('stale', disabled);
 }
 

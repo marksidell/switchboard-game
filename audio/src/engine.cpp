@@ -103,6 +103,12 @@ bool Engine::prepare()
                                sh_.opt.lp_att, SAMPLE_RATE, mon_ripple_db_);
     if (mon_lp_.empty()) { log_line("monitor: low-pass design failed"); return false; }
     mon_lp_s_.assign(mon_lp_.size(), BiquadState());
+    mon_file_lp_s_.assign(mon_lp_.size(), BiquadState());
+    // audio.md 10.4, Rev 11: the file's own gain relative to the source's. It
+    // shares the source's ramp, which carries the tap trim while the source is
+    // the tap, so the trim is taken back out of the file's share.
+    mon_file_lin_    = db_to_lin(sh_.opt.monitor_file_trim_db);
+    mon_file_on_tap_ = db_to_lin(sh_.opt.monitor_file_trim_db - sh_.opt.monitor_tap_trim_db);
     lim_.init(-3.0, 0.100, SAMPLE_RATE);
 
     const double at_6k = cascade_mag_db(mon_lp_, 6000.0, SAMPLE_RATE);
@@ -375,6 +381,10 @@ void Engine::drain_commands()
                 if (prog_[s].kind != Prog::Kind::None) stop_source(s, "");
                 if (vad_[s].lis.active()) cancel_listen(s, "");
             }
+            // The tutor's voice on the monitor (audio.md 10.4, Rev 11) is the
+            // game's, so it goes with the game's other files.
+            if (prog_[chan::MONITOR_CH].kind != Prog::Kind::None)
+                stop_source(chan::MONITOR_CH, "");
             // The monitor keeps running, but its source returns to the tap
             // under the 10.3 ramp: the calls a circuit source was following
             // have been torn down, and the tap is the one source that is not
@@ -467,14 +477,30 @@ void Engine::process_capture()
     // which is the tap unless monitor/source/set has named a circuit (10.3).
     // Run unconditionally, muted or not, so that turning the monitor on is
     // instant and has no transient from a cold filter state.
+    //
+    // A file on the monitor (audio.md 10.4, Rev 11) is summed in after the
+    // filter, through a second copy of the same low-pass, so it is held out of
+    // the pilot band exactly as the source is: the loudspeaker is in the room
+    // with the operator's microphone. Its filter runs whether a file plays or
+    // not, so a file never starts against a cold state either.
+    Prog& mf = prog_[chan::MONITOR_CH];
+    const float* fs = nullptr;
+    unsigned     fn = 0;
+    if (mf.kind == Prog::Kind::File) {
+        fn = (unsigned)std::min<size_t>(mf.buf->samples.size() - mf.pos, period_);
+        fs = mf.buf->samples.data() + mf.pos;
+    }
     if ((int)ncap_ >= mon_src_ch_) {
         const float* src = &capf_[(size_t)(mon_src_ch_ - 1) * period_];
         for (unsigned i = 0; i < period_; ++i) {
             double y = mon_hp_s_.run(mon_hp_, (double)src[i]);
             for (size_t s = 0; s < mon_lp_.size(); ++s) y = mon_lp_s_[s].run(mon_lp_[s], y);
+            double f = (i < fn) ? (double)fs[i] : 0.0;
+            for (size_t s = 0; s < mon_lp_.size(); ++s) f = mon_file_lp_s_[s].run(mon_lp_[s], f);
             if (mon_ramp_ > 0) { mon_gain_ += mon_step_; --mon_ramp_; }
             else               { mon_gain_ = mon_target_; }
-            mon_row_[i] = (float)lim_.run(y * mon_gain_);
+            const double fg = (mon_src_ch_ == chan::TAP_CH) ? mon_file_on_tap_ : mon_file_lin_;
+            mon_row_[i] = (float)lim_.run((y + f * fg) * mon_gain_);
 
             // The bottom of a source ramp, mid-period: change the input, echo,
             // and ramp back up to the commanded gain for the new source
@@ -499,6 +525,11 @@ void Engine::process_capture()
         }
     } else {
         std::fill(mon_row_.begin(), mon_row_.end(), 0.0f);
+    }
+    if (fs) {
+        // As a circuit's file: `play` clears from the period after it ends.
+        mf.pos += fn;
+        if (mf.pos >= mf.buf->samples.size()) stop_source(chan::MONITOR_CH, "");
     }
 
     ring_w_ = (ring_w_ + period_) & (FFT_N - 1);

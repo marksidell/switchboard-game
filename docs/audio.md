@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 10 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, 1kHz Test Tone, All Commanded and Reported over MQTT*
+*Rev 11 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, All Commanded and Reported over MQTT*
 
 # 1. Overview
 
@@ -127,6 +127,12 @@ Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout t
 
 — Code consequence, made the same day: the mixer sums a file on channel 23; the MQTT thread subscribes to the tap's `play/set`, handles it as a circuit's, and publishes `audio/tap/play` at start, on stop and on shutdown as it does a circuit's `play`. `ctest` covers the mix and the topic.
 
+## 1.11 Changes in Rev 11
+
+— The monitor plays a file (§10.4), following game_control.md Rev 29, 2026-10-08: `sbgame/audio/monitor/play/set` and its echo `sbgame/audio/monitor/play`, as a circuit's `play/set` and `play` (mqtt.md Rev 27). It is the tutor's voice in tutor mode, heard on the loudspeaker. The file is summed into the monitor chain after the source's filter, through a second copy of the same low-pass, then takes the monitor's gain and limiter: the loudspeaker is in the room with the operator's microphone, so the file is held out of the pilot band exactly as the source is, and the monitor's one level sets both. A new option, `--monitor-file-trim`, sets the file's level against the source's. Nothing else about the monitor changes.
+
+— Code consequence, made the same day: the file is slot 24's program source; `process_capture()` sums it into the chain and stops it at its end; the MQTT thread subscribes to the monitor's `play/set`, handles it as a circuit's, and publishes `audio/monitor/play` at start, on stop, on the game's loss and on shutdown; `ctest` covers the mix, the echo and the mute.
+
 # 2. Channel Plan
 
 One ALSA card, the Digiface USB, opened in both directions at 48kHz, S32_LE. Playback is 34 channels — confirmed on the host at station Rev 3.37 — and capture is expected to be 32 (the four ADAT ports; the Digiface has no analog input) and is to be confirmed the same way (§16).
@@ -135,7 +141,7 @@ One ALSA card, the Digiface USB, opened in both directions at 48kHz, S32_LE. Pla
 | --- | --- | --- | --- |
 | 1–22 | 0–21 | Station 1–22: pilot at comb slot n + program source | Station receive: detector input; speech detection on command; monitor source on command (§10.3) |
 | 23 | 22 | Operator tap: 9000Hz operator tone, and a file on command (Rev 10, §7) | Tap receive: the default monitor source (§10.3) and the tap's own-tone health check (§6.3) |
-| 24 | 23 | Audience monitor (§10) | Unused — station board 3 strip 8 has no receive path |
+| 24 | 23 | Audience monitor (§10), with a file summed in on command (Rev 11, §10.4) | Unused — station board 3 strip 8 has no receive path |
 | 25–32 | 24–31 | Trunk 1–8: pilot at comb slot 24 + n + program source | Trunk receive: detector input; speech detection on command; monitor source on command (§10.3) |
 | 33, 34 | 32, 33 | Silence; the fallback monitor output under `--monitor-ch` (§10.1) | — |
 
@@ -188,7 +194,7 @@ Every playback channel is rendered per period as the sum of its fixed source and
 
 A channel plays one thing at a time. A `play/set` while a tone is running stops the tone; a `tone/set` while a file is playing stops the file; a test tone stops either. The state topics follow: the stopped source's topic clears, the new one's is set (§12). This is deliberate and matches the line being simulated — a trunk does not send ringback and a caller's voice at once, and a station does not talk over itself. It also keeps the game's model simple: to know what a channel is doing, read two retained topics, `play` and `tone`, and at most one is non-empty.
 
-The pilot and the operator tone are not program sources and are never displaced by one, except by the test tone (§11.1). On the tap, a file (Rev 10) is its only program source: it sums over the operator tone as a circuit's file sums over its pilot.
+The pilot and the operator tone are not program sources and are never displaced by one, except by the test tone (§11.1). On the tap, a file (Rev 10) is its only program source: it sums over the operator tone as a circuit's file sums over its pilot. On the monitor, a file (Rev 11) is summed into the monitor chain (§10.4).
 
 ## 5.3 Content Rule for Files
 
@@ -225,7 +231,7 @@ The tap's receive channel (23) is not a detector input — it carries the operat
 
 ## 7.1 Command
 
-`sbgame/station/<n>/play/set`, `sbgame/trunk/<n>/play/set` or, for the operator tap (Rev 10), `sbgame/audio/tap/play/set`, with the base filename as payload: `greeting_1` plays `wav/greeting_1.wav`. No directory, no extension, no path separator — a payload containing `/`, `\` or `..`, or any control character, or longer than 31 characters, is rejected as a bad name and echoed as `"missing"` (§7.4) with the reason in the log. `"stop"`, or an empty payload, stops whatever is playing on the channel; a file cannot be named `stop`. The wav directory is `wav/` relative to the program's working directory by default and is an option (§14).
+`sbgame/station/<n>/play/set`, `sbgame/trunk/<n>/play/set`, for the operator tap (Rev 10) `sbgame/audio/tap/play/set`, or for the monitor (Rev 11, §10.4) `sbgame/audio/monitor/play/set`, with the base filename as payload: `greeting_1` plays `wav/greeting_1.wav`. No directory, no extension, no path separator — a payload containing `/`, `\` or `..`, or any control character, or longer than 31 characters, is rejected as a bad name and echoed as `"missing"` (§7.4) with the reason in the log. `"stop"`, or an empty payload, stops whatever is playing on the channel; a file cannot be named `stop`. The wav directory is `wav/` relative to the program's working directory by default and is an option (§14).
 
 ## 7.2 Loading
 
@@ -243,7 +249,7 @@ The audio thread starts the buffer at the beginning of the next period after the
 
 ## 7.4 Reporting
 
-The circuit's `play` topic — `sbgame/audio/tap/play` for the tap (Rev 10) — retained, carries the base filename from the period the file starts until the period after it ends, then clears to empty. That clearing is the "finished" response. The game distinguishes finished from stopped by knowing whether it sent `stop`, and from replaced by seeing the new filename instead of empty. A file that could not be loaded publishes `"missing"` — a diagnostic literal on the same topic, in the same way `peer` carries `"ambiguous"` — and the log says why (not found, wrong rate, stereo, too long). `"missing"` persists until the next `play/set` on that channel.
+The circuit's `play` topic — `sbgame/audio/tap/play` for the tap (Rev 10), `sbgame/audio/monitor/play` for the monitor (Rev 11) — retained, carries the base filename from the period the file starts until the period after it ends, then clears to empty. That clearing is the "finished" response. The game distinguishes finished from stopped by knowing whether it sent `stop`, and from replaced by seeing the new filename instead of empty. A file that could not be loaded publishes `"missing"` — a diagnostic literal on the same topic, in the same way `peer` carries `"ambiguous"` — and the log says why (not found, wrong rate, stereo, too long). `"missing"` persists until the next `play/set` on that channel.
 
 # 8. Trunk Tones
 
@@ -340,6 +346,24 @@ The tap trim. `--monitor-tap-trim`, in dB, is added to the gain only while the s
 
 The game program chooses the source. This program does not know about calls, and falls back to the tap only when it loses the game or the broker (§13.2).
 
+## 10.4 A File on the Monitor
+
+Rev 11. `sbgame/audio/monitor/play/set` plays a file on the loudspeaker: loaded, checked, reported and stopped exactly as a circuit's (§7), echoed on `sbgame/audio/monitor/play`. The game program uses it for the tutor's voice (game_control.md §4.9).
+
+The file is not a source in §10.3's sense and does not displace one. Per sample, the file passes through its own copy of the §10.1 low-pass — the same coefficients, its own state — and is added to the source after the source's filter, then the sum takes the gain and the limiter:
+
+```text
+source capture -> high-pass -> low-pass -----------+
+                                                    +-> x gain -> limiter -> channel 24
+file -> low-pass (own state) -> x file trim -------+
+```
+
+The low-pass is there for the reason the source has it: the loudspeaker is in the room with the operator's microphone, and anything above 5.5kHz it puts into the room can return on the line she is bridged to and reach the detector (§5.3). Authored speech has nothing there, but the filter is free and makes it so for any file. The file has no high-pass: it carries no ring-trip click or hum. Its filter runs whether or not a file plays, so a file never starts against a cold state.
+
+Gain. The monitor's commanded gain applies to the file as to the source, ramps and mute included, so `monitor/set` remains one number for the room and the file is silent while the monitor is `"off"` — it still plays to its end and clears its topic, so the game is not left waiting. `--monitor-file-trim`, −30 to +30dB, 0 by default, is added for the file only, so that its level is set once on the bench against the calls' (game_control.md §9 step 12). `--monitor-tap-trim` is not applied to the file: while the source is the tap, the file's share is scaled by the tap trim's inverse so that the file's level does not change with the source. A source switch's ramp passes through zero for 20ms and takes the file with it, which is inaudible in speech.
+
+The file and the source are summed in float before the limiter, which protects the output as it does for the source alone. A file on the monitor is stopped with the game's other files when the program loses the game or the broker (§13.2).
+
 # 11. Diagnostics
 
 ## 11.1 Test Tone
@@ -364,7 +388,7 @@ Subscriptions, all QoS 1:
 
 ```text
 sbgame/station/+/play/set      sbgame/trunk/+/play/set
-sbgame/audio/tap/play/set
+sbgame/audio/tap/play/set      sbgame/audio/monitor/play/set
 sbgame/trunk/+/tone/set
 sbgame/station/+/listen/set    sbgame/trunk/+/listen/set
 sbgame/audio/monitor/set
@@ -432,6 +456,8 @@ Command-line options, each with the default given here, and no configuration fil
                        capture that channel
 --monitor-tap-trim DB  gain added while the monitor source is the tap,
                        -30 to +30 (0)
+--monitor-file-trim DB gain added to a file on the monitor, -30 to +30 (0)
+                       (§10.4)
 --monitor-lp HZ HZ DB  monitor low-pass passband edge, stopband edge,
                        stopband dB (3600 5600 70)
 --vad-margin DB        speech threshold above floor (10)

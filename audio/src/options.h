@@ -58,6 +58,10 @@ struct Options {
     // arrives about 15dB below the operator's line (station 7.9.3).
     int    monitor_src = 23;            // chan::TAP_CH
     double monitor_tap_trim_db = 0.0;
+    // audio.md 10.4, Rev 11. Gain added to a file on the monitor, the tutor's
+    // voice, over the commanded gain, so her level is set against the calls'
+    // once on the bench and monitor/set stays one number.
+    double monitor_file_trim_db = 0.0;
     double lp_pass    = 3600.0;         // station 8.8
     double lp_stop    = 5600.0;
     double lp_att     = 70.0;

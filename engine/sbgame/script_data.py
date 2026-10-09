@@ -45,6 +45,7 @@ class Speech:
     wait: bool = False # play only after the operator has spoken on that side (§4.6)
     pause: float = 0.0     # seconds of silence first (§4.6, Rev 20)
     ringback: float = 0.0  # seconds of ringback on the trunk first (§4.6, Rev 20)
+    operator: str = ""     # the operator line she says before it, if any (§4.7)
 
     @property
     def filename(self) -> str:
@@ -87,6 +88,18 @@ class GameScript:
     scenes: dict[str, SceneDef]          # active scenes only
     people: dict[str, tuple[str, str]]   # scene id -> (calling person, called person)
     jacks: tuple[Jack, ...]
+    # Tutor mode (§4.9, Rev 29): the tutor's lines whose wavs are here, by
+    # key as under tutor:, and the names of those that are not. Not needed to
+    # play, so a missing one is not a fault at load; tutor mode is refused.
+    tutor: dict[str, Speech] = field(default_factory=dict)
+    tutor_missing: tuple[str, ...] = ()
+
+    def jack_of(self, station: int) -> int | None:
+        """The switchboard jack station circuit n is cabled to (§6.3)."""
+        for j in self.jacks:
+            if j.kind == "station" and j.circuit == f"station/{station}":
+                return j.number
+        return None
 
     def deck_scenes(self) -> list[str]:
         """Every scene eligible for the deck: those without `after:` (§4.4)."""
@@ -130,7 +143,8 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
     stations, outside = s.stations, s.outside
 
     def speech(u: Utterance, by: str) -> Speech:
-        return Speech(u.name, _wav_seconds(wav, u.name), by, u.wait, u.pause, u.ringback)
+        return Speech(u.name, _wav_seconds(wav, u.name), by, u.wait, u.pause,
+                      u.ringback, u.operator)
 
     scenes: dict[str, SceneDef] = {}
     people: dict[str, tuple[str, str]] = {}
@@ -158,7 +172,16 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
         )
         people[sid] = (calling.get("person", ""), (called or {}).get("person", ""))
 
-    return GameScript(script=s, scenes=scenes, people=people, jacks=_jacks(s))
+    tutor: dict[str, Speech] = {}
+    missing: list[str] = []
+    for key, u in s.tutor.items():
+        try:
+            tutor[key] = Speech(u.name, _wav_seconds(wav, u.name), "tutor")
+        except (OSError, EOFError, wave.Error):
+            missing.append(u.name)
+
+    return GameScript(script=s, scenes=scenes, people=people, jacks=_jacks(s),
+                      tutor=tutor, tutor_missing=tuple(missing))
 
 
 N_STATIONS, N_TRUNKS = 22, 8
@@ -195,7 +218,7 @@ def fit(gs: GameScript, stations: int = N_STATIONS,
     keep = {i: s for i, s in gs.scenes.items() if i not in why}
     fitted = GameScript(script=gs.script, scenes=keep,
                         people={i: p for i, p in gs.people.items() if i in keep},
-                        jacks=gs.jacks)
+                        jacks=gs.jacks, tutor=gs.tutor, tutor_missing=gs.tutor_missing)
     return fitted, [f"{i}: {w}" for i, w in why.items()]
 
 

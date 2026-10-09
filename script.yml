@@ -129,6 +129,23 @@ cast:
         sex: female
         accent: generic American, warm and crisp
         description: the Hotel Ballard's switchboard operator, a young woman, courteous and efficient
+    # The voice of tutor mode (game_control.md 4.9): a senior operator who
+    # talks the player through each call over the loudspeaker. Her lines
+    # are under tutor: below, not in any scene.
+    tutor:
+        sex: female
+        accent: mid-Atlantic
+        description: a senior telephone operator who trains new operators at the board
+        sample: >
+            You are sitting at the switchboard of the Hotel Ballard. Take the
+            rear cord of any free pair, and plug it into the jack with the
+            lighted lamp.
+        voice: >
+            A woman in her sixties, a senior telephone operator who has trained
+            new operators at the board for years. A calm, warm, authoritative
+            voice with a mid-Atlantic accent: crisp consonants, soft r's,
+            measured and unhurried, like the narrator of a 1950s documentary
+            film. Clear, deliberate speech to someone sitting beside her.
     thornhill:
         sex: male
         accent: mid-Atlantic, suave
@@ -435,6 +452,104 @@ operator_lines:
     busy:
         id: 4
         text: I'm sorry, that line is busy.
+
+# What the tutor says (game_control.md 4.9). Tutor mode is switched on from
+# the Stream Deck; the tutor speaks on the loudspeaker at each step of a call
+# and the game waits for her to finish before it goes on.
+#
+# Each entry is rendered as a line of its own, tutor.<key>. Three are
+# templates, rendered once for every value they can take:
+#     ring-front, ring-rear  {jack}, for every jack a station is cabled to:
+#                            "room 403" for a numbered jack, else its label.
+#                            Rendered as tutor.ring-front-<jack>.
+#     dial                   {number}, for every outside entry but the
+#                            operator, as the operator's card prints it and
+#                            said the way an operator says it: SU4-4101 is
+#                            "Sunset four, four one oh one" (the exchanges are
+#                            hardcopy/seattle-exchanges.csv). tutor.dial-<line>.
+#     say                    {line}, for every operator line, under
+#                            operator_lines: or a scene's own: tutor.say-<name>,
+#                            as tutor.say-operator.1.
+# Every other entry is said as written.
+#
+tutor:
+    intro: >
+        You are sitting at the switchboard of the Hotel Ballard. On its face
+        are the jacks for the telephones in the hotel. Each jack has a lamp,
+        which glows when someone picks up a telephone and wants to make a
+        call. The bottom row of jacks are the trunks. Calls from outside come
+        in on them, and you place calls to the city on them.
+        Below the jacks are ten pairs of cords. You use a pair of cords to
+        connect a caller to the party they want.
+        In front of the cords are two rows of black switches. The switches in
+        front of each pair put your headset on the call, and ring the
+        telephones.
+        The dial on the left is for placing outside calls on a trunk.
+    # After intro:, in manual pacing, where nothing happens until she asks.
+    begin-manual: When you are ready for your first call, press Next Call.
+
+    # Answering. From a room the game cannot tell when the cord goes in, so
+    # both steps are one line; from a trunk it can, and they are two.
+    answer-station: >
+        Someone in the hotel is calling. Take the rear cord of any free pair,
+        and plug it into the jack with the lighted lamp. Then, to talk to the
+        caller, find the black switch nearest you, in front of that pair, and
+        push it away from you.
+    answer-trunk: >
+        A call is coming in from outside. Take the front cord of any free
+        pair, and plug it into the trunk jack with the lighted lamp.
+    talk: >
+        To talk to the caller, find the black switch nearest you, in front of
+        that pair, and push it away from you.
+
+    # Wherever the game waits for her to speak: the operator line the scene
+    # gives, or, where it gives none, one of the two after it.
+    say: "Say: {line}"
+    greet: Greet the caller.
+    respond: Now it is your turn to speak.
+
+    # Putting a call through to a room.
+    ring-front: >
+        Now take the front cord of the same pair, and plug it into the jack
+        for {jack}. To ring the telephone, pull the same black switch toward
+        you for a moment, and let it go.
+    ring-rear: >
+        Now take the rear cord of the same pair, and plug it into the jack for
+        {jack}. To ring the telephone, pull the black switch farthest from you
+        toward you for a moment, and let it go.
+    # A call in from a trunk: she rang with the far switch, so the near one
+    # still has her on the line.
+    center-ringing: >
+        When the room answers, return the near switch to its center position,
+        so that the two of them can talk.
+
+    # Placing a call to the city.
+    trunk-front: >
+        Now take the front cord of the same pair, and plug it into any free
+        trunk jack, in the bottom row.
+    dial: >
+        Keep the black switch pushed away from you. When you hear dial tone,
+        dial {number}.
+    dial-operator: >
+        Keep the black switch pushed away from you. When you hear dial tone,
+        dial zero, for the operator.
+    # Said during ringback, before the far end answers, when the call needs
+    # nothing more from her; where it does, center: comes after her last word.
+    center-dialled: >
+        You will hear it ringing. When your party answers, return the switch
+        to its center position.
+    center: Now return the switch to its center position, and let them talk.
+    busy-heard: That is a busy signal. Tell the caller.
+
+    # The end of a call. The game waits for every cord out and every switch
+    # centered before it deals another.
+    hangup-pair: >
+        The lamps in front of the cord pair tell you the call has ended. Pull
+        both cords out, and check that the black switches are centered.
+    hangup-one: >
+        The lamp in front of the cord tells you the caller has hung up. Pull
+        the cord out, and check that the black switches are centered.
+    ready-manual: Press Next Call when you are ready for another.
 
 # Locations reached via public trunks, like local businesses.
 # The number is what the operator must dial. Quoted so it stays a string.
