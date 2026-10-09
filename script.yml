@@ -474,7 +474,7 @@ operator_lines:
 #
 tutor:
     intro: >
-        You are sitting at the switchboard of the Hotel Ballard. On its face
+        You are the operator at the Hotel Ballard. On the face of your switchboard
         are the jacks for the telephones in the hotel. Each jack has a lamp,
         which glows when someone picks up a telephone and wants to make a
         call. The bottom row of jacks are the trunks. Calls from outside come
