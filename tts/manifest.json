@@ -5764,7 +5764,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "19f61c0c50f8f429",
+    "text_sha": "50018c48c8827436",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.busy-heard": {
@@ -5925,7 +5925,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "23318bab730d38ac",
+    "text_sha": "586f655282101478",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.ready-manual": {

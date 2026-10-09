@@ -487,9 +487,9 @@ tutor:
         In front of the cords are two rows of black switches. The switches in
         front of each pair put your headset on the call, and ring the
         telephones.
-        The dial on the left is for placing outside calls on a trunk.
+        The dial on the right is for placing outside calls on a trunk.
     # After intro:, in manual pacing, where nothing happens until she asks.
-    begin-manual: When you are ready for your first call, press Next Call.
+    begin-manual: "When you are ready for your first call, press: Next Call."
 
     # Answering. From a room the game cannot tell when the cord goes in, so
     # both steps are one line; from a trunk it can, and they are two.
