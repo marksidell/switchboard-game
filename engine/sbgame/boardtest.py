@@ -68,10 +68,12 @@ class BoardTest:
 
     def __init__(self, state: dict[str, str], publish: Callable[[str, str], Awaitable[None]],
                  stations: list[int], audio: bool, timing: Timing | None = None,
+                 only: set[int] | None = None,
                  out: Callable[[str], None] = _print) -> None:
         self.s = state
         self.pub = publish
         self.stations = stations
+        self.only = only            # pair numbers to test, 1-8; None for all
         self.audio = audio
         self.t = timing or Timing()
         self.out = out
@@ -195,7 +197,8 @@ class BoardTest:
             f = self.idle_faults(c)
             if not self.check(not f, "idle", f"{c} idle" if not f else f"{c}: {', '.join(f)}"):
                 bad.add(c)
-        pairs = [(f"trunk/{k}", f"station/{st}") for k, st in enumerate(self.stations, 1)]
+        pairs = [(f"trunk/{k}", f"station/{st}") for k, st in enumerate(self.stations, 1)
+                 if self.only is None or k in self.only]
         ready = [p for p in pairs if not (set(p) & bad)]
         for p in pairs:
             if p not in ready:
@@ -204,7 +207,8 @@ class BoardTest:
             self.out("\nno pair is idle to start from: stopping")
             return self.r
 
-        for k, (trunk, station) in enumerate(pairs, 1):
+        for (trunk, station) in pairs:
+            k = int(trunk.split("/")[1])
             if (trunk, station) not in ready:
                 self.out(f"\npair {k} of {n}: {trunk} <-> {station} — skipped, not idle at the start")
                 continue
@@ -304,6 +308,14 @@ async def main_async(args) -> int:
     password = Path(args.password_file).read_text(encoding="utf-8").strip()
     state: dict[str, str] = {}
     stations = list(BOARDS[args.stations][0])
+    try:
+        only = {int(x) for x in args.pairs.split(",") if x.strip()} or None
+    except ValueError:
+        print(f"--pairs {args.pairs!r}: numbers 1-8, comma-separated", file=sys.stderr)
+        return 2
+    if only and not only <= set(range(1, len(stations) + 1)):
+        print(f"--pairs {args.pairs}: board {args.stations} has pairs 1-{len(stations)}", file=sys.stderr)
+        return 2
 
     async with aiomqtt.Client(hostname=host, port=int(port or 1883), username=args.user,
                               password=password, identifier="sbgame-boardtest") as client:
@@ -341,7 +353,7 @@ async def main_async(args) -> int:
             print("the game program is not online: sending its heartbeat, so the relays work")
             await asyncio.sleep(2.5)                   # the controller to see it
         test = BoardTest(state, publish, stations, not args.no_audio,
-                         Timing(ring=args.ring_timeout))
+                         Timing(ring=args.ring_timeout), only=only)
         try:
             r = await test.run()
         finally:
@@ -366,6 +378,9 @@ def main(argv: list[str] | None = None) -> int:
                    help="the station board on the trunks: a = stations 1-8, b = 9-16, "
                         "c = 17-22 (its strips 7 and 8 are the tap and the monitor)")
     p.add_argument("--no-audio", action="store_true", help="leave out the pilot tone tests")
+    p.add_argument("--pairs", default="", metavar="N[,N...]",
+                   help="test only these pairs, 1-8 (trunk n with the board's n-th station); "
+                        "the rest are still checked to stay idle")
     p.add_argument("--ring-timeout", type=float, default=Timing.ring,
                    help="seconds for ring to reach the station (10)")
     p.add_argument("--broker", default="localhost:1883")
