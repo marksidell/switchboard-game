@@ -174,7 +174,10 @@ def make_wavs(tmp: Path, names) -> Path:
     for f in Path("../wav").glob("*.wav"):
         (d / f.name).symlink_to(f.resolve())
     for n in names:
-        with wave.open(str(d / f"{n}.wav"), "wb") as w:
+        stub = d / f"{n}.wav"
+        if stub.is_symlink():
+            stub.unlink()       # or writing it would go through to ../wav
+        with wave.open(str(stub), "wb") as w:
             w.setnchannels(1)
             w.setsampwidth(2)
             w.setframerate(48000)
