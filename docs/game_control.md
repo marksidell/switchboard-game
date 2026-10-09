@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 30 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind*
+*Rev 31 — Start and Stop, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time*
 
 # 1. Overview
 
@@ -175,6 +175,14 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 — The page's countdown says "waiting" while a game runs in automatic pacing and no next call is scheduled — `next_at` empty, because in auto the latest call is not yet connected or ended, and in listen the board is not yet empty (§4.2) — and "–" when no game runs (§7.1), Mark's request, 2026-09-28. It said "–" in both. The deck's Next key already said "waiting" in that case; §7.4 now says so too. It is on the countdown rather than on the Next Call button because the button is hidden with the controls and the countdown is not.
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
+
+## 1.31 Changes in Rev 31
+
+— The tutor's introduction is in three parts — the jacks, the cords, the switches and dial — Mark's request, 2026-10-09: all at once it was too much to take in (§4.9). After each part but the last she says to press More Help, or Next Call to start playing, and waits for one; after the last, for Next Call. This is the same in every pacing: in auto and listen the first call no longer follows the introduction by itself. More Help pressed mid-part cuts it short and goes on to the next part; Next Call at any point ends the introduction and deals the first call, as before. script.yml's `intro:` and `begin-manual:` give way to `intro-jacks:`, `intro-cords:` and `intro-switches:`.
+
+— While she introduces the board, the Stream Deck's key 7 is More Help in place of the success percentage (§7.4). It publishes `game/more/set`, an event at QoS 0 like `next/set`, guarded the same way, and the game program publishes the part she is on as `game/tutor/intro`, `"1/3"` to `"3/3"`, or `""` (mqtt.md Rev 28). The key is lit while a further part remains.
+
+— Code consequence for Claude Code, made the same day: `INTRO` in `tutor.py`; `_tutor_intro()` and the `more` command in `game.py`; key 7 in `streamdeck.py`; `tts/scenes --tutor` joins the three parts; the tests.
 
 ## 1.30 Changes in Rev 30
 
@@ -384,7 +392,8 @@ Rev 29. A voice on the audience loudspeaker talks a new player through each call
 
 | **Step** | **She says** | **The game then waits for** |
 | --- | --- | --- |
-| Start | the introduction, then in manual pacing "press Next Call" | — |
+| Start | the introduction's first part, the jacks, ending "press More Help, or Next Call to start playing" (Rev 31) | More Help or Next Call |
+| More Help | the next part: the cords, then the switches and the dial. The last ends "press Next Call" | More Help or Next Call; after the last, Next Call |
 | A room's lamp lights | which cord, the lit jack, and the switch to push. One line: the game cannot see a cord go into a station jack | the caller's `op` |
 | A trunk's lamp lights | which cord, and the trunk jack | the trunk's `seize`, which the cord makes |
 | The trunk is seized | the switch to push | the trunk's `op` |
@@ -403,7 +412,9 @@ Rev 29. A voice on the audience loudspeaker talks a new player through each call
 
 **Said again.** A prompt the player does not act on is said again 20s after it ended, and again 20s after that, then not again. A Say prompt whose listen hears nothing in 20s is said again the same way; after the third, the line plays as after any listen that times out.
 
-**One call at a time.** No call is dealt while one is in progress, an `after:` scene is waiting, she is introducing the board, or the cords of the last call are still up. Next Call is refused on `game/error` while that holds, except during the introduction, which it cuts short. The automatic schedule waits for all of it, as listen pacing waits for an empty board (§4.2), then runs its gap.
+**The introduction** (Rev 31) is in parts, `intro-jacks`, `intro-cords` and `intro-switches`, so a new player takes in one thing at a time. Each part but the last ends by asking for More Help or Next Call, and she waits for either, as long as it takes, in every pacing. More Help is the Stream Deck's key 7 while she is introducing (§7.4), and publishes `game/more/set`; pressed while she is still speaking, it cuts the part short and goes on to the next. After the last part More Help does nothing, and at any other time it is refused on `game/error`. Next Call at any point ends the introduction and deals the first call. The part she is on is `game/tutor/intro`, `"1/3"` to `"3/3"`, and `""` when she is not introducing.
+
+**One call at a time.** No call is dealt while one is in progress, an `after:` scene is waiting, she is introducing the board, or the cords of the last call are still up. Next Call is refused on `game/error` while that holds, except during the introduction, which it ends. The automatic schedule waits for all of it, as listen pacing waits for an empty board (§4.2), then runs its gap.
 
 **The first calls** (Rev 30). A game started in tutor mode deals one call of each kind first: between rooms, from a room out to a number, in from outside to a room, and to the operator, in the order of the groups under script.yml's `tutor: lessons:`. Each group lists suitable scenes of one kind — short, without `wait:` lines or a following `after:` scene, though the loader insists only on one kind, active, and not itself an `after:` scene. At Start the game picks one scene from each group at random, from the game's seed apart from the deck's shuffle, so a restart picks again and a replay picks the same; the picks go in the log. Each is taken out of the deck as a chosen scene is (§4.8), and a chosen scene still comes before them. A pick that the circuits built cannot play is left out of its group before the choice (§6.5), and an emptied group is skipped. After the last, the deck deals as usual. Switching tutor mode off drops the rest; switching it on mid-game deals none.
 
@@ -677,7 +688,7 @@ It follows every rule of §7.2. It shows only what was echoed, and a press chang
 | 4 Next Call | "Next" over "Call", lit violet while a game runs (Rev 18); in automatic pacing, auto or listen, the countdown to `next_at` in place of "Call", or "waiting" while none is scheduled | `next/set`, at QoS 0, guarded as §4.1: dark from the press until `started` changes, `game/error` is published, or 3s pass. |
 | 5 Calls | `started` and in progress | nothing |
 | 6 Score | success and fail | nothing |
-| 7 Percent | success percentage of handled | nothing |
+| 7 Percent | success percentage of handled. While the tutor introduces the board (§4.9, Rev 31), "More" over "Help" instead, lit amber while a further part remains | nothing. While the tutor introduces the board, `more/set` at QoS 0, guarded as Next Call is: dark from the press until `game/tutor/intro` changes, or 3s pass |
 | 8 Tutor | "Tutor" over "on" or "off", from `game/tutor`, lit amber while on (Rev 29) | `tutor/set` with the other of the echoed value. Nothing until a value has been echoed. Until Rev 29 key 8 showed a health lamp for each client, and the whole key red while `game/error` was set; the page shows both. |
 
 **Dials**, left to right: `gap`, `ramp`, `floor`, `jitter`. One detent is one step of the page's stepper: 5s, 1s, 1s and 10%. A push does nothing at Rev 13. The strip segment above each dial shows its name and its echoed value, and above `gap` also `gap_now` while a game runs. The four are dimmed in manual pacing but still turn, so the values can be set before switching to auto. In listen the first dial sets `pause` instead, 1s a detent, and its segment reads `pause`; the other three show auto's values, name and value both dimmer than manual's, and do nothing (Rev 17; dimmer Rev 18), so the one live dial stands out. A dial's pending target is dropped when the pace changes, since the dial may now set a different value.

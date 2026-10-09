@@ -107,6 +107,7 @@ class Panel:
         self.esp_beat: float | None = None
         self.stop_armed_until = 0.0
         self.next_guard_until = 0.0
+        self.more_guard_until = 0.0
         self.error_until = 0.0
         # Per dial: [target, time of the last detent], or None when idle.
         self.targets: list[list[float] | None] = [None] * len(DIALS)
@@ -153,6 +154,19 @@ class Panel:
     def audio_stale(self) -> bool:
         return not self.broker_up or self.get("ctl/audio_status") != "online"
 
+    def intro_part(self) -> tuple[int, int] | None:
+        """Her introduction's part now, and how many (§4.9, Rev 31), or None."""
+        try:
+            n, of = (int(x) for x in self.get("game/tutor/intro").split("/"))
+        except ValueError:
+            return None
+        return n, of
+
+    def more_live(self, now: float) -> bool:
+        part = self.intro_part()
+        return (not self.game_stale(now) and part is not None and part[0] < part[1]
+                and now >= self.more_guard_until)
+
     def in_progress(self) -> int:
         return sum(1 for n in range(1, 9) if self.get(f"game/call/{n}/scene"))
 
@@ -178,6 +192,8 @@ class Panel:
         else:
             self.s.pop(key, None)
 
+        if key == "game/tutor/intro" and payload != old:
+            self.more_guard_until = 0.0  # her next part began (Rev 31)
         if key == "game/started" and payload != old:
             self.next_guard_until = 0.0  # the call started (§4.1)
         elif key == "game/error" and payload and payload != old:
@@ -197,6 +213,13 @@ class Panel:
 
     def on_key(self, key: int, now: float) -> list[Command]:
         """Key 0-7 pressed. Returns what to publish."""
+        if key == 6 and self.intro_part() is not None:
+            # More Help while she introduces the board (Rev 31), guarded as
+            # Next Call is: dark until her next part begins, or 3s.
+            if not self.more_live(now):
+                return []
+            self.more_guard_until = now + NEXT_GUARD
+            return [("game/more/set", "", 0)]
         if key in (4, 5, 6) or self.game_stale(now):
             return []                    # a greyed key does nothing (§7.4)
         if key == 7:                     # Tutor (Rev 29): the other of the echo
@@ -359,6 +382,10 @@ class Panel:
                      ("fail", str(self._tally("game/fail"))), ink)
 
     def _k_pct(self, now: float) -> Image.Image:
+        if self.intro_part() is not None:
+            live = self.more_live(now)
+            return _key("More", "Help", fill=AMBER if live else PANEL,
+                        ink=BG if live else GREY)
         ink = GREY if self.game_stale(now) else INK
         ok, fail = self._tally("game/success"), self._tally("game/fail")
         pct = f"{round(100 * ok / (ok + fail))}%" if ok + fail else "–"

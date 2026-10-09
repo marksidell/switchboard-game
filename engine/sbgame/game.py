@@ -41,7 +41,7 @@ from .pacing import PACES
 from .link import Hw, Link
 from .script_data import GameScript, SceneDef, Shape
 from .session import SessionLog
-from .tutor import NO_LIMIT, Tutor
+from .tutor import INTRO, NO_LIMIT, Tutor
 
 log = logging.getLogger("game")
 
@@ -89,6 +89,7 @@ class Game:
         self.tutor: Tutor | None = None
         self._tutor_task: asyncio.Task | None = None
         self._intro = False             # the tutor task is the introduction
+        self._more: asyncio.Event | None = None   # More Help, during it (Rev 31)
         self._lessons: list[str] = []   # the scenes a tutored game starts with
         # Station numbers to the script's line names, for holding a station
         # under test out of dealing (§7.5).
@@ -135,6 +136,7 @@ class Game:
         await link.state("game/scenes", "\n".join(self.gs.deck_scenes()))
         await link.state("game/queue", self.queued)
         await link.state("game/tutor", "on" if self.tutor_on else "off")
+        await link.state("game/tutor/intro", "")
         await link.state("game/stations", str(self.cfg.stations))
         await link.state("game/trunks", str(self.cfg.trunks))
         assert self.diag is not None
@@ -202,6 +204,16 @@ class Game:
                 assert self.link is not None
                 await self.link.state("game/queue", self.queued)
                 await self.link.state("game/error", "")
+                return
+
+            if name == "more":
+                # §4.9, Rev 31: the next part of her introduction. An event, as
+                # next is; a press with no further part is ignored.
+                if self._more is None:
+                    await self._error("more: the tutor is not introducing the board")
+                    return
+                self._more.set()
+                await self._say("page: more help")
                 return
 
             if name == "next":
@@ -360,7 +372,7 @@ class Game:
         self.pacing.next_at = None
         if self.tutor_on:
             # §4.9: she introduces the board first, and the first call waits
-            # for her to finish, in every pacing.
+            # for Next Call, in every pacing (Rev 31).
             self.tutor = self._new_tutor()
             self.slots.timeless = True
             # §4.9, Rev 30: one scene of each kind first, picked from the
@@ -637,20 +649,45 @@ class Game:
     # ---- tutor mode (§4.9) ------------------------------------------------
 
     async def _tutor_intro(self) -> None:
+        """Her introduction, a part at a time (§4.9, Rev 31).
+
+        After each part but the last she waits for More Help, which also cuts
+        a part short; after the last, for Next Call, in every pacing. Next
+        Call ends it at any point, by cancelling this task.
+        """
         t = self.tutor
-        assert t is not None
+        assert t is not None and self.link is not None
         try:
-            await t.say("intro")
-            if not self.pacing.automatic:
-                await t.say("begin-manual")
+            for i, key in enumerate(INTRO, 1):
+                self._more = asyncio.Event()
+                await self.link.state("game/tutor/intro", f"{i}/{len(INTRO)}")
+                speaking = asyncio.create_task(t.say(key), name=f"tutor-{key}")
+                waits = {speaking}
+                more = None
+                if i < len(INTRO):
+                    more = asyncio.create_task(self._more.wait())
+                    waits.add(more)
+                try:
+                    await asyncio.wait(waits, return_when=asyncio.FIRST_COMPLETED)
+                    if more is None:
+                        await speaking
+                        await asyncio.Event().wait()        # until Next Call
+                    await more
+                finally:
+                    for x in waits:
+                        x.cancel()
+                    await asyncio.gather(*waits, return_exceptions=True)
         except Exception as e:
             log.warning("tutor intro: %s", e)
         finally:
+            self._more = None
             if self._tutor_task is asyncio.current_task():
                 self._tutor_task = None
                 self._intro = False
-        if self.running and self.pacing.automatic:
-            await self._start_call()
+            try:
+                await self.link.state("game/tutor/intro", "")
+            except Exception:
+                pass
 
     async def _tutor_hangup(self, call: Call, scene: SceneDef) -> None:
         """Her line at the end of a call, then every cord out and every

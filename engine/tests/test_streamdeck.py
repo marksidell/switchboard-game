@@ -151,6 +151,18 @@ def main() -> int:
     check(p.on_key(TUTOR, 0) == [("game/tutor/set", "off", 1)], "on: a press asks for off")
     check(p.on_key(TUTOR, STALE + 0.1) == [], "a stale game: the key does nothing")
 
+    print("\n== More Help during her introduction (Rev 31)")
+    MORE = 6
+    p = live()
+    check(p.on_key(MORE, 0) == [], "no introduction: the percent key does nothing")
+    p.on_message("game/tutor/intro", "1/3", 0)
+    check(p.on_key(MORE, 0) == [("game/more/set", "", 0)], "1/3: a press asks for more")
+    check(p.on_key(MORE, 0.5) == [], "dark until her next part begins")
+    p.on_message("game/tutor/intro", "2/3", 1)
+    check(p.on_key(MORE, 1) == [("game/more/set", "", 0)], "2/3: lit again")
+    p.on_message("game/tutor/intro", "3/3", 2)
+    check(p.on_key(MORE, 2) == [], "3/3: nothing more")
+
     print("\n== drawing")
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp)
@@ -162,6 +174,7 @@ def main() -> int:
                                  game__fail="2", game__call__1__scene="x"), 0),
                 ("listen", live(game__run="on", game__pace="listen", game__pause="3"), 0),
                 ("tutor", live(game__tutor="on"), 0),
+                ("intro", live(game__tutor="on", game__tutor__intro="1/3"), 0),
                 ("error", live(game__error="floor: 30 is above gap 20; set to 20"), 0),
                 ("stale", live(), 10),
                 ("no broker", Panel(), 0)):

@@ -42,7 +42,7 @@ def check(ok: bool, what: str) -> None:
         failures += 1
 
 
-KEYS = ("intro", "begin-manual", "answer-station", "answer-trunk", "talk", "greet",
+KEYS = ("intro-jacks", "intro-cords", "intro-switches", "answer-station", "answer-trunk", "talk", "greet",
         "respond", "ring-front-28", "ring-rear-28", "center-ringing", "trunk-front",
         "dial-pizza", "dial-operator", "center-dialled", "center", "busy-heard",
         "hangup-pair", "hangup-one", "ready-manual")
@@ -186,7 +186,7 @@ async def main() -> int:
     print("\n== her lines, from script.yml's tutor: (§4.9)")
     s = load("../script.yml")
     t = s.tutor
-    check(all(k in t for k in ("intro", "answer-station", "hangup-pair")), "the plain lines are there")
+    check(all(k in t for k in ("intro-jacks", "answer-station", "hangup-pair")), "the plain lines are there")
     cabled = [j["jack"] for j in s.jacks if j["station"]]
     check(all(f"ring-front-{j}" in t and f"ring-rear-{j}" in t for j in cabled),
           f"a ring line each way for each of {len(cabled)} cabled jacks")
@@ -286,10 +286,29 @@ async def main() -> int:
         w = Watch(b)
         await g.on_command("tutor", "on")
         check(link.state_v.get("game/tutor") == "on", "on, and echoed")
+        await g.on_command("pace", "auto")
         await g.on_command("run", "on")
-        await b.wait_until(lambda b: "begin-manual" in w.said, 5)
-        check(w.said == ["intro", "begin-manual"], f"Start: the introduction, then Next Call: {w.said}")
-        check(g.tallies.started == 0, "and no call yet, in manual")
+        await b.wait_until(lambda b: w.said == ["intro-jacks"], 5)
+        check(link.state_v.get("game/tutor/intro") == "1/3", "Start: her first part, 1/3")
+        await asyncio.sleep(D * 8)                  # she finishes, and waits
+        check(w.said == ["intro-jacks"] and g.tallies.started == 0,
+              "after it she waits for More Help, even in auto")
+        await g.on_command("more", "")
+        await b.wait_until(lambda b: w.said[-1:] == ["intro-cords"], 5)
+        check(link.state_v.get("game/tutor/intro") == "2/3", "More Help: the second part, 2/3")
+        await g.on_command("more", "")              # mid-part: cut short, and on
+        await b.wait_until(lambda b: w.said[-1:] == ["intro-switches"], 5)
+        check(("audio/monitor/play/set", "stop") in link.sent
+              and link.state_v.get("game/tutor/intro") == "3/3",
+              "More Help mid-part cuts it short: the last part, 3/3")
+        await asyncio.sleep(D * 8)
+        await g.on_command("more", "")
+        await asyncio.sleep(D * 4)
+        check(w.said[-1:] == ["intro-switches"] and g.tallies.started == 0,
+              "after the last, More Help does nothing and no call comes")
+        await g.on_command("next", "")
+        check(link.state_v.get("game/tutor/intro") == "" and g._tutor_task is None,
+              "Next Call ends the introduction")
         await g.on_command("next", "")
         check(g.tallies.started == 1, "Next deals one")
         first = link.state_v.get("game/call/1/scene")
@@ -301,12 +320,17 @@ async def main() -> int:
         await g.on_command("run", "off")
         check(g.tutor is None and ("audio/monitor/play/set", "stop") in link.sent,
               "Stop silences her")
+        await g.on_command("pace", "manual")
+        await g.on_command("more", "")
+        check("not introducing" in link.state_v.get("game/error", ""),
+              "More Help with no introduction is refused")
 
         print("\n== the end of a call: the cords out before another")
         await g.on_command("run", "on")
-        await b.wait_until(lambda b: w.said.count("begin-manual") == 2, 5)
-        while g._tutor_task is not None:          # to the end of her introduction
-            await asyncio.sleep(D)
+        await b.wait_until(lambda b: w.said.count("intro-jacks") == 2, 5)
+        g._tutor_task.cancel()                    # as Next Call would, without a call
+        await asyncio.gather(g._tutor_task, return_exceptions=True)
+        g._tutor_task, g._intro = None, False
         sc = next(x for x in g.gs.scenes.values() if x.shape == Shape.STATION_TO_STATION)
         await b.update(f"station/{sc.from_station}/peer", f"station/{sc.to_station}")
         await b.update(f"station/{sc.to_station}/peer", f"station/{sc.from_station}")

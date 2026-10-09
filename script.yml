@@ -476,20 +476,26 @@ operator_lines:
 # Every other entry is said as written, but lessons:, which is not a line.
 #
 tutor:
-    intro: >
-        You are the operator at the Hotel Ballard. On the face of your switchboard
-        are the jacks for the telephones in the hotel. Each jack has a lamp,
-        which glows when someone picks up a telephone and wants to make a
-        call. The bottom row of jacks are the trunks. Calls from outside come
-        in on them, and you place calls to the city on them.
+    # The introduction, in three parts (game_control.md 4.9, Rev 31). After
+    # each but the last the game waits for More Help or Next Call on the
+    # Stream Deck; after the last, for Next Call.
+    intro-jacks: >
+        You are the operator at the Hotel Ballard. On the face of your
+        switchboard are the jacks for the telephones in the hotel. Each jack
+        has a lamp, which glows when someone picks up a telephone and wants to
+        make a call. The bottom row of jacks are the trunks. Calls from
+        outside come in on them, and you place calls to the city on them.
+        Press: More Help. Or press: Next Call, to start playing.
+    intro-cords: >
         Below the jacks are ten pairs of cords. You use a pair of cords to
         connect a caller to the party they want.
+        Press: More Help. Or press: Next Call, to start playing.
+    intro-switches: >
         In front of the cords are two rows of black switches. The switches in
         front of each pair put your headset on the call, and ring the
-        telephones.
-        The dial on the right is for placing outside calls on a trunk.
-    # After intro:, in manual pacing, where nothing happens until she asks.
-    begin-manual: "When you are ready for your first call, press: Next Call."
+        telephones. The dial on the right is for placing outside calls on a
+        trunk.
+        When you are ready for your first call, press: Next Call.
 
     # Answering. From a room the game cannot tell when the cord goes in, so
     # both steps are one line; from a trunk it can, and they are two.

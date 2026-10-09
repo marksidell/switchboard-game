@@ -283,9 +283,9 @@ def needs(sid: str, lines: list[Utterance], script: Script, wav: Path,
 
 
 def tutor_intro(script: Script, wav: Path) -> np.ndarray:
-    """A tutored game's start in manual pacing: the introduction, then Next Call."""
+    """A tutored game's start: the introduction's three parts, each More Help pressed."""
     parts: list[np.ndarray] = []
-    for key in ("intro", "begin-manual"):
+    for key in ("intro-jacks", "intro-cords", "intro-switches"):
         parts += [silence(TURN), wav_audio(wav / script.tutor[key].filename)]
     return np.concatenate(parts + [silence(TURN)])
 

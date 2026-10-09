@@ -63,7 +63,7 @@ OPERATOR_SCENE = "operator"
 # rendered once per value (see _tutor_lines()).
 TUTOR = "tutor"
 TUTOR_KEYS: dict[str, str | None] = {
-    "intro": None, "begin-manual": None,
+    "intro-jacks": None, "intro-cords": None, "intro-switches": None,
     "answer-station": None, "answer-trunk": None, "talk": None,
     "say": "line", "greet": None, "respond": None,
     "ring-front": "jack", "ring-rear": "jack", "center-ringing": None,

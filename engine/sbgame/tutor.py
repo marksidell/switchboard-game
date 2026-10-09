@@ -32,6 +32,9 @@ MONITOR = "audio/monitor"      # its play/set and play (audio.md §10.4)
 REPEAT = 20.0                  # s without progress before a prompt is said again
 REPEATS = 2                    # times a prompt is said again, at most
 NO_LIMIT = 3600.0              # s, for the timeouts tutor mode lifts (§4.9)
+# Her introduction, in order: each part but the last waits for More Help
+# (§4.9, Rev 31).
+INTRO = ("intro-jacks", "intro-cords", "intro-switches")
 
 
 class Tutor:
