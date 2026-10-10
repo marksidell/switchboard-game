@@ -300,6 +300,26 @@ async def main() -> int:
               "stations and trunks published at birth")
         check(g._free_trunk() in (1, 2), "a trunk is picked from the fitted ones")
 
+        print("\n== trunks out of service (§6.5, Rev 36)")
+        oos = {"trunks": {"6": "jack 6's lamp does not latch", "8": "lamp out"}}
+        cfg = Config(out_of_service=oos)
+        cfg.check()
+        check(cfg.working_trunks() == [1, 2, 3, 4, 5, 7], f"working trunks: {cfg.working_trunks()}")
+        for bad_oos in ({"trunks": {"9": "x"}}, {"trunks": {"6": ""}}, {"stations": {"1": "x"}}):
+            try:
+                Config(out_of_service=bad_oos).check()
+                check(False, f"refused {bad_oos}")
+            except ValueError:
+                check(True, f"refused {bad_oos}")
+        b2, _, g2, sess2 = await build_game(tmp / "oos" if (tmp / "oos").mkdir() is None else tmp,
+                                            out_of_service=oos)
+        for n in (1, 2, 3, 4, 5, 7):
+            await b2.update(f"trunk/{n}/seize", "on")
+        check(g2._free_trunk() is None, "with every working trunk busy, 6 and 8 are not offered")
+        await b2.update("trunk/7/seize", "off")
+        check(g2._free_trunk() == 7, "and a working one is offered when it comes free")
+        await sess2.close()
+
         print("\n== diagnostics (§7.5, Rev 25)")
         check(link.state_v.get("game/diag/station/3/tone") == "off"
               and link.state_v.get("game/diag/tap/voice") == "off", "every test off at birth")

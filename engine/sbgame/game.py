@@ -480,9 +480,9 @@ class Game:
         await self._publish_pacing()
 
     def _free_trunk(self) -> int | None:
-        """A trunk fitted (§6.5), idle, and not under test (§7.5)."""
+        """A trunk fitted and in service (§6.5), idle, and not under test (§7.5)."""
         tested = self.diag.circuits() if self.diag is not None else set()
-        for n in range(1, self.cfg.trunks + 1):
+        for n in self.cfg.working_trunks():
             if f"trunk/{n}" in tested:
                 continue
             if not self.b.on(f"trunk/{n}/seize") and not self.b.on(f"trunk/{n}/ring"):

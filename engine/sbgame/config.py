@@ -18,7 +18,7 @@ file.
 from __future__ import annotations
 
 import tomllib
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 
 
@@ -62,6 +62,15 @@ class Config:
     # command line's --stations and --trunks override these.
     stations: int = 22
     trunks: int = 8
+    # Out of service (Rev 36): fitted, but not to be rung in on, each with why.
+    # game.toml's [out_of_service.trunks], trunk number -> reason, e.g.
+    #   6 = "switchboard jack 6's lamp does not latch"
+    out_of_service: dict = field(default_factory=dict)
+
+    def working_trunks(self) -> list[int]:
+        """The fitted trunks a call may ring in on (§6.5)."""
+        out = {int(k) for k in (self.out_of_service.get("trunks") or {})}
+        return [n for n in range(1, self.trunks + 1) if n not in out]
 
     # ---- the session log -----------------------------------------------
     session_db: str = "~/.local/state/sbgame/sessions.db"
@@ -111,5 +120,14 @@ class Config:
             bad.append(f"stations {self.stations!r} is not a whole number 0-22")
         if not (isinstance(self.trunks, int) and 0 <= self.trunks <= 8):
             bad.append(f"trunks {self.trunks!r} is not a whole number 0-8")
+        oos = self.out_of_service
+        if not isinstance(oos, dict) or set(oos) - {"trunks"}:
+            bad.append("out_of_service takes only a [out_of_service.trunks] table")
+        else:
+            for k, v in (oos.get("trunks") or {}).items():
+                if not (str(k).isdigit() and 1 <= int(k) <= 8):
+                    bad.append(f"out_of_service.trunks: {k!r} is not a trunk 1-8")
+                elif not (isinstance(v, str) and v.strip()):
+                    bad.append(f"out_of_service.trunks.{k}: give the reason as text")
         if bad:
             raise ValueError("; ".join(bad))
