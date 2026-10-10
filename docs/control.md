@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 28 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
+*Rev 29 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
 
 # 1. Overview
 
@@ -113,6 +113,14 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 — Firmware updates over the network (§2.1), so that the installed board can be reflashed without a USB cable. A cable left attached would join portland's ground to the system's 24V ground, which PoE's isolation keeps apart, and anything that opened the port would reset the board; Mark weighed powering the Olimex from USB and chose to stay on PoE (with a TL-SG105PE PoE switch in place of a separate injector) and update over the network instead. The generator §3.4 recommendation to prefer OTA in the installed system is now something the firmware can do.
 
 — Firmware consequence, for Claude Code, made in the same commit: ArduinoOTA started once Ethernet has an address, with the hostname `sbgame-esp32` and a SHA-256 password hash from `secrets.h` (`OTA_PASSWORD_SHA256`; without it the firmware builds with OTA off). The start callback stops the waveform and releases every relay before anything is written to flash; an error after that point restarts the board. §10 gains the row.
+
+## 1.29 Changes in Rev 29
+
+— The serial banner is printed for Enter only — CR or LF — and at most once every 2s; every other byte on the line is discarded. The receive pin is pulled up. Found on the bench, 2026-10-10, and the cause of the stalls of Rev 27 and of 2026-10-09: with the USB cable unplugged, the board's USB-serial chip is unpowered and the receive line floats, and noise on it read as keypresses. Each printed the banner, about 100ms of blocking output, so the loop stalled tens of milliseconds at a time: the controller acknowledged commands 2–92ms late (network capture) and the station dial's breaks stretched from 61ms to about 118ms, so every digit of the board test was refused as `bad_dial`. With the cable plugged in, the line is driven idle and the controller answered in 4ms and dialled true. A reset did not help, which ruled out the power-on boot; the cable did. The installed controller runs without the cable (§2.1), so this was its normal state.
+
+— Rev 28's log line for each trunk state change is removed; the log of a state publish that fails or is skipped stays.
+
+— Firmware consequence, for Claude Code, made in commit 7d0ad22: `loop()` in `control.ino` looks for CR or LF and rate-limits the banner to `BANNER_MIN_MS` (2000); `setup()` enables the pull-up on GPIO3 (U0RXD) after `Serial.begin()`. FIRMWARE_SPEC_REV 29.
 
 ## 1.28 Changes in Rev 28
 
