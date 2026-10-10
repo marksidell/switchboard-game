@@ -44,8 +44,10 @@ class Tutor:
     player — a prompt with `until`, or one said with `hold` — until the
     player acts, or she says anything else. The game program publishes it
     through `on_repeat`, for the deck's Repeat Help key, and `repeat()` says
-    it again. A prompt before a listen is never repeatable: the loudspeaker
-    would be heard as the operator.
+    it again. A prompt before a listen (Rev 35) is repeatable too, but she
+    does not say it herself: `repeat()` only asks, and the flow stops the
+    listen, says it, and listens again, so the loudspeaker is never heard as
+    the operator. While the operator is speaking it is refused.
     """
 
     def __init__(self, board: Board, hw: Hw, lines: dict[str, Speech],
@@ -58,6 +60,10 @@ class Tutor:
         self._on_repeat = on_repeat
         self.repeat_key = ""
         self._until: Callable[[Board], object] | None = None
+        # A prompt before a listen (Rev 35): set while it is repeatable, and
+        # what says the operator has started, when it is refused.
+        self.asked: asyncio.Event | None = None
+        self._speaking: Callable[[], bool] = lambda: False
 
     def has(self, key: str) -> bool:
         return key in self.lines
@@ -79,15 +85,19 @@ class Tutor:
                 log.info("tutor repeat state: %s", e)
 
     async def say(self, key: str, *, until: Callable[[Board], object] | None = None,
-                  abort_if=None, hold: bool = False) -> None:
+                  abort_if=None, hold: bool = False,
+                  listening: Callable[[], bool] | None = None) -> None:
         """Say one line and return when it has finished.
 
         With `until`, nothing is said if it is already true, and the line is
         said again in the background while it stays false. With `until` or
         `hold`, the line can be repeated on request until the player acts or
-        she says another (Rev 34).
+        she says another (Rev 34). With `listening`, a prompt a listen
+        follows: repeatable on request through the flow (Rev 35), refused
+        while `listening()` says the operator has started speaking.
         """
         await self.hush()
+        self.asked = None
         await self._set_repeat("")
         if not self.active:
             return
@@ -98,6 +108,11 @@ class Tutor:
         if until is not None and until(self.b):
             return
         await say(self.b, self.hw, MONITOR, sp.name, sp.seconds, abort_if=abort_if)
+        if listening is not None:
+            self.asked = asyncio.Event()
+            self._speaking = listening
+            await self._set_repeat(key)
+            return
         if until is not None or hold:
             self._until = until
             await self._set_repeat(key)
@@ -116,6 +131,11 @@ class Tutor:
         sp = self.lines.get(key)
         if not self.active or sp is None:
             return False
+        if self.asked is not None:      # a listen follows: the flow says it
+            if self._speaking():
+                return False
+            self.asked.set()
+            return True
         if self._again is not None and not self._again.done():
             self._again.cancel()
         self._again = asyncio.create_task(self._replay(sp, self._until),
@@ -151,6 +171,11 @@ class Tutor:
         except Exception as e:          # Offline, mostly: the call handles that
             log.info("tutor repeat of %s ended: %s", sp.name, e)
 
+    async def release(self) -> None:
+        """The listen after a prompt is over: nothing more to repeat."""
+        self.asked = None
+        await self._set_repeat("")
+
     async def hush(self) -> None:
         """Stop a line that is repeating, mid-word if need be."""
         t, self._again = self._again, None
@@ -161,6 +186,9 @@ class Tutor:
     async def stop(self) -> None:
         """Tutor mode off, or the game stopped: silence her now."""
         self.active = False
+        if self.asked is not None:
+            self.asked.set()            # a flow waiting on it moves on
+        self.asked = None
         await self.hush()
         await self._set_repeat("")
         await _quietly(self.hw.stop(MONITOR))

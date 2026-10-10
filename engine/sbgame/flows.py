@@ -106,10 +106,39 @@ async def _operator_speaks(ctx: Ctx, where: str, sp: Speech, abort_if,
         await hear(ctx.b, ctx.hw, where, ctx.cfg.speak_timeout, abort_if=abort_if)
         return
     key = t.say_key(sp, request)
-    for _ in range(REPEATS + 1):
-        await t.say(key, abort_if=abort_if)
-        if await hear(ctx.b, ctx.hw, where, REPEAT, abort_if=abort_if) == "silence":
-            return
+    speaking = lambda: ctx.b.get(f"{where}/listen") == "speech"
+    timeouts = 0
+    try:
+        while timeouts <= REPEATS:
+            await t.say(key, abort_if=abort_if, listening=speaking)
+            asked = t.asked
+            if asked is None:                   # tutor switched off meanwhile
+                await hear(ctx.b, ctx.hw, where, ctx.cfg.speak_timeout, abort_if=abort_if)
+                return
+            listen = asyncio.create_task(
+                hear(ctx.b, ctx.hw, where, REPEAT, abort_if=abort_if))
+            press = asyncio.create_task(asked.wait())
+            pressed = False
+            try:
+                await asyncio.wait({listen, press}, return_when=asyncio.FIRST_COMPLETED)
+            finally:
+                press.cancel()
+                if not listen.done():
+                    # Repeat Help (Rev 35): stop listening, say it again, and
+                    # listen afresh. hear() cancels the listen as it unwinds.
+                    pressed = True
+                    listen.cancel()
+                await asyncio.gather(press, listen, return_exceptions=True)
+            if pressed:
+                if not t.active:
+                    await hear(ctx.b, ctx.hw, where, ctx.cfg.speak_timeout, abort_if=abort_if)
+                    return
+                continue                        # a press: not one of her repeats
+            if listen.result() == "silence":
+                return
+            timeouts += 1
+    finally:
+        await t.release()
 
 
 def _last_wait(sc: SceneDef) -> int | None:

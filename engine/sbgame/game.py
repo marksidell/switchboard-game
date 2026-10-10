@@ -211,7 +211,7 @@ class Game:
             if name == "repeat":
                 # §4.9, Rev 34: the line she just finished, again. An event.
                 if self.tutor is None or not self.tutor.repeat():
-                    await self._error("repeat: the tutor has nothing to repeat now")
+                    await self._error("repeat: nothing to repeat now, or the operator is speaking")
                     return
                 await self._say("page: repeat help")
                 return

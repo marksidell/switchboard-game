@@ -133,6 +133,42 @@ async def tutored_dialling_operator(h: Harness) -> None:
         await h.b.update("trunk/1/digit", d)
 
 
+def slow_listens(h: Harness) -> None:
+    """The operator takes a while to start speaking, and a cancelled listen
+    hears nothing: room to press Repeat Help mid-listen."""
+    echo = h.link._echo
+
+    async def _echo(key: str, p: str) -> None:
+        base = key.removesuffix("/set")
+        if not base.endswith("/listen") or p == "0":
+            return await echo(key, p)
+        u = h.b.update
+        await asyncio.sleep(D)
+        await u(base, "listening")
+        await asyncio.sleep(D * 8)
+        if h.b.get(base) != "listening":
+            return
+        await u(base, "speech")
+        await asyncio.sleep(D)
+        await u(base, "silence")
+    h.link._echo = _echo
+
+
+async def repeating_operator(h: Harness) -> None:
+    """Asks for the greeting again while the game listens for her (Rev 35)."""
+    c, want = "station/12", 2
+    await answers(h, c)
+    await heard_tutor(h, "greet")
+    await h.b.wait_until(lambda b: b.get(f"{c}/listen") == "listening", 5)
+    h.asked_ok = h.ctx.tutor.repeat()
+    await request_heard(h, c)
+    await h.b.update(f"station/{want}/ring", "on")
+    await h.b.wait_until(lambda b: b.on(f"station/{want}/hook"), 5)
+    await h.b.update(f"station/{want}/ring", "off")
+    await h.b.update(f"{c}/peer", f"station/{want}")
+    await h.b.update(f"station/{want}/peer", c)
+
+
 async def slow_operator(h: Harness) -> None:
     """Leaves the lamp lit long enough to be told twice more."""
     await h.b.wait_until(lambda b: len([s for s in h.w.said if s == "answer-station"]) == 3, 10)
@@ -238,9 +274,23 @@ async def main() -> int:
           f"answer, greet, ring, in that order: {h.w.said}")
     check(not h.w.overlap, f"she is never speaking as a listen starts: {h.w.overlap}")
     shown = [k for k in h.repeats if k]
-    check(shown == ["answer-station", "ring-front-28"],
-          f"Repeat Help offers the board steps, never a Say prompt (Rev 34): {shown}")
+    check(shown == ["answer-station", "greet", "ring-front-28"],
+          f"Repeat Help offers each line she waits on the player after (Rev 34, 35): {shown}")
     check(h.repeats[-1] == "", "and goes once the player has acted")
+
+    print("\n== Repeat Help while the game listens for her (Rev 35)")
+    h = tutored(scene(Shape.STATION_TO_STATION))
+    slow_listens(h)
+    out = await run(h, station_to_station, repeating_operator)
+    check(out.ok, f"success, {out.reason!r}")
+    check(h.asked_ok, "the press is taken")
+    check(h.w.said.count("greet") == 2, f"the greeting said again: {h.w.said}")
+    check(("station/12/listen/set", "0") in h.link.sent, "the listen stopped first")
+    check(not h.w.overlap, "and she is never speaking as a listen starts")
+    check("greet" in h.repeats, "the Say prompt is offered for repeating")
+    t = Tutor(h.b, h.hw, lines())
+    t.repeat_key, t.asked, t._speaking = "greet", asyncio.Event(), lambda: True
+    check(not t.repeat() and not t.asked.is_set(), "refused once she has started speaking")
 
     print("\n== a call in on a trunk, tutored")
     h = tutored(scene(Shape.OUTSIDE_TO_STATION, from_station=None, from_line="pizza"))
@@ -352,7 +402,7 @@ async def main() -> int:
         check("not introducing" in link.state_v.get("game/error", ""),
               "More Help with no introduction is refused")
         await g.on_command("repeat", "")
-        check("nothing to repeat" in link.state_v.get("game/error", ""),
+        check("nothing to repeat now" in link.state_v.get("game/error", ""),
               "Repeat Help with nothing to repeat is refused")
 
         print("\n== the end of a call: the cords out before another")
