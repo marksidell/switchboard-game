@@ -167,6 +167,12 @@ class Panel:
         return (not self.game_stale(now) and part is not None and part[0] < part[1]
                 and now >= self.more_guard_until)
 
+    def flash(self, now: float, *waiting: str) -> bool:
+        """Whether a key that flashes while the tutor waits (§4.9, Rev 33)
+        is in its dark half now: once a second, while game/tutor/waiting is
+        one of `waiting`."""
+        return self.get("game/tutor/waiting") in waiting and int(now * 2) % 2 == 1
+
     def in_progress(self) -> int:
         return sum(1 for n in range(1, 9) if self.get(f"game/call/{n}/scene"))
 
@@ -364,6 +370,8 @@ class Panel:
         if self.running() and self.auto():
             at = self.num("game/next_at")
             sub = "waiting" if at is None else _secs(at - (time.time() + self.host_offset))
+        if live and self.flash(now, "more", "next"):
+            return _key("Next", sub or "Call", fill=PANEL, ink=INK)
         return _key("Next", sub or "Call", fill=VIOLET if live else PANEL,
                     ink=INK if live else GREY)
 
@@ -391,6 +399,8 @@ class Panel:
         # More Help while the tutor introduces the board (Rev 32).
         if self.intro_part() is not None:
             live = self.more_live(now)
+            if live and self.flash(now, "more"):
+                return _key("More", "Help", fill=PANEL, ink=INK)
             return _key("More", "Help", fill=AMBER if live else PANEL,
                         ink=BG if live else GREY)
         err = bool(self.get("game/error"))

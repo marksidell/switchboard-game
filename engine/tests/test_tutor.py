@@ -301,9 +301,12 @@ async def main() -> int:
         await asyncio.sleep(D * 8)                  # she finishes, and waits
         check(w.said == ["intro-jacks"] and g.tallies.started == 0,
               "after it she waits for More Help or Next Call")
+        check(link.state_v.get("game/tutor/waiting") == "more", "and says so: waiting more (Rev 33)")
         await g.on_command("more", "")
         await b.wait_until(lambda b: w.said[-1:] == ["intro-cords"], 5)
-        check(link.state_v.get("game/tutor/intro") == "2/3", "More Help: the second part, 2/3")
+        check(link.state_v.get("game/tutor/intro") == "2/3"
+              and link.state_v.get("game/tutor/waiting") == "",
+              "More Help: the second part, 2/3, and not waiting while she speaks")
         await g.on_command("more", "")              # mid-part: cut short, and on
         await b.wait_until(lambda b: w.said[-1:] == ["intro-switches"], 5)
         check(("audio/monitor/play/set", "stop") in link.sent
@@ -314,6 +317,7 @@ async def main() -> int:
         await asyncio.sleep(D * 4)
         check(w.said[-1:] == ["intro-switches"] and g.tallies.started == 0,
               "after the last, More Help does nothing and no call comes")
+        check(link.state_v.get("game/tutor/waiting") == "next", "waiting next")
         await g.on_command("next", "")
         check(link.state_v.get("game/tutor/intro") == "" and g._tutor_task is None,
               "Next Call ends the introduction")
@@ -355,8 +359,10 @@ async def main() -> int:
                 break
             await asyncio.sleep(D)
         check(g._tutor_task is None, "cleared: she says so, and the game is free")
+        check(link.state_v.get("game/tutor/waiting") == "next", "waiting for Next Call")
         await g.on_command("next", "")
-        check(g.tallies.started == 1, "and Next deals")
+        check(g.tallies.started == 1 and link.state_v.get("game/tutor/waiting") == "",
+              "and Next deals, and she is no longer waiting")
         await g.on_command("pace", "manual")
         check(g.tutor is None and link.state_v.get("game/pace") == "manual",
               "another pace mid-game: she stops at once")

@@ -93,6 +93,7 @@ class Game:
         self._tutor_task: asyncio.Task | None = None
         self._intro = False             # the tutor task is the introduction
         self._more: asyncio.Event | None = None   # More Help, during it (Rev 31)
+        self._waiting_for = ""          # game/tutor/waiting (Rev 33)
         self._lessons: list[str] = []   # the scenes a tutored game starts with
         # Station numbers to the script's line names, for holding a station
         # under test out of dealing (§7.5).
@@ -139,6 +140,8 @@ class Game:
         await link.state("game/scenes", "\n".join(self.gs.deck_scenes()))
         await link.state("game/queue", self.queued)
         await link.state("game/tutor/intro", "")
+        self._waiting_for = ""
+        await link.state("game/tutor/waiting", "")
         await link.state("game/stations", str(self.cfg.stations))
         await link.state("game/trunks", str(self.cfg.trunks))
         assert self.diag is not None
@@ -287,6 +290,7 @@ class Game:
             await asyncio.gather(t, return_exceptions=True)
         self._intro = False
         self._lessons = []
+        await self._waiting("")
         if self.tutor is not None:
             await self.tutor.stop()
             self.tutor = None
@@ -538,6 +542,7 @@ class Game:
                     await self._error("no free trunk")
                 return
 
+        await self._waiting("")                     # §4.9, Rev 33
         call = Call(slot=slot, number=self.next_number, scene=scene.id,
                     from_line=scene.from_line, to_line=scene.to_line)
         self.next_number += 1
@@ -633,6 +638,18 @@ class Game:
 
     # ---- tutor mode (§4.9) ------------------------------------------------
 
+    async def _waiting(self, what: str) -> None:
+        """game/tutor/waiting (§4.9, Rev 33): she has finished and waits for
+        More Help or Next Call ("more"), or Next Call alone ("next"), so the
+        deck can flash the key. Empty otherwise."""
+        if self.link is None or what == self._waiting_for:
+            return
+        self._waiting_for = what
+        try:
+            await self.link.state("game/tutor/waiting", what)
+        except Exception:
+            pass
+
     async def _tutor_intro(self) -> None:
         """Her introduction, a part at a time (§4.9, Rev 31).
 
@@ -656,12 +673,16 @@ class Game:
                     await asyncio.wait(waits, return_when=asyncio.FIRST_COMPLETED)
                     if more is None:
                         await speaking
+                        await self._waiting("next")         # Rev 33: the deck flashes
                         await asyncio.Event().wait()        # until Next Call
+                    if not more.done():
+                        await self._waiting("more")
                     await more
                 finally:
                     for x in waits:
                         x.cancel()
                     await asyncio.gather(*waits, return_exceptions=True)
+                    await self._waiting("")
         except Exception as e:
             log.warning("tutor intro: %s", e)
         finally:
@@ -696,6 +717,7 @@ class Game:
             await t.hush()
             if not self.pacing.automatic:
                 await t.say("ready-manual")
+                await self._waiting("next")     # until a call is dealt (Rev 33)
         except (TimeoutError, Offline) as e:
             log.info("tutor: call %d not cleared: %s", call.number, e or "timeout")
         finally:

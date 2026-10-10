@@ -166,6 +166,22 @@ def main() -> int:
     p.on_message("game/tutor/intro", "3/3", 2)
     check(p.on_key(MORE, 2) == [], "3/3: nothing more")
 
+    print("\n== flashing while the tutor waits (Rev 33)")
+    p = live(game__run="on", game__pace="tutor", game__tutor__intro="1/3")
+    lit = [p._k_next(t).getpixel((5, 5)) for t in (0.1, 0.6)]
+    check(lit[0] == lit[1], "she is speaking: Next Call steady")
+    p.on_message("game/tutor/waiting", "more", 1)
+    nx = [p._k_next(t).getpixel((5, 5)) for t in (1.1, 1.6, 2.1)]
+    mh = [p._k_health(t).getpixel((5, 5)) for t in (1.1, 1.6, 2.1)]
+    check(nx[0] != nx[1] and nx[0] == nx[2], "she waits for either: Next Call flashes once a second")
+    check(mh[0] != mh[1] and mh[0] == mh[2], "and More Help with it")
+    p.on_message("ctl/game_heartbeat", "1000003", 3)
+    p.on_message("game/tutor/intro", "3/3", 3)
+    p.on_message("game/tutor/waiting", "next", 3)
+    mh = [p._k_health(t).getpixel((5, 5)) for t in (3.1, 3.6)]
+    nx = [p._k_next(t).getpixel((5, 5)) for t in (3.1, 3.6)]
+    check(nx[0] != nx[1] and mh[0] == mh[1], "Next Call alone: only Next Call flashes")
+
     print("\n== drawing")
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp)

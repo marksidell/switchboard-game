@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 29 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
+*Rev 30 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
 
 # 1. Overview
 
@@ -204,6 +204,10 @@ This document specifies the messages: the topic names, who publishes each, what 
 
 — `trunk/<n>/shortring/set` added (§6, §8.4), following control.md Rev 25, 2026-10-05: `"on"` rings the trunk once for 0.5s, `"off"` cancels the burst; the ESP32 echoes the relay on the existing `ring` topic, `"on"` then `"off"`. The game program uses it to signal a call in on a trunk (game_control.md Rev 28). It is the third command that is not absolute state, after `next/set` and the station's `dial/set`: a duplicate delivered after the first burst has ended rings once more. That is harmless — the switchboard's trunk signal latches, and a second burst on an unanswered trunk changes nothing the operator sees; a duplicate during the burst, or after the trunk is seized, is ignored by the controller. QoS 1 as for every command. The ESP32 subscribes to one more pattern. No existing topic or payload changes.
 
+## 1.30 Changes in Rev 30
+
+— `game/tutor/waiting` added (§6.1), following game_control.md Rev 33, 2026-10-09: `"more"` or `"next"` while the tutor has finished speaking and waits for More Help or Next Call, or for Next Call alone; `""` otherwise. The deck flashes the key. No existing topic or payload changes.
+
 ## 1.29 Changes in Rev 29
 
 — `game/pace` and `pace/set` take `"tutor"`, and `game/tutor/set` and `game/tutor` are withdrawn (§6.1, §6.2), following game_control.md Rev 32, 2026-10-09: tutor mode is a pacing rather than a switch beside it. `game/tutor/intro` and `game/more/set` are unchanged. The game program no longer publishes `game/tutor`; a retained value left on the broker by an earlier version is harmless and is cleared with `mosquitto_pub -r -n -t sbgame/game/tutor`. Nothing reads it.
@@ -352,6 +356,7 @@ Published by the game program for the status page and the log (Rev 10). All reta
 | `sbgame/game/scenes` | scene ids, one per line | yes | The scenes that can be chosen as the next one: active, without `after:`, and within the circuits fitted (game_control.md §4.8; Rev 23). Published at start. |
 | `sbgame/game/queue` | scene id, or `""` | yes | The chosen next scene, until it is dealt, cleared or the game stops. Echoes `queue/set` (Rev 23). |
 | `sbgame/game/tutor/intro` | `"<n>/<of>"`, or `""` | yes | The part of the tutor's introduction she is on, `"1/3"` to `"3/3"`; `""` when she is not introducing the board (game_control.md §4.9; Rev 28). |
+| `sbgame/game/tutor/waiting` | `"more"`, `"next"` or `""` | yes | The tutor has finished speaking and waits for More Help or Next Call (`"more"`), or for Next Call alone (`"next"`); `""` otherwise. The deck flashes the key (game_control.md §4.9; Rev 30). |
 | `sbgame/game/stations`, `sbgame/game/trunks` | integer | yes | How many stations (0–22) and trunks (0–8) are fitted, from the configuration (game_control.md §6.5; Rev 23). Published at start. |
 | `sbgame/game/diag/<target>/<test>` | `"on"` or `"off"` | yes | A diagnostic's state: `<target>` is `station/<1-22>`, `trunk/<1-8>` or `tap`; `<test>` is `hook` (stations), `ring` (trunks), `tone`, `voice` or `monitor` (game_control.md §7.5; Rev 23). All `"off"` at start. |
 | `sbgame/game/log` | text | yes | The last 50 events, newest first, one per line (game_control.md §6.2). |
