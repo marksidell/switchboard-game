@@ -80,6 +80,7 @@
 #include <math.h>
 #include <Wire.h>
 #include "esp_timer.h"
+#include "driver/gpio.h"
 
 #include "sb_config.h"
 #include "sb_table.h"
@@ -314,6 +315,7 @@ static uint32_t t_cur_us[T_N];
  * than printed as they happen: a line on the serial port blocks for longer than
  * the gaps being looked for. */
 static constexpr uint32_t LONG_GAP_MS = 20;
+static constexpr uint32_t BANNER_MIN_MS = 2000;   // Rev 29: at most one banner per 2s
 static constexpr uint8_t  LONG_GAPS   = 16;
 struct LongGap {
   uint32_t at_ms;        // millis() at the tick that ended it
@@ -661,6 +663,11 @@ void setup() {
   pinMode(PIN_ENBL, INPUT_PULLUP);     // grounding GPIO4 enables the generator
 
   Serial.begin(115200);
+  /* control.md 9.1, Rev 29: with the USB cable unplugged the USB-serial chip
+   * is unpowered and the receive line floats; noise on it read as keypresses
+   * and printed the banner over and over, ~100ms a time, which stretched the
+   * dial pulses. Hold it idle. */
+  gpio_pullup_en(GPIO_NUM_3);
   delay(200);
   Serial.println("Starting");
 
@@ -968,8 +975,17 @@ void loop() {
   if (pass_us > loop_max_us) loop_max_us = pass_us;
   passes_since_tick++;
 
-  if (Serial.available()) {
-    while (Serial.available()) Serial.read();
+  /* Rev 29: the banner for Enter only, at most every BANNER_MIN_MS: anything
+   * else on the line is discarded, so a floating or noisy receive line cannot
+   * hold the loop. */
+  static uint32_t last_banner_ms = 0;
+  bool enter = false;
+  while (Serial.available()) {
+    const int ch = Serial.read();
+    if (ch == '\r' || ch == '\n') enter = true;
+  }
+  if (enter && (last_banner_ms == 0 || now - last_banner_ms >= BANNER_MIN_MS)) {
+    last_banner_ms = now;
     TIMED(T_SERIAL, printBanner());
   }
 

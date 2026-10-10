@@ -67,7 +67,6 @@ static void publishBoolIfChanged(const CircuitMap& c, const char* leaf,
   const int8_t now = value ? 1 : 0;
   if (cache == now) return;
   cache = now;
-  Serial.printf("trunk %u: %s %s\n", (unsigned)c.number, leaf, value ? "on" : "off");  // Rev 28
   netPublishState(c, leaf, value ? "on" : "off");
 }
 
@@ -80,7 +79,6 @@ static void setFault(uint8_t i, const char* f) {
   s.fault = f;
   if (s.fault_pub != f) {
     s.fault_pub = f;
-    Serial.printf("trunk %u: fault \"%s\"\n", (unsigned)row(i).number, f);  // Rev 28
     netPublishState(row(i), "fault", f);
   }
 }
