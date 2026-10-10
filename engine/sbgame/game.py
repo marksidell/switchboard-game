@@ -75,6 +75,10 @@ class Game:
         from .pacing import Pacing
         self.pacing = Pacing(pace=cfg.pace, gap=cfg.gap, ramp=cfg.ramp, floor=cfg.floor,
                              jitter=cfg.jitter, pause=cfg.pause)
+        if self.pacing.pace == "tutor" and gs.tutor_missing:
+            log.warning("pace tutor configured, but %d of her lines have no wav: manual",
+                        len(gs.tutor_missing))
+            self.pacing.pace = "manual"
 
         self._flows: dict[int, asyncio.Task] = {}       # slot -> task
         self._afters: dict[str, asyncio.Task] = {}      # scene id -> timer task
@@ -83,9 +87,8 @@ class Game:
         self._decks_recorded = 0        # how many of deck.orders are in SQLite
         self.diag: Diagnostics | None = None
         self.queued = ""                # the chosen next scene (§4.8)
-        # Tutor mode (§4.9, Rev 29). `tutor_on` is the switch, owned by the
-        # deck; `tutor` is her, while a game runs with it on.
-        self.tutor_on = False
+        # Tutor mode (§4.9), the pacing `tutor` since Rev 32: `tutor` is her,
+        # while a game runs in it.
         self.tutor: Tutor | None = None
         self._tutor_task: asyncio.Task | None = None
         self._intro = False             # the tutor task is the introduction
@@ -135,7 +138,6 @@ class Game:
         # §4.8, §6.5, §7.5 (Rev 25).
         await link.state("game/scenes", "\n".join(self.gs.deck_scenes()))
         await link.state("game/queue", self.queued)
-        await link.state("game/tutor", "on" if self.tutor_on else "off")
         await link.state("game/tutor/intro", "")
         await link.state("game/stations", str(self.cfg.stations))
         await link.state("game/trunks", str(self.cfg.trunks))
@@ -187,10 +189,6 @@ class Game:
                     await self._error(f"run: {payload!r} is not on or off")
                 return
 
-            if name == "tutor":
-                await self._tutor_command(payload)
-                return
-
             if name.startswith("diag/"):
                 await self._diag_command(name.removeprefix("diag/"), payload)
                 return
@@ -231,10 +229,24 @@ class Game:
 
             if name == "pace":
                 if payload not in PACES:
-                    await self._error(f"pace: {payload!r} is not manual, auto or listen")
+                    await self._error(f"pace: {payload!r} is not tutor, manual, auto or listen")
                     return
+                if payload == "tutor" and self.gs.tutor_missing:
+                    m = self.gs.tutor_missing
+                    await self._error(f"tutor: {len(m)} of her lines have no wav, "
+                                      f"{', '.join(m[:3])}{' …' if len(m) > 3 else ''}")
+                    return
+                was = self.pacing.pace
                 self.pacing.pace = payload
                 await self._say(f"page: pace {payload}")
+                if self.running and payload == "tutor" and was != "tutor":
+                    # §4.9: she tutors from the next call; the introduction
+                    # and the lessons come only with Start.
+                    self.tutor = self._new_tutor()
+                    assert self.slots is not None
+                    self.slots.timeless = True
+                elif was == "tutor" and payload != "tutor":
+                    await self._end_tutor()              # silent at once
                 if self.running:
                     await self._reschedule()
                 else:
@@ -262,33 +274,6 @@ class Game:
             await self._error(f"unknown command {name!r}")
         except Offline as e:
             log.warning("command %s dropped: %s", name, e)
-
-    async def _tutor_command(self, payload: str) -> None:
-        """game/tutor/set (§4.9, Rev 29). On applies from the next call or
-        the next Start; off silences her at once."""
-        assert self.link is not None
-        if payload not in ("on", "off"):
-            await self._error(f"tutor: {payload!r} is not on or off")
-            return
-        on = payload == "on"
-        if on and self.gs.tutor_missing:
-            m = self.gs.tutor_missing
-            await self._error(f"tutor: {len(m)} of her lines have no wav, "
-                              f"{', '.join(m[:3])}{' …' if len(m) > 3 else ''}")
-            return
-        if on != self.tutor_on:
-            self.tutor_on = on
-            await self._say(f"tutor {payload}")
-            if on and self.running:
-                self.tutor = self._new_tutor()
-                assert self.slots is not None
-                self.slots.timeless = True
-            elif not on:
-                await self._end_tutor()
-                if self.running:
-                    await self._reschedule()
-        await self.link.state("game/tutor", payload)
-        await self.link.state("game/error", "")
 
     def _new_tutor(self) -> Tutor:
         assert self.hw is not None
@@ -370,7 +355,7 @@ class Game:
         await self.link.state("game/error", "")
         await self._publish_tallies()
         self.pacing.next_at = None
-        if self.tutor_on:
+        if self.pacing.pace == "tutor":
             # §4.9: she introduces the board first, and the first call waits
             # for Next Call, in every pacing (Rev 31).
             self.tutor = self._new_tutor()

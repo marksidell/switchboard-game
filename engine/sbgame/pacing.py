@@ -35,7 +35,9 @@ import time
 from dataclasses import dataclass, field
 
 
-PACES = ("manual", "auto", "listen")
+# Tutor first, as the deck cycles them (game_control.md §4.9, Rev 32): manual
+# pacing with the tutor's voice, so not automatic.
+PACES = ("tutor", "manual", "auto", "listen")
 AUTOMATIC = ("auto", "listen")     # the paces the scheduler starts calls in
 
 

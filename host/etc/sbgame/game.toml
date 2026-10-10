@@ -27,7 +27,7 @@ wav_dir = "/srv/sbgame/wav"
 # StateDirectory=sbgame in the unit makes this, owned by the service user.
 session_db = "/var/lib/sbgame/sessions.db"
 
-# Pacing at start-up (§4.3): manual, auto or listen. manual until Mark has played a few games.
+# Pacing at start-up (§4.3): tutor, manual, auto or listen. manual until Mark has played a few games.
 pace = "manual"
 gap = 20.0
 ramp = 0.0

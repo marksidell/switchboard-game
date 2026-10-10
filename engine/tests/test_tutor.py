@@ -168,11 +168,12 @@ async def build_game(tmp: Path, wav: str = "../wav"):
 
 
 def make_wavs(tmp: Path, names) -> Path:
-    """The real wavs, and a short silent one for each tutor line."""
+    """The real wavs but hers, and a short silent one for each tutor line."""
     d = tmp / "wav"
     d.mkdir()
     for f in Path("../wav").glob("*.wav"):
-        (d / f.name).symlink_to(f.resolve())
+        if not f.name.startswith("tutor."):
+            (d / f.name).symlink_to(f.resolve())
     for n in names:
         stub = d / f"{n}.wav"
         if stub.is_symlink():
@@ -274,11 +275,16 @@ async def main() -> int:
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
 
-        print("\n== the switch, without her wavs")
-        b, link, g, sess = await build_game(tmp)
-        check(link.state_v.get("game/tutor") == "off", "off at birth")
-        await g.on_command("tutor", "on")
-        check(link.state_v.get("game/tutor") == "off"
+        print("\n== pace tutor, without her wavs")
+        bare = tmp / "bare"
+        bare.mkdir()
+        for f in Path("../wav").glob("*.wav"):
+            if not f.name.startswith("tutor."):
+                (bare / f.name).symlink_to(f.resolve())
+        b, link, g, sess = await build_game(tmp, str(bare))
+        check(link.state_v.get("game/pace") == "manual", "manual at birth, as configured")
+        await g.on_command("pace", "tutor")
+        check(link.state_v.get("game/pace") == "manual"
               and "have no wav" in link.state_v.get("game/error", ""),
               f"refused while her lines are unrendered: {link.state_v.get('game/error')!r}")
         await sess.close()
@@ -287,15 +293,14 @@ async def main() -> int:
         wav = make_wavs(tmp, [u.name for u in s.tutor.values()])
         b, link, g, sess = await build_game(tmp, str(wav))
         w = Watch(b)
-        await g.on_command("tutor", "on")
-        check(link.state_v.get("game/tutor") == "on", "on, and echoed")
-        await g.on_command("pace", "auto")
+        await g.on_command("pace", "tutor")
+        check(link.state_v.get("game/pace") == "tutor", "pace tutor, and echoed (Rev 32)")
         await g.on_command("run", "on")
         await b.wait_until(lambda b: w.said == ["intro-jacks"], 5)
         check(link.state_v.get("game/tutor/intro") == "1/3", "Start: her first part, 1/3")
         await asyncio.sleep(D * 8)                  # she finishes, and waits
         check(w.said == ["intro-jacks"] and g.tallies.started == 0,
-              "after it she waits for More Help, even in auto")
+              "after it she waits for More Help or Next Call")
         await g.on_command("more", "")
         await b.wait_until(lambda b: w.said[-1:] == ["intro-cords"], 5)
         check(link.state_v.get("game/tutor/intro") == "2/3", "More Help: the second part, 2/3")
@@ -323,7 +328,6 @@ async def main() -> int:
         await g.on_command("run", "off")
         check(g.tutor is None and ("audio/monitor/play/set", "stop") in link.sent,
               "Stop silences her")
-        await g.on_command("pace", "manual")
         await g.on_command("more", "")
         check("not introducing" in link.state_v.get("game/error", ""),
               "More Help with no introduction is refused")
@@ -353,9 +357,12 @@ async def main() -> int:
         check(g._tutor_task is None, "cleared: she says so, and the game is free")
         await g.on_command("next", "")
         check(g.tallies.started == 1, "and Next deals")
-        await g.on_command("tutor", "off")
-        check(g.tutor is None and link.state_v.get("game/tutor") == "off",
-              "off mid-game: she stops at once")
+        await g.on_command("pace", "manual")
+        check(g.tutor is None and link.state_v.get("game/pace") == "manual",
+              "another pace mid-game: she stops at once")
+        await g.on_command("pace", "tutor")
+        check(g.tutor is not None and g._tutor_task is None and not g._lessons,
+              "tutor again mid-game: tutored from the next call, no introduction or lessons")
         await g.on_command("run", "off")
         w.stop()
         await sess.close()

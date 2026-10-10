@@ -89,7 +89,7 @@ class Config:
         bad: list[str] = []
         from .pacing import PACES
         if self.pace not in PACES:
-            bad.append(f"pace must be manual, auto or listen, not {self.pace!r}")
+            bad.append(f"pace must be tutor, manual, auto or listen, not {self.pace!r}")
         # The page's own ranges, §4.3. Applied here too: a configuration file
         # is not the page and is not clamped, it is refused.
         if not 0 <= self.gap <= 600:

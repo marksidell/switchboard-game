@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 28 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
+*Rev 29 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
 
 # 1. Overview
 
@@ -204,6 +204,10 @@ This document specifies the messages: the topic names, who publishes each, what 
 
 — `trunk/<n>/shortring/set` added (§6, §8.4), following control.md Rev 25, 2026-10-05: `"on"` rings the trunk once for 0.5s, `"off"` cancels the burst; the ESP32 echoes the relay on the existing `ring` topic, `"on"` then `"off"`. The game program uses it to signal a call in on a trunk (game_control.md Rev 28). It is the third command that is not absolute state, after `next/set` and the station's `dial/set`: a duplicate delivered after the first burst has ended rings once more. That is harmless — the switchboard's trunk signal latches, and a second burst on an unanswered trunk changes nothing the operator sees; a duplicate during the burst, or after the trunk is seized, is ignored by the controller. QoS 1 as for every command. The ESP32 subscribes to one more pattern. No existing topic or payload changes.
 
+## 1.29 Changes in Rev 29
+
+— `game/pace` and `pace/set` take `"tutor"`, and `game/tutor/set` and `game/tutor` are withdrawn (§6.1, §6.2), following game_control.md Rev 32, 2026-10-09: tutor mode is a pacing rather than a switch beside it. `game/tutor/intro` and `game/more/set` are unchanged. The game program no longer publishes `game/tutor`; a retained value left on the broker by an earlier version is harmless and is cleared with `mosquitto_pub -r -n -t sbgame/game/tutor`. Nothing reads it.
+
 ## 1.28 Changes in Rev 28
 
 — `game/more/set` and `game/tutor/intro` added (§6.1, §6.2), following game_control.md Rev 31, 2026-10-09. `more/set` is the Stream Deck's More Help during the tutor's introduction: an event at QoS 0 for `next/set`'s reason, since a second copy would skip a part of the introduction. With it there are three QoS 0 topics. `game/tutor/intro` is the part of the introduction she is on, `"1/3"` to `"3/3"`, or `""`. The access list already covers both. No existing topic or payload changes.
@@ -326,7 +330,7 @@ Published by the game program for the status page and the log (Rev 10). All reta
 | `sbgame/board/station/<1-30>/label`, `sbgame/board/trunk/<1-10>/label` | text, or `""` | yes | The label on this switchboard jack, such as `"463"` or `"lobby"`: the `label:` of the script.yml `jacks:` item for this jack, whether or not a station is cabled to it (Rev 18). Empty for a station jack `jacks:` does not list, and for every trunk jack. Published at start (Rev 12; source script.yml since Rev 14). |
 | `sbgame/board/station/<1-30>/circuit`, `sbgame/board/trunk/<1-10>/circuit` | circuit id, or `""` | yes | The game circuit cabled to this jack, such as `"station/11"`: the `number:` of the station that this jack's `jacks:` item names as its `station:`, or `trunk/n` on trunk jack n for n = 1–8. Empty otherwise, including for a labelled jack with nothing cabled (Rev 18). Published at start (Rev 12; source script.yml since Rev 14). |
 | `sbgame/game/run` | `"on"` or `"off"` | yes | A game is running. Echoes `run/set`. |
-| `sbgame/game/pace` | `"manual"`, `"auto"` or `"listen"` (Rev 21) | yes | Call pacing. Echoes `pace/set`. |
+| `sbgame/game/pace` | `"tutor"`, `"manual"`, `"auto"` or `"listen"` (Rev 21; `"tutor"` Rev 29) | yes | Call pacing. Echoes `pace/set`. |
 | `sbgame/game/gap` | seconds | yes | Automatic pacing: the gap from a call's connection to the next call's start, at the start of a game. Echoes `gap/set` after clamping. |
 | `sbgame/game/ramp` | seconds | yes | Seconds taken off the gap for each call connected. Echoes `ramp/set`. |
 | `sbgame/game/floor` | seconds | yes | The least the gap can fall to. Echoes `floor/set`. |
@@ -347,7 +351,6 @@ Published by the game program for the status page and the log (Rev 10). All reta
 | `sbgame/game/call/<1-8>/digits` | digits, or `""` | yes | Digits dialled so far on an outgoing call. |
 | `sbgame/game/scenes` | scene ids, one per line | yes | The scenes that can be chosen as the next one: active, without `after:`, and within the circuits fitted (game_control.md §4.8; Rev 23). Published at start. |
 | `sbgame/game/queue` | scene id, or `""` | yes | The chosen next scene, until it is dealt, cleared or the game stops. Echoes `queue/set` (Rev 23). |
-| `sbgame/game/tutor` | `"on"` or `"off"` | yes | Tutor mode (game_control.md §4.9). Echoes `tutor/set`; `"off"` at start (Rev 27). |
 | `sbgame/game/tutor/intro` | `"<n>/<of>"`, or `""` | yes | The part of the tutor's introduction she is on, `"1/3"` to `"3/3"`; `""` when she is not introducing the board (game_control.md §4.9; Rev 28). |
 | `sbgame/game/stations`, `sbgame/game/trunks` | integer | yes | How many stations (0–22) and trunks (0–8) are fitted, from the configuration (game_control.md §6.5; Rev 23). Published at start. |
 | `sbgame/game/diag/<target>/<test>` | `"on"` or `"off"` | yes | A diagnostic's state: `<target>` is `station/<1-22>`, `trunk/<1-8>` or `tap`; `<test>` is `hook` (stations), `ring` (trunks), `tone`, `voice` or `monitor` (game_control.md §7.5; Rev 23). All `"off"` at start. |
@@ -361,14 +364,13 @@ The page's commands, consumed by the game program only (Rev 10). The Stream Deck
 | **Topic** | **Payload** | **Retained** | **Consumer** | **Meaning** |
 | --- | --- | --- | --- | --- |
 | `sbgame/game/run/set` | `"on"` or `"off"` | no | game | Start a game — ignored while one is running — or stop it. Echoed on `run`. |
-| `sbgame/game/pace/set` | `"manual"`, `"auto"` or `"listen"` (Rev 21) | no | game | Call pacing. Echoed on `pace`. |
+| `sbgame/game/pace/set` | `"tutor"`, `"manual"`, `"auto"` or `"listen"` (Rev 21; `"tutor"` Rev 29) | no | game | Call pacing. Echoed on `pace`. `"tutor"` is refused on `error` while any of the tutor's lines has no wav (game_control.md §4.9). |
 | `sbgame/game/gap/set` | seconds | no | game | Starting gap for automatic pacing, 0–600. Echoed on `gap`. |
 | `sbgame/game/ramp/set` | seconds | no | game | Reduction per call connected, 0–60. Echoed on `ramp`. |
 | `sbgame/game/floor/set` | seconds | no | game | Least gap, 0–600 and not above `gap`. Echoed on `floor`. |
 | `sbgame/game/jitter/set` | percent | no | game | Spread of the automatic wait, 0–100. Echoed on `jitter` (Rev 19). |
 | `sbgame/game/pause/set` | seconds | no | game | Listen's wait after the board empties, 0–60. Echoed on `pause` (Rev 22). |
 | `sbgame/game/queue/set` | scene id, or `""` | no | game | Deal this scene next, or clear the choice. Refused on `error` if not in `game/scenes`. Echoed on `queue` (Rev 23). |
-| `sbgame/game/tutor/set` | `"on"` or `"off"` | no | game | Tutor mode on or off; from the Stream Deck's key 8. Refused on `error` while any of the tutor's lines has no wav. Echoed on `tutor` (Rev 27). |
 | `sbgame/game/more/set` | ignored | no | game | More Help: the next part of the tutor's introduction. QoS 0, an event (§2). Refused on `error` when she is not introducing the board. Its effect shows on `tutor/intro` (Rev 28). |
 | `sbgame/game/diag/<target>/<test>/set` | `"on"` or `"off"` | no | game | Start or stop a diagnostic (game_control.md §7.5). Refused on `error` for a circuit in a call or not fitted. Echoed on `diag/<target>/<test>` (Rev 23). |
 | `sbgame/game/next/set` | ignored | no — and QoS 0, §2 | game | Start the next call now, if a game is running and a scene can be dealt; otherwise reported on `error`. Shows as `started` going up by one (Rev 11; a call number through Rev 10). |

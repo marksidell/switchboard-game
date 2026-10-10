@@ -39,7 +39,7 @@ def live(t: float = 0.0, **state: str) -> Panel:
 
 
 def main() -> int:
-    START, STOP, PACE, NEXT, TUTOR = 0, 1, 2, 3, 7
+    START, STOP, PACE, NEXT, HEALTH = 0, 1, 2, 3, 7
 
     print("== keys")
     p = live()
@@ -53,8 +53,11 @@ def main() -> int:
     p.on_message("game/pace", "listen", 0.4)
     p.tick(0.4)
     check(p.pace_target is None, "the echo drops the target")
-    check(p.on_key(PACE, 0.5) == [("game/pace/set", "manual", 1)],
-          "and listen wraps round to manual")
+    check(p.on_key(PACE, 0.5) == [("game/pace/set", "tutor", 1)],
+          "and listen wraps round to tutor, first (Rev 32)")
+    p.on_message("game/pace", "tutor", 0.55)
+    p.tick(0.55)
+    check(p.on_key(PACE, 0.56) == [("game/pace/set", "manual", 1)], "then manual")
     p.on_message("game/pace", "manual", 0.6)
     p.tick(3.0)
 
@@ -141,20 +144,20 @@ def main() -> int:
     p.on_message("game/error", "", 8)
     check(p.error_until == 0, "cleared: the strip has nothing to show")
 
-    print("\n== the tutor key (Rev 29)")
+    print("\n== key 8: Health, but More Help while the tutor introduces (Rev 32)")
     p = live()
-    check(p.on_key(TUTOR, 0) == [], "nothing echoed yet: nothing sent")
-    p.on_message("game/tutor", "off", 0)
-    check(p.on_key(TUTOR, 0) == [("game/tutor/set", "on", 1)], "off: a press asks for on")
-    check(p.get("game/tutor") == "off", "and the key does not change until the echo")
-    p.on_message("game/tutor", "on", 0)
-    check(p.on_key(TUTOR, 0) == [("game/tutor/set", "off", 1)], "on: a press asks for off")
-    check(p.on_key(TUTOR, STALE + 0.1) == [], "a stale game: the key does nothing")
+    p.on_message("game/error", "gap: 'x' is not a number", 5)
+    p.on_touch(6)
+    p.on_key(HEALTH, 7)
+    check(p.error_until == 12, "Health shows the error again")
+    p.on_message("game/error", "", 8)
+    check(p.error_until == 0 and p.on_key(HEALTH, 9) == [] and p.error_until == 0,
+          "cleared: Health has nothing to show")
 
     print("\n== More Help during her introduction (Rev 31)")
-    MORE = 6
+    MORE = 7
     p = live()
-    check(p.on_key(MORE, 0) == [], "no introduction: the percent key does nothing")
+    check(p.on_key(MORE, 0) == [], "no introduction: key 8 publishes nothing")
     p.on_message("game/tutor/intro", "1/3", 0)
     check(p.on_key(MORE, 0) == [("game/more/set", "", 0)], "1/3: a press asks for more")
     check(p.on_key(MORE, 0.5) == [], "dark until her next part begins")
@@ -173,8 +176,8 @@ def main() -> int:
                                  game__next_at="1000012", game__success="7",
                                  game__fail="2", game__call__1__scene="x"), 0),
                 ("listen", live(game__run="on", game__pace="listen", game__pause="3"), 0),
-                ("tutor", live(game__tutor="on"), 0),
-                ("intro", live(game__tutor="on", game__tutor__intro="1/3"), 0),
+                ("tutor", live(game__pace="tutor"), 0),
+                ("intro", live(game__pace="tutor", game__tutor__intro="1/3"), 0),
                 ("error", live(game__error="floor: 30 is above gap 20; set to 20"), 0),
                 ("stale", live(), 10),
                 ("no broker", Panel(), 0)):

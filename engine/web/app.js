@@ -450,7 +450,7 @@ function renderTop() {
   stop.textContent = stopArmed > Date.now() ? 'Stop — again' : 'Stop';
   stop.classList.toggle('armed', stopArmed > Date.now());
 
-  for (const p of ['manual', 'auto', 'listen']) {
+  for (const p of ['tutor', 'manual', 'auto', 'listen']) {
     const b = document.getElementById('pace-' + p);
     b.classList.toggle('sel', pace === p);
     b.disabled = disabled;
@@ -497,11 +497,10 @@ function renderTop() {
   document.body.classList.toggle('no-controls', !showControls);
   document.getElementById('controls-toggle').classList.toggle('sel', showControls);
   const runText = get('game/run') === 'on' ? 'Running' : (get('game/run') ? 'Stopped' : '–');
-  const paceText = { auto: 'Automatic', manual: 'Manual', listen: 'Listen' }[get('game/pace')] || '–';
+  const paceText = { tutor: 'Tutor', auto: 'Automatic', manual: 'Manual',
+                     listen: 'Listen' }[get('game/pace')] || '–';
   const st = document.getElementById('v-state');
-  // Tutor mode (game_control.md §4.9, Rev 29): switched on the deck, shown here.
-  const tutorText = get('game/tutor') === 'on' ? ' · Tutor' : '';
-  st.textContent = `${runText} · ${paceText}${tutorText}`;
+  st.textContent = `${runText} · ${paceText}`;
   st.parentElement.classList.toggle('stale', disabled);
 }
 
@@ -579,6 +578,7 @@ document.getElementById('next').onclick = () => {
   setTimeout(render, 3100);
   render();
 };
+document.getElementById('pace-tutor').onclick = () => send('pace', 'tutor');   // §4.9, Rev 32
 document.getElementById('pace-manual').onclick = () => send('pace', 'manual');
 document.getElementById('pace-auto').onclick = () => send('pace', 'auto');
 document.getElementById('pace-listen').onclick = () => send('pace', 'listen');

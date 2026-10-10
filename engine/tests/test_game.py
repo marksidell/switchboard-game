@@ -245,7 +245,7 @@ async def main() -> int:
         await g.on_command("floor", "99")
         check(link.state_v.get("game/floor") == "10", "floor is held to gap")
         await g.on_command("pace", "sideways")
-        check("not manual, auto or listen" in link.state_v.get("game/error", ""),
+        check("not tutor, manual, auto or listen" in link.state_v.get("game/error", ""),
               "a bad pace is refused, not clamped")
         await g.on_command("run", "maybe")
         check("not on or off" in link.state_v.get("game/error", ""), "a bad run is refused")
