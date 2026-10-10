@@ -142,6 +142,7 @@ class Game:
         await link.state("game/tutor/intro", "")
         self._waiting_for = ""
         await link.state("game/tutor/waiting", "")
+        await link.state("game/tutor/repeat", "")
         await link.state("game/stations", str(self.cfg.stations))
         await link.state("game/trunks", str(self.cfg.trunks))
         assert self.diag is not None
@@ -205,6 +206,14 @@ class Game:
                 assert self.link is not None
                 await self.link.state("game/queue", self.queued)
                 await self.link.state("game/error", "")
+                return
+
+            if name == "repeat":
+                # §4.9, Rev 34: the line she just finished, again. An event.
+                if self.tutor is None or not self.tutor.repeat():
+                    await self._error("repeat: the tutor has nothing to repeat now")
+                    return
+                await self._say("page: repeat help")
                 return
 
             if name == "more":
@@ -280,7 +289,12 @@ class Game:
 
     def _new_tutor(self) -> Tutor:
         assert self.hw is not None
-        return Tutor(self.b, self.hw, self.gs.tutor)
+        return Tutor(self.b, self.hw, self.gs.tutor, on_repeat=self._repeat_state)
+
+    async def _repeat_state(self, key: str) -> None:
+        """game/tutor/repeat (§4.9, Rev 34): the line Repeat Help would say."""
+        if self.link is not None:
+            await self.link.state("game/tutor/repeat", key)
 
     async def _end_tutor(self) -> None:
         """Her task cancelled, and her voice stopped (§4.9)."""
@@ -663,7 +677,7 @@ class Game:
             for i, key in enumerate(INTRO, 1):
                 self._more = asyncio.Event()
                 await self.link.state("game/tutor/intro", f"{i}/{len(INTRO)}")
-                speaking = asyncio.create_task(t.say(key), name=f"tutor-{key}")
+                speaking = asyncio.create_task(t.say(key, hold=True), name=f"tutor-{key}")
                 waits = {speaking}
                 more = None
                 if i < len(INTRO):
@@ -716,7 +730,7 @@ class Game:
             await self.b.wait_until(clear, NO_LIMIT)
             await t.hush()
             if not self.pacing.automatic:
-                await t.say("ready-manual")
+                await t.say("ready-manual", hold=True)
                 await self._waiting("next")     # until a call is dealt (Rev 33)
         except (TimeoutError, Offline) as e:
             log.info("tutor: call %d not cleared: %s", call.number, e or "timeout")

@@ -108,6 +108,7 @@ class Panel:
         self.stop_armed_until = 0.0
         self.next_guard_until = 0.0
         self.more_guard_until = 0.0
+        self.repeat_guard_until = 0.0
         self.error_until = 0.0
         # Per dial: [target, time of the last detent], or None when idle.
         self.targets: list[list[float] | None] = [None] * len(DIALS)
@@ -171,7 +172,20 @@ class Panel:
         """Whether a key that flashes while the tutor waits (§4.9, Rev 33)
         is in its dark half now: once a second, while game/tutor/waiting is
         one of `waiting`."""
-        return self.get("game/tutor/waiting") in waiting and int(now * 2) % 2 == 1
+        return (self.get("game/tutor/waiting") in waiting and not self.tutor_speaking()
+                and int(now * 2) % 2 == 1)
+
+    def tutor_speaking(self) -> bool:
+        """Her voice is on the loudspeaker now (audio.md §10.4)."""
+        return self.get("audio/monitor/play") not in ("", "missing")
+
+    def repeat_shown(self) -> bool:
+        """Key 7 is Repeat Help (§4.9, Rev 34)."""
+        return bool(self.get("game/tutor/repeat"))
+
+    def repeat_live(self, now: float) -> bool:
+        return (self.repeat_shown() and not self.game_stale(now)
+                and not self.tutor_speaking() and now >= self.repeat_guard_until)
 
     def in_progress(self) -> int:
         return sum(1 for n in range(1, 9) if self.get(f"game/call/{n}/scene"))
@@ -198,6 +212,8 @@ class Panel:
         else:
             self.s.pop(key, None)
 
+        if key == "audio/monitor/play" and payload != old:
+            self.repeat_guard_until = 0.0  # she began, or finished (Rev 34)
         if key == "game/tutor/intro" and payload != old:
             self.more_guard_until = 0.0  # her next part began (Rev 31)
         if key == "game/started" and payload != old:
@@ -219,6 +235,14 @@ class Panel:
 
     def on_key(self, key: int, now: float) -> list[Command]:
         """Key 0-7 pressed. Returns what to publish."""
+        if key == 6 and self.repeat_shown():
+            # Repeat Help (Rev 34): dark while she speaks, and for a second
+            # after a press or until her voice starts, so a double press
+            # does not say it twice.
+            if not self.repeat_live(now):
+                return []
+            self.repeat_guard_until = now + 1.0
+            return [("game/repeat/set", "", 0)]
         if key == 7 and self.intro_part() is not None:
             # More Help while she introduces the board (Rev 31, key 8 from
             # Rev 32), guarded as Next Call is: dark until her next part
@@ -390,6 +414,10 @@ class Panel:
                      ("fail", str(self._tally("game/fail"))), ink)
 
     def _k_pct(self, now: float) -> Image.Image:
+        if self.repeat_shown():          # Repeat Help (§4.9, Rev 34)
+            live = self.repeat_live(now)
+            return _key("Repeat", "Help", fill=AMBER if live else PANEL,
+                        ink=BG if live else GREY)
         ink = GREY if self.game_stale(now) else INK
         ok, fail = self._tally("game/success"), self._tally("game/fail")
         pct = f"{round(100 * ok / (ok + fail))}%" if ok + fail else "–"

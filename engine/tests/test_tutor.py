@@ -75,7 +75,11 @@ class Watch:
 
 def tutored(sc) -> Harness:
     h = Harness(sc)
-    h.ctx.tutor = Tutor(h.b, h.hw, lines())
+    h.repeats = []
+
+    async def on_repeat(key: str) -> None:
+        h.repeats.append(key)
+    h.ctx.tutor = Tutor(h.b, h.hw, lines(), on_repeat=on_repeat)
     h.ctx.jack_of = lambda n: 28
     return h
 
@@ -233,6 +237,10 @@ async def main() -> int:
     check(h.w.said[:3] == ["answer-station", "greet", "ring-front-28"],
           f"answer, greet, ring, in that order: {h.w.said}")
     check(not h.w.overlap, f"she is never speaking as a listen starts: {h.w.overlap}")
+    shown = [k for k in h.repeats if k]
+    check(shown == ["answer-station", "ring-front-28"],
+          f"Repeat Help offers the board steps, never a Say prompt (Rev 34): {shown}")
+    check(h.repeats[-1] == "", "and goes once the player has acted")
 
     print("\n== a call in on a trunk, tutored")
     h = tutored(scene(Shape.OUTSIDE_TO_STATION, from_station=None, from_line="pizza"))
@@ -302,6 +310,14 @@ async def main() -> int:
         check(w.said == ["intro-jacks"] and g.tallies.started == 0,
               "after it she waits for More Help or Next Call")
         check(link.state_v.get("game/tutor/waiting") == "more", "and says so: waiting more (Rev 33)")
+        check(link.state_v.get("game/tutor/repeat") == "intro-jacks",
+              "Repeat Help offers the part she finished (Rev 34)")
+        await g.on_command("repeat", "")
+        await b.wait_until(lambda b: w.said == ["intro-jacks", "intro-jacks"], 5)
+        check(True, "Repeat Help: the part again")
+        await asyncio.sleep(D * 8)
+        check(g.tallies.started == 0 and link.state_v.get("game/tutor/intro") == "1/3",
+              "and she waits again, on the same part")
         await g.on_command("more", "")
         await b.wait_until(lambda b: w.said[-1:] == ["intro-cords"], 5)
         check(link.state_v.get("game/tutor/intro") == "2/3"
@@ -335,6 +351,9 @@ async def main() -> int:
         await g.on_command("more", "")
         check("not introducing" in link.state_v.get("game/error", ""),
               "More Help with no introduction is refused")
+        await g.on_command("repeat", "")
+        check("nothing to repeat" in link.state_v.get("game/error", ""),
+              "Repeat Help with nothing to repeat is refused")
 
         print("\n== the end of a call: the cords out before another")
         await g.on_command("run", "on")

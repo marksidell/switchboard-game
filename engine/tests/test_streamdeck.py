@@ -166,6 +166,20 @@ def main() -> int:
     p.on_message("game/tutor/intro", "3/3", 2)
     check(p.on_key(MORE, 2) == [], "3/3: nothing more")
 
+    print("\n== Repeat Help on key 7 (Rev 34)")
+    REPEAT = 6
+    p = live(game__run="on", game__pace="tutor")
+    check(p.on_key(REPEAT, 0) == [], "nothing to repeat: the percent key does nothing")
+    p.on_message("game/tutor/repeat", "answer-station", 0)
+    check(p.on_key(REPEAT, 0) == [("game/repeat/set", "", 0)], "a line to repeat: a press asks")
+    check(p.on_key(REPEAT, 0.3) == [], "dark for a second after")
+    p.on_message("audio/monitor/play", "tutor.answer-station", 0.4)
+    check(p.on_key(REPEAT, 1.5) == [], "and while she speaks")
+    p.on_message("audio/monitor/play", "", 2)
+    check(p.on_key(REPEAT, 2) == [("game/repeat/set", "", 0)], "lit again once she has finished")
+    p.on_message("game/tutor/repeat", "", 2.1)
+    check(p.on_key(REPEAT, 2.2) == [], "the player acted: nothing to repeat")
+
     print("\n== flashing while the tutor waits (Rev 33)")
     p = live(game__run="on", game__pace="tutor", game__tutor__intro="1/3")
     lit = [p._k_next(t).getpixel((5, 5)) for t in (0.1, 0.6)]
@@ -194,6 +208,7 @@ def main() -> int:
                 ("listen", live(game__run="on", game__pace="listen", game__pause="3"), 0),
                 ("tutor", live(game__pace="tutor"), 0),
                 ("intro", live(game__pace="tutor", game__tutor__intro="1/3"), 0),
+                ("repeat", live(game__pace="tutor", game__tutor__repeat="talk"), 0),
                 ("error", live(game__error="floor: 30 is above gap 20; set to 20"), 0),
                 ("stale", live(), 10),
                 ("no broker", Panel(), 0)):

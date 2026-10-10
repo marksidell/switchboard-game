@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Callable
+from typing import Awaitable, Callable
 
 from .board import Board
 from .link import Hw
@@ -38,12 +38,26 @@ INTRO = ("intro-jacks", "intro-cords", "intro-switches")
 
 
 class Tutor:
-    def __init__(self, board: Board, hw: Hw, lines: dict[str, Speech]) -> None:
+    """Her voice, and the one line she can be asked to repeat (Rev 34).
+
+    `repeat_key` is the line she last finished while the game waits on the
+    player — a prompt with `until`, or one said with `hold` — until the
+    player acts, or she says anything else. The game program publishes it
+    through `on_repeat`, for the deck's Repeat Help key, and `repeat()` says
+    it again. A prompt before a listen is never repeatable: the loudspeaker
+    would be heard as the operator.
+    """
+
+    def __init__(self, board: Board, hw: Hw, lines: dict[str, Speech],
+                 on_repeat: Callable[[str], Awaitable[None]] | None = None) -> None:
         self.b = board
         self.hw = hw
         self.lines = lines
         self.active = True         # cleared when tutor mode is switched off mid-call
         self._again: asyncio.Task | None = None
+        self._on_repeat = on_repeat
+        self.repeat_key = ""
+        self._until: Callable[[Board], object] | None = None
 
     def has(self, key: str) -> bool:
         return key in self.lines
@@ -54,14 +68,27 @@ class Tutor:
             return f"say-{sp.operator}"
         return "greet" if request else "respond"
 
+    async def _set_repeat(self, key: str) -> None:
+        if key == self.repeat_key:
+            return
+        self.repeat_key = key
+        if self._on_repeat is not None:
+            try:
+                await self._on_repeat(key)
+            except Exception as e:
+                log.info("tutor repeat state: %s", e)
+
     async def say(self, key: str, *, until: Callable[[Board], object] | None = None,
-                  abort_if=None) -> None:
+                  abort_if=None, hold: bool = False) -> None:
         """Say one line and return when it has finished.
 
         With `until`, nothing is said if it is already true, and the line is
-        said again in the background while it stays false.
+        said again in the background while it stays false. With `until` or
+        `hold`, the line can be repeated on request until the player acts or
+        she says another (Rev 34).
         """
         await self.hush()
+        await self._set_repeat("")
         if not self.active:
             return
         sp = self.lines.get(key)
@@ -71,21 +98,54 @@ class Tutor:
         if until is not None and until(self.b):
             return
         await say(self.b, self.hw, MONITOR, sp.name, sp.seconds, abort_if=abort_if)
+        if until is not None or hold:
+            self._until = until
+            await self._set_repeat(key)
         if until is not None:
             self._again = asyncio.create_task(self._repeat(sp, until),
                                               name=f"tutor-{key}")
+
+    def repeat(self) -> bool:
+        """Repeat Help (Rev 34): the line again, now, unless there is none.
+
+        Runs in the background, as her own repeats do, so the next step's
+        line stops it as it would stop them. The automatic repeats start
+        over from its end.
+        """
+        key = self.repeat_key
+        sp = self.lines.get(key)
+        if not self.active or sp is None:
+            return False
+        if self._again is not None and not self._again.done():
+            self._again.cancel()
+        self._again = asyncio.create_task(self._replay(sp, self._until),
+                                          name=f"tutor-repeat-{key}")
+        return True
+
+    async def _replay(self, sp: Speech, until) -> None:
+        try:
+            await say(self.b, self.hw, MONITOR, sp.name, sp.seconds)
+            if until is not None:
+                await self._repeat(sp, until)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            log.info("tutor repeat of %s ended: %s", sp.name, e)
 
     async def _repeat(self, sp: Speech, until) -> None:
         try:
             for _ in range(REPEATS):
                 try:
                     await self.b.wait_until(until, REPEAT)
-                    return
+                    break
                 except TimeoutError:
                     pass
                 if not self.active:
                     return
                 await say(self.b, self.hw, MONITOR, sp.name, sp.seconds)
+            # Repeatable until the player does the thing (Rev 34).
+            await self.b.wait_until(until, None)
+            await self._set_repeat("")
         except asyncio.CancelledError:
             raise
         except Exception as e:          # Offline, mostly: the call handles that
@@ -102,4 +162,5 @@ class Tutor:
         """Tutor mode off, or the game stopped: silence her now."""
         self.active = False
         await self.hush()
+        await self._set_repeat("")
         await _quietly(self.hw.stop(MONITOR))
