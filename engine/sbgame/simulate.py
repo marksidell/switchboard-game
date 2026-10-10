@@ -324,7 +324,7 @@ class Sim:
         return False
 
     async def _end_burst(self, ring: str) -> None:
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1.0)            # control.md Rev 30: the burst is 1s
         if self.get(ring) == "on":
             await self.pub(ring, "off")
 

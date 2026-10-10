@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 31 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
+*Rev 32 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
 
 # 1. Overview
 
@@ -204,6 +204,10 @@ This document specifies the messages: the topic names, who publishes each, what 
 
 — `trunk/<n>/shortring/set` added (§6, §8.4), following control.md Rev 25, 2026-10-05: `"on"` rings the trunk once for 0.5s, `"off"` cancels the burst; the ESP32 echoes the relay on the existing `ring` topic, `"on"` then `"off"`. The game program uses it to signal a call in on a trunk (game_control.md Rev 28). It is the third command that is not absolute state, after `next/set` and the station's `dial/set`: a duplicate delivered after the first burst has ended rings once more. That is harmless — the switchboard's trunk signal latches, and a second burst on an unanswered trunk changes nothing the operator sees; a duplicate during the burst, or after the trunk is seized, is ignored by the controller. QoS 1 as for every command. The ESP32 subscribes to one more pattern. No existing topic or payload changes.
 
+## 1.32 Changes in Rev 32
+
+— `trunk/<n>/shortring/set` rings for 1s, not 0.5s (§6), following control.md Rev 30, 2026-10-10: one of the switchboard's trunk jacks did not latch on 0.5s. No topic or payload changes.
+
 ## 1.31 Changes in Rev 31
 
 — `game/repeat/set` and `game/tutor/repeat` added (§6.1, §6.2), following game_control.md Rev 34, 2026-10-09: Repeat Help. `repeat/set` is an event at QoS 0, for `next/set`'s reason — a second copy would say the line twice — and the deck guards its own double press. `game/tutor/repeat` is the key of the line Repeat Help would say, or `""`. With it there are four QoS 0 topics. No existing topic or payload changes.
@@ -313,7 +317,7 @@ The game program is the only client that commands the ESP32 and the audio progra
 | --- | --- | --- | --- | --- |
 | `sbgame/station/<1-22>/hook/set` | `"on"` or `"off"` | no | ESP32 | Take this station off-hook / on-hook. The ESP32 echoes the result on `hook`. |
 | `sbgame/station/<1-22>/dial/set` | digits `0`–`9`, at most 16, or `""` | no | ESP32 | Dial them on this off-hook station, the controller timing the pulses; `""` stops. Published by `sbgame-boardtest` only (Rev 24). Echoed on `dial`. |
-| `sbgame/trunk/<1-8>/shortring/set` | `"on"` or `"off"` | no | ESP32 | Ring this trunk once, for 0.5s, then leave it idle and able to see a seizure (`control.md` §8.4, Rev 25); `"off"` cancels the burst. Echoed on `ring`. Not absolute state: a late duplicate rings once more, which the switchboard's latching trunk signal makes harmless (§1.26). |
+| `sbgame/trunk/<1-8>/shortring/set` | `"on"` or `"off"` | no | ESP32 | Ring this trunk once, for 1s (Rev 32; 0.5s at Rev 26), then leave it idle and able to see a seizure (`control.md` §8.4, Rev 25); `"off"` cancels the burst. Echoed on `ring`. Not absolute state: a late duplicate rings once more, which the switchboard's latching trunk signal makes harmless (§1.26). |
 | `sbgame/trunk/<1-8>/ring/set` | `"on"` or `"off"` | no | ESP32 | Start / stop ringing this trunk. The ESP32 runs the cadence and the 30s timeout (`control.md` §8) and echoes the relay state on `ring`. |
 | `sbgame/station/<1-22>/play/set`, `sbgame/trunk/<1-8>/play/set` | base filename, or `"stop"` | no | audio | Play `<wav-dir>/<name>.wav` on this circuit's output, replacing whatever it is playing; `"stop"` stops it. Echoed on `play`; finishing is `play` going empty. |
 | `sbgame/audio/tap/play/set` | base filename, or `"stop"` | no | audio | Play a file on the operator tap's output, over the operator tone, which is never displaced; `"stop"` stops it. Echoed on `audio/tap/play`. Only the game program's diagnostics use it (game_control.md §7.5; Rev 23). |

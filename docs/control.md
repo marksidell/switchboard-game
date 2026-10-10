@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 29 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
+*Rev 30 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
 
 # 1. Overview
 
@@ -113,6 +113,12 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 — Firmware updates over the network (§2.1), so that the installed board can be reflashed without a USB cable. A cable left attached would join portland's ground to the system's 24V ground, which PoE's isolation keeps apart, and anything that opened the port would reset the board; Mark weighed powering the Olimex from USB and chose to stay on PoE (with a TL-SG105PE PoE switch in place of a separate injector) and update over the network instead. The generator §3.4 recommendation to prefer OTA in the installed system is now something the firmware can do.
 
 — Firmware consequence, for Claude Code, made in the same commit: ArduinoOTA started once Ethernet has an address, with the hostname `sbgame-esp32` and a SHA-256 password hash from `secrets.h` (`OTA_PASSWORD_SHA256`; without it the firmware builds with OTA off). The start callback stops the waveform and releases every relay before anything is written to flash; an error after that point restarts the board. §10 gains the row.
+
+## 1.30 Changes in Rev 30
+
+— `shortring/set`'s burst is 1s, not 0.5s (§8.3, §8.4), Mark's finding on the switchboard, 2026-10-10: ringing each of the 551's trunk jacks in turn, one did not latch its trunk signal on 0.5s of ring. The answer is still readable from the moment the burst ends; the operator cannot plug in before it does in practice.
+
+— Firmware consequence, for Claude Code, made in the same commit: `SHORT_RING_MS` 1000 in `sb_config.h`. FIRMWARE_SPEC_REV 30.
 
 ## 1.29 Changes in Rev 29
 
@@ -446,7 +452,7 @@ The game program assembles digits into a number and decides what the call means;
                   ring/set "on"              -> RINGING
                   shortring/set "on"         -> RINGING, one burst (Rev 25)
 
-  RINGING       Cadence 2s on / 4s off (§8.4), or one 0.5s burst for shortring/set. SEIZE unreadable during the on phase
+  RINGING       Cadence 2s on / 4s off (§8.4), or one 1s burst for shortring/set (Rev 30; 0.5s at Rev 25). SEIZE unreadable during the on phase
                 (pole 2 has lifted the return off R_LOOP).
                   SEIZE asserted 100ms in off phase -> SEIZED, cancel ring
                   ring/set "off", or 30s hard timeout -> IDLE
@@ -483,7 +489,7 @@ The trunk board cannot detect seizure while it is ringing, because relay pole 2 
   repeat until answered, cancelled by the game program, or the timeout expires
 ```
 
-**Short ring** (Rev 25). `shortring/set` `"on"` energises the relay once, for 0.5s, and returns the trunk to IDLE, with no off phase and no repeat; the seizure input is rebaselined as at the start of an off phase, so a seizure is read from the moment the burst ends. The 551's trunk signal is a latching relay that a short burst operates, so this is what the game program uses to signal an incoming call (game_control.md §4.3, Rev 28): the lamp stays lit until the operator answers, and the answer is never hidden behind a ring-on interval. The 30s hard timeout does not arise. The cadence below remains for `ring/set`, which the page's diagnostics use.
+**Short ring** (Rev 25). `shortring/set` `"on"` energises the relay once, for 1s (Rev 30; 0.5s at Rev 25, which one jack's latching relay did not always catch), and returns the trunk to IDLE, with no off phase and no repeat; the seizure input is rebaselined as at the start of an off phase, so a seizure is read from the moment the burst ends. The 551's trunk signal is a latching relay that a short burst operates, so this is what the game program uses to signal an incoming call (game_control.md §4.3, Rev 28): the lamp stays lit until the operator answers, and the answer is never hidden behind a ring-on interval. The 30s hard timeout does not arise. The cadence below remains for `ring/set`, which the page's diagnostics use.
 
 Worst-case answer-detection latency is one ring-on interval, 2s, which is also what real incoming trunk ring sounds like. A 1s/2s cadence halves the latency if 2s proves annoying in play; it is a constant here, not a hardware choice. Releasing the relay mid-cycle is 3.6VA against a 500VA contact rating and needs no zero-crossing logic. Echo the relay state on `sbgame/trunk/<n>/ring` at every transition, so a monitoring UI sees the cadence.
 

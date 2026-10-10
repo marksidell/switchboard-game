@@ -176,7 +176,7 @@ class Hw:
         await self._p(f"trunk/{trunk}/ring/set", "on" if on else "off")
 
     async def short_ring(self, trunk: int) -> None:
-        """One 0.5s burst, then the trunk can see a seizure (control.md §8.4,
+        """One 1s burst, then the trunk can see a seizure (control.md §8.4,
         Rev 25): the switchboard's trunk signal latches on it."""
         await self._p(f"trunk/{trunk}/shortring/set", "on")
 
