@@ -55,5 +55,5 @@ trunks = 8
 # Trunks fitted but out of service (game_control.md 6.5, Rev 36): no call is
 # rung in on them. Each with why. Remove a line when the trunk is fixed.
 [out_of_service.trunks]
-6 = "switchboard trunk jack 6's lamp does not latch (2026-10-10)"
+6 = "switchboard trunk jack 6's ring relay does not latch (2026-10-10)"
 8 = "switchboard trunk jack 8's lamp does not light, probably burned out (2026-10-10)"
