@@ -9,7 +9,7 @@ and, through Syncthing, on Windows at `C:\s\sbgame\kicad`.
 | `control2/` | The high-frequency-link generator alternative. Drawn, not adopted | `docs/ring_generator.md` §9.7 |
 | `stations/` | Station board, 8 strips; three are built | `docs/station_circuit.md`, `docs/station_schematic_guide.md` |
 | `trunks/` | Trunk board, 8 trunks; one is built | `docs/trunk_circuit.md`, `docs/trunk_schematic_guide.md` |
-| `electret/` | Electret transmitter for the operator headset, in a box on the cord. Drawn, not built | none yet |
+| `electret/` | Electret transmitter and receiver low-pass for the operator headset, in a box on the cord. Drawn, not built | none yet; `electret/README.md` |
 | `lib/` | The custom symbol and footprint library, `switchboard` | `kicad_library_plan.xlsx` (in `~/s/game/`) |
 
 Every project's `sym-lib-table` and `fp-lib-table` reach the library as
