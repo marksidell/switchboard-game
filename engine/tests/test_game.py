@@ -79,30 +79,30 @@ async def main() -> int:
         check(link.state_v.get("game/call/1/scene") == "", "every slot is clear")
         labels = [k for k in link.state_v if k.startswith("board/station/") and k.endswith("/label")]
         check(len(labels) == 30, f"30 station jacks published, got {len(labels)}")
-        check(link.state_v.get("board/station/1/label") == "Front Desk",
-              f"jack 1 is {link.state_v.get('board/station/1/label')!r}")
+        check(link.state_v.get("board/station/21/label") == "Front Desk",
+              f"jack 21 is {link.state_v.get('board/station/21/label')!r}")
         check(link.state_v.get("board/trunk/9/circuit") == "",
               "trunk jack 9 carries nothing")
-        check(link.state_v.get("board/station/1/circuit") == "station/1",
-              f"jack 1 carries {link.state_v.get('board/station/1/circuit')!r}")
+        check(link.state_v.get("board/station/21/circuit") == "station/1",
+              f"jack 21 carries {link.state_v.get('board/station/21/circuit')!r}")
 
         print("\n== jacks: a labelled jack with nothing cabled (§6.3)")
         real = Path("../script.yml").read_text(encoding="utf-8")
-        # Jack 30 is taken out and put back first, labelled and uncabled.
-        spare = re.sub(r"\n    -   jack: 30\n(        \w+:.*\n)*", "\n", real, count=1)
-        spare = spare.replace("\njacks:\n", '\njacks:\n    -   jack: 30\n        label: "Garage"\n', 1)
+        # Jack 10 is taken out and put back first, labelled and uncabled.
+        spare = re.sub(r"\n    -   jack: 10\n(        \w+:.*\n)*", "\n", real, count=1)
+        spare = spare.replace("\njacks:\n", '\njacks:\n    -   jack: 10\n        label: "Garage"\n', 1)
         (tmp / "spare.yml").write_text(spare, encoding="utf-8")
         gs = build(tmp / "spare.yml", "../wav")
-        j30 = next(j for j in gs.jacks if j.kind == "station" and j.number == 30)
-        check(j30.label == "Garage" and j30.circuit == "",
-              f"jack 30 is labelled and uncabled: {j30.label!r} {j30.circuit!r}")
+        j10 = next(j for j in gs.jacks if j.kind == "station" and j.number == 10)
+        check(j10.label == "Garage" and j10.circuit == "",
+              f"jack 10 is labelled and uncabled: {j10.label!r} {j10.circuit!r}")
         for what, text in (
             ("a station on no jack",
              real.replace("        station: room404\n", "", 1)),
             ("a station on two jacks",
              spare.replace('label: "Garage"\n', 'label: "Garage"\n        station: lobby\n', 1)),
             ("a jack listed twice",
-             spare.replace("jack: 30", "jack: 1", 1)),
+             spare.replace("jack: 10", "jack: 21", 1)),
             ("a jack with no label",
              spare.replace('        label: "Garage"\n', "", 1)),
             ("a jack with an empty guest:",

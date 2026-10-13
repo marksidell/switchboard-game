@@ -681,6 +681,7 @@ stations:
         number: 22
 
 # The switchboard's 30 station jacks, as the page draws them (game_control.md 6.3).
+# Listed top row first: the board's rows run 21-30, 11-20, 1-10 from the top.
 #     jack:    the jack number on the board, 1..30
 #     label:   the text on the board's designation strip at that jack
 #     station: the station above whose circuit is cabled to this jack.
@@ -694,34 +695,34 @@ stations:
 # as an empty outline.
 #
 jacks:
-    -   jack: 1
+    -   jack: 21
         label: "Front Desk"
         station: frontdesk
-    -   jack: 2
+    -   jack: 22
         label: "Lobby"
         station: lobby
-    -   jack: 3
+    -   jack: 23
         label: "Stoneburner"
         station: restaurant
-    -   jack: 4
+    -   jack: 24
         label: "Room Service"
         station: roomservice
-    -   jack: 5
+    -   jack: 25
         label: "Valet"
         station: valet
-    -   jack: 6
+    -   jack: 26
         label: "Housekeeping"
         station: housekeeping
-    -   jack: 7
+    -   jack: 27
         label: "Bell Captain"
         station: bellcaptain
-    -   jack: 8
+    -   jack: 28
         label: "Concierge"
         station: concierge
-    -   jack: 9
+    -   jack: 29
         label: "Maintenance"
         station:
-    -   jack: 10
+    -   jack: 30
         label: "Penthouse"
         station: imperialsuite
         guest: "Miss Mary Smith"
@@ -764,40 +765,40 @@ jacks:
         station: room205
         guest: "Col. Augustus Beaumont"
 
-    -   jack: 21
+    -   jack: 1
         label: "301"
         station:
-    -   jack: 22
+    -   jack: 2
         label: "302"
         station: room302
         guest: "Mrs. Edith Albright"
-    -   jack: 23
+    -   jack: 3
         label: "303"
         station: room303
         guest: "Mr. Howard Finch"
-    -   jack: 24
+    -   jack: 4
         label: "304"
         station:
-    -   jack: 25
+    -   jack: 5
         label: "305"
         station: room305
         guest: "Mr. & Mrs. Jim Hale"
-    -   jack: 26
+    -   jack: 6
         label: "401"
         station: room401
         guest: "Mr. Nils Lindqvist"
-    -   jack: 27
+    -   jack: 7
         label: "402"
         station:
-    -   jack: 28
+    -   jack: 8
         label: "403"
         station: room403
         guest: "Mr. Roger Thornhill"
-    -   jack: 29
+    -   jack: 9
         label: "404"
         station: room404
         guest: "Miss Dorothy Crane"
-    -   jack: 30
+    -   jack: 10
         label: "405"
         station:
 

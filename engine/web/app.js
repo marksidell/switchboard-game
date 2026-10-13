@@ -149,7 +149,8 @@ function renderBoard() {
   const el = document.getElementById('board');
   if (!el.dataset.built) {
     let html = '';
-    for (let row = 0; row < 3; row++) {
+    // The 551's rows run 21-30, 11-20, 1-10 from the top (Rev 37).
+    for (let row = 2; row >= 0; row--) {
       html += '<div class="row">';
       for (let n = row * 10 + 1; n <= row * 10 + 10; n++)
         html += `<div class="tile" id="j-station-${n}" data-kind="station" data-n="${n}"></div>`;

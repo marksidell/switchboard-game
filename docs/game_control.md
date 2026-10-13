@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 36 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service*
+*Rev 37 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order*
 
 # 1. Overview
 
@@ -175,6 +175,12 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 — The page's countdown says "waiting" while a game runs in automatic pacing and no next call is scheduled — `next_at` empty, because in auto the latest call is not yet connected or ended, and in listen the board is not yet empty (§4.2) — and "–" when no game runs (§7.1), Mark's request, 2026-09-28. It said "–" in both. The deck's Next key already said "waiting" in that case; §7.4 now says so too. It is on the countdown rather than on the Next Call button because the button is hidden with the controls and the countdown is not.
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
+
+## 1.37 Changes in Rev 37
+
+— The board's station rows run 21–30, 11–20, 1–10 from the top (§7.1), checked against the 551 by Mark, 2026-10-12, closing the §10 item. Rev 5 assumed jack 1 at top left. Rows still run left to right. The labels stay where they were on the board — the hotel's services on the top row, the rooms in ascending order on the two below — so script.yml's `jacks:` items move: the top row's labels go from jacks 1–10 to 21–30 and the bottom row's from 21–30 to 1–10. `hardcopy/strips.py` already printed the strips in this order.
+
+— Code consequence for Claude Code, made the same day: `app.js` draws the rows in the new order; script.yml's `jacks:` renumbered. No topic changes.
 
 ## 1.36 Changes in Rev 36
 
@@ -654,7 +660,7 @@ For an iPad in landscape, 1024 CSS pixels wide or more. Touch targets 44px or la
 - `gap`, `ramp`, `floor`, `jitter`, each with − and + steppers (5s, 1s, 1s, 10% steps; `jitter` Rev 12). Shown only in auto pacing, with `gap_now` and the countdown to `next_at` beside them. In listen, one stepper, `pause` (1s steps), and the countdown take their place (Rev 17). The countdown reads "waiting" while a game runs and nothing is scheduled, and "–" when no game runs (Rev 18).
 - Tallies: started, handled, success, fail, success percentage.
 
-**Board.** Laid out as the switchboard is (Rev 5): station jacks in three rows of ten, and one row of ten trunk jacks below them. Rows run 1–10, 11–20, 21–30 from the top, left to right, until checked against the board (§10). Each tile is one jack, from the `board/` topics (§6.3).
+**Board.** Laid out as the switchboard is (Rev 5): station jacks in three rows of ten, and one row of ten trunk jacks below them. Rows run 21–30, 11–20, 1–10 from the top, each left to right, as the 551 is numbered (Rev 37). Each tile is one jack, from the `board/` topics (§6.3).
 
 A tile shows little:
 
@@ -769,7 +775,6 @@ Before step 1: the certificate is issued (`mqtt.md` §9.1), nginx is configured 
 - **Timeouts from the page.** The §5 timeouts are configuration at Rev 1. If play-testing wants them changed between players, they become three more `game/…/set` topics.
 - **Audience view.** A second page, or a mode of this one, for the room: the tallies large, the calls in progress, nothing diagnostic. Same topics; no host change.
 - **Cords drawn as lines** between tiles rather than shown by colour. Only if the colour pairing is hard to read on the iPad.
-- **Row order on the board.** §7.1 assumes jack 1 at top left and rows of ten running left to right. Check against the 551's designation strips and correct §7.1 if the board runs otherwise.
 - **Script names or jack labels.** script.yml's station keys (`room463`) and the board's labels (`463`) name the same thing twice. The calls panel and the log use script names, and the tiles use labels. If that reads badly, the game program can put labels in the call slots instead.
 - **The loudspeaker leaving a conversation** (§6.4). In automatic pacing, the operator answering the next call takes the audience away from the current conversation, possibly mid-sentence. The alternative is to stay on a call until its conversation ends and then move to the most recently answered call, at the cost of missing that call's request. Rev 6 moves at each answer. Wants listening with an audience. Rev 16's listen pacing sidesteps it when the conversations matter more than the pressure.
 - **Settings across restarts.** Pacing values return to the configuration file's when the game program restarts (§4.3). If that is annoying, the game program can read its own retained values back at start.
