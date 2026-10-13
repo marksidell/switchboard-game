@@ -12,6 +12,15 @@ induction coil. With R1 = 10 Ω the board takes ≈ 133 mA at ≈ 5.4 V, ≈ 0.7
 0.35 W, R1 0.18 W, the bridge (DF04M) 0.2 W. R1 sets the source impedance and so the sidetone balance;
 10–22 Ω, chosen by ear.
 
+## Headset cord
+
+| Pair | Circuit | Plug |
+|---|---|---|
+| red/green | transmitter (the capsule): J2 | tip |
+| black/white | receiver: J4 | sleeve |
+
+Recorded by Mark, 2026-10-12.
+
 ## Receiver low-pass
 
 A passive filter on the receiver pair, J3 (from the switchboard) to J4 (to the
