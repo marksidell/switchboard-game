@@ -225,9 +225,9 @@ async def _wait_for_right_station(ctx: Ctx, want: int, deadline: float) -> None:
     herself. Raises TimeoutError if she never does.
     """
     # tutor: which jack, and which switch rings it (§4.9).
-    if _tutoring(ctx) is not None and (jack := ctx.jack_of(want)) is not None:
+    if _tutoring(ctx) is not None and ctx.jack_of(want) is not None:
         cord = "front" if ctx.scene.from_station is not None else "rear"
-        await _tut(ctx, f"ring-{cord}-{jack}",
+        await _tut(ctx, f"ring-{cord}-{ctx.scene.to_line}",
                    until=lambda b: b.on(f"station/{want}/ring"))
     wrong_seen: set[int] = set()
     while True:

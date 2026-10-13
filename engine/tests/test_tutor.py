@@ -43,7 +43,7 @@ def check(ok: bool, what: str) -> None:
 
 
 KEYS = ("intro-jacks", "intro-cords", "intro-switches", "answer-station", "answer-trunk", "talk", "greet",
-        "respond", "ring-front-28", "ring-rear-28", "center-ringing", "trunk-front",
+        "respond", "ring-front-b", "ring-rear-b", "center-ringing", "trunk-front",
         "dial-pizza", "dial-operator", "center-dialled", "center", "busy-heard",
         "hangup-pair", "hangup-one", "ready-manual")
 
@@ -97,7 +97,7 @@ async def tutored_station_operator(h: Harness) -> None:
     await heard_tutor(h, "answer-station")
     await answers(h, c)
     await request_heard(h, c)
-    await heard_tutor(h, "ring-front-28")
+    await heard_tutor(h, "ring-front-b")
     await h.b.update(f"station/{want}/ring", "on")
     await h.b.wait_until(lambda b: b.on(f"station/{want}/hook"), 5)
     await h.b.update(f"station/{want}/ring", "off")
@@ -112,7 +112,7 @@ async def tutored_trunk_operator(h: Harness) -> None:
     await heard_tutor(h, "talk")
     await h.b.update(f"{c}/op", "on")
     await request_heard(h, c)
-    await heard_tutor(h, "ring-rear-28")
+    await heard_tutor(h, "ring-rear-b")
     await h.b.update(f"station/{want}/ring", "on")
     await h.b.wait_until(lambda b: b.on(f"station/{want}/hook"), 5)
     await h.b.update(f"station/{want}/ring", "off")
@@ -231,11 +231,10 @@ async def main() -> int:
     s = load("../script.yml")
     t = s.tutor
     check(all(k in t for k in ("intro-jacks", "answer-station", "hangup-pair")), "the plain lines are there")
-    cabled = [j["jack"] for j in s.jacks if j["station"]]
-    check(all(f"ring-front-{j}" in t and f"ring-rear-{j}" in t for j in cabled),
-          f"a ring line each way for each of {len(cabled)} cabled jacks")
-    check("room 403" in t[f"ring-front-{next(j['jack'] for j in s.jacks if j['label'] == '403')}"].text,
-          "a numbered jack is said as a room")
+    cabled = [j["station"] for j in s.jacks if j["station"]]
+    check(all(f"ring-front-{st}" in t and f"ring-rear-{st}" in t for st in cabled),
+          f"a ring line each way for each of {len(cabled)} cabled stations, by name")
+    check("room 403" in t["ring-front-room403"].text, "a numbered jack is said as a room")
     check(t["dial-pizza"].text.endswith("dial Sunset four, four one oh one."),
           f"a number as the card prints it: {t['dial-pizza'].text[-40:]!r}")
     check(t["say-operator.1"].text == "Say: How may I connect your call?",
@@ -270,11 +269,11 @@ async def main() -> int:
     h = tutored(scene(Shape.STATION_TO_STATION))
     out = await run(h, station_to_station, tutored_station_operator)
     check(out.ok, f"success, {out.reason!r}")
-    check(h.w.said[:3] == ["answer-station", "greet", "ring-front-28"],
+    check(h.w.said[:3] == ["answer-station", "greet", "ring-front-b"],
           f"answer, greet, ring, in that order: {h.w.said}")
     check(not h.w.overlap, f"she is never speaking as a listen starts: {h.w.overlap}")
     shown = [k for k in h.repeats if k]
-    check(shown == ["answer-station", "greet", "ring-front-28"],
+    check(shown == ["answer-station", "greet", "ring-front-b"],
           f"Repeat Help offers each line she waits on the player after (Rev 34, 35): {shown}")
     check(h.repeats[-1] == "", "and goes once the player has acted")
 
@@ -296,7 +295,7 @@ async def main() -> int:
     h = tutored(scene(Shape.OUTSIDE_TO_STATION, from_station=None, from_line="pizza"))
     out = await run(h, outside_to_station, tutored_trunk_operator, 3)
     check(out.ok, f"success, {out.reason!r}")
-    check(h.w.said == ["answer-trunk", "talk", "greet", "ring-rear-28", "center-ringing"],
+    check(h.w.said == ["answer-trunk", "talk", "greet", "ring-rear-b", "center-ringing"],
           f"the cord, then the switch, and the switch back before the room answers: {h.w.said}")
     check(not h.w.overlap, "never over a listen")
 

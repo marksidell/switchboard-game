@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 37 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order*
+*Rev 38 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order, with the Tutor's Ring Lines Named for the Station*
 
 # 1. Overview
 
@@ -175,6 +175,12 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 — The page's countdown says "waiting" while a game runs in automatic pacing and no next call is scheduled — `next_at` empty, because in auto the latest call is not yet connected or ended, and in listen the board is not yet empty (§4.2) — and "–" when no game runs (§7.1), Mark's request, 2026-09-28. It said "–" in both. The deck's Next key already said "waiting" in that case; §7.4 now says so too. It is on the countdown rather than on the Next Call button because the button is hidden with the controls and the countdown is not.
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
+
+## 1.38 Changes in Rev 38
+
+— The tutor's `ring-front` and `ring-rear` lines are named for the station, `tutor.ring-front-room403`, not the jack, `tutor.ring-front-29` (§4.9), Mark's request, 2026-10-12. Rev 37's renumbering moved no label off its station, yet 30 of those lines looked new or changed to the TTS run, since a line's text follows its label and its name followed the jack. Named for the station, a line changes only when what she says does: a new label, or the station cabled to a jack with another. Renumbering jacks changes no file.
+
+— Code consequence for Claude Code, made the same day: the loader names the lines by station (`tts/script.py`); the game looks them up by the called line's name (`flows.py`); the 88 wavs, raw and delivered, and their manifest entries renamed, nothing rendered; the tests.
 
 ## 1.37 Changes in Rev 37
 
@@ -462,7 +468,7 @@ Rev 29. A voice on the audience loudspeaker talks a new player through each call
 
 **Nothing fails for being slow.** The answer and connect timeouts are lifted for calls dealt in tutor mode, and the call slots show no deadline (§6.1). A wrong jack or a wrong number is no more a failure than in any game (§5); she does not say it is wrong, but her prompt comes round again. A call can still fail by being cut off. The tallies count as in any game, and the game log records each change of pacing.
 
-**Her lines** (script.yml `tutor:`). Each key is one line, rendered as `tutor.<key>`. Three keys are templates rendered once for every value they take: `ring-front` and `ring-rear` for each jack a station is cabled to (`{jack}`, "room 403" for a numbered jack, else its label), `dial` for each outside line but the operator (`{number}`, as above), and `say` for each operator line (`{line}`). A whole sentence for each, not a phrase spliced into a sentence at play time, so each is spoken as one. Her voice is designed and chosen as any cast member's (`tts/aws/design --only tutor`, `tts/audition`, `tts/choose --only tutor`); her lines are rendered and band-limited with the rest.
+**Her lines** (script.yml `tutor:`). Each key is one line, rendered as `tutor.<key>`. Three keys are templates rendered once for every value they take: `ring-front` and `ring-rear` for each jack a station is cabled to (`{jack}`, "room 403" for a numbered jack, else its label), named for the station, `tutor.ring-front-room403`, so moving a label to another jack changes no file (Rev 38), `dial` for each outside line but the operator (`{number}`, as above), and `say` for each operator line (`{line}`). A whole sentence for each, not a phrase spliced into a sentence at play time, so each is spoken as one. Her voice is designed and chosen as any cast member's (`tts/aws/design --only tutor`, `tts/audition`, `tts/choose --only tutor`); her lines are rendered and band-limited with the rest.
 
 ## 4.5 Not Yet: Calls Before Connection
 

@@ -145,7 +145,7 @@ class Script:
     operator_lines: dict[str, Utterance] = field(default_factory=dict)
     # scene id -> the name of the operator line that closes it, if any
     closings: dict[str, str] = field(default_factory=dict)
-    # tutor mode's lines, by key: "intro", "ring-front-21", "dial-pizza",
+    # tutor mode's lines, by key: "intro", "ring-front-lobby", "dial-pizza",
     # "say-operator.1" (game_control.md 4.9). Empty without a tutor: section.
     tutor: dict[str, Utterance] = field(default_factory=dict)
     # tutor: lessons:, the scenes a tutored game starts with, one picked from
@@ -726,9 +726,11 @@ def _tutor_lines(raw: object, cast: dict, board: list[dict], stations: dict,
         if field_ is None:
             add(key, text)
         elif field_ == "jack":
+            # Named by station, not jack, so moving a label to another jack
+            # leaves the file alone; what is said follows the label.
             for j in board:
                 if j["station"] and isinstance(j["jack"], int):
-                    add(f"{key}-{j['jack']}", text.format(jack=jack_words(j["label"])))
+                    add(f"{key}-{j['station']}", text.format(jack=jack_words(j["label"])))
         elif field_ == "number":
             ex = _exchanges()
             for line, entry in outside.items():
