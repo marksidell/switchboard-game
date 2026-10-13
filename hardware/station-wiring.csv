@@ -1,0 +1,24 @@
+station,RJ45 pins (tip-ring),25-pair colours (tip-ring),switchboard jack,station board RJ45
+1,1-2,white-blue,21,board a J7A101
+2,3-6,white-orange,22,board a J7A101
+3,5-4,white-green,23,board a J7A101
+4,7-8,white-brown,24,board a J7A101
+5,1-2,white-slate,25,board a J7B101
+6,3-6,red-blue,26,board a J7B101
+7,5-4,red-orange,27,board a J7B101
+8,7-8,red-green,28,board a J7B101
+9,1-2,red-brown,30,board b J7A101
+10,3-6,red-slate,11,board b J7A101
+11,5-4,black-blue,12,board b J7A101
+12,7-8,black-orange,13,board b J7A101
+13,1-2,black-green,15,board b J7B101
+14,3-6,black-brown,16,board b J7B101
+15,5-4,black-slate,19,board b J7B101
+16,7-8,yellow-blue,20,board b J7B101
+17,1-2,yellow-orange,2,board c J7A101
+18,3-6,yellow-green,3,board c J7A101
+19,5-4,yellow-brown,5,board c J7A101
+20,7-8,yellow-slate,6,board c J7A101
+21,1-2,violet-blue,8,board c J7B101
+22,3-6,violet-orange,9,board c J7B101
+23,5-4,violet-green,operator,board c J7B101
