@@ -840,8 +840,8 @@ scenes:
             person: valet
         request:
             id: 1
-            text: Hello. Valet service, please.
             operator: internal-greeting
+            text: Hello. Valet service, please.
         conversation:
             -   id: 2
                 called: Valet service.
@@ -868,8 +868,8 @@ scenes:
             person: thornhill
         request:
             id: 1
-            text: Connect me with room 403.
             operator: internal-greeting
+            text: Connect me with room 403.
         conversation:
             -   id: 2
                 called: Hello?
@@ -899,10 +899,10 @@ scenes:
             person: thornhill
         request:
             id: 1
+            operator: internal-greeting
             text: >
                 Operator, this is Mr. Thorn, uh no, Mr. Kaplan, in 403.
                 That call that just came through. Was that an outside call or from the lobby?
-            operator: internal-greeting
         closing:
             id: 2
             text: That call was from the lobby, sir.
@@ -918,8 +918,8 @@ scenes:
             person: waiter
         request:
             id: 1
-            text: Room service please.
             operator: internal-greeting
+            text: Room service please.
         conversation:
             -   id: 2
                 called: Room service.
@@ -949,8 +949,8 @@ scenes:
             person: florist
         request:
             id: 1
-            text: Operator, I'd like the Harbor Florist, please. I'm afraid I don't have the number.
             operator: internal-greeting
+            text: Operator, I'd like the Harbor Florist, please. I'm afraid I don't have the number.
         conversation:
             -   id: 2
                 called: Harbor Florist.
@@ -979,12 +979,12 @@ scenes:
             busy: true
         request:
             id: 1
-            text: Hello, operator? Could you get me Sunny Hill Pizza, please?
             operator: internal-greeting
+            text: Hello, operator? Could you get me Sunny Hill Pizza, please?
         conversation:
             -   id: 2
-                caller: Busy? Oh, bother. All right, I'll call back later.
                 operator: busy
+                caller: Busy? Oh, bother. All right, I'll call back later.
         closing:
             id: 3
             text: Very good, ma'am. Just ring when you're ready.
@@ -1000,8 +1000,8 @@ scenes:
             person: pike
         request:
             id: 1
-            text: Room 204, please. Mr. Harold Pike.
             operator: outside-greeting
+            text: Room 204, please. Mr. Harold Pike.
         conversation:
             -   id: 2
                 called: Pike.
@@ -1024,14 +1024,14 @@ scenes:
             person: crane
         request:
             id: 1
-            text: Operator? Could you ring me at six-thirty tomorrow morning? I have an early bus.
             operator: internal-greeting
+            text: Operator? Could you ring me at six-thirty tomorrow morning? I have an early bus.
         conversation:
             -   id: 2
-                caller: Thank you. Room 404. Good night.
                 operator:
                     id: 3
                     text: Certainly, six-thirty. And your room, please?
+                caller: Thank you. Room 404. Good night.
         closing:
             id: 4
             text: Six-thirty, room 404. Good night, ma'am.
@@ -1047,8 +1047,8 @@ scenes:
             person: maitre_d
         request:
             id: 1
-            text: Operator, ring Canlis for me, would you?
             operator: internal-greeting
+            text: Operator, ring Canlis for me, would you?
         conversation:
             -   id: 2
                 called: Good evening, this is Canlis.
@@ -1076,8 +1076,8 @@ scenes:
             person: pizza_man
         request:
             id: 1
-            text: It's room 305 again. Let's try Sunny Hill Pizza one more time.
             operator: internal-greeting
+            text: It's room 305 again. Let's try Sunny Hill Pizza one more time.
         conversation:
             -   id: 2
                 called: Sunny Hill Pizza.
@@ -1105,8 +1105,8 @@ scenes:
             person: hollis
         request:
             id: 1
-            text: Operator, room 101, please.
             operator: internal-greeting
+            text: Operator, room 101, please.
         conversation:
             -   id: 2
                 called: Hollis.
@@ -1134,16 +1134,16 @@ scenes:
             person: local_operator
         request:
             id: 1
-            text: Operator, I'd like to place a long distance call, please.
             operator: internal-greeting
+            text: Operator, I'd like to place a long distance call, please.
         conversation:
             -   id: 8
                 called: Operator.
             -   id: 2
+                operator: long-distance-please
                 called: Long distance.
                 person: operator
                 wait: true
-                operator: long-distance-please
             -   id: 3
                 caller: I'd like to call Portland, Oregon. Person to person, to Mrs. Ruth Seaver. The number is Atwater 4-1187.
             -   id: 4
@@ -1199,8 +1199,8 @@ scenes:
             person: albright
         request:
             id: 1
-            text: Hotel Ballard? This is long distance. I have your Portland call for Mrs. Edith Albright, room 302. Her party is on the line now.
             operator: outside-greeting
+            text: Hotel Ballard? This is long distance. I have your Portland call for Mrs. Edith Albright, room 302. Her party is on the line now.
         conversation:
             -   id: 2
                 called: Hello? This is Mrs. Albright.
@@ -1233,8 +1233,8 @@ scenes:
             person: operator
         request:
             id: 1
-            text: Hotel Ballard? Long distance. Time and charges on room 302. Portland, Oregon. Four minutes. One dollar and ten cents.
             operator: outside-greeting
+            text: Hotel Ballard? Long distance. Time and charges on room 302. Portland, Oregon. Four minutes. One dollar and ten cents.
         closing:
             id: 2
             text: Room 302, four minutes, one dollar and... Operator? Oh, dear.
@@ -1250,8 +1250,8 @@ scenes:
             person: dispatcher
         request:
             id: 1
-            text: Operator, get me a taxi, would you?
             operator: internal-greeting
+            text: Operator, get me a taxi, would you?
         conversation:
             -   id: 2
                 called: Shilshole Cab.
@@ -1278,8 +1278,8 @@ scenes:
             person: waiter
         request:
             id: 1
-            text: Connect me to room service.
             operator: internal-greeting
+            text: Connect me to room service.
         conversation:
             -   id: 2
                 called: Room service.
@@ -1304,8 +1304,8 @@ scenes:
             person: marysmith
         request:
             id: 1
-            text: Please connect me with your guest Mary Smith
             operator: outside-greeting
+            text: Please connect me with your guest Mary Smith
         conversation:
             -   id: 2
                 called: Hello, hello?
@@ -1381,8 +1381,8 @@ scenes:
             person: housekeeper
         request:
             id: 1
-            text: Operator, housekeeping. At once, please.
             operator: internal-greeting
+            text: Operator, housekeeping. At once, please.
         conversation:
             -   id: 2
                 called: Housekeeping, Mrs. Olsen speaking.
@@ -1409,8 +1409,8 @@ scenes:
             person: housekeeper
         request:
             id: 1
-            text: Housekeeping again, operator.
             operator: internal-greeting
+            text: Housekeeping again, operator.
         conversation:
             -   id: 2
                 called: Housekeeping.
@@ -1439,8 +1439,8 @@ scenes:
             person: housekeeper
         request:
             id: 1
-            text: Operator, I need housekeeping. Again.
             operator: internal-greeting
+            text: Operator, I need housekeeping. Again.
         conversation:
             -   id: 2
                 called: This is housekeeping.
@@ -1469,8 +1469,8 @@ scenes:
             person: waiter
         request:
             id: 1
-            text: Room service, operator. Housekeeping is being difficult.
             operator: internal-greeting
+            text: Room service, operator. Housekeeping is being difficult.
         conversation:
             -   id: 2
                 called: Room service.
@@ -1499,8 +1499,8 @@ scenes:
             person: housekeeper
         request:
             id: 1
-            text: Housekeeping, please, operator. You know the way by now.
             operator: internal-greeting
+            text: Housekeeping, please, operator. You know the way by now.
         conversation:
             -   id: 2
                 called: Housekeeping. Hello, Mrs. Pemberton.
@@ -1529,8 +1529,8 @@ scenes:
             person: housekeeper
         request:
             id: 1
-            text: Operator, housekeeping. This is the last thing, I promise.
             operator: internal-greeting
+            text: Operator, housekeeping. This is the last thing, I promise.
         conversation:
             -   id: 2
                 called: Housekeeping.
@@ -1559,8 +1559,8 @@ scenes:
             person: desk_clerk
         request:
             id: 1
-            text: Get me the front desk, operator. I wish to complain.
             operator: internal-greeting
+            text: Get me the front desk, operator. I wish to complain.
         conversation:
             -   id: 2
                 called: Front desk.
@@ -1588,8 +1588,8 @@ scenes:
             person: concierge
         request:
             id: 1
-            text: Say, operator, can you get me that concierge fella?
             operator: internal-greeting
+            text: Say, operator, can you get me that concierge fella?
         conversation:
             -   id: 2
                 called: Concierge. Fairweather speaking.
@@ -1624,8 +1624,8 @@ scenes:
             person: bellcaptain
         request:
             id: 1
-            text: Operator, gimme the bell captain, quick. I've got a situation here.
             operator: internal-greeting
+            text: Operator, gimme the bell captain, quick. I've got a situation here.
         conversation:
             -   id: 2
                 called: Bell captain.
@@ -1654,8 +1654,8 @@ scenes:
             person: ferry_clerk
         request:
             id: 1
-            text: Operator, get me the ferry boats, would you? I don't know the number.
             operator: internal-greeting
+            text: Operator, get me the ferry boats, would you? I don't know the number.
         conversation:
             -   id: 2
                 called: Washington State Ferries, Colman Dock.
@@ -1682,8 +1682,8 @@ scenes:
             person: rays_host
         request:
             id: 1
-            text: Operator, ring that Ray's Boathouse place for me.
             operator: internal-greeting
+            text: Operator, ring that Ray's Boathouse place for me.
         conversation:
             -   id: 2
                 called: Ray's.
@@ -1707,24 +1707,24 @@ scenes:
             person: dobbs
         request:
             id: 1
-            text: Operator? How much is a stamp for a postcard to Omaha?
             operator: internal-greeting
+            text: Operator? How much is a stamp for a postcard to Omaha?
         conversation:
             -   id: 2
-                caller: Three cents? That's all? Heck, I'll send thirty of 'em.
                 operator:
                     id: 5
                     text: Three cents, sir.
+                caller: Three cents? That's all? Heck, I'll send thirty of 'em.
             -   id: 3
-                caller: Is there a mailbox in the lobby, or do I got to walk somewhere?
                 operator:
                     id: 6
                     text: The newsstand in the lobby sells postcards, too.
+                caller: Is there a mailbox in the lobby, or do I got to walk somewhere?
             -   id: 4
-                caller: Thanks a bunch. You folks sure are friendly out here!
                 operator:
                     id: 7
                     text: There's a mailbox right beside the front desk, sir.
+                caller: Thanks a bunch. You folks sure are friendly out here!
         closing:
             id: 8
             text: You're very welcome, sir. Enjoy your stay.
@@ -1739,16 +1739,16 @@ scenes:
             person: local_operator
         request:
             id: 1
-            text: Operator, I want to call home. Long distance. Nebraska.
             operator: internal-greeting
+            text: Operator, I want to call home. Long distance. Nebraska.
         conversation:
             -   id: 2
                 called: Operator.
             -   id: 3
+                operator: long-distance-please
                 called: Long distance.
                 person: operator
                 wait: true
-                operator: long-distance-please
             -   id: 4
                 caller: Wahoo, Nebraska. That's near Omaha. Mrs. Mabel Dobbs, at Dobbs Feed and Seed. The number is 23-J. Make it person to person.
             -   id: 5
@@ -1798,8 +1798,8 @@ scenes:
             person: dobbs
         request:
             id: 1
-            text: Hotel Ballard? Long distance. I'm ready with the Wahoo, Nebraska call for Mr. Earl Dobbs, room 105.
             operator: outside-greeting
+            text: Hotel Ballard? Long distance. I'm ready with the Wahoo, Nebraska call for Mr. Earl Dobbs, room 105.
         conversation:
             -   id: 2
                 called: Dobbs here!
@@ -1863,8 +1863,8 @@ scenes:
             person: operator
         request:
             id: 1
-            text: Hotel Ballard? Long distance. Time and charges on room 105. Wahoo, Nebraska. Three minutes. Two dollars and thirty cents.
             operator: outside-greeting
+            text: Hotel Ballard? Long distance. Time and charges on room 105. Wahoo, Nebraska. Three minutes. Two dollars and thirty cents.
         closing:
             id: 2
             text: Room 105, three minutes, two thirty. Thank you.
@@ -1879,8 +1879,8 @@ scenes:
             person: box_office
         request:
             id: 1
-            text: Operator, can you get me the Paramount Theatre?
             operator: internal-greeting
+            text: Operator, can you get me the Paramount Theatre?
         conversation:
             -   id: 2
                 called: Paramount box office.
@@ -1908,16 +1908,16 @@ scenes:
             person: local_operator
         request:
             id: 1
-            text: Operator, I want to make a collect call. Long distance, to Chicago.
             operator: internal-greeting
+            text: Operator, I want to make a collect call. Long distance, to Chicago.
         conversation:
             -   id: 2
                 called: Operator.
             -   id: 3
+                operator: long-distance-please
                 called: Long distance.
                 person: operator
                 wait: true
-                operator: long-distance-please
             -   id: 4
                 caller: Chicago, Illinois. Whirlwind Vacuum Company, Mohawk 4-2000. Mr. Gruber. Collect, from Harold Pike.
             -   id: 10
@@ -1971,8 +1971,8 @@ scenes:
             person: pike
         request:
             id: 1
-            text: Hotel Ballard? Chicago, Illinois, calling Mr. Harold Pike. Person to person.
             operator: outside-greeting
+            text: Hotel Ballard? Chicago, Illinois, calling Mr. Harold Pike. Person to person.
         conversation:
             -   id: 2
                 called: Pike here.
@@ -2004,8 +2004,8 @@ scenes:
             person: housekeeper
         request:
             id: 1
-            text: Operator, connect me with housekeeping, please.
             operator: internal-greeting
+            text: Operator, connect me with housekeeping, please.
         conversation:
             -   id: 2
                 called: Housekeeping.
@@ -2034,8 +2034,8 @@ scenes:
             person: pike
         request:
             id: 1
-            text: Shilshole Cab. Room 204, please. Mr. Pike.
             operator: outside-greeting
+            text: Shilshole Cab. Room 204, please. Mr. Pike.
         conversation:
             -   id: 2
                 called: Pike.
@@ -2062,8 +2062,8 @@ scenes:
             person: pike
         request:
             id: 1
-            text: Operator, ring Mr. Harold Pike's room. I know he's staying here.
             operator: internal-greeting
+            text: Operator, ring Mr. Harold Pike's room. I know he's staying here.
         conversation:
             -   id: 2
                 called: Harold Pike speaking.
@@ -2090,8 +2090,8 @@ scenes:
             person: finch
         request:
             id: 1
-            text: Operator, ring room 303 for me.
             operator: internal-greeting
+            text: Operator, ring room 303 for me.
         conversation:
             -   id: 2
                 called: Hello? Finch here.
@@ -2121,8 +2121,8 @@ scenes:
             person: pigalle
         request:
             id: 1
-            text: Operator, would you ring Place Pigalle for me? It's that little French restaurant at the market.
             operator: internal-greeting
+            text: Operator, would you ring Place Pigalle for me? It's that little French restaurant at the market.
         conversation:
             -   id: 2
                 called: Place Pigalle, bonsoir.
@@ -2149,8 +2149,8 @@ scenes:
             person: housekeeper
         request:
             id: 1
-            text: Operator, housekeeping, please. Something dreadful has happened.
             operator: internal-greeting
+            text: Operator, housekeeping, please. Something dreadful has happened.
         conversation:
             -   id: 2
                 called: Housekeeping. Mrs. Olsen.
@@ -2177,8 +2177,8 @@ scenes:
             person: concierge
         request:
             id: 1
-            text: The concierge, please, operator.
             operator: internal-greeting
+            text: The concierge, please, operator.
         conversation:
             -   id: 2
                 called: Concierge.
@@ -2205,8 +2205,8 @@ scenes:
             person: albright
         request:
             id: 1
-            text: Operator, room 302, please.
             operator: internal-greeting
+            text: Operator, room 302, please.
         conversation:
             -   id: 2
                 called: Hello? Yes?
@@ -2235,8 +2235,8 @@ scenes:
             person: albright
         request:
             id: 1
-            text: Operator, room 302, please. Mrs. Edith Albright. I'm her nephew.
             operator: internal-greeting
+            text: Operator, room 302, please. Mrs. Edith Albright. I'm her nephew.
         conversation:
             -   id: 2
                 called: Hello?
@@ -2266,16 +2266,16 @@ scenes:
             person: local_operator
         request:
             id: 1
-            text: Operator, could I call my mother? She's in Boise. That's long distance, isn't it?
             operator: internal-greeting
+            text: Operator, could I call my mother? She's in Boise. That's long distance, isn't it?
         conversation:
             -   id: 2
                 called: Operator.
             -   id: 3
+                operator: long-distance-please
                 called: Long distance.
                 person: operator
                 wait: true
-                operator: long-distance-please
             -   id: 4
                 caller: Boise, Idaho, please. Mrs. Harriet Dunn. Station to station is fine. The number is 3-7719.
             -   id: 10
@@ -2287,12 +2287,12 @@ scenes:
                 called: Hotel? Is this to be charged to the room?
                 person: operator
             -   id: 12
-                called: Rate operator? Boise, Idaho. Route and day station rate from Seattle.
-                person: operator
-                wait: true
                 operator:
                     id: 22
                     text: Yes, charge it to room 305, please.
+                called: Rate operator? Boise, Idaho. Route and day station rate from Seattle.
+                person: operator
+                wait: true
             -   id: 13
                 called: Portland, Boise. Day station, 1-1-5.
                 person: rate_operator
@@ -2349,8 +2349,8 @@ scenes:
             person: operator
         request:
             id: 1
-            text: Hotel Ballard? Long distance. Time and charges on room 305. Boise, Idaho. Three minutes. One dollar and fifteen cents.
             operator: outside-greeting
+            text: Hotel Ballard? Long distance. Time and charges on room 305. Boise, Idaho. Three minutes. One dollar and fifteen cents.
         closing:
             id: 2
             text: Room 305, three minutes, a dollar fifteen. Thank you, operator.
@@ -2365,8 +2365,8 @@ scenes:
             person: waiter
         request:
             id: 1
-            text: Room service, please, operator.
             operator: internal-greeting
+            text: Room service, please, operator.
         conversation:
             -   id: 2
                 called: Room service here.
@@ -2395,8 +2395,8 @@ scenes:
             person: desk_clerk
         request:
             id: 1
-            text: The front desk, please, operator.
             operator: internal-greeting
+            text: The front desk, please, operator.
         conversation:
             -   id: 2
                 called: Front desk.
@@ -2423,8 +2423,8 @@ scenes:
             person: jim_hale
         request:
             id: 1
-            text: Operator, ring 305 for me, would you?
             operator: internal-greeting
+            text: Operator, ring 305 for me, would you?
         conversation:
             -   id: 2
                 called: Hello?
@@ -2451,8 +2451,8 @@ scenes:
             person: valet
         request:
             id: 1
-            text: Operator, can you get me the fellow who parks the cars?
             operator: internal-greeting
+            text: Operator, can you get me the fellow who parks the cars?
         conversation:
             -   id: 2
                 called: Valet.
@@ -2481,8 +2481,8 @@ scenes:
             person: hale
         request:
             id: 1
-            text: Sunny Hill Pizza. Gimme room 305.
             operator: outside-greeting
+            text: Sunny Hill Pizza. Gimme room 305.
         conversation:
             -   id: 2
                 called: Hello?
@@ -2511,8 +2511,8 @@ scenes:
             person: albright
         request:
             id: 1
-            text: Operator? Somebody sent us roses from room 302. Could you ring them?
             operator: internal-greeting
+            text: Operator? Somebody sent us roses from room 302. Could you ring them?
         conversation:
             -   id: 2
                 called: Mrs. Albright speaking.
@@ -2544,8 +2544,8 @@ scenes:
             person: lindqvist
         request:
             id: 1
-            text: Good evening. Canlis calling for Mr. Nils Lindqvist, room 401.
             operator: outside-greeting
+            text: Good evening. Canlis calling for Mr. Nils Lindqvist, room 401.
         conversation:
             -   id: 2
                 called: Ahoy, Lindqvist here.
@@ -2572,8 +2572,8 @@ scenes:
             person: rays_host
         request:
             id: 1
-            text: Operator, Ray's Boathouse. Down by the marina.
             operator: internal-greeting
+            text: Operator, Ray's Boathouse. Down by the marina.
         conversation:
             -   id: 2
                 called: Ray's, what can I do for you?
@@ -2597,24 +2597,24 @@ scenes:
             person: lindqvist
         request:
             id: 1
-            text: Operator, can you look out the window? Is the fog on the Sound?
             operator: internal-greeting
+            text: Operator, can you look out the window? Is the fog on the Sound?
         conversation:
             -   id: 2
-                caller: Thick? Ya, I thought so. My boys want to go out at four.
                 operator:
                     id: 5
                     text: Yes, sir. It's very thick this evening.
+                caller: Thick? Ya, I thought so. My boys want to go out at four.
             -   id: 3
-                caller: No, they won't listen. They never listen. Could you ring me at three-thirty?
                 operator:
                     id: 6
                     text: In this fog? Perhaps they should wait until it lifts.
+                caller: No, they won't listen. They never listen. Could you ring me at three-thirty?
             -   id: 4
-                caller: Thank you. You're a good girl. Tell your father he raised you right.
                 operator:
                     id: 7
                     text: Of course, Mr. Lindqvist. Three-thirty.
+                caller: Thank you. You're a good girl. Tell your father he raised you right.
         closing:
             id: 8
             text: I'll tell him, Mr. Lindqvist. Good night.
@@ -2629,8 +2629,8 @@ scenes:
             person: valet
         request:
             id: 1
-            text: The valet, please.
             operator: internal-greeting
+            text: The valet, please.
         conversation:
             -   id: 2
                 called: Valet service.
@@ -2655,8 +2655,8 @@ scenes:
             person: reporter
         request:
             id: 1
-            text: Get me the Seattle Times. I want to put in an advertisement.
             operator: internal-greeting
+            text: Get me the Seattle Times. I want to put in an advertisement.
         conversation:
             -   id: 2
                 called: Times. Barrett.
@@ -2684,8 +2684,8 @@ scenes:
             person: ferry_clerk
         request:
             id: 1
-            text: Operator, the ferry information office, please.
             operator: internal-greeting
+            text: Operator, the ferry information office, please.
         conversation:
             -   id: 2
                 called: Ferries, Colman Dock.
@@ -2713,17 +2713,17 @@ scenes:
             busy: true
         request:
             id: 1
-            text: Operator, would you ring the Paramount Theatre, box office?
             operator: internal-greeting
+            text: Operator, would you ring the Paramount Theatre, box office?
         conversation:
             -   id: 2
-                caller: Busy? Oh, dear. I suppose everyone wants to see that spy picture.
                 operator: busy
+                caller: Busy? Oh, dear. I suppose everyone wants to see that spy picture.
             -   id: 3
-                caller: No, never mind. I have a book. It's safer.
                 operator:
                     id: 4
                     text: Shall I try them again for you in a little while, Miss Crane?
+                caller: No, never mind. I have a book. It's safer.
         closing:
             id: 5
             text: Very good, Miss Crane. Enjoy your book.
@@ -2738,8 +2738,8 @@ scenes:
             person: desk_clerk
         request:
             id: 1
-            text: Operator, the front desk. I wish to report a disturbance.
             operator: internal-greeting
+            text: Operator, the front desk. I wish to report a disturbance.
         conversation:
             -   id: 2
                 called: Front desk.
@@ -2766,8 +2766,8 @@ scenes:
             person: crane
         request:
             id: 1
-            text: Operator, could you ring Miss Dorothy Crane? She was my teacher in Yakima.
             operator: internal-greeting
+            text: Operator, could you ring Miss Dorothy Crane? She was my teacher in Yakima.
         conversation:
             -   id: 2
                 called: Miss Crane speaking.
@@ -2792,8 +2792,8 @@ scenes:
             person: hostess
         request:
             id: 1
-            text: The hotel dining room, please.
             operator: internal-greeting
+            text: The hotel dining room, please.
         conversation:
             -   id: 2
                 called: The Stoneburner, good evening.
@@ -2823,8 +2823,8 @@ scenes:
             person: nurse
         request:
             id: 1
-            text: Operator, Swedish Hospital. Quickly.
             operator: internal-greeting
+            text: Operator, Swedish Hospital. Quickly.
         conversation:
             -   id: 2
                 called: Swedish Hospital.
@@ -2853,8 +2853,8 @@ scenes:
             person: hollis
         request:
             id: 1
-            text: Swedish Hospital calling Dr. Walter Hollis, room 101. It's urgent.
             operator: outside-greeting
+            text: Swedish Hospital calling Dr. Walter Hollis, room 101. It's urgent.
         conversation:
             -   id: 2
                 called: Hollis.
@@ -2876,19 +2876,19 @@ scenes:
             person: hollis
         request:
             id: 1
-            text: Operator. I need to be woken at five sharp.
             operator: internal-greeting
+            text: Operator. I need to be woken at five sharp.
         conversation:
             -   id: 2
-                caller: Not five-oh-one. Five. I must have a scalpel in my hand at seven.
                 operator:
                     id: 4
                     text: Five o'clock, Doctor. Certainly.
+                caller: Not five-oh-one. Five. I must have a scalpel in my hand at seven.
             -   id: 3
-                caller: And keep ringing until I answer. I sleep like the dead. Occupational hazard.
                 operator:
                     id: 5
                     text: Five o'clock sharp, Dr. Hollis.
+                caller: And keep ringing until I answer. I sleep like the dead. Occupational hazard.
         closing:
             id: 6
             text: I'll keep ringing, Doctor. Good night.
@@ -2903,8 +2903,8 @@ scenes:
             person: hollis
         request:
             id: 1
-            text: Hotel Ballard? Rochester, Minnesota, calling Dr. Walter Hollis. Person to person.
             operator: outside-greeting
+            text: Hotel Ballard? Rochester, Minnesota, calling Dr. Walter Hollis. Person to person.
         conversation:
             -   id: 2
                 called: This is Hollis.
@@ -2934,8 +2934,8 @@ scenes:
             person: hollis
         request:
             id: 1
-            text: Room 101, please. Dr. Hollis. Seattle Times calling.
             operator: outside-greeting
+            text: Room 101, please. Dr. Hollis. Seattle Times calling.
         conversation:
             -   id: 2
                 called: Hollis.
@@ -2958,8 +2958,8 @@ scenes:
             person: valet
         request:
             id: 1
-            text: Valet, operator.
             operator: internal-greeting
+            text: Valet, operator.
         conversation:
             -   id: 2
                 called: Valet service.
@@ -2985,8 +2985,8 @@ scenes:
             person: bellcaptain
         request:
             id: 1
-            text: Bell captain. Now. Please. Now.
             operator: internal-greeting
+            text: Bell captain. Now. Please. Now.
         conversation:
             -   id: 2
                 called: Bell captain.
@@ -3008,19 +3008,19 @@ scenes:
             person: martha
         request:
             id: 1
-            text: Operator. Has the mailman come yet today?
             operator: internal-greeting
+            text: Operator. Has the mailman come yet today?
         conversation:
             -   id: 2
-                caller: Not yet? Good. I will be waiting for him.
                 operator:
                     id: 4
                     text: Not yet today. He usually comes about eleven.
+                caller: Not yet? Good. I will be waiting for him.
             -   id: 3
-                caller: No, I don't want my mail. I just want to bark at him.
                 operator:
                     id: 5
                     text: Shall I have the desk send your mail up when it comes?
+                caller: No, I don't want my mail. I just want to bark at him.
         closing:
             id: 6
             text: I see. Well, good luck, ma'am.
@@ -3035,8 +3035,8 @@ scenes:
             person: desk_clerk
         request:
             id: 1
-            text: Front desk. I have a complaint.
             operator: internal-greeting
+            text: Front desk. I have a complaint.
         conversation:
             -   id: 2
                 called: Front desk. How can I help you?
@@ -3058,19 +3058,19 @@ scenes:
             person: martha
         request:
             id: 1
-            text: Operator. Is it true there is a cat in this hotel?
             operator: internal-greeting
+            text: Operator. Is it true there is a cat in this hotel?
         conversation:
             -   id: 2
-                caller: Which room? You can tell me. I only want to say hello.
                 operator:
                     id: 4
                     text: Why yes. One of our guests has a cat.
+                caller: Which room? You can tell me. I only want to say hello.
             -   id: 3
-                caller: You won't tell me? That's all right. I will find it with my nose.
                 operator:
                     id: 5
                     text: I'm sorry, I'm not allowed to give out room numbers.
+                caller: You won't tell me? That's all right. I will find it with my nose.
         closing:
             id: 6
             text: Oh, dear.
@@ -3085,8 +3085,8 @@ scenes:
             person: pizza_man
         request:
             id: 1
-            text: Operator. Get me the pizza place. The one that smells good.
             operator: internal-greeting
+            text: Operator. Get me the pizza place. The one that smells good.
         conversation:
             -   id: 2
                 called: Sunny Hill Pizza.
@@ -3113,8 +3113,8 @@ scenes:
             person: martha
         request:
             id: 1
-            text: Operator, room 103, please.
             operator: internal-greeting
+            text: Operator, room 103, please.
         conversation:
             -   id: 2
                 called: Hello?
@@ -3144,14 +3144,14 @@ scenes:
             person: marysmith
         request:
             id: 1
-            text: Operator? Something has eaten my breakfast. The whole tray, right outside my door. Even the marmalade.
             operator: internal-greeting
+            text: Operator? Something has eaten my breakfast. The whole tray, right outside my door. Even the marmalade.
         conversation:
             -   id: 2
-                caller: A dog? How marvellous. Then do send up another. And something for the dog.
                 operator:
                     id: 3
                     text: I'm so sorry, Miss Smith. I'm afraid it was a dog.
+                caller: A dog? How marvellous. Then do send up another. And something for the dog.
 
     panic-hollis:
         active: false
@@ -3166,8 +3166,8 @@ scenes:
             person: desk_clerk
         request:
             id: 1
-            text: The front desk, please. At once.
             operator: internal-greeting
+            text: The front desk, please. At once.
         conversation:
             -   id: 2
                 called: Front desk.
@@ -3181,8 +3181,8 @@ scenes:
                 called: We'll find it, Doctor. Probably under a bed on the first floor.
         if_busy:
             -   id: 7
-                caller: Busy? Then tell them a dog has my slipper, and I am standing here in one.
                 operator: desk-busy
+                caller: Busy? Then tell them a dog has my slipper, and I am standing here in one.
 
     panic-dobbs:
         active: false
@@ -3194,14 +3194,14 @@ scenes:
             person: dobbs
         request:
             id: 1
-            text: Operator, there's a dog running up and down this hall barking her head off. Is that the hotel's dog?
             operator: internal-greeting
+            text: Operator, there's a dog running up and down this hall barking her head off. Is that the hotel's dog?
         conversation:
             -   id: 2
-                caller: Well, back home in Wahoo she'd be out herding cattle. Tell her I said good morning.
                 operator:
                     id: 3
                     text: She belongs to a guest, Mr. Dobbs. Someone is on the way to catch her.
+                caller: Well, back home in Wahoo she'd be out herding cattle. Tell her I said good morning.
 
     panic-vance:
         active: false
@@ -3216,8 +3216,8 @@ scenes:
             person: desk_clerk
         request:
             id: 1
-            text: Get me the front desk, honey. And don't dawdle.
             operator: internal-greeting
+            text: Get me the front desk, honey. And don't dawdle.
         conversation:
             -   id: 2
                 called: Front desk.
@@ -3229,8 +3229,8 @@ scenes:
                 caller: Well, catch her quietly. I sang till two this morning.
         if_busy:
             -   id: 6
-                caller: Busy. Everybody's up but me. Wake me when they catch it.
                 operator: desk-busy
+                caller: Busy. Everybody's up but me. Wake me when they catch it.
 
     panic-pike:
         active: false
@@ -3245,8 +3245,8 @@ scenes:
             person: desk_clerk
         request:
             id: 1
-            text: Front desk, operator. It's an emergency.
             operator: internal-greeting
+            text: Front desk, operator. It's an emergency.
         conversation:
             -   id: 2
                 called: Front desk.
@@ -3260,8 +3260,8 @@ scenes:
                 called: I'll send the bellboy, sir. Don't pull on the hose.
         if_busy:
             -   id: 7
-                caller: Busy! I'll lose the whole Seattle territory over this.
                 operator: desk-busy
+                caller: Busy! I'll lose the whole Seattle territory over this.
 
     panic-beaumont:
         active: false
@@ -3273,14 +3273,14 @@ scenes:
             person: beaumont
         request:
             id: 1
-            text: Operator, a hound has seized my morning paper from the mat and retreated down the hall with it.
             operator: internal-greeting
+            text: Operator, a hound has seized my morning paper from the mat and retreated down the hall with it.
         conversation:
             -   id: 2
-                caller: Please do. And tell the dog she has the makings of a fine cavalry scout.
                 operator:
                     id: 3
                     text: I'm so sorry, Colonel. Shall I have the desk send up another paper?
+                caller: Please do. And tell the dog she has the makings of a fine cavalry scout.
 
     panic-pemberton:
         active: false
@@ -3295,8 +3295,8 @@ scenes:
             person: desk_clerk
         request:
             id: 1
-            text: Operator, the front desk. Immediately.
             operator: internal-greeting
+            text: Operator, the front desk. Immediately.
         conversation:
             -   id: 2
                 called: Front desk.
@@ -3312,8 +3312,8 @@ scenes:
                 caller: And a blanket for Reginald's cage. He needs to lie down.
         if_busy:
             -   id: 8
-                caller: Busy! My parrot is having a nervous collapse and the front desk is busy.
                 operator: desk-busy
+                caller: Busy! My parrot is having a nervous collapse and the front desk is busy.
 
     panic-albright:
         active: false
@@ -3328,8 +3328,8 @@ scenes:
             person: desk_clerk
         request:
             id: 1
-            text: The front desk, please, dear.
             operator: internal-greeting
+            text: The front desk, please, dear.
         conversation:
             -   id: 2
                 called: Front desk.
@@ -3341,8 +3341,8 @@ scenes:
                 caller: Everywhere. Just follow the blue wool. It goes down the stairs.
         if_busy:
             -   id: 6
-                caller: Never mind, dear. I'll follow the wool myself.
                 operator: desk-busy
+                caller: Never mind, dear. I'll follow the wool myself.
 
     panic-finch:
         active: false
@@ -3354,14 +3354,14 @@ scenes:
             person: finch
         request:
             id: 1
-            text: Operator? A dog just licked my hand. All over. Is a dog's tongue clean?
             operator: internal-greeting
+            text: Operator? A dog just licked my hand. All over. Is a dog's tongue clean?
         conversation:
             -   id: 2
-                caller: Cleaner than mine. I don't know if that makes me feel better or worse. Thank you.
                 operator:
                     id: 3
                     text: I believe they say it's cleaner than ours, Mr. Finch. Wash your hands and you'll be fine.
+                caller: Cleaner than mine. I don't know if that makes me feel better or worse. Thank you.
 
     panic-hale:
         active: false
@@ -3376,8 +3376,8 @@ scenes:
             person: desk_clerk
         request:
             id: 1
-            text: Could you put me through to the front desk?
             operator: internal-greeting
+            text: Could you put me through to the front desk?
         conversation:
             -   id: 2
                 called: Front desk.
@@ -3391,8 +3391,8 @@ scenes:
                 called: Tell him to stay put, ma'am. We'll bring it up.
         if_busy:
             -   id: 7
-                caller: Busy? Well, Jim's gone after her in his socks anyway.
                 operator: desk-busy
+                caller: Busy? Well, Jim's gone after her in his socks anyway.
 
     panic-lindqvist:
         active: false
@@ -3404,14 +3404,14 @@ scenes:
             person: lindqvist
         request:
             id: 1
-            text: Operator. I had a side of smoked salmon on the window ledge. Now I have a dog.
             operator: internal-greeting
+            text: Operator. I had a side of smoked salmon on the window ledge. Now I have a dog.
         conversation:
             -   id: 2
-                caller: She's welcome to it. Best salmon in Ballard. But send someone for the dog.
                 operator:
                     id: 3
                     text: Oh, Mr. Lindqvist, I'm so sorry. That's Martha. She belongs to one of our guests.
+                caller: She's welcome to it. Best salmon in Ballard. But send someone for the dog.
 
     panic-thornhill:
         active: false
@@ -3426,8 +3426,8 @@ scenes:
             person: desk_clerk
         request:
             id: 1
-            text: Get me the front desk, will you?
             operator: internal-greeting
+            text: Get me the front desk, will you?
         conversation:
             -   id: 2
                 called: Front desk.
@@ -3439,8 +3439,8 @@ scenes:
                 caller: Friendly. I've been chased by friendlier things than that. Across a cornfield.
         if_busy:
             -   id: 6
-                caller: Busy. Of course it's busy. Never mind, I'll lock the door.
                 operator: desk-busy
+                caller: Busy. Of course it's busy. Never mind, I'll lock the door.
 
     panic-crane:
         active: false
@@ -3452,14 +3452,14 @@ scenes:
             person: crane
         request:
             id: 1
-            text: Operator, a dog has just eaten the compositions I was marking. Thirty of them.
             operator: internal-greeting
+            text: Operator, a dog has just eaten the compositions I was marking. Thirty of them.
         conversation:
             -   id: 2
-                caller: Thank you. Now I shall have to tell thirty children that the dog ate their homework. And they will never believe me.
                 operator:
                     id: 3
                     text: Oh no, Miss Crane. I'll ask the desk to send someone for the dog.
+                caller: Thank you. Now I shall have to tell thirty children that the dog ate their homework. And they will never believe me.
 
     panic-lobby:
         active: false
@@ -3471,14 +3471,14 @@ scenes:
             person: elevator_operator
         request:
             id: 1
-            text: Operator, this is Floyd on the elevator. There's a big dog riding up and down with me, and she licks every guest that gets on.
             operator: internal-greeting
+            text: Operator, this is Floyd on the elevator. There's a big dog riding up and down with me, and she licks every guest that gets on.
         conversation:
             -   id: 2
-                caller: I'll try. She likes it in here. A lady from the third floor just got licked twice, going up and coming down. She says she'll take the stairs.
                 operator:
                     id: 3
                     text: Can you keep her in the car, Floyd? Someone's coming down for her.
+                caller: I'll try. She likes it in here. A lady from the third floor just got licked twice, going up and coming down. She says she'll take the stairs.
 
     panic-restaurant:
         active: false
@@ -3493,8 +3493,8 @@ scenes:
             person: desk_clerk
         request:
             id: 1
-            text: The front desk, please. This is the Stoneburner.
             operator: internal-greeting
+            text: The front desk, please. This is the Stoneburner.
         conversation:
             -   id: 2
                 called: Front desk.
@@ -3508,8 +3508,8 @@ scenes:
                 called: Don't let them give her any more. Someone will be right down.
         if_busy:
             -   id: 7
-                caller: Busy. Then I will go and save the lobster myself.
                 operator: desk-busy
+                caller: Busy. Then I will go and save the lobster myself.
 
     panic-martha:
         active: false
@@ -3521,19 +3521,19 @@ scenes:
             person: martha
         request:
             id: 1
-            text: Operator! Operator! Somebody is chasing me with a broom!
             operator: internal-greeting
+            text: Operator! Operator! Somebody is chasing me with a broom!
         conversation:
             -   id: 2
-                caller: Mrs. Olsen. She says I am a bad dog. I am not a bad dog. I am a busy dog.
                 operator:
                     id: 4
                     text: Martha? Who is chasing you?
+                caller: Mrs. Olsen. She says I am a bad dog. I am not a bad dog. I am a busy dog.
             -   id: 3
-                caller: Under the bed. With a slipper, and a shoe, and the newspaper. Do not tell her.
                 operator:
                     id: 5
                     text: Oh dear. Where are you hiding?
+                caller: Under the bed. With a slipper, and a shoe, and the newspaper. Do not tell her.
         closing:
             id: 6
             text: I won't tell a soul, Martha.
@@ -3549,8 +3549,8 @@ scenes:
             person: waiter
         request:
             id: 1
-            text: Operator, can you get me the room service? I've never had a room service.
             operator: internal-greeting
+            text: Operator, can you get me the room service? I've never had a room service.
         conversation:
             -   id: 2
                 called: Room service.
@@ -3577,8 +3577,8 @@ scenes:
             person: desk_clerk
         request:
             id: 1
-            text: The front desk, please.
             operator: internal-greeting
+            text: The front desk, please.
         conversation:
             -   id: 2
                 called: Front desk. Good morning, Miss Smith.
@@ -3605,8 +3605,8 @@ scenes:
             person: marysmith
         request:
             id: 1
-            text: Operator, the Imperial Suite, please.
             operator: internal-greeting
+            text: Operator, the Imperial Suite, please.
         conversation:
             -   id: 2
                 called: Hello?
@@ -3635,8 +3635,8 @@ scenes:
             person: valet
         request:
             id: 1
-            text: Operator, the man who does the cars, please.
             operator: internal-greeting
+            text: Operator, the man who does the cars, please.
         conversation:
             -   id: 2
                 called: Valet.
@@ -3661,24 +3661,24 @@ scenes:
             person: vance
         request:
             id: 1
-            text: Operator, honey? Would you give me a wake-up call?
             operator: internal-greeting
+            text: Operator, honey? Would you give me a wake-up call?
         conversation:
             -   id: 2
-                caller: Four o'clock.
                 operator:
                     id: 5
                     text: Certainly, Miss Vance. What time?
+                caller: Four o'clock.
             -   id: 3
-                caller: In the afternoon, sugar. Nobody in my line of work sees four in the morning from this side.
                 operator:
                     id: 6
                     text: Four in the morning?
+                caller: In the afternoon, sugar. Nobody in my line of work sees four in the morning from this side.
             -   id: 4
-                caller: And ring it soft. I've got a headache you could park a car in.
                 operator:
                     id: 7
                     text: Four in the afternoon. I'll ring you then.
+                caller: And ring it soft. I've got a headache you could park a car in.
         closing:
             id: 8
             text: Soft as a whisper, Miss Vance.
@@ -3693,8 +3693,8 @@ scenes:
             person: waiter
         request:
             id: 1
-            text: Room service, sweetie.
             operator: internal-greeting
+            text: Room service, sweetie.
         conversation:
             -   id: 2
                 called: Room service.
@@ -3721,8 +3721,8 @@ scenes:
             person: pigalle
         request:
             id: 1
-            text: Operator, get me Plass Peegalle, would you, doll?
             operator: internal-greeting
+            text: Operator, get me Plass Peegalle, would you, doll?
         conversation:
             -   id: 2
                 called: Place Pigalle, bonsoir.
@@ -3749,8 +3749,8 @@ scenes:
             person: vance
         request:
             id: 1
-            text: Harbor Florist calling. Room 201, please. Miss Lorraine Vance.
             operator: outside-greeting
+            text: Harbor Florist calling. Room 201, please. Miss Lorraine Vance.
         conversation:
             -   id: 2
                 called: Mm. Hello?
@@ -3777,8 +3777,8 @@ scenes:
             person: vance
         request:
             id: 1
-            text: Operator, could you ring Miss Lorraine Vance? I sent her the roses.
             operator: internal-greeting
+            text: Operator, could you ring Miss Lorraine Vance? I sent her the roses.
         conversation:
             -   id: 2
                 called: Hello?
@@ -3805,8 +3805,8 @@ scenes:
             person: bellcaptain
         request:
             id: 1
-            text: Operator, the bell captain, and step on it, will ya?
             operator: internal-greeting
+            text: Operator, the bell captain, and step on it, will ya?
         conversation:
             -   id: 2
                 called: Bell captain.
@@ -3833,8 +3833,8 @@ scenes:
             person: concierge
         request:
             id: 1
-            text: The concierge, sugar.
             operator: internal-greeting
+            text: The concierge, sugar.
         conversation:
             -   id: 2
                 called: Concierge, Fairweather.
@@ -3861,8 +3861,8 @@ scenes:
             person: vance
         request:
             id: 1
-            text: Operator, 201, please.
             operator: internal-greeting
+            text: Operator, 201, please.
         conversation:
             -   id: 2
                 called: Whoever this is, it had better be good.
@@ -3888,8 +3888,8 @@ scenes:
             person: waiter
         request:
             id: 1
-            text: Operator, room service, if you please.
             operator: internal-greeting
+            text: Operator, room service, if you please.
         conversation:
             -   id: 2
                 called: Room service.
@@ -3917,17 +3917,17 @@ scenes:
             busy: true
         request:
             id: 1
-            text: Operator, the Seattle Times. I wish to write a letter to the editor, by telephone.
             operator: internal-greeting
+            text: Operator, the Seattle Times. I wish to write a letter to the editor, by telephone.
         conversation:
             -   id: 2
-                caller: Busy? A newspaper, busy? What on earth are they doing that is more important than my letter?
                 operator: busy
+                caller: Busy? A newspaper, busy? What on earth are they doing that is more important than my letter?
             -   id: 3
-                caller: Try them again in ten minutes. And tell them the Colonel is displeased.
                 operator:
                     id: 4
                     text: I couldn't say, Colonel. Shall I try them again?
+                caller: Try them again in ten minutes. And tell them the Colonel is displeased.
         closing:
             id: 5
             text: I'll ring you when I have them, Colonel.
@@ -3939,24 +3939,24 @@ scenes:
             person: beaumont
         request:
             id: 1
-            text: Operator, I require waking at oh five hundred.
             operator: internal-greeting
+            text: Operator, I require waking at oh five hundred.
         conversation:
             -   id: 2
-                caller: That's five in the morning, young lady. Military time.
                 operator:
                     id: 5
                     text: Oh five hundred, sir?
+                caller: That's five in the morning, young lady. Military time.
             -   id: 3
-                caller: And if you'd be so kind, hum a few bars of reveille when I answer. It's how I was raised.
                 operator:
                     id: 6
                     text: Five in the morning, Colonel. I'll ring you then.
+                caller: And if you'd be so kind, hum a few bars of reveille when I answer. It's how I was raised.
             -   id: 4
-                caller: Splendid. Carry on.
                 operator:
                     id: 7
                     text: I'll do my best, Colonel.
+                caller: Splendid. Carry on.
         closing:
             id: 8
             text: Good night, Colonel.
@@ -3971,8 +3971,8 @@ scenes:
             person: beaumont
         request:
             id: 1
-            text: Operator, ring 205, would you?
             operator: internal-greeting
+            text: Operator, ring 205, would you?
         conversation:
             -   id: 2
                 called: Beaumont here.
@@ -3999,8 +3999,8 @@ scenes:
             person: pigalle
         request:
             id: 1
-            text: Operator, connect me with Place Pigalle, the French establishment.
             operator: internal-greeting
+            text: Operator, connect me with Place Pigalle, the French establishment.
         conversation:
             -   id: 2
                 called: Place Pigalle, bonsoir.
@@ -4029,8 +4029,8 @@ scenes:
             person: pemberton
         request:
             id: 1
-            text: Operator, ring room 102 for me, please. Mrs. Pemberton.
             operator: internal-greeting
+            text: Operator, ring room 102 for me, please. Mrs. Pemberton.
         conversation:
             -   id: 2
                 called: Yes? Who is it?
@@ -4059,16 +4059,16 @@ scenes:
             person: local_operator
         request:
             id: 1
-            text: Operator, get me long distance, if you please. Savannah, Georgia.
             operator: internal-greeting
+            text: Operator, get me long distance, if you please. Savannah, Georgia.
         conversation:
             -   id: 2
                 called: Operator.
             -   id: 3
+                operator: long-distance-please
                 called: Long distance.
                 person: operator
                 wait: true
-                operator: long-distance-please
             -   id: 4
                 caller: Savannah, Georgia. Miss Lucinda Beaumont. Adams 2-3100. Person to person.
             -   id: 12
@@ -4152,8 +4152,8 @@ scenes:
             person: operator
         request:
             id: 1
-            text: Hotel Ballard? Long distance. Time and charges on room 205. Savannah, Georgia. Six minutes. Three dollars and forty cents.
             operator: outside-greeting
+            text: Hotel Ballard? Long distance. Time and charges on room 205. Savannah, Georgia. Six minutes. Three dollars and forty cents.
         closing:
             id: 2
             text: Room 205, six minutes, three dollars and... Hello? Operator?
@@ -4168,8 +4168,8 @@ scenes:
             person: beaumont
         request:
             id: 1
-            text: Operator, room 205, please.
             operator: internal-greeting
+            text: Operator, room 205, please.
         conversation:
             -   id: 2
                 called: Beaumont.
@@ -4195,8 +4195,8 @@ scenes:
             person: telegraph_clerk
         request:
             id: 1
-            text: Operator, Western Union, please. I need to send a telegram.
             operator: internal-greeting
+            text: Operator, Western Union, please. I need to send a telegram.
         conversation:
             -   id: 2
                 called: Western Union.
@@ -4225,8 +4225,8 @@ scenes:
             person: finch
         request:
             id: 1
-            text: Western Union. I have a telegram to read to Mr. Howard Finch, room 303.
             operator: outside-greeting
+            text: Western Union. I have a telegram to read to Mr. Howard Finch, room 303.
         conversation:
             -   id: 2
                 called: Finch here.
@@ -4251,8 +4251,8 @@ scenes:
             person: pharmacist
         request:
             id: 1
-            text: Operator, a drugstore. Any drugstore. The nearest one.
             operator: internal-greeting
+            text: Operator, a drugstore. Any drugstore. The nearest one.
         conversation:
             -   id: 2
                 called: Ballard Pharmacy.
@@ -4281,8 +4281,8 @@ scenes:
             person: desk_clerk
         request:
             id: 1
-            text: The front desk, please. It's an emergency.
             operator: internal-greeting
+            text: The front desk, please. It's an emergency.
         conversation:
             -   id: 2
                 called: Front desk.
@@ -4311,16 +4311,16 @@ scenes:
             person: local_operator
         request:
             id: 1
-            text: Operator, I'd like to call my wife in Walla Walla. I suppose that's long distance.
             operator: internal-greeting
+            text: Operator, I'd like to call my wife in Walla Walla. I suppose that's long distance.
         conversation:
             -   id: 2
                 called: Operator.
             -   id: 3
+                operator: long-distance-please
                 called: Long distance.
                 person: operator
                 wait: true
-                operator: long-distance-please
             -   id: 4
                 caller: Walla Walla, please. Mrs. Edna Finch. The number is 6-2214. Station to station.
             -   id: 11
@@ -4391,8 +4391,8 @@ scenes:
             person: operator
         request:
             id: 1
-            text: Hotel Ballard? Long distance. Time and charges on room 303. Walla Walla. Three minutes. Ninety-five cents.
             operator: outside-greeting
+            text: Hotel Ballard? Long distance. Time and charges on room 303. Walla Walla. Three minutes. Ninety-five cents.
         closing:
             id: 2
             text: Ninety-five cents, room 303. Got it.
@@ -4407,8 +4407,8 @@ scenes:
             person: hollis
         request:
             id: 1
-            text: Operator, I heard there's a doctor staying in the hotel. Could you ring his room?
             operator: internal-greeting
+            text: Operator, I heard there's a doctor staying in the hotel. Could you ring his room?
         conversation:
             -   id: 2
                 called: Hollis.
@@ -4432,24 +4432,24 @@ scenes:
             person: finch
         request:
             id: 1
-            text: Operator? Could you tell me which room the Rotary luncheon is in?
             operator: internal-greeting
+            text: Operator? Could you tell me which room the Rotary luncheon is in?
         conversation:
             -   id: 2
-                caller: The Stoneburner? That's the restaurant? Oh. I walked past it three times.
                 operator:
                     id: 5
                     text: The Rotary luncheon is in the Stoneburner, sir, just off the lobby.
+                caller: The Stoneburner? That's the restaurant? Oh. I walked past it three times.
             -   id: 3
-                caller: And is it drafty in there? I have a delicate chest.
                 operator:
                     id: 6
                     text: Yes, sir, the hotel restaurant. Right past the front desk.
+                caller: And is it drafty in there? I have a delicate chest.
             -   id: 4
-                caller: Thank you. You've been very kind. Much kinder than my doctor.
                 operator:
                     id: 7
                     text: Not at all, sir. It's very warm and cozy.
+                caller: Thank you. You've been very kind. Much kinder than my doctor.
         closing:
             id: 8
             text: Enjoy your luncheon, Mr. Finch.
