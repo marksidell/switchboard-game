@@ -11,7 +11,10 @@ Three shapes of task run under it:
   `_scheduler`   one, for the life of the program: starts a call when the
                  automatic gap has elapsed (§4.2).
   a flow task    one per call in progress, cancelled by Stop.
-  an after timer one per waiting `after:` scene, cancelled by Stop (§4.4).
+  an after timer one per waiting `after:` scene, cancelled by Stop (§4.4):
+                 from the end of the scene it follows, or for `mode:
+                 concurrent` from its start, which is how a scenario puts
+                 its calls on the board almost together (§4.10).
   a tutor task   in tutor mode (§4.9), the introduction after Start, or the
                  end of a call: her line, then the wait for the cords out.
                  While it runs no call is dealt.
@@ -87,6 +90,8 @@ class Game:
         self._decks_recorded = 0        # how many of deck.orders are in SQLite
         self.diag: Diagnostics | None = None
         self.queued = ""                # the chosen next scene (§4.8)
+        self._scenarios_dealt: set[str] = set()   # once a game each (§4.10)
+        self._delays = random.Random()  # drawn `delay` ranges, from the seed (§4.4)
         # Tutor mode (§4.9), the pacing `tutor` since Rev 32: `tutor` is her,
         # while a game runs in it.
         self.tutor: Tutor | None = None
@@ -137,7 +142,7 @@ class Game:
             await link.state(f"board/{j.kind}/{j.number}/label", j.label)
             await link.state(f"board/{j.kind}/{j.number}/circuit", j.circuit)
         # §4.8, §6.5, §7.5 (Rev 25).
-        await link.state("game/scenes", "\n".join(self.gs.deck_scenes()))
+        await link.state("game/scenes", "\n".join(self.gs.choosable()))
         await link.state("game/queue", self.queued)
         await link.state("game/tutor/intro", "")
         self._waiting_for = ""
@@ -198,7 +203,7 @@ class Game:
                 return
 
             if name == "queue":
-                if payload and payload not in self.gs.deck_scenes():
+                if payload and payload not in self.gs.choosable():
                     await self._error(f"queue: {payload!r} is not a scene that can be dealt")
                     return
                 self.queued = payload
@@ -360,6 +365,8 @@ class Game:
         self.pacing.gap = self.cfg.gap              # the gap returns to configured (§3)
         self.deck = Deck(self.gs)
         self.pacing.seed(self.deck.seed)
+        self._delays = random.Random(f"delays {self.deck.seed}")
+        self._scenarios_dealt = set()
         await self.session.start_game(self.deck.seed, self.pacing.pace,
                                       self.pacing.gap, self.pacing.ramp,
                                       self.pacing.floor, self.pacing.jitter,
@@ -454,6 +461,16 @@ class Game:
         assert self.slots is not None
         return any(not c.connected for c in self.slots)
 
+    def _scenario_on_board(self) -> bool:
+        """Any call of a scenario in progress, or any of its scenes waiting (§4.10)."""
+        assert self.slots is not None
+        return (any(self.gs.in_scenario(c.scene) for c in self.slots)
+                or any(self.gs.in_scenario(i) for i in self._pending_after))
+
+    def _scenario_allowed(self) -> bool:
+        """A scenario is never dealt in tutor mode or listen (§4.10)."""
+        return self.tutor is None and self.pacing.pace in ("manual", "auto")
+
     def _idle(self) -> bool:
         """Whether the automatic schedule may run now (§4.2).
 
@@ -469,7 +486,8 @@ class Game:
                     and self._tutor_task is None)
         if self.pacing.pace == "listen":
             return not any(True for _ in self.slots) and not self._pending_after
-        return not self._waiting_to_connect()
+        # §4.10: a scenario on the board holds the schedule until it is over.
+        return not self._waiting_to_connect() and not self._scenario_on_board()
 
     async def _reschedule(self) -> None:
         """Schedule the next call if the board is idle for the pace, else clear it."""
@@ -512,14 +530,29 @@ class Game:
             return
 
         if scene is None and self.queued:
-            # §4.8: the chosen scene, if its lines and people are free.
+            # §4.8: the chosen scene, if its lines and people are free. A
+            # scenario chosen in tutor or listen waits for another pacing.
             q = self.gs.scenes.get(self.queued)
-            if q is not None and self.deck.take(q, self._held()):
+            if (q is not None and (q.after_handled is None or self._scenario_allowed())
+                    and self.deck.take(q, self._held())):
                 scene = q
                 self.queued = ""
                 assert self.link is not None
                 await self.link.state("game/queue", "")
                 await self._say(f"chosen scene {q.id} dealt")
+                if q.after_handled is not None:
+                    self._scenarios_dealt.add(q.id)
+        if scene is None and self._scenario_allowed():
+            # §4.10: a scenario, once enough calls have been handled.
+            for q in self.gs.scenarios():
+                if (q.id not in self._scenarios_dealt
+                        and self.tallies.handled >= (q.after_handled or 0)
+                        and self.deck.take(q, self._held())):
+                    scene = q
+                    self._scenarios_dealt.add(q.id)
+                    await self._say(f"scenario {q.id} dealt, after "
+                                    f"{self.tallies.handled} calls handled")
+                    break
         if scene is None and self.tutor is not None and self._lessons:
             # §4.9, Rev 30: the next lesson, taken out of the deck as a
             # chosen scene is (§4.8).
@@ -574,6 +607,11 @@ class Game:
 
         self._flows[slot] = asyncio.create_task(
             self._run_call(call, scene, trunk), name=f"call-{call.number}")
+
+        # §4.4, Rev 39: a `mode: concurrent` follower is timed from this start.
+        for follower in self.gs.followers(scene.id):
+            if follower.concurrent:
+                self._schedule_after(follower)
 
     async def _run_call(self, call: Call, scene: SceneDef, trunk: int | None) -> None:
         assert self.slots is not None and self.hw is not None
@@ -641,7 +679,10 @@ class Game:
                 self._tutor_hangup(call, scene), name=f"tutor-hangup-{call.number}")
 
         # §4.4: an `after:` scene follows only if this call was connected.
+        # A concurrent one was scheduled when this call started.
         for follower in self.gs.followers(scene.id):
+            if follower.concurrent:
+                continue
             if call.connected:
                 self._schedule_after(follower)
             else:
@@ -743,26 +784,33 @@ class Game:
     # ---- `after:` scenes (§4.4) -----------------------------------------
 
     def _schedule_after(self, scene: SceneDef) -> None:
-        people = frozenset(p for p in self.gs.people[scene.id] if p)
-        self._pending_after[scene.id] = Holding(frozenset(scene.lines), people)
+        self._pending_after[scene.id] = Holding(frozenset(scene.needs),
+                                                self.gs.needs_people(scene.id))
+        delay = scene.delay
+        if scene.delay_max > scene.delay:           # a range (§4.4, Rev 39)
+            delay = self._delays.uniform(scene.delay, scene.delay_max)
         self._afters[scene.id] = asyncio.create_task(
-            self._after_timer(scene), name=f"after-{scene.id}")
+            self._after_timer(scene, delay), name=f"after-{scene.id}")
 
-    async def _after_timer(self, scene: SceneDef) -> None:
+    async def _after_timer(self, scene: SceneDef, delay: float) -> None:
         try:
-            at = time.time() + scene.delay
-            await self._say(f"{scene.id} follows in {scene.delay:g}s, at "
+            at = time.time() + delay
+            secs = f"{delay:g}" if delay == scene.delay else f"{delay:.1f}"
+            await self._say(f"{scene.id} follows in {secs}s, at "
                             f"{time.strftime('%H:%M:%S', time.localtime(at))}")
-            await asyncio.sleep(scene.delay)
+            await asyncio.sleep(delay)
             # Its lines may still be busy in another call: wait for them (§4.4).
+            # A concurrent one waits for a free slot too, rather than being lost.
             while self.running:
                 mine = self._pending_after.get(scene.id)
                 others = [h for h in self._held() if h is not mine]
-                lines, people = set(scene.lines), {p for p in self.gs.people[scene.id] if p}
+                lines, people = set(scene.needs), set(self.gs.needs_people(scene.id))
                 tutor_busy = self.tutor is not None and (
                     self._tutor_task is not None or any(True for _ in self.slots or ()))
-                if not tutor_busy and not any(lines & h.lines or people & h.people
-                                              for h in others):
+                full = (scene.concurrent and self.slots is not None
+                        and self.slots.free_slot() is None)
+                if not tutor_busy and not full and not any(
+                        lines & h.lines or people & h.people for h in others):
                     break
                 await asyncio.sleep(0.5)
             self._pending_after.pop(scene.id, None)

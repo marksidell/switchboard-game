@@ -84,6 +84,10 @@
 #     busy: true under called means the operator hears busy tone when dialing.
 #     The conversation then holds only caller lines, played after the operator
 #     goes back to the caller and tells them.
+#     if_busy: on a call from a room to a room is a list of caller lines for
+#     when the called station is already on another call: each plays after
+#     the operator has spoken, and the caller hangs up (game_control.md 4.11).
+#     Otherwise the call goes through and they are not heard.
 #
 # Order:
 #     Scenes are drawn at random. A scene with after: is never drawn. It starts
@@ -93,6 +97,17 @@
 #     calls straight back, delay is also how long they stay on-hook.
 #     A scene with after: can itself be followed, so a story can run to any
 #     number of calls. Each scene has at most one follower.
+#     mode: concurrent on an after: scene starts it delay seconds after the
+#     named scene *starts*, connected or not, so calls arrive almost together
+#     (game_control.md 4.4, Rev 39). delay may be a range, [2, 5], drawn at
+#     random. A concurrent scene waits for a free call slot rather than
+#     being dropped.
+#
+# A scenario (game_control.md 4.10):
+#     after_handled: <n> on a scene with no after: keeps it out of the deck.
+#     It is dealt once a game, as the next call once n calls have been
+#     handled, never in tutor or listen pacing; its concurrent followers are
+#     the rest of the scenario.
 #
 # Active:
 #     Every scene says active: true or active: false. The game plays only
@@ -346,6 +361,15 @@ cast:
         sex: female
         accent: generic American, bright and professional
         description: hostess at the Stoneburner, the hotel restaurant
+    # Martha loose in the hotel (scene panic), 2026-10-14.
+    restaurant_waiter:
+        sex: male
+        accent: faintly continental, a head waiter's dignity
+        description: Anton, a waiter in the Stoneburner, the hotel restaurant
+    elevator_operator:
+        sex: male
+        accent: generic American, an older man, easygoing
+        description: Floyd, who runs the hotel's elevator
 
     # Outside, added 2026-09-28.
     pigalle:
@@ -455,6 +479,9 @@ operator_lines:
     busy:
         id: 4
         text: I'm sorry, that line is busy.
+    desk-busy:
+        id: 5
+        text: I'm sorry, the front desk is busy just now. Please try again in a few minutes.
 
 # What the tutor says (game_control.md 4.9). Tutor mode is switched on from
 # the Stream Deck; the tutor speaks on the loudspeaker at each step of a call
@@ -3101,6 +3128,415 @@ scenes:
                 called: Tell her she can come in. I'll only bite the mailman. And I've never caught him.
             -   id: 7
                 caller: Yes, ma'am. I'll tell her.
+
+    # Martha loose in the hotel (game_control.md 4.10, Rev 39): Beth's story,
+    # Remco's board lit up like a Christmas tree. panic is dealt once, after
+    # the tenth call handled; each scene after it starts two to five seconds
+    # after the one before has started, so the calls arrive almost together.
+    # Every guest room but Martha's calls, and the lobby and the restaurant.
+    # The calls to the front desk carry if_busy: (4.11): while the desk is on
+    # another call, the operator tells the guest to try again later.
+    panic:
+        active: false
+        after_handled: 10
+        calling:
+            line: imperialsuite
+            person: marysmith
+        request:
+            id: 1
+            text: Operator? Something has eaten my breakfast. The whole tray, right outside my door. Even the marmalade.
+            operator: internal-greeting
+        conversation:
+            -   id: 2
+                caller: A dog? How marvellous. Then do send up another. And something for the dog.
+                operator:
+                    id: 3
+                    text: I'm so sorry, Miss Smith. I'm afraid it was a dog.
+
+    panic-hollis:
+        active: false
+        after: panic
+        mode: concurrent
+        delay: [2, 5]
+        calling:
+            line: room101
+            person: hollis
+        called:
+            line: frontdesk
+            person: desk_clerk
+        request:
+            id: 1
+            text: The front desk, please. At once.
+            operator: internal-greeting
+        conversation:
+            -   id: 2
+                called: Front desk.
+            -   id: 3
+                caller: This is Dr. Hollis in 101. A large dog came through my door and took my slipper. My left slipper.
+            -   id: 4
+                called: Your door was open, Doctor?
+            -   id: 5
+                caller: Ajar. An inch. She went through it like a surgeon. I want that slipper back.
+            -   id: 6
+                called: We'll find it, Doctor. Probably under a bed on the first floor.
+        if_busy:
+            -   id: 7
+                caller: Busy? Then tell them a dog has my slipper, and I am standing here in one.
+                operator: desk-busy
+
+    panic-dobbs:
+        active: false
+        after: panic-hollis
+        mode: concurrent
+        delay: [2, 5]
+        calling:
+            line: room105
+            person: dobbs
+        request:
+            id: 1
+            text: Operator, there's a dog running up and down this hall barking her head off. Is that the hotel's dog?
+            operator: internal-greeting
+        conversation:
+            -   id: 2
+                caller: Well, back home in Wahoo she'd be out herding cattle. Tell her I said good morning.
+                operator:
+                    id: 3
+                    text: She belongs to a guest, Mr. Dobbs. Someone is on the way to catch her.
+
+    panic-vance:
+        active: false
+        after: panic-dobbs
+        mode: concurrent
+        delay: [2, 5]
+        calling:
+            line: room201
+            person: vance
+        called:
+            line: frontdesk
+            person: desk_clerk
+        request:
+            id: 1
+            text: Get me the front desk, honey. And don't dawdle.
+            operator: internal-greeting
+        conversation:
+            -   id: 2
+                called: Front desk.
+            -   id: 3
+                caller: This is Lorraine Vance in 201. Something is barking outside my door, and it is not yet noon.
+            -   id: 4
+                called: I'm terribly sorry, Miss Vance. It's a dog. We're trying to catch her.
+            -   id: 5
+                caller: Well, catch her quietly. I sang till two this morning.
+        if_busy:
+            -   id: 6
+                caller: Busy. Everybody's up but me. Wake me when they catch it.
+                operator: desk-busy
+
+    panic-pike:
+        active: false
+        after: panic-vance
+        mode: concurrent
+        delay: [2, 5]
+        calling:
+            line: room204
+            person: pike
+        called:
+            line: frontdesk
+            person: desk_clerk
+        request:
+            id: 1
+            text: Front desk, operator. It's an emergency.
+            operator: internal-greeting
+        conversation:
+            -   id: 2
+                called: Front desk.
+            -   id: 3
+                caller: Harold Pike, 204. I was demonstrating the Whirlwind in the hall and a dog attacked it.
+            -   id: 4
+                called: Attacked your vacuum cleaner, Mr. Pike?
+            -   id: 5
+                caller: She's got it by the hose. She thinks it's a snake. That's my sample machine!
+            -   id: 6
+                called: I'll send the bellboy, sir. Don't pull on the hose.
+        if_busy:
+            -   id: 7
+                caller: Busy! I'll lose the whole Seattle territory over this.
+                operator: desk-busy
+
+    panic-beaumont:
+        active: false
+        after: panic-pike
+        mode: concurrent
+        delay: [2, 5]
+        calling:
+            line: room205
+            person: beaumont
+        request:
+            id: 1
+            text: Operator, a hound has seized my morning paper from the mat and retreated down the hall with it.
+            operator: internal-greeting
+        conversation:
+            -   id: 2
+                caller: Please do. And tell the dog she has the makings of a fine cavalry scout.
+                operator:
+                    id: 3
+                    text: I'm so sorry, Colonel. Shall I have the desk send up another paper?
+
+    panic-pemberton:
+        active: false
+        after: panic-beaumont
+        mode: concurrent
+        delay: [2, 5]
+        calling:
+            line: room102
+            person: pemberton
+        called:
+            line: frontdesk
+            person: desk_clerk
+        request:
+            id: 1
+            text: Operator, the front desk. Immediately.
+            operator: internal-greeting
+        conversation:
+            -   id: 2
+                called: Front desk.
+            -   id: 3
+                caller: This is Mrs. Pemberton in 102. There is a dog outside my door, and she is staring at my parrot.
+            -   id: 4
+                called: Your parrot, Mrs. Pemberton?
+            -   id: 5
+                caller: Reginald. He has pulled out two feathers and he will only say "bad dog". He used to sing.
+            -   id: 6
+                called: I'll have the dog taken away at once, ma'am.
+            -   id: 7
+                caller: And a blanket for Reginald's cage. He needs to lie down.
+        if_busy:
+            -   id: 8
+                caller: Busy! My parrot is having a nervous collapse and the front desk is busy.
+                operator: desk-busy
+
+    panic-albright:
+        active: false
+        after: panic-pemberton
+        mode: concurrent
+        delay: [2, 5]
+        calling:
+            line: room302
+            person: albright
+        called:
+            line: frontdesk
+            person: desk_clerk
+        request:
+            id: 1
+            text: The front desk, please, dear.
+            operator: internal-greeting
+        conversation:
+            -   id: 2
+                called: Front desk.
+            -   id: 3
+                caller: This is Mrs. Albright, 302. I left my knitting on the chair in the hall, and a dog has run off with the yarn.
+            -   id: 4
+                called: Oh dear. Which way did she go, ma'am?
+            -   id: 5
+                caller: Everywhere. Just follow the blue wool. It goes down the stairs.
+        if_busy:
+            -   id: 6
+                caller: Never mind, dear. I'll follow the wool myself.
+                operator: desk-busy
+
+    panic-finch:
+        active: false
+        after: panic-albright
+        mode: concurrent
+        delay: [2, 5]
+        calling:
+            line: room303
+            person: finch
+        request:
+            id: 1
+            text: Operator? A dog just licked my hand. All over. Is a dog's tongue clean?
+            operator: internal-greeting
+        conversation:
+            -   id: 2
+                caller: Cleaner than mine. I don't know if that makes me feel better or worse. Thank you.
+                operator:
+                    id: 3
+                    text: I believe they say it's cleaner than ours, Mr. Finch. Wash your hands and you'll be fine.
+
+    panic-hale:
+        active: false
+        after: panic-finch
+        mode: concurrent
+        delay: [2, 5]
+        calling:
+            line: room305
+            person: hale
+        called:
+            line: frontdesk
+            person: desk_clerk
+        request:
+            id: 1
+            text: Could you put me through to the front desk?
+            operator: internal-greeting
+        conversation:
+            -   id: 2
+                called: Front desk.
+            -   id: 3
+                caller: This is Mrs. Hale in 305. Jim put his shoes out to be shined, and a dog took one.
+            -   id: 4
+                called: Just the one, Mrs. Hale?
+            -   id: 5
+                caller: Just the one. And they're his wedding shoes. He's out in the hall in his socks, calling her.
+            -   id: 6
+                called: Tell him to stay put, ma'am. We'll bring it up.
+        if_busy:
+            -   id: 7
+                caller: Busy? Well, Jim's gone after her in his socks anyway.
+                operator: desk-busy
+
+    panic-lindqvist:
+        active: false
+        after: panic-hale
+        mode: concurrent
+        delay: [2, 5]
+        calling:
+            line: room401
+            person: lindqvist
+        request:
+            id: 1
+            text: Operator. I had a side of smoked salmon on the window ledge. Now I have a dog.
+            operator: internal-greeting
+        conversation:
+            -   id: 2
+                caller: She's welcome to it. Best salmon in Ballard. But send someone for the dog.
+                operator:
+                    id: 3
+                    text: Oh, Mr. Lindqvist, I'm so sorry. That's Martha. She belongs to one of our guests.
+
+    panic-thornhill:
+        active: false
+        after: panic-lindqvist
+        mode: concurrent
+        delay: [2, 5]
+        calling:
+            line: room403
+            person: thornhill
+        called:
+            line: frontdesk
+            person: desk_clerk
+        request:
+            id: 1
+            text: Get me the front desk, will you?
+            operator: internal-greeting
+        conversation:
+            -   id: 2
+                called: Front desk.
+            -   id: 3
+                caller: Thornhill, 403. I've just been chased the length of the fourth floor by a dog.
+            -   id: 4
+                called: I'm terribly sorry, Mr. Thornhill. She's quite friendly.
+            -   id: 5
+                caller: Friendly. I've been chased by friendlier things than that. Across a cornfield.
+        if_busy:
+            -   id: 6
+                caller: Busy. Of course it's busy. Never mind, I'll lock the door.
+                operator: desk-busy
+
+    panic-crane:
+        active: false
+        after: panic-thornhill
+        mode: concurrent
+        delay: [2, 5]
+        calling:
+            line: room404
+            person: crane
+        request:
+            id: 1
+            text: Operator, a dog has just eaten the compositions I was marking. Thirty of them.
+            operator: internal-greeting
+        conversation:
+            -   id: 2
+                caller: Thank you. Now I shall have to tell thirty children that the dog ate their homework. And they will never believe me.
+                operator:
+                    id: 3
+                    text: Oh no, Miss Crane. I'll ask the desk to send someone for the dog.
+
+    panic-lobby:
+        active: false
+        after: panic-crane
+        mode: concurrent
+        delay: [2, 5]
+        calling:
+            line: lobby
+            person: elevator_operator
+        request:
+            id: 1
+            text: Operator, this is Floyd on the elevator. There's a big dog riding up and down with me, and she licks every guest that gets on.
+            operator: internal-greeting
+        conversation:
+            -   id: 2
+                caller: I'll try. She likes it in here. A lady from the third floor just got licked twice, going up and coming down. She says she'll take the stairs.
+                operator:
+                    id: 3
+                    text: Can you keep her in the car, Floyd? Someone's coming down for her.
+
+    panic-restaurant:
+        active: false
+        after: panic-lobby
+        mode: concurrent
+        delay: [2, 5]
+        calling:
+            line: restaurant
+            person: restaurant_waiter
+        called:
+            line: frontdesk
+            person: desk_clerk
+        request:
+            id: 1
+            text: The front desk, please. This is the Stoneburner.
+            operator: internal-greeting
+        conversation:
+            -   id: 2
+                called: Front desk.
+            -   id: 3
+                caller: This is Anton in the dining room. There is a dog going from table to table, sitting up and begging.
+            -   id: 4
+                called: Is she bothering the guests?
+            -   id: 5
+                caller: No, they are feeding her. Table six has given her a pork chop. Table nine is sharing their lobster.
+            -   id: 6
+                called: Don't let them give her any more. Someone will be right down.
+        if_busy:
+            -   id: 7
+                caller: Busy. Then I will go and save the lobster myself.
+                operator: desk-busy
+
+    panic-martha:
+        active: false
+        after: panic-restaurant
+        mode: concurrent
+        delay: [2, 5]
+        calling:
+            line: room103
+            person: martha
+        request:
+            id: 1
+            text: Operator! Operator! Somebody is chasing me with a broom!
+            operator: internal-greeting
+        conversation:
+            -   id: 2
+                caller: Mrs. Olsen. She says I am a bad dog. I am not a bad dog. I am a busy dog.
+                operator:
+                    id: 4
+                    text: Martha? Who is chasing you?
+            -   id: 3
+                caller: Under the bed. With a slipper, and a shoe, and the newspaper. Do not tell her.
+                operator:
+                    id: 5
+                    text: Oh dear. Where are you hiding?
+        closing:
+            id: 6
+            text: I won't tell a soul, Martha.
 
     # Mary Smith, who is being given everything.
     marysmith-coffee:

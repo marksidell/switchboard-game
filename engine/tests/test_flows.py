@@ -358,6 +358,38 @@ async def main() -> int:
     check(("trunk/3/ring/set", "on") not in h.link.sent, "and never with the cadence")
     check(("trunk/3/ring/set", "off") in h.link.sent, "stopped ringing the trunk")
 
+    print("\n== if_busy: the called station engaged when the request ends (§4.11, Rev 39)")
+    h = Harness(scene(Shape.STATION_TO_STATION, if_busy=(speech("t.9", "caller"),)))
+    await h.b.update("station/2/hook", "on")         # the front desk is on another call
+    r = await h.run(station_to_station, speaks_when_asked)
+    check(r.ok, "succeeds")
+    check(h.connected, "connected when found engaged (§4.3)")
+    check(h.stages == [Stage.SIGNALLING, Stage.REQUEST, Stage.ROUTING, Stage.BUSY],
+          f"stages {h.stages}")
+    check(("station/12/play/set", "t.9") in h.link.sent, "played the if_busy: line")
+    check(not any(k == "station/2/hook/set" for k, _ in h.link.sent),
+          "left the engaged station to its own call")
+    check(any("is engaged" in e for e in h.events), f"logged it: {h.events}")
+
+    print("\n== if_busy: engaged while she routes")
+    h = Harness(scene(Shape.STATION_TO_STATION, if_busy=(speech("t.9", "caller"),)))
+    async def routes_slowly(hh):
+        await answers(hh, "station/12")
+        await request_heard(hh, "station/12")
+        await asyncio.sleep(D * 4)
+        await hh.b.update("station/2/hook", "on")    # another call takes it first
+        await asyncio.sleep(60)
+    r = await h.run(station_to_station, routes_slowly)
+    check(r.ok and Stage.BUSY in h.stages, f"found engaged: {r.reason!r} {h.stages}")
+
+    print("\n== if_busy: the station free, the call goes through as usual")
+    h = Harness(scene(Shape.STATION_TO_STATION, if_busy=(speech("t.9", "caller"),)))
+    r = await h.run(station_to_station, good_station_operator)
+    check(r.ok and Stage.TALKING in h.stages and Stage.BUSY not in h.stages,
+          f"talked: {h.stages}")
+    check(("station/12/play/set", "t.9") not in h.link.sent, "and no if_busy: line")
+    check(("station/2/hook/set", "off") in h.link.sent, "hung the called station up")
+
     print("\n" + ("FAILURES" if failures else "all flows passed"))
     return 1 if failures else 0
 

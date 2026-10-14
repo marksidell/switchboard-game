@@ -325,12 +325,60 @@ async def _converse(ctx: Ctx, caller: str, called: str) -> None:
         await _play(ctx, where, line, broken)
 
 
+def _engaged(n: int):
+    """Station n off-hook in another call: calling, or answered (§4.11)."""
+    return lambda b: b.on(f"station/{n}/hook")
+
+
+async def _route_unless_engaged(ctx: Ctx, want: int, deadline: float) -> bool:
+    """Wait for the operator to ring `want`, as _wait_for_right_station does,
+    unless the scene has if_busy: and the station is found engaged first.
+    True if it is engaged (§4.11). Raises TimeoutError if neither happens."""
+    if not ctx.scene.if_busy:
+        await _wait_for_right_station(ctx, want, deadline)
+        return False
+    engaged = _engaged(want)
+    if engaged(ctx.b):
+        return True
+    route = asyncio.create_task(_wait_for_right_station(ctx, want, deadline))
+    found = asyncio.create_task(ctx.b.wait_until(engaged, ctx.left(deadline)))
+    try:
+        await asyncio.wait({route, found}, return_when=asyncio.FIRST_COMPLETED)
+    finally:
+        for t in (route, found):
+            if not t.done():
+                t.cancel()
+        await asyncio.gather(route, found, return_exceptions=True)
+    if route.done() and not route.cancelled() and route.exception() is None:
+        return engaged(ctx.b)       # rung, but taken meanwhile: still engaged
+    if found.done() and not found.cancelled() and found.exception() is None:
+        return True
+    raise TimeoutError
+
+
+async def _found_engaged(ctx: Ctx, caller: str, gone) -> Outcome:
+    """The called station is engaged: she tells the caller, who replies with
+    the if_busy: lines, each after she has spoken (§4.11)."""
+    ctx.say_event(f"{ctx.scene.to_line} is engaged")
+    await ctx.slots.set_stage(ctx.call, Stage.BUSY, time.time() + ctx.cfg.speak_timeout)
+    await ctx.mark_connected()                             # §4.3, Rev 39
+    try:
+        for line in ctx.scene.if_busy:
+            await _operator_speaks(ctx, caller, line, gone)
+            await _lead_in(ctx, caller, line, gone)
+            await _play(ctx, caller, line, gone)
+    except TimeoutError:
+        return Outcome(False, Reason.TIMEOUT)
+    return Outcome(True)
+
+
 # ----------------------------------------------------------------- flows ----
 
 
 async def station_to_station(ctx: Ctx) -> Outcome:
     sc = ctx.scene
     caller, called = f"station/{sc.from_station}", f"station/{sc.to_station}"
+    answered = False                # the called station is off-hook for this call
     try:
         await ctx.hw.hook(sc.from_station, True)          # the lamp lights
         try:
@@ -348,9 +396,13 @@ async def station_to_station(ctx: Ctx) -> Outcome:
         deadline = time.time() + ctx.cfg.connect_timeout
         await ctx.slots.set_stage(ctx.call, Stage.ROUTING, deadline)
         try:
-            await _wait_for_right_station(ctx, sc.to_station, deadline)
+            if await _route_unless_engaged(ctx, sc.to_station, deadline):
+                return await _found_engaged(ctx, caller, gone)
             await ctx.slots.set_stage(ctx.call, Stage.RINGING, deadline)
             await asyncio.sleep(1.5)                       # let it ring a little
+            if sc.if_busy and _engaged(sc.to_station)(ctx.b):
+                return await _found_engaged(ctx, caller, gone)
+            answered = True
             await ctx.hw.hook(sc.to_station, True)         # the called party answers
             await ctx.b.wait_until(
                 lambda b: b.get(f"{caller}/peer") == called, ctx.left(deadline))
@@ -366,11 +418,13 @@ async def station_to_station(ctx: Ctx) -> Outcome:
     except Abandoned:
         return Outcome(False, Reason.CUT_OFF)
     finally:
-        for n in (sc.from_station, sc.to_station):
+        # A station found engaged belongs to the other call: leave it be.
+        for n in (sc.from_station, sc.to_station if answered or not sc.if_busy else None):
             if n is not None:
                 await _quietly(ctx.hw.hook(n, False))
-        for c in (caller, called):
-            await _quietly(ctx.hw.stop(c))
+        await _quietly(ctx.hw.stop(caller))
+        if answered or not sc.if_busy:
+            await _quietly(ctx.hw.stop(called))
 
 
 async def station_to_outside(ctx: Ctx) -> Outcome:

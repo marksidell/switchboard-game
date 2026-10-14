@@ -202,6 +202,27 @@ async def main() -> int:
                           "        request:\n"
                           "            id: 1\n"
                           "            text: Operator, who was that?\n", 1)),
+            ("mode: that is not concurrent",
+             real.replace("    nbn-trace:\n        active: true\n",
+                          "    nbn-trace:\n        active: true\n        mode: soon\n", 1)),
+            ("mode: concurrent on a scene with no after:",
+             real.replace("    nbn-valet:\n        active: true\n",
+                          "    nbn-valet:\n        active: true\n        mode: concurrent\n", 1)),
+            ("a delay: range upside down",
+             real.replace("    nbn-trace:\n        active: true\n",
+                          "    nbn-trace:\n        active: true\n        delay: [5, 2]\n", 1)
+                 .replace("        delay: 2\n", "", 1)),
+            ("after_handled: on an after: scene",
+             real.replace("    nbn-trace:\n        active: true\n",
+                          "    nbn-trace:\n        active: true\n        after_handled: 3\n", 1)),
+            ("if_busy: on a call to the operator",
+             real.replace("    crane-wakeup:\n        active: true\n",
+                          "    crane-wakeup:\n        active: true\n"
+                          "        if_busy:\n            -   id: 9\n                caller: Oh.\n", 1)),
+            ("an if_busy: line said by the called party",
+             real.replace("    martha-squirrel:\n        active: true\n",
+                          "    martha-squirrel:\n        active: true\n"
+                          "        if_busy:\n            -   id: 9\n                called: Oh.\n", 1)),
             ("a loop of after:s",
              real.replace("    nbn-kaplan:\n        active: true\n",
                           "    nbn-kaplan:\n        active: true\n        after: nbn-trace\n", 1)),
@@ -236,6 +257,21 @@ async def main() -> int:
             check(True, "accepts a chain of three after:s (Rev 19)")
         except ScriptError as e:
             check(False, f"accepts a chain of three after:s (Rev 19): {e.failures}")
+
+        busy = real.replace("    martha-squirrel:\n        active: true\n",
+                            "    martha-squirrel:\n        active: true\n"
+                            "        if_busy:\n            -   id: 9\n                caller: Busy? Grr.\n"
+                            "                operator: busy\n", 1)
+        (tmp / "busy.yml").write_text(busy, encoding="utf-8")
+        try:
+            sc = load(tmp / "busy.yml")
+            names = [u.name for u in sc.scene_lines("martha-squirrel")]
+            ib = sc.busy_lines("martha-squirrel")
+            check("martha-squirrel.9" not in names and [u.name for u in ib] == ["martha-squirrel.9"]
+                  and ib[0].after_operator and ib[0].operator == "operator.4",
+                  "if_busy: lines kept out of the conversation, waiting on her (§4.11)")
+        except ScriptError as e:
+            check(False, f"accepts if_busy: {e.failures}")
 
         print("\n== page commands: clamps and refusals (§8)")
         await g.on_command("gap", "700")
@@ -468,6 +504,87 @@ async def main() -> int:
         check(g.tallies.success == 1, "counted as a success")
         await g.stop("stop")
         check(not g._afters, "Stop dropped the waiting after: scene")
+        await sess.close()
+
+        print("\n== a scenario: dealt after n handled, followers start together (§4.10, Rev 39)")
+        import dataclasses as dc
+        b, link, g, sess = await build_game(tmp, pace="manual")
+        ops = [sc for sc in g.gs.scenes.values()
+               if sc.shape == "to_operator" and sc.from_station is not None and not sc.after]
+        picked, rooms = [], set()
+        for sc in ops:
+            if sc.from_line not in rooms and not (set(g.gs.people[sc.id]) - {""}) & {
+                    p for q in picked for p in g.gs.people[q.id]}:
+                picked.append(sc)
+                rooms.add(sc.from_line)
+            if len(picked) == 3:
+                break
+        chain = [dc.replace(picked[0], id="p0", after_handled=2)]
+        for i, sc in enumerate(picked[1:], 1):
+            chain.append(dc.replace(sc, id=f"p{i}", after=f"p{i-1}", concurrent=True,
+                                    delay=D, delay_max=D * 3))
+        for sc, orig in zip(chain, picked):
+            g.gs.scenes[sc.id] = sc
+            g.gs.people[sc.id] = g.gs.people[orig.id]
+        for orig in picked:                  # so the deck never holds their people
+            del g.gs.scenes[orig.id]
+        check("p0" not in g.gs.deck_scenes() and "p0" in g.gs.choosable(),
+              "not in the deck, but in game/scenes")
+        check(g.gs.in_scenario("p2") and not g.gs.in_scenario(ops[-1].id),
+              "its followers are part of it")
+        await g.start()
+        await g._start_call()
+        first = next(iter(g.slots)).scene
+        check(first != "p0", f"not dealt before 2 handled: {first}")
+        await g.stop("stop")            # that call may share a room or person with the chain
+        await g.start()
+        g.tallies.success = 2
+        await g._start_call()
+        check(any(c.scene == "p0" for c in g.slots), "dealt once 2 calls are handled")
+        await asyncio.sleep(D * 10)
+        on = {c.scene for c in g.slots}
+        check({"p1", "p2"} <= on, f"followers on the board though p0 never connected: {sorted(on)}")
+        g.pacing.pace = "auto"
+        for c in g.slots:
+            c.connected = True
+        check(not g._idle(), "the automatic schedule waits while it is on the board")
+        g.pacing.pace = "manual"
+        await g._start_call()
+        check(sum(c.scene == "p0" for c in g.slots) == 1, "dealt once a game")
+        await g.stop("stop")
+        await g.start()
+        g.pacing.pace = "listen"
+        g.tallies.success = 5
+        await g._start_call()
+        check(not any(c.scene == "p0" for c in g.slots), "never dealt in listen")
+        await g.stop("stop")
+        await sess.close()
+
+        print("\n== a full board: a concurrent follower waits for a slot")
+        b, link, g, sess = await build_game(tmp, pace="manual")
+        for sc, orig in zip(chain, picked):
+            g.gs.scenes[sc.id] = sc
+            g.gs.people[sc.id] = g.gs.people[orig.id]
+        for orig in picked:
+            g.gs.scenes.pop(orig.id, None)
+        await g.start()
+        await g._start_call(scene=g.gs.scenes["p0"])
+        while g.slots.free_slot() is not None:
+            await g._start_call()
+        await asyncio.sleep(D * 10)
+        check("p1" in g._pending_after and not any(c.scene == "p1" for c in g.slots),
+              "p1 waits, not dropped")
+        p1 = g.gs.scenes["p1"]
+        mine = set(p1.needs) | set(g.gs.needs_people("p1"))
+        clash = [c for c in g.slots if c.scene != "p0"
+                 and mine & (set(g.gs.scenes[c.scene].lines) | set(g.gs.people[c.scene]))]
+        for c in clash or [next(c for c in g.slots if c.scene != "p0")]:
+            g._flows[c.slot].cancel()
+            await asyncio.sleep(D)
+            await g.slots.close(c)
+        await asyncio.sleep(1.0)
+        check(any(c.scene == "p1" for c in g.slots), "and starts when a slot frees")
+        await g.stop("stop")
         await sess.close()
 
         print("\n== listen: the schedule waits for the board to empty (§4.2, Rev 16)")

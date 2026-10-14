@@ -66,11 +66,21 @@ class SceneDef:
     conversation: tuple[Speech, ...]
     after: str = ""             # the scene this one follows, else ""
     delay: float = 0.0
+    delay_max: float = 0.0      # a range [delay, delay_max] if above delay (Rev 39)
+    concurrent: bool = False    # mode: concurrent, starts with the one it follows (§4.4)
+    after_handled: int | None = None   # starts a scenario after n handled (§4.10)
+    if_busy: tuple[Speech, ...] = ()   # if the called station is engaged (§4.11)
 
     @property
     def lines(self) -> tuple[str, ...]:
         """The line names this scene occupies while it runs (§4.4)."""
         return tuple(n for n in (self.from_line, self.to_line) if n)
+
+    @property
+    def needs(self) -> tuple[str, ...]:
+        """The lines that must be free to deal it: a scene with if_busy: does
+        not wait for its called line (§4.11)."""
+        return (self.from_line,) if self.if_busy else self.lines
 
 
 @dataclass(frozen=True)
@@ -104,8 +114,37 @@ class GameScript:
         return None
 
     def deck_scenes(self) -> list[str]:
-        """Every scene eligible for the deck: those without `after:` (§4.4)."""
+        """Every scene eligible for the deck: those without `after:` (§4.4),
+        and not the first scene of a scenario (§4.10)."""
+        return [i for i, s in self.scenes.items()
+                if not s.after and s.after_handled is None]
+
+    def choosable(self) -> list[str]:
+        """What game/scenes lists (§4.8): the deck's, and each scenario's first."""
         return [i for i, s in self.scenes.items() if not s.after]
+
+    def scenarios(self) -> list[SceneDef]:
+        """The first scene of each scenario (§4.10), in script order."""
+        return [s for s in self.scenes.values() if s.after_handled is not None]
+
+    def needs_people(self, scene_id: str) -> frozenset[str]:
+        """The people who must be free to deal it (§4.4, §4.11)."""
+        calling, called = self.people[scene_id]
+        if self.scenes[scene_id].if_busy:
+            called = ""
+        return frozenset(p for p in (calling, called) if p)
+
+    def in_scenario(self, scene_id: str) -> bool:
+        """Whether the scene is a scenario's first or one of its concurrent
+        followers down the chain (§4.10)."""
+        sc = self.scenes.get(scene_id)
+        while sc is not None:
+            if sc.after_handled is not None:
+                return True
+            if not sc.concurrent:
+                return False
+            sc = self.scenes.get(sc.after)
+        return False
 
     def followers(self, scene_id: str) -> list[SceneDef]:
         return [s for s in self.scenes.values() if s.after == scene_id]
@@ -160,6 +199,8 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
         conv = []
         for u in us[1:]:
             conv.append(speech(u, u.role))
+        delay = raw.get("delay", 0) or 0
+        lo, hi = (delay if isinstance(delay, list) else (delay, delay))
         scenes[sid] = SceneDef(
             id=sid, shape=shape,
             from_line=calling["line"], to_line=to_line,
@@ -170,7 +211,10 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
             request=speech(req, "caller"),
             conversation=tuple(conv),
             after=raw.get("after", "") or "",
-            delay=float(raw.get("delay", 0) or 0),
+            delay=float(lo), delay_max=float(hi),
+            concurrent=raw.get("mode") == "concurrent",
+            after_handled=raw.get("after_handled"),
+            if_busy=tuple(speech(u, "caller") for u in s.busy_lines(sid)),
         )
         people[sid] = (calling.get("person", ""), (called or {}).get("person", ""))
 

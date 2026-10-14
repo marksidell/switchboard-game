@@ -53,8 +53,9 @@ class Deck:
         self.orders.append(list(cards))
 
     def _free(self, scene: SceneDef, held: list[Holding]) -> bool:
-        lines = set(scene.lines)
-        people = {p for p in self.gs.people[scene.id] if p}
+        # A scene with if_busy: is dealt though its called line is busy (§4.11).
+        lines = set(scene.needs)
+        people = set(self.gs.needs_people(scene.id))
         for h in held:
             if lines & h.lines or people & h.people:
                 return False

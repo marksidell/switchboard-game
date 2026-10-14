@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 38 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order, with the Tutor's Ring Lines Named for the Station*
+*Rev 38 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order, with the Tutor's Ring Lines Named for the Station, and a Scenario of Calls Arriving Together After the Tenth Call, with a Station Found Engaged*
 
 # 1. Overview
 
@@ -175,6 +175,18 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 — The page's countdown says "waiting" while a game runs in automatic pacing and no next call is scheduled — `next_at` empty, because in auto the latest call is not yet connected or ended, and in listen the board is not yet empty (§4.2) — and "–" when no game runs (§7.1), Mark's request, 2026-09-28. It said "–" in both. The deck's Next key already said "waiting" in that case; §7.4 now says so too. It is on the countdown rather than on the Next Call button because the button is hidden with the controls and the countdown is not.
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
+
+## 1.39 Changes in Rev 39
+
+— A scenario: calls that arrive almost together, so the board lights up at once, Mark's request, 2026-10-14, from Remco's suggestion and Beth's story of Martha loose in the hotel. Three keys in script.yml, each usable on its own:
+
+- **`mode: concurrent`** on an `after:` scene (§4.4): it starts `delay` seconds after the scene it follows has *started*, not ended, and whether or not that scene is ever connected. It waits for a free slot as well as its lines, rather than being dropped. `delay` may be a range, `[2, 5]`, drawn evenly from the game's seed.
+- **`after_handled: <n>`** on a scene that follows none (§4.10): it is never in the deck, and is dealt once a game, as the next call after `n` calls have been handled. Not in tutor or listen pacing. While its scenario is on the board the automatic schedule waits. It stays in `game/scenes`, so it can be chosen from the page to try it.
+- **`if_busy:`** on a call from a room to a room (§4.11): caller lines played, as in a busy call, when the called station turns out to be engaged in another call. So several guests can ask for the front desk at once, and the operator tells all but one to try later. A scene with `if_busy:` does not hold its called line or person for dealing.
+
+Calls before connection in general stay deferred (§4.5); the scenario is the one place the operator is asked to route several calls at once. The first is `panic`, after the tenth call: Martha the dog loose in the hotel, a complaint from every guest room, the lobby and the restaurant, ending with Martha calling from her room to say someone is chasing her with a broom.
+
+— Code consequence for Claude Code, made the same day: the loader checks the three keys (`tts/script.py`), renders `if_busy:` lines, and gives the tutor no Say line for an operator line only a scenario uses; `script_data.py`, `deck.py`, `game.py` and `flows.py`; `busy` is also the stage of a call found engaged (§6.1); the tests. No topic changes.
 
 ## 1.38 Changes in Rev 38
 
@@ -389,6 +401,7 @@ A call is **connected** at the point where the operator's routing work is done:
 | To a station, from a station or a trunk | the called station answers — the game takes it off-hook after ring arrives |
 | To an outside line | the called party answers on the trunk after ringback |
 | To an outside line marked `busy: true` | busy tone starts on the trunk |
+| To a station found engaged, in a scene with `if_busy:` (Rev 39) | it is found engaged (§4.11) |
 | To the operator (no `called:`), from a room or rung in on a trunk (Rev 24) | the request has finished playing |
 
 These are the milestones the game program must expose to the scheduler. How it reaches each one — which listens, which timeouts — is the game program's flow and not this document's.
@@ -420,7 +433,9 @@ Ranges, clamped by the game program and echoed as applied: `gap` 0–600s, `ramp
 
 **Scenes that follow another.** An `after:` scene (script.yml, "Order") is never in the deck. It starts `delay` seconds after the scene it follows has ended, in either pacing, as long as that scene was **connected** (§4.3). If it wasn't — the operator never answered, or never put the call through — the `after:` scene is dropped and the log says so (Rev 2; Rev 1 started it whenever the earlier scene ended). It is part of the story, not a new deal: `nbn-trace` two seconds after `nbn-kaplan`, `hale-pizza` three minutes after `hale-busy`. An `after:` scene may itself be followed, so a story can run to any number of calls; each scene has at most one follower, and the chain has no loop (Rev 19). From the moment it is scheduled until it starts, its lines and people count as busy for dealing. If any of them is still busy in another call when its delay runs out, it waits until all are free and then starts (Rev 3). It counts as a call. It has a call number, it counts in `started`, and it succeeds or fails like any other call. It does not reset the automatic schedule. The page shows a waiting `after:` scene in the log with its start time.
 
-At most eight calls are in progress at once — the number of call slots (§6.1). A call that would be a ninth is not started, and is treated like a scene that cannot be dealt.
+**Scenes that start with another** (Rev 39). An `after:` scene marked `mode: concurrent` starts `delay` seconds after the scene it follows has *started*, not ended, and whether or not that scene is ever connected: it is scheduled as that call opens. So a chain of them puts several calls on the board almost at once. Its `delay` may be a pair, `[2, 5]`, for a wait drawn evenly between the two, from the game's seed apart from the deck's shuffle, so a replay draws the same. Like any `after:` scene its lines and people are busy while it waits, and it waits for them to come free; it waits for a free slot too (below), so a scenario longer than eight calls keeps the board full rather than losing its tail. Stop drops it. The follower it has in turn is scheduled only once it starts, so the chain pauses while the board is full.
+
+At most eight calls are in progress at once — the number of call slots (§6.1). A call that would be a ninth is not started, and is treated like a scene that cannot be dealt; a waiting `mode: concurrent` scene waits for a slot instead.
 
 ## 4.8 A Chosen Next Scene
 
@@ -470,9 +485,29 @@ Rev 29. A voice on the audience loudspeaker talks a new player through each call
 
 **Her lines** (script.yml `tutor:`). Each key is one line, rendered as `tutor.<key>`. Three keys are templates rendered once for every value they take: `ring-front` and `ring-rear` for each jack a station is cabled to (`{jack}`, "room 403" for a numbered jack, else its label), named for the station, `tutor.ring-front-room403`, so moving a label to another jack changes no file (Rev 38), `dial` for each outside line but the operator (`{number}`, as above), and `say` for each operator line (`{line}`). A whole sentence for each, not a phrase spliced into a sentence at play time, so each is spoken as one. Her voice is designed and chosen as any cast member's (`tts/aws/design --only tutor`, `tts/audition`, `tts/choose --only tutor`); her lines are rendered and band-limited with the rest.
 
+## 4.10 A Scenario After the Tenth Call
+
+Rev 39. A scene marked `after_handled: <n>` is the first call of a scenario, and its `mode: concurrent` followers (§4.4) are the rest. It is never in the deck. Once `n` calls have been handled in the game (§5, success plus fail), the next call dealt — by Next Call or by the automatic schedule — is that scene, if its lines and people are free, else the call after. It is dealt once a game. A chosen scene (§4.8) still comes first.
+
+It is dealt in manual and automatic pacing only: never in tutor mode, which is one call at a time (§4.9), nor in listen, where calls never overlap (§4.2). A game that changes to one of those holds it back until it changes again. It is in `game/scenes`, so it can be chosen from the page to try it, in any pacing but those two. Since the tutor never hears a scenario, she has no Say line (§4.9) for an operator line that only a scenario uses.
+
+**While the scenario is on the board** — any of its calls in progress or any of its scenes waiting to start — the automatic schedule waits, as listen waits for an empty board, and runs its gap from when the last of them has ended. Next Call still deals in manual pacing.
+
+`panic` is the first, at the tenth call: Martha the dog loose in the hotel, a complaint from every guest room but hers, from the lobby and from the restaurant, two to five seconds apart, ending with Martha calling from her own room.
+
+## 4.11 A Station Found Engaged
+
+Rev 39. A call from a room to a room may carry `if_busy:`, a list of caller lines like a busy call's conversation (§4.6), each played after the operator has spoken. It is for a station many want at once — the front desk in a scenario.
+
+The called station is **engaged** if the game has it off-hook in another call: the room is calling, or has answered. If it is engaged when the request has played, or becomes engaged before the operator rings it, the call is found engaged. It is then **connected** (§4.3), its stage is `busy` (§6.1), and the `if_busy:` lines play, each after she has spoken — "I'm sorry, the front desk is busy" — and the caller hangs up. The game does not answer a ring on an engaged station. Otherwise the call goes as any call between rooms, and `if_busy:` is not heard.
+
+For dealing (§4.4), a scene with `if_busy:` does not hold its called line or its called person, and is not held back by them; once dealt, its call holds them as any call does. So several guests may ask for the front desk while it is talking, and the operator tells each of them to try later.
+
+`operator:` may name what she says before each line, as in a busy call; `closing:` is not allowed there. The lines are utterances of the scene, rendered as any other.
+
 ## 4.5 Not Yet: Calls Before Connection
 
-Mark wants, later, a mode where a new call can arrive before the operator has connected the current one — the real pressure of a busy board. The likely form is a fixed interval, a new call every `n` seconds from the start of the last, bounded by the eight slots. It is one more value on `game/pace` and uses the same `gap`, `ramp`, `floor` and `jitter`. Not specified until it is wanted.
+Mark wants, later, a mode where a new call can arrive before the operator has connected the current one — the real pressure of a busy board. The likely form is a fixed interval, a new call every `n` seconds from the start of the last, bounded by the eight slots. It is one more value on `game/pace` and uses the same `gap`, `ramp`, `floor` and `jitter`. Not specified until it is wanted. A scenario (§4.10, Rev 39) is the one place a game asks it of the operator now.
 
 ## 4.6 Lines That Wait for the Operator, and Lines by Someone Else
 
@@ -547,7 +582,7 @@ Each call in progress occupies one of eight slots, `game/call/<1-8>/…`. A slot
 - `routing` — waiting for the operator to ring a station or take a trunk.
 - `dialling` — the operator has seized a trunk; digits are arriving.
 - `ringing` — the called station is ringing, or ringback is on the trunk.
-- `busy` — busy tone is on the trunk; waiting for the operator to go back to the caller.
+- `busy` — busy tone is on the trunk, or the called station is found engaged (§4.11, Rev 39); waiting for the operator to go back to the caller.
 - `talking` — the conversation is playing.
 - `operator` — a call to the operator; the caller is waiting for the operator to speak.
 

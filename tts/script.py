@@ -118,6 +118,9 @@ class Utterance:
     # What she says there, if the script gives it: the name of an operator
     # line, operator.<id> or <scene>.<id>, else "" (game_control.md 4.7).
     operator: str = ""
+    # One of the scene's if_busy: lines, played only when the called station
+    # is found engaged (game_control.md 4.11, Rev 39), not in the conversation.
+    if_busy: bool = False
 
     @property
     def name(self) -> str:
@@ -163,8 +166,14 @@ class Script:
         return {i: sc for i, sc in self.scenes.items() if sc.get("active") is True}
 
     def scene_lines(self, scene_id: str) -> list[Utterance]:
-        """A scene's lines in order of play, request first, without the operator's."""
-        return [u for u in self.utterances if u.scene == scene_id and u.role != "operator"]
+        """A scene's lines in order of play, request first, without the operator's
+        or the if_busy: lines."""
+        return [u for u in self.utterances if u.scene == scene_id and u.role != "operator"
+                and not u.if_busy]
+
+    def busy_lines(self, scene_id: str) -> list[Utterance]:
+        """A scene's if_busy: lines, in order (game_control.md 4.11, Rev 39)."""
+        return [u for u in self.utterances if u.scene == scene_id and u.if_busy]
 
     def by_name(self) -> dict[str, Utterance]:
         return {u.name: u for u in self.utterances}
@@ -226,6 +235,11 @@ def _utterances_of(scene_id: str, scene: dict) -> Iterator[tuple[int | None, str
                 yield line.get("id"), "caller", line["caller"], where, line
             elif "called" in line:
                 yield line.get("id"), "called", line["called"], where, line
+    if_busy = scene.get("if_busy") or []
+    if isinstance(if_busy, list):
+        for i, line in enumerate(if_busy):
+            if isinstance(line, dict) and "caller" in line:
+                yield line.get("id"), "caller", line["caller"], f"if_busy[{i}]", line
 
 
 def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
@@ -425,6 +439,60 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
             elif after == scene_id:
                 bad(f"scenes.{scene_id}.after", "names itself")
 
+        # delay: seconds, or a range [low, high] drawn from (game_control.md
+        # 4.4, Rev 39). mode: concurrent starts it with the scene it follows.
+        if "delay" in scene:
+            d = scene["delay"]
+            num = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0
+            if not (num(d) or (isinstance(d, list) and len(d) == 2
+                               and all(num(v) for v in d) and d[0] <= d[1])):
+                bad(f"scenes.{scene_id}.delay",
+                    f"not a number of seconds or a range [low, high]: {d!r}")
+            if after is None:
+                bad(f"scenes.{scene_id}.delay", "only on a scene with after:")
+        if "mode" in scene:
+            if scene["mode"] != "concurrent":
+                bad(f"scenes.{scene_id}.mode", f"not concurrent: {scene['mode']!r}")
+            elif after is None:
+                bad(f"scenes.{scene_id}.mode", "only on a scene with after:")
+        # after_handled: the first scene of a scenario (game_control.md 4.10).
+        if "after_handled" in scene:
+            n = scene["after_handled"]
+            if not isinstance(n, int) or isinstance(n, bool) or n < 0:
+                bad(f"scenes.{scene_id}.after_handled", f"not a whole number of calls: {n!r}")
+            if after is not None:
+                bad(f"scenes.{scene_id}.after_handled", "not on a scene with after:")
+
+        # if_busy: caller lines for a called station found engaged
+        # (game_control.md 4.11, Rev 39). Only between two rooms.
+        if "if_busy" in scene:
+            at = f"scenes.{scene_id}.if_busy"
+            ib = scene["if_busy"]
+            cg, cd = scene.get("calling"), scene.get("called")
+            if not (isinstance(cg, dict) and isinstance(cd, dict)
+                    and cg.get("line") in stations and cd.get("line") in stations
+                    and not cd.get("busy")):
+                bad(at, "only on a call from a room to a room")
+            if not isinstance(ib, list) or not ib:
+                bad(at, "not a list of caller lines")
+            else:
+                for i, line in enumerate(ib):
+                    if not isinstance(line, dict):
+                        bad(f"{at}[{i}]", "not a mapping")
+                        continue
+                    extra = sorted(set(line) - {"id", "caller", "person", "pause", "operator"})
+                    if extra:
+                        bad(f"{at}[{i}]", f"unknown key(s): {', '.join(map(str, extra))}"
+                            + (" — every if_busy: line is the caller's" if "called" in extra else ""))
+                    if "caller" not in line:
+                        bad(f"{at}[{i}]", "has no caller:")
+                    if "pause" in line:
+                        v = line["pause"]
+                        if not isinstance(v, (int, float)) or isinstance(v, bool) or not 0 < v <= MAX_PAUSE:
+                            bad(f"{at}[{i}].pause", f"not a number of seconds above 0 and up to {MAX_PAUSE}: {v!r}")
+                    if "person" in line and line["person"] not in cast:
+                        bad(f"{at}[{i}].person", f"{line['person']!r} is not in the cast")
+
         # utterances: integer ids, unique in the scene, legal file names
         # A call to the operator, or one that meets busy, waits for her before
         # every line already (flows.py), so wait: has nothing to add there.
@@ -491,12 +559,14 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
                 continue
             if raw.get("person") in cast:
                 speaker = raw["person"]
-            listens = where == "request" or raw.get("wait") is True or waits_anyway
+            busy_line = where.startswith("if_busy")
+            listens = (where == "request" or raw.get("wait") is True or waits_anyway
+                       or busy_line)
             u = Utterance(scene=scene_id, id=uid, speaker=speaker, text=text.strip(),
                           role=role, wait=raw.get("wait") is True,
                           pause=_seconds(raw.get("pause")),
                           ringback=_seconds(raw.get("ringback")),
-                          after_operator=listens)
+                          after_operator=listens, if_busy=busy_line)
             why = name_problem(u.name)
             if why is not None:
                 bad(at, f"file name {u.name!r} is not usable: {why}")
@@ -587,7 +657,7 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
 
     # --- the tutor (game_control.md 4.9) -------------------------------------
     tutor = _tutor_lines(data.get("tutor"), cast, board, stations, outside,
-                         utterances, bad)
+                         utterances, bad, scenes)
     utterances.extend(tutor.values())
     lessons = _lessons((data.get("tutor") or {}).get("lessons")
                        if isinstance(data.get("tutor"), dict) else None,
@@ -639,6 +709,8 @@ def _lessons(raw: object, scenes: dict, stations: dict, bad) -> list[list[str]]:
                 bad(at, f"{sid} is not active")
             if sc.get("after") is not None:
                 bad(at, f"{sid} follows {sc['after']}, so it is never dealt")
+            if sc.get("after_handled") is not None:
+                bad(at, f"{sid} starts a scenario, and is never dealt in tutor mode")
             kinds[sid] = scene_kind(sc, stations)
         if len(set(kinds.values())) > 1:
             bad(at, "mixes kinds of call: " + ", ".join(f"{k} {v}" for k, v in kinds.items()))
@@ -674,7 +746,8 @@ def number_words(number: str, exchanges: dict[str, str]) -> str:
 
 
 def _tutor_lines(raw: object, cast: dict, board: list[dict], stations: dict,
-                 outside: dict, utterances: list[Utterance], bad) -> dict[str, Utterance]:
+                 outside: dict, utterances: list[Utterance], bad,
+                 scenes: dict | None = None) -> dict[str, Utterance]:
     """tutor: expanded into one utterance per line the tutor can say.
 
     A template is rendered whole for each value it can take, rather than
@@ -738,9 +811,35 @@ def _tutor_lines(raw: object, cast: dict, board: list[dict], stations: dict,
                 if number and number != "0":
                     add(f"{key}-{line}", text.format(number=number_words(number, ex)))
         elif field_ == "line":
+            # A scenario is never played in tutor mode (game_control.md 4.10),
+            # so she needs no Say for a line only a scenario uses.
+            scenario = _scenario_scenes(scenes or {})
+            used: dict[str, set[str]] = {}
+            for u in utterances:
+                if u.operator:
+                    used.setdefault(u.operator, set()).add(u.scene)
             for u in utterances:
                 if u.role == "operator":
+                    if u.scene in scenario:
+                        continue
+                    if used.get(u.name) and used[u.name] <= scenario:
+                        continue
                     add(f"{key}-{u.name}", text.format(line=u.text))
+    return out
+
+
+def _scenario_scenes(scenes: dict) -> set[str]:
+    """Each scenario's scenes: its first, with after_handled:, and the
+    mode: concurrent followers down its chain (game_control.md 4.10)."""
+    out = {i for i, sc in scenes.items() if isinstance(sc, dict) and "after_handled" in sc}
+    grew = True
+    while grew:
+        grew = False
+        for i, sc in scenes.items():
+            if (i not in out and isinstance(sc, dict) and sc.get("mode") == "concurrent"
+                    and sc.get("after") in out):
+                out.add(i)
+                grew = True
     return out
 
 
