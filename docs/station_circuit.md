@@ -2,7 +2,7 @@
 
 **Station Interface Circuit Design**
 
-*Rev 3.46 — 8 Strips Per Board, Three Boards (22 Stations, the Operator Tap and the Audience Monitor Output) Plus 8 Trunk Circuits, HCPL3700M Ring Detection, DPDT Double-Pole Off-Hook, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Station Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, 32-Slot Pilot Tone Comb, Operator Tap and Monitor Options on Two Strips, Common-Battery Power*
+*Rev 3.47 — 8 Strips Per Board, Three Boards (22 Stations, the Operator Tap and the Audience Monitor Output) Plus 8 Trunk Circuits, HCPL3700M Ring Detection, DPDT Double-Pole Off-Hook, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Station Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, 32-Slot Pilot Tone Comb, Operator Tap and Monitor Options on Two Strips, Common-Battery Power*
 
 # 1. Overview
 
@@ -345,6 +345,12 @@ The ESP32 and the host exchange state over MQTT: the ESP32 reports debounced rin
 —  §8.7: a comb pilot counts toward the peer only if it is also within PEER_WINDOW_DB, 40dB to start with, of the circuit's own pilot. Found on the bench, 2026-10-15, with the trunk board cabled straight to station board 1: every idle trunk reported `ambiguous`, hearing two or three other trunks 20–39dB above the noise floor against MARGIN_DB's 20. `pilot_loopback_test`, with the comb at −12dBFS on trunk outputs 25–32 and capture on 25–32: own return −16.8dBFS on all eight; each trunk hears two of the trunks in its group of four (1–4, 5–8) at about −89dBFS and the third at about −101, the other group at −101 to −130. The same measurement with the cable open at the board end read −140 to −145 throughout, so the A32, the Digiface and the cable are clean and the coupling is on the trunk board — most likely the traces between the transformers and the D-Subs, which run parallel with little room between them (Mark). With all eight stations off-hook: own −30.7dBFS, trunk to station −33.8, trunk to trunk −108 to −117. The board is not changing, so the detector works around it.
 
 —  No hardware change. Code consequence: `--peer-window-db` in the audio program (audio.md Rev 13).
+
+## 1.26 Changes in Rev 3.47
+
+—  §8.7: the operator tone counts only within OP_WINDOW_DB, 20dB to start with, of the circuit's own pilot, as a comb pilot does within PEER_WINDOW_DB since Rev 3.46. Found on the bench, 2026-10-15, after the board tests: the page showed `op` on, steady or flickering, on stations 7, 14, 15, 16, 21 and 22 and trunks 5, 6 and 8 with nothing bridged. `tone_monitor` driving the tap's channel 23 at 9kHz and −18dBFS: the tap's own return −23.2dBFS; station 22, the next strip on board 3, −103.8; station 15 −110.3; trunks 5 and 8 about −119; the rest −125 to −150. The per-bin floor is near −140dBFS, so 20dB of MARGIN_DB passes leakage down to about −120. Station 22's own pilot returns at −57.6dBFS from −40, so the leak there is 46dB under it: outside PEER_WINDOW_DB by 6dB, too little against the difference between the floors at bins 680 and 768, and station 22 still read `op` on with the 40dB window. A real bridge should put the operator tone above the own pilot — the tap sends it 22dB hotter than a pilot, and a peer arrived 3dB under the own pilot on the bench — so 20dB is 26dB clear of the leak and leaves a bridge about 37dB to lose. (Trunk 7 read −53dBFS in the same measurement because board 3 was still cabled straight to the trunks, trunk 7 to the tap strip; that one was real.)
+
+—  No hardware change. Code consequence: `--op-window-db` in the audio program (audio.md Rev 14). The operator tone's level on a bridged circuit through the switchboard is unmeasured; audio.md §15 step 6 measures it.
 
 
 # 2. Functional Block Diagram (One Station)
@@ -1049,6 +1055,7 @@ OP_BIN     = 768                 # 9000.00 Hz, operator tone (§8.3)
 GUARD_OFFSETS  = (-3, -2, 2, 3)  # clear of the neighbouring pilots
 MARGIN_DB      = 20.0
 PEER_WINDOW_DB = 40.0            # a peer is within this of the own pilot
+OP_WINDOW_DB   = 20.0            # and the operator tone within this
 
 def bin_db(mag, b):
     # dB of one bin above the median of its guard bins.
@@ -1079,7 +1086,7 @@ def identify_peer(block, own_slot):
 
     lvl, op_db = pilot_levels(block)
     own_db = lvl.pop(own_slot)         # own pilot returns on own line
-    op     = op_db >= MARGIN_DB
+    op     = op_db >= MARGIN_DB and op_db >= own_db - OP_WINDOW_DB
 
     if own_db < MARGIN_DB:
         return ("deaf", None, op, own_db)
@@ -1108,9 +1115,9 @@ There is no reciprocity check for op, because the tap strip does not detect. Its
 
 Load is negligible. Thirty-two real 4096-point FFTs every 43ms is under a million operations per second on a machine that is already handling 32 channels of audio, and it comes with a full spectrum per channel for free, which is worth having during commissioning.
 
-A comb pilot counts only if it is MARGIN_DB above its floor and also no more than PEER_WINDOW_DB below the circuit's own pilot. The second test is what separates a peer from crosstalk. Every circuit transmits its pilot at the same level, so a peer's pilot and a neighbour's leakage differ only in the path they took: a cord, which costs a few dB to a few tens of dB, or a coupling on the board, which costs 70dB or more. Measured on the trunk board, 2026-10-15 (§1.25): a station cabled straight to a trunk arrived 3dB under the trunk's own pilot, and trunk-to-trunk crosstalk 72dB under it idle and 77dB or more with the loops closed. The noise floor does not scale with the pilots, so a threshold on the floor alone has to sit between the two by absolute level, and the own pilot moves 14dB as a trunk's loop opens and closes.
+A comb pilot counts only if it is MARGIN_DB above its floor and also no more than PEER_WINDOW_DB below the circuit's own pilot. The second test is what separates a peer from crosstalk. Every circuit transmits its pilot at the same level, so a peer's pilot and a neighbour's leakage differ only in the path they took: a cord, which costs a few dB to a few tens of dB, or a coupling on the board, which costs 70dB or more. Measured on the trunk board, 2026-10-15 (§1.25): a station cabled straight to a trunk arrived 3dB under the trunk's own pilot, and trunk-to-trunk crosstalk 72dB under it idle and 77dB or more with the loops closed. The noise floor does not scale with the pilots, so a threshold on the floor alone has to sit between the two by absolute level, and the own pilot moves 14dB as a trunk's loop opens and closes. The operator tone is held to a window of its own, OP_WINDOW_DB (Rev 3.47). It leaks from the tap strip into other channels as the pilots leak between trunks, 46dB under the own pilot on station 22, the strip beside the tap, and since it is sent 22dB hotter than a pilot that leak sits further above the floor still. Bridged on through a cord it should arrive above the own pilot, so its window can be the tighter one: 20dB to start with.
 
-Set MARGIN_DB and PEER_WINDOW_DB empirically against a real cord-pair connection rather than a loopback, since the peer pilot has crossed the switchboard and the loopback path flatters it. The peer through the switchboard will be lower than the direct-cable figure above, and lower again with the operator bridged on; PEER_WINDOW_DB must take the weakest of those with room to spare, and stay clear of the crosstalk. 40dB is the starting value. Then confirm the setting by verifying that no circuit reports ambiguous with every cord in the switchboard patched at once — with all 32 pilots live this is also the worst case for crosstalk between adjacent D-Sub channels.
+Set MARGIN_DB, PEER_WINDOW_DB and OP_WINDOW_DB empirically against a real cord-pair connection rather than a loopback, since the peer pilot has crossed the switchboard and the loopback path flatters it. The peer through the switchboard will be lower than the direct-cable figure above, and lower again with the operator bridged on; PEER_WINDOW_DB must take the weakest of those, and OP_WINDOW_DB the operator tone on a circuit she is bridged to, each with room to spare, and stay clear of the crosstalk. 40dB is the starting value. Then confirm the setting by verifying that no circuit reports ambiguous with every cord in the switchboard patched at once — with all 32 pilots live this is also the worst case for crosstalk between adjacent D-Sub channels.
 
 ## 8.8 Audience Monitor Feed
 

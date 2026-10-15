@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 13 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, All Commanded and Reported over MQTT*
+*Rev 14 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, All Commanded and Reported over MQTT*
 
 # 1. Overview
 
@@ -144,6 +144,12 @@ Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout t
 — The detector's peer window, `--peer-window-db`, following station Rev 3.46 §8.7: a comb pilot counts only if it is within that many dB of the circuit's own pilot as well as `MARGIN_DB` above its floor. On the bench, 2026-10-15, the trunk board's strip-to-strip crosstalk, 72dB under each trunk's own pilot, sat 20–39dB above the floor and made every idle trunk `ambiguous`; a station cabled straight to a trunk arrived 3dB under the own pilot. 40dB is the starting value. A peer through the switchboard will arrive lower than through a cable, so §15 step 6 sets the window with the margin.
 
 — Code consequence, made the same day: the option, the test in the detector, and the startup log line reports both values. `ctest` has an idle trunk with that crosstalk, which reads idle, and a connected one, which reads its peer.
+
+## 1.14 Changes in Rev 14
+
+— `--op-window-db`, 20 by default, following station Rev 3.47: the operator tone counts only within that many dB of the circuit's own pilot. The tap's 9kHz leaks into other channels, 46dB under the own pilot on station 22, enough above the floor to light `op` on nine circuits with nothing bridged (2026-10-15). §15 step 6 now measures the operator tone on a bridged circuit as well.
+
+— Code consequence, made the same day: the test in the detector. `ctest` has the leak on an idle trunk, which reads `op` off.
 
 # 2. Channel Plan
 
@@ -468,6 +474,8 @@ Command-line options, each with the default given here, and no configuration fil
 --margin-db DB         detector MARGIN_DB (20)
 --peer-window-db DB    detector PEER_WINDOW_DB: a pilot further than this
                        below the circuit's own is not heard (40)
+--op-window-db DB      detector OP_WINDOW_DB: the operator tone further than
+                       this below the circuit's own pilot is not heard (20)
 --monitor DB           start with the monitor on at this gain (off)
 --monitor-ch LIST      playback channels for the monitor, comma-separated,
                        from 24, 33, 34 (24); 33,34 is the Digiface fallback
@@ -498,7 +506,7 @@ In order, with the switchboard connected:
 3. Test tone on each channel in turn, meter at the board's D-Sub, then at the switchboard jack. This is the wiring check for all 32 A32 channels and the two Digiface outputs, and the level reference for everything after. For channel 24 the meter goes at the amplifier end of the monitor cable (station §7.9.8).
 4. Set the trunk tone level by measuring at the switchboard's trunk jack with dial tone on.
 5. Set the operator tone level per station §7.9.5, and confirm the operator cannot hear it.
-6. Set `MARGIN_DB` and `PEER_WINDOW_DB` per station §8.7, against a real cord-pair connection, and confirm no `ambiguous` with every cord patched. For the window, `--dump` both ends of the weakest connections — station to station and station to trunk, each with the operator bridged on and off — and read the peer's level against the own pilot's: the window must take the weakest with room to spare, and stay short of the trunk board's crosstalk, 72dB or more under the own pilot (station §1.25).
+6. Set `MARGIN_DB`, `PEER_WINDOW_DB` and `OP_WINDOW_DB` per station §8.7, against a real cord-pair connection, and confirm no `ambiguous` with every cord patched. For the window, `--dump` both ends of the weakest connections — station to station and station to trunk, each with the operator bridged on and off — and read the peer's level, and bin 768's with the operator bridged on, against the own pilot's: each window must take the weakest with room to spare, and stay short of the trunk board's crosstalk, 72dB or more under the own pilot (station §1.25).
 7. Set A32 channel 24's reference and trim for the amplifier's input sensitivity with the test tone on it, then set the monitor gain by ear with the operator on the headset and the limiter's activity in the log — it should be silent on ordinary speech. Then set `--monitor-tap-trim`: on a real call with the operator bridged to the calling line, switch `monitor/source/set` between `tap` and that circuit and trim until her voice is the same level on both. On the same call, once it is connected and talking, listen to the balance between the caller and the called party on the circuit source (§16).
 8. Set the speech detector's margin and floor with the operator speaking through a real connection, and confirm it does not trigger on a ring-trip or a relay.
 
@@ -507,7 +515,7 @@ In order, with the switchboard connected:
 - **Monitor level.** The monitor is on A32 output 24 as of Rev 7 (station §7.9.8); channel 24's A32 reference and trim against the amplifier's input sensitivity are bench settings (§15 step 7). This replaces the Rev 1 to Rev 6 item asking which Digiface jack the amplifier was on.
 - **Capture channel count.** Expected 32 at 48kHz; confirm from the driver as the playback count was at station Rev 3.37.
 - **Tone modulation depth and level.** §8.2 and §8.3; bench settings, by ear.
-- **Detector `MARGIN_DB` and `PEER_WINDOW_DB`, tone, operator tone and monitor levels**: all bench settings, §15, none yet made.
+- **Detector `MARGIN_DB`, `PEER_WINDOW_DB` and `OP_WINDOW_DB`, tone, operator tone and monitor levels**: all bench settings, §15, none yet made.
 - **Period size.** 256 is the target for the monitor loop; whether the class-compliant driver sustains it is a bench question.
 - **Audio program heartbeat.** §13.3; open in mqtt.md §11.
 - **Listening on the tap channel.** Not offered — the rough specification says station or trunk — but the tap always carries the operator's voice, and "has the operator said anything" may turn out to be a question the game wants to ask. One more accepted topic if so.

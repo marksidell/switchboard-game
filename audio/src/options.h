@@ -44,6 +44,7 @@ struct Options {
     double test_db   = -20.0;           // audio.md 11.1
     double margin_db = 20.0;            // station 8.7 MARGIN_DB
     double peer_window_db = 40.0;       // station 8.7 PEER_WINDOW_DB
+    double op_window_db   = 20.0;       // station 8.7 OP_WINDOW_DB
 
     // Monitor
     bool   monitor_on = false;          // default off, audio.md 10.2

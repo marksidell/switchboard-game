@@ -195,6 +195,7 @@ static void test_detector()
     add_pilot(t4, tbl, chan::pilot_bin(chan::trunk_slot(4)), PILOT);
     add_pilot(t4, tbl, chan::pilot_bin(chan::trunk_slot(2)), XTALK);
     add_pilot(t4, tbl, chan::pilot_bin(chan::trunk_slot(3)), XTALK);
+    add_pilot(t4, tbl, chan::OP_BIN, PILOT - 46.0);  // the tap's leak, as station 22's
     add_noise(t4, QUIET, 7);
 
     // Trunk 6: patched to station 9, with the same crosstalk from trunks 5
@@ -243,6 +244,8 @@ static void test_detector()
           "the tap hears its own tone");
     check(last(Topic::Peer, chan::trunk_slot(4)) == "" && f,
           "trunk 4 is idle: crosstalk 72dB under its own pilot is not a peer");
+    check(last(Topic::Op, chan::trunk_slot(4)) == "off" && f,
+          "and the operator tone leaking from the tap is not the operator");
     check(last(Topic::Peer, chan::trunk_slot(6)) == "station/9" && f,
           "trunk 6 hears station 9 through the same crosstalk");
 

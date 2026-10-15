@@ -90,8 +90,8 @@ bool Detector::prepare()
         spread_ = 0;
         for (int i = 0; i < 4; ++i) guard_[i] = chan::GUARD_OFFSET[i];
         log_line("detector: rectangular window, guards at +-2/+-3, "
-                 "MARGIN_DB %.1f, PEER_WINDOW_DB %.1f",
-                 sh_.opt.margin_db, sh_.opt.peer_window_db);
+                 "MARGIN_DB %.1f, PEER_WINDOW_DB %.1f, OP_WINDOW_DB %.1f",
+                 sh_.opt.margin_db, sh_.opt.peer_window_db, sh_.opt.op_window_db);
     }
 
     if (!sh_.opt.dump_circuit.empty()) {
@@ -197,8 +197,16 @@ void Detector::analyse(int cap_index)
 
     const double own_db = bin_db(chan::pilot_bin(slot));
     const double op_db  = bin_db(chan::OP_BIN);
+    // A pilot must also be within PEER_WINDOW_DB of the circuit's own pilot,
+    // and the operator tone within OP_WINDOW_DB of it (station 8.7, Rev
+    // 3.46-3.47). A real peer arrives a few dB under the own pilot and the
+    // operator tone above it; crosstalk on the boards arrives 46dB or more
+    // under it, which can still be well above the noise floor.
+    const double window    = own_db - sh_.opt.peer_window_db;
+    const double op_window = own_db - sh_.opt.op_window_db;
 
-    confirm(op_[slot], Topic::Op, slot, op_db >= margin ? "on" : "off", !op_[slot].seen);
+    confirm(op_[slot], Topic::Op, slot, op_db >= margin && op_db >= op_window ? "on" : "off",
+            !op_[slot].seen);
 
     char value[40];
     if (own_db < margin) {
@@ -213,11 +221,6 @@ void Detector::analyse(int cap_index)
         // generates (audio.md 2). A pilot there cannot be a topology, so it
         // is reported as ambiguous rather than hidden: it means crosstalk,
         // a mis-wired strip, or a margin low enough to be reading noise.
-        // A pilot must also be within PEER_WINDOW_DB of the circuit's own
-        // (station 8.7, Rev 3.46). A real peer arrives a few dB under the own
-        // pilot; crosstalk between neighbouring trunk strips arrives 72dB or
-        // more under it, which can still be well above the noise floor.
-        const double window = own_db - sh_.opt.peer_window_db;
         int heard[chan::N_SLOTS], n = 0;
         for (int s = 1; s <= chan::N_SLOTS; ++s) {
             if (s == slot) continue;               // own pilot: the deaf check above

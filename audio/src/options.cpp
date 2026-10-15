@@ -54,6 +54,8 @@ static void usage(const char* p)
 "  --margin-db DB         detector MARGIN_DB (20)\n"
 "  --peer-window-db DB    detector PEER_WINDOW_DB: a pilot further than this\n"
 "                         below the circuit's own is not heard (40)\n"
+"  --op-window-db DB      detector OP_WINDOW_DB: the operator tone further than\n"
+"                         this below the circuit's own pilot is not heard (20)\n"
 "  --monitor DB           start with the monitor on at this gain (off)\n"
 "  --monitor-ch LIST      playback channels for the monitor, comma-separated,\n"
 "                         from 24, 33, 34 (24); 33,34 is the Digiface fallback\n"
@@ -172,6 +174,7 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         else if (a == "--test-db")        { o.test_db = atof(nx); ++i; }
         else if (a == "--margin-db")      { o.margin_db = atof(nx); ++i; }
         else if (a == "--peer-window-db") { o.peer_window_db = atof(nx); ++i; }
+        else if (a == "--op-window-db")   { o.op_window_db = atof(nx); ++i; }
         else if (a == "--monitor")        { o.monitor_on = true; o.monitor_db = atof(nx); ++i; }
         else if (a == "--monitor-ch")     { if (!parse_monitor_ch(nx, o.monitor_ch)) return false;
                                             ++i; }
