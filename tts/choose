@@ -67,8 +67,13 @@ def main(argv: list[str] | None = None) -> int:
     yaml.allow_duplicate_keys = False
     choices = yaml.load(args.choices.read_text(encoding="utf-8")) or {}
 
+    # With --only, only the people named need a choice: a voice made another
+    # way, such as the tutor's recording, has no candidate to choose.
+    named = {o for o in args.only.split(",") if o}
     fail: list[str] = []
     for person in script.cast:
+        if named and person not in named:
+            continue
         if person not in choices:
             fail.append(f"{person} has no choice in {args.choices}")
     for person in choices:

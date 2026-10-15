@@ -1,0 +1,16 @@
+{
+  "person": "restaurant_waiter",
+  "take": 2,
+  "seed": 1952,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: faintly continental, a head waiter's dignity. Anton, a waiter in the Stoneburner, the hotel restaurant.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "The front desk, please. This is the Stoneburner. This is Anton in the dining room. There is a dog going from table to table, sitting up and begging.",
+  "sample_from": [
+    "panic-restaurant.1",
+    "panic-restaurant.3"
+  ],
+  "rate": 24000,
+  "seconds": 9.92,
+  "generate_seconds": 15.39,
+  "chosen_candidate": 2
+}

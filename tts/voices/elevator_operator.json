@@ -1,0 +1,15 @@
+{
+  "person": "elevator_operator",
+  "take": 3,
+  "seed": 1953,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: generic American, an older man, easygoing. Floyd, who runs the hotel's elevator.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Operator, this is Floyd on the elevator. There's a big dog riding up and down with me, and she licks every guest that gets on.",
+  "sample_from": [
+    "panic-lobby.1"
+  ],
+  "rate": 24000,
+  "seconds": 6.72,
+  "generate_seconds": 10.39,
+  "chosen_candidate": 3
+}

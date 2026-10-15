@@ -412,7 +412,7 @@ async def main() -> int:
 
         print("\n== a chosen next scene (§4.8, Rev 25)")
         scenes = link.state_v.get("game/scenes", "").split("\n")
-        check(len(scenes) == len(g.gs.deck_scenes()) and scenes[0], "game/scenes lists the deck's scenes")
+        check(scenes == g.gs.choosable() and scenes[0], "game/scenes lists the deck's scenes and each scenario's first")
         await g.on_command("queue", "no-such-scene")
         check("not a scene" in link.state_v.get("game/error", ""), "an unknown scene is refused")
         want = scenes[-1]

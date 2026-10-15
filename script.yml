@@ -3137,7 +3137,7 @@ scenes:
     # The calls to the front desk carry if_busy: (4.11): while the desk is on
     # another call, the operator tells the guest to try again later.
     panic:
-        active: false
+        active: true
         after_handled: 10
         calling:
             line: imperialsuite
@@ -3154,7 +3154,7 @@ scenes:
                 caller: A dog? How marvellous. Then do send up another. And something for the dog.
 
     panic-hollis:
-        active: false
+        active: true
         after: panic
         mode: concurrent
         delay: [2, 5]
@@ -3185,7 +3185,7 @@ scenes:
                 caller: Busy? Then tell them a dog has my slipper, and I am standing here in one.
 
     panic-dobbs:
-        active: false
+        active: true
         after: panic-hollis
         mode: concurrent
         delay: [2, 5]
@@ -3204,7 +3204,7 @@ scenes:
                 caller: Well, back home in Wahoo she'd be out herding cattle. Tell her I said good morning.
 
     panic-vance:
-        active: false
+        active: true
         after: panic-dobbs
         mode: concurrent
         delay: [2, 5]
@@ -3233,7 +3233,7 @@ scenes:
                 caller: Busy. Everybody's up but me. Wake me when they catch it.
 
     panic-pike:
-        active: false
+        active: true
         after: panic-vance
         mode: concurrent
         delay: [2, 5]
@@ -3264,7 +3264,7 @@ scenes:
                 caller: Busy! I'll lose the whole Seattle territory over this.
 
     panic-beaumont:
-        active: false
+        active: true
         after: panic-pike
         mode: concurrent
         delay: [2, 5]
@@ -3283,7 +3283,7 @@ scenes:
                 caller: Please do. And tell the dog she has the makings of a fine cavalry scout.
 
     panic-pemberton:
-        active: false
+        active: true
         after: panic-beaumont
         mode: concurrent
         delay: [2, 5]
@@ -3316,7 +3316,7 @@ scenes:
                 caller: Busy! My parrot is having a nervous collapse and the front desk is busy.
 
     panic-albright:
-        active: false
+        active: true
         after: panic-pemberton
         mode: concurrent
         delay: [2, 5]
@@ -3345,7 +3345,7 @@ scenes:
                 caller: Never mind, dear. I'll follow the wool myself.
 
     panic-finch:
-        active: false
+        active: true
         after: panic-albright
         mode: concurrent
         delay: [2, 5]
@@ -3364,7 +3364,7 @@ scenes:
                 caller: Cleaner than mine. I don't know if that makes me feel better or worse. Thank you.
 
     panic-hale:
-        active: false
+        active: true
         after: panic-finch
         mode: concurrent
         delay: [2, 5]
@@ -3395,7 +3395,7 @@ scenes:
                 caller: Busy? Well, Jim's gone after her in his socks anyway.
 
     panic-lindqvist:
-        active: false
+        active: true
         after: panic-hale
         mode: concurrent
         delay: [2, 5]
@@ -3414,7 +3414,7 @@ scenes:
                 caller: She's welcome to it. Best salmon in Ballard. But send someone for the dog.
 
     panic-thornhill:
-        active: false
+        active: true
         after: panic-lindqvist
         mode: concurrent
         delay: [2, 5]
@@ -3443,7 +3443,7 @@ scenes:
                 caller: Busy. Of course it's busy. Never mind, I'll lock the door.
 
     panic-crane:
-        active: false
+        active: true
         after: panic-thornhill
         mode: concurrent
         delay: [2, 5]
@@ -3462,7 +3462,7 @@ scenes:
                 caller: Thank you. Now I shall have to tell thirty children that the dog ate their homework. And they will never believe me.
 
     panic-lobby:
-        active: false
+        active: true
         after: panic-crane
         mode: concurrent
         delay: [2, 5]
@@ -3481,7 +3481,7 @@ scenes:
                 caller: I'll try. She likes it in here. A lady from the third floor just got licked twice, going up and coming down. She says she'll take the stairs.
 
     panic-restaurant:
-        active: false
+        active: true
         after: panic-lobby
         mode: concurrent
         delay: [2, 5]
@@ -3512,7 +3512,7 @@ scenes:
                 caller: Busy. Then I will go and save the lobster myself.
 
     panic-martha:
-        active: false
+        active: true
         after: panic-restaurant
         mode: concurrent
         delay: [2, 5]
