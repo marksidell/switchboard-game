@@ -169,6 +169,14 @@ struct Shared {
     std::atomic<unsigned> limiter_hits { 0 };
     std::atomic<unsigned> res_dropped  { 0 };
 
+    // Output self-check (audio.md 11.4), per playback channel 1-34, element 0
+    // unused: periods whose peak exceeded the channel's ceiling, and the
+    // highest such peak in hundredths of a dB above -1000dBFS, so that zero
+    // is "none yet" and every real peak raises it. The audio thread adds and
+    // raises once a second; report_counters() reads and zeroes them.
+    std::atomic<unsigned> out_over[chan::N_PLAY_CH + 1] {};
+    std::atomic<int>      out_over_cdb[chan::N_PLAY_CH + 1] {};
+
     // What the driver actually granted, copied from AlsaStream at startup.
     int ncap  = chan::N_CAP_CH;
     int nplay = chan::N_PLAY_CH;

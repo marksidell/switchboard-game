@@ -67,6 +67,9 @@ public:
     void capture_for_test()                      { process_capture(); }
     const std::vector<float>& monitor_row() const { return mon_row_; }
     const std::vector<int32_t>& playback() const { return obuf_; }
+    std::vector<int32_t>& playback_for_test()    { return obuf_; }
+    void check_output_for_test()                 { check_output(); }
+    unsigned out_over_for_test(int ch) const     { return out_over_[ch]; }
 
     // monitor_ripple_db() / monitor_lowpass()                            [any]
     //   What prepare() designed, for the startup log and the unit test.
@@ -115,6 +118,7 @@ private:
     void   monitor_switch_to(int ch);       // at the bottom of the ramp
     void process_capture();
     void render();
+    void check_output();
     void hop_if_due();
 
     // Helpers for drain_commands() and friends.
@@ -196,4 +200,13 @@ private:
     std::vector<float> mon_row_;            // this period's monitor samples
 
     unsigned clips_ = 0;                    // clipped samples since last report
+
+    // ---- output self-check (audio.md 11.4), by playback channel 1-34.
+    // render() sets out_ceil_ to the most each channel should carry this
+    // period, linear full scale, or a negative value for a channel it does not
+    // check; check_output() counts the periods that exceed it until the
+    // once-a-second hand-over to Shared.
+    float    out_ceil_[chan::N_PLAY_CH + 1] = {};
+    unsigned out_over_[chan::N_PLAY_CH + 1] = {};
+    float    out_pk_[chan::N_PLAY_CH + 1]   = {};
 };

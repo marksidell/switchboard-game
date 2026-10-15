@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
@@ -598,6 +599,21 @@ void Net::report_counters(double now)
     if (x || h || c || l || d)
         log_line("counters: xruns %u, hops dropped %u, clipped samples %u, "
                  "limiter %u, results dropped %u", x, h, c, l, d);
+
+    // The output self-check (audio.md 11.4): one line naming every channel
+    // that carried more than it should, with its count of periods and its
+    // peak. Nothing logged means every channel was as rendered.
+    char line[1024];
+    size_t n = 0;
+    for (int ch = 1; ch <= chan::N_PLAY_CH; ++ch) {
+        const unsigned k   = sh_.out_over[ch].exchange(0);
+        const int      cdb = sh_.out_over_cdb[ch].exchange(0);
+        if (!k || n >= sizeof line) continue;
+        const int w = std::snprintf(line + n, sizeof line - n, " ch%d %u@%.1f",
+                                    ch, k, (cdb - 100000) / 100.0);
+        if (w > 0) n = std::min(n + (size_t)w, sizeof line - 1);
+    }
+    if (n) log_line("output check: over ceiling (periods@peak dBFS):%s", line);
 }
 
 // ---------------------------------------------------------------- loop

@@ -633,6 +633,43 @@ static void test_render_map()
           "and channel 24 then carries silence");
 }
 
+// test_output_check()
+//   audio.md 11.4, Rev 12: a render as designed passes the output self-check
+//   on every channel - pilots, the operator tone, the monitor at its limit,
+//   silence, the test tone - and a corrupted buffer is caught on the channels
+//   corrupted and on no others.
+static void test_output_check()
+{
+    std::printf("output self-check (audio.md 11.4, Rev 12)\n");
+    auto sh = std::make_unique<Shared>();
+    AlsaStream st;                          // never opened
+    Engine eng(*sh, st);
+    check(eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
+
+    Command t;
+    t.verb = Verb::Test; t.idx = 5; t.on = true;
+    check(sh->cmdq.push(t), "a test tone on 5 queues");
+    eng.drain_for_test();
+    eng.set_monitor_row_for_test(0.70f);    // just under the -3dBFS limit
+    for (int k = 0; k < 4; ++k) { eng.render_for_test(); eng.check_output_for_test(); }
+    bool clean = true;
+    for (int ch = 1; ch <= chan::N_PLAY_CH; ++ch)
+        if (eng.out_over_for_test(ch)) clean = false;
+    check(clean, "a render as designed exceeds no channel's ceiling");
+
+    eng.render_for_test();
+    std::vector<int32_t>& buf = eng.playback_for_test();
+    buf[(size_t)7 * chan::N_PLAY_CH + 9 - 1]  = 2000000000;    // a pilot channel
+    buf[(size_t)9 * chan::N_PLAY_CH + 34 - 1] = -100000;       // a silent one
+    eng.check_output_for_test();
+    check(eng.out_over_for_test(9) == 1 && eng.out_over_for_test(34) == 1,
+          "a corrupted pilot channel and a corrupted silent channel are caught");
+    bool others = true;
+    for (int ch = 1; ch <= chan::N_PLAY_CH; ++ch)
+        if (ch != 9 && ch != 34 && eng.out_over_for_test(ch)) others = false;
+    check(others, "and no other channel is");
+}
+
 // test_tap_play()
 //   audio.md 7, Rev 10: a file on the operator tap sums over the operator
 //   tone, and the tap's play echo is its own topic, not a circuit's.
@@ -838,6 +875,7 @@ int main()
     test_monitor_ch();
     test_render_map();
     test_monitor_source();
+    test_output_check();
     test_tap_play();
     test_monitor_play();
     std::printf("\n%s\n", failures ? "FAILURES" : "all checks passed");

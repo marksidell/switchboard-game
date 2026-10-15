@@ -467,6 +467,14 @@ class Game:
         return (any(self.gs.in_scenario(c.scene) for c in self.slots)
                 or any(self.gs.in_scenario(i) for i in self._pending_after))
 
+    def _chosen_scenario_ready(self) -> bool:
+        """A chosen scenario, outside tutor mode, and the board clear: it
+        starts at once, without Next Call or the schedule (§4.10, Rev 41)."""
+        q = self.gs.scenes.get(self.queued) if self.queued else None
+        return (q is not None and q.after_handled is not None and self.tutor is None
+                and self.slots is not None and not any(True for _ in self.slots)
+                and not self._pending_after)
+
     def _scenario_allowed(self) -> bool:
         """A scenario is never dealt in tutor mode or listen (§4.10)."""
         return self.tutor is None and self.pacing.pace in ("manual", "auto")
@@ -530,18 +538,26 @@ class Game:
             return
 
         if scene is None and self.queued:
-            # §4.8: the chosen scene, if its lines and people are free. A
-            # scenario chosen in tutor or listen waits for another pacing.
+            # §4.8: the chosen scene, if its lines and people are free.
             q = self.gs.scenes.get(self.queued)
-            if (q is not None and (q.after_handled is None or self._scenario_allowed())
+            if q is not None and q.after_handled is not None and self.tutor is None:
+                # §4.10, Rev 40: a chosen scenario, in any pacing but tutor,
+                # waits for a clear board, and nothing else is dealt meanwhile.
+                if any(True for _ in self.slots) or self._pending_after:
+                    why = "waiting for the board to clear"
+                    await self._say(f"no call: {q.id} {why}")
+                    if asked:
+                        await self._error(why)
+                    if self.pacing.automatic:
+                        await self._reschedule()
+                    return
+            if (q is not None and (q.after_handled is None or self.tutor is None)
                     and self.deck.take(q, self._held())):
                 scene = q
                 self.queued = ""
                 assert self.link is not None
                 await self.link.state("game/queue", "")
                 await self._say(f"chosen scene {q.id} dealt")
-                if q.after_handled is not None:
-                    self._scenarios_dealt.add(q.id)
         if scene is None and self._scenario_allowed():
             # §4.10: a scenario, once enough calls have been handled.
             for q in self.gs.scenarios():
@@ -835,6 +851,8 @@ class Game:
             try:
                 if self.running and self.pacing.due():
                     await self._start_call()
+                elif self.running and self._chosen_scenario_ready():
+                    await self._start_call()        # §4.10, Rev 41: by itself
                 await asyncio.sleep(0.25)
             except asyncio.CancelledError:
                 raise

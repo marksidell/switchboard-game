@@ -558,6 +558,34 @@ async def main() -> int:
         await g._start_call()
         check(not any(c.scene == "p0" for c in g.slots), "never dealt in listen")
         await g.stop("stop")
+
+        print("\n== a scenario chosen from the page (§4.10, Rev 40)")
+        await g.start()
+        g.pacing.pace = "manual"
+        await g._start_call()                       # an ordinary call on the board
+        before = g.tallies.started
+        await g.on_command("queue", "p0")
+        await g._start_call(asked=True)
+        check(g.tallies.started == before and not any(c.scene == "p0" for c in g.slots),
+              "waits for the board to clear, and nothing else is dealt")
+        check(link.state_v.get("game/error") == "waiting for the board to clear",
+              "Next Call refused, saying why")
+        await g.stop("stop")
+        sched = asyncio.create_task(g.run_scheduler())
+        g.pacing.pace = "listen"
+        await g.on_command("queue", "p0")           # chosen before Start
+        await g.start()
+        check(any(c.scene == "p0" for c in g.slots), "a choice made before Start starts the game")
+        await g.stop("stop")
+        g.pacing.pace = "manual"
+        await g.start()
+        await g.on_command("queue", "p0")
+        await asyncio.sleep(0.6)
+        check(any(c.scene == "p0" for c in g.slots),
+              "starts by itself on a clear board, without Next Call (Rev 41)")
+        check("p0" not in g._scenarios_dealt, "and its once-a-game play is not used up")
+        await g.stop("stop")
+        sched.cancel()
         await sess.close()
 
         print("\n== a full board: a concurrent follower waits for a slot")

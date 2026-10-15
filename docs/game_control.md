@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 38 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order, with the Tutor's Ring Lines Named for the Station, and a Scenario of Calls Arriving Together After the Tenth Call, with a Station Found Engaged*
+*Rev 38 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order, with the Tutor's Ring Lines Named for the Station, and a Scenario of Calls Arriving Together After the Tenth Call, with a Station Found Engaged, and a Scenario Chosen from the Page on a Clear Board, Starting by Itself*
 
 # 1. Overview
 
@@ -175,6 +175,18 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 — The page's countdown says "waiting" while a game runs in automatic pacing and no next call is scheduled — `next_at` empty, because in auto the latest call is not yet connected or ended, and in listen the board is not yet empty (§4.2) — and "–" when no game runs (§7.1), Mark's request, 2026-09-28. It said "–" in both. The deck's Next key already said "waiting" in that case; §7.4 now says so too. It is on the countdown rather than on the Next Call button because the button is hidden with the controls and the countdown is not.
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
+
+## 1.41 Changes in Rev 41
+
+— A chosen scenario starts by itself as soon as the board is clear (§4.10), Mark's request, 2026-10-14: at once if it is clear when chosen, else the moment the last call ends, in any pacing but tutor. Rev 40 waited for Next Call or the schedule, and nothing on the deck shows that a choice is waiting. Other chosen scenes are unchanged: still the next call dealt.
+
+— Code consequence for Claude Code, made the same day: `game.py`'s scheduler loop, and the tests. No topic changes.
+
+## 1.40 Changes in Rev 40
+
+— A scenario can be chosen from the page to show it (§4.10), Mark's request, 2026-10-14, for showing the game to friends. Rev 39 let it be chosen in manual and auto only, and dealt it on top of whatever was running. Chosen, it is now allowed in listen too, still never in tutor mode, and waits for a clear board: no call in progress and no `after:` scene waiting. Until then nothing else is dealt, and Next Call is refused on `game/error`. A chosen scenario does not use up its once-a-game play after `after_handled:` calls, so it can be shown as often as wanted. The automatic deal after `after_handled:` calls is unchanged.
+
+— Code consequence for Claude Code, made the same day: `game.py` and the tests. No topic changes.
 
 ## 1.39 Changes in Rev 39
 
@@ -489,7 +501,9 @@ Rev 29. A voice on the audience loudspeaker talks a new player through each call
 
 Rev 39. A scene marked `after_handled: <n>` is the first call of a scenario, and its `mode: concurrent` followers (§4.4) are the rest. It is never in the deck. Once `n` calls have been handled in the game (§5, success plus fail), the next call dealt — by Next Call or by the automatic schedule — is that scene, if its lines and people are free, else the call after. It is dealt once a game. A chosen scene (§4.8) still comes first.
 
-It is dealt in manual and automatic pacing only: never in tutor mode, which is one call at a time (§4.9), nor in listen, where calls never overlap (§4.2). A game that changes to one of those holds it back until it changes again. It is in `game/scenes`, so it can be chosen from the page to try it, in any pacing but those two. Since the tutor never hears a scenario, she has no Say line (§4.9) for an operator line that only a scenario uses.
+It is dealt in manual and automatic pacing only: never in tutor mode, which is one call at a time (§4.9), nor in listen, where calls never overlap (§4.2). A game that changes to one of those holds it back until it changes again. Since the tutor never hears a scenario, she has no Say line (§4.9) for an operator line that only a scenario uses.
+
+**Chosen from the page** (Rev 40). A scenario is in `game/scenes`, so it can be chosen as the next scene (§4.8) to show it. Chosen, it is dealt in manual, automatic and listen pacing, never in tutor mode, and only on a clear board: no call in progress and no `after:` scene waiting to start. It starts by itself (Rev 41): at once if the board is clear when it is chosen, else the moment the board clears, without Next Call or the schedule. A choice made with no game running starts the game with it. Until the board clears nothing else is dealt, and Next Call is refused on `game/error`, "waiting for the board to clear". Once dealt, its followers start on their own timers, in any pacing. A chosen scenario does not count as its once-a-game play: the deal after `n` calls still comes, and it can be chosen again.
 
 **While the scenario is on the board** — any of its calls in progress or any of its scenes waiting to start — the automatic schedule waits, as listen waits for an empty board, and runs its gap from when the last of them has ended. Next Call still deals in manual pacing.
 

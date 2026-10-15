@@ -7,6 +7,7 @@
 #include "engine.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 
 #include "util.h"
@@ -14,6 +15,11 @@
 using chan::FFT_N;
 using chan::FFT_HOP;
 using chan::SAMPLE_RATE;
+
+// The monitor's limiter threshold (audio.md 10.1), and the same as the most the
+// output self-check expects on a monitor channel (audio.md 11.4).
+static constexpr double MON_LIMIT_DB = -3.0;
+static const float      MON_CEIL     = (float)std::pow(10.0, MON_LIMIT_DB / 20.0);
 
 // audio.md 8.2. The Bell System tones of the period the 551 belongs to, before
 // the precise tone plan replaced them with two-frequency sums. Busy is the
@@ -109,7 +115,7 @@ bool Engine::prepare()
     // the tap, so the trim is taken back out of the file's share.
     mon_file_lin_    = db_to_lin(sh_.opt.monitor_file_trim_db);
     mon_file_on_tap_ = db_to_lin(sh_.opt.monitor_file_trim_db - sh_.opt.monitor_tap_trim_db);
-    lim_.init(-3.0, 0.100, SAMPLE_RATE);
+    lim_.init(MON_LIMIT_DB, 0.100, SAMPLE_RATE);
 
     const double at_6k = cascade_mag_db(mon_lp_, 6000.0, SAMPLE_RATE);
     log_line("monitor: elliptic low-pass order 8, pass %.0f Hz, stop %.0f Hz, "
@@ -627,6 +633,7 @@ void Engine::render()
         if (test_on_[ch]) {
             for (unsigned i = 0; i < period_; ++i)
                 out[i * stride] = float_to_s32(test_row_[i]);
+            out_ceil_[ch] = test_amp_;
             continue;
         }
 
@@ -636,6 +643,7 @@ void Engine::render()
         if (mon_out_[ch]) {
             for (unsigned i = 0; i < period_; ++i)
                 out[i * stride] = float_to_s32(mon_row_[i]);
+            out_ceil_[ch] = MON_CEIL;
             continue;
         }
 
@@ -646,6 +654,7 @@ void Engine::render()
         // there. No pilot is generated for slots 23 and 24 (audio.md 2).
         if (!chan::is_circuit_slot(slot) && slot != chan::TAP_CH) {
             for (unsigned i = 0; i < period_; ++i) out[i * stride] = 0;
+            out_ceil_[ch] = 0.0f;
             continue;
         }
 
@@ -665,7 +674,10 @@ void Engine::render()
         // The tap takes a file too (audio.md 7, Rev 10), summed over the
         // operator tone exactly as a circuit's is over its pilot. Never a tone:
         // the MQTT thread has no tone command for it.
+        // A file or a tone can reach full scale by design, so only the fixed
+        // source alone has a ceiling to check (audio.md 11.4).
         Prog& p = prog_[slot];
+        out_ceil_[ch] = (p.kind == Prog::Kind::None) ? amp : -1.0f;
         if (p.kind == Prog::Kind::None) continue;
 
         // Sum the programme source over the fixed one, in float, hard-clipped
@@ -719,6 +731,37 @@ void Engine::render()
     pilot_n_ = (pilot_n_ + period_) & (FFT_N - 1);
 }
 
+// check_output()                                                       [audio]
+//   The output self-check of audio.md 11.4: each checked channel's peak in
+//   the buffer about to be written, against the ceiling render() set for it.
+//   A peak more than 0.5dB over counts this period as an excess on that
+//   channel and raises its highest peak. The samples are what ALSA will be
+//   given, so anything wrong after the write does not show here - which is
+//   what tells a fault in the program from one downstream of it.
+void Engine::check_output()
+{
+    const int nout = (int)std::min<unsigned>(nplay_, chan::N_PLAY_CH);
+    for (int ch = 1; ch <= nout; ++ch) {
+        const float ceil = out_ceil_[ch];
+        if (ceil < 0.0f) continue;
+        const int32_t* out = obuf_.data() + (ch - 1);
+        int64_t pk = 0;
+        for (unsigned i = 0; i < period_; ++i) {
+            const int64_t v = out[(size_t)i * nplay_];
+            const int64_t a = v < 0 ? -v : v;
+            if (a > pk) pk = a;
+        }
+        // 0.5dB, and 16 counts so that a silent channel is not flagged by a
+        // rounding residue it cannot have but a corrupted one easily exceeds.
+        const double lim = (double)ceil * 1.0593 * 2147483392.0 + 16.0;
+        if ((double)pk > lim) {
+            ++out_over_[ch];
+            const float pkf = (float)((double)pk / 2147483648.0);
+            if (pkf > out_pk_[ch]) out_pk_[ch] = pkf;
+        }
+    }
+}
+
 // ---------------------------------------------------------------- the loop
 
 // run()                                                                [audio]
@@ -754,6 +797,7 @@ void Engine::run()
         process_capture();
         drain_commands();
         render();
+        check_output();
 
         const snd_pcm_sframes_t w = st_.write(obuf_.data());
         if (w < 0) {
@@ -769,6 +813,16 @@ void Engine::run()
             if (clips_) { sh_.clips.fetch_add(clips_, std::memory_order_relaxed); clips_ = 0; }
             const unsigned l = lim_.take_active();
             if (l) sh_.limiter_hits.fetch_add(l, std::memory_order_relaxed);
+            for (int ch = 1; ch <= chan::N_PLAY_CH; ++ch) {
+                if (!out_over_[ch]) continue;
+                sh_.out_over[ch].fetch_add(out_over_[ch], std::memory_order_relaxed);
+                const int cdb = 100000 + (int)std::lround(2000.0 * std::log10(std::max(out_pk_[ch], 1e-9f)));
+                int prev = sh_.out_over_cdb[ch].load(std::memory_order_relaxed);
+                while (cdb > prev && !sh_.out_over_cdb[ch].compare_exchange_weak(
+                           prev, cdb, std::memory_order_relaxed)) {}
+                out_over_[ch] = 0;
+                out_pk_[ch] = 0.0f;
+            }
             last_report = now;
         }
     }

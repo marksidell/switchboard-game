@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 11 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, All Commanded and Reported over MQTT*
+*Rev 12 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, All Commanded and Reported over MQTT*
 
 # 1. Overview
 
@@ -132,6 +132,12 @@ Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout t
 — The monitor plays a file (§10.4), following game_control.md Rev 29, 2026-10-08: `sbgame/audio/monitor/play/set` and its echo `sbgame/audio/monitor/play`, as a circuit's `play/set` and `play` (mqtt.md Rev 27). It is the tutor's voice in tutor mode, heard on the loudspeaker. The file is summed into the monitor chain after the source's filter, through a second copy of the same low-pass, then takes the monitor's gain and limiter: the loudspeaker is in the room with the operator's microphone, so the file is held out of the pilot band exactly as the source is, and the monitor's one level sets both. A new option, `--monitor-file-trim`, sets the file's level against the source's. Nothing else about the monitor changes.
 
 — Code consequence, made the same day: the file is slot 24's program source; `process_capture()` sums it into the chain and stops it at its end; the MQTT thread subscribes to the monitor's `play/set`, handles it as a circuit's, and publishes `audio/monitor/play` at start, on stop, on the game's loss and on shutdown; `ctest` covers the mix, the echo and the mute.
+
+## 1.12 Changes in Rev 12
+
+— An output self-check (§11.4), 2026-10-14. On the bench that afternoon, with only the audience monitor connected to the A32 and the test tone on 24, the A32's output meters showed channels 9, 17 and 25 steady near 0dBFS and, every 4–5s, a burst of about 1.5s taking nearly every output close to full scale; the detector heard the bursts on capture from 15:07:25 to 15:24:44. Nothing had been commanded, the log showed no xrun, clip or limiter count, and the A32's routing and clock were correct (ADAT 1–32 to analog 1–32, slaved to ADAT port 1, all four ports locked at 48kHz). Stopping `sbaudio` cleared the meters; `tone_out` driving the same channels at the same levels was clean; and `sbaudio` restarted, by hand at periods of 1024 and 256 and then under its service with the test tone on 24, was clean for the next half hour. So the process that had run since 07:32 got into a state that a restart cleared, and nothing says whether the bad samples were in its playback buffer or were corrupted after it. The check answers that the next time: it compares what the program is about to write with what each channel should carry. If it logs the channels the meter shows, the fault is in the program; if it stays silent while the meter misbehaves, it is after the program — ALSA, USB or the Digiface.
+
+— Code consequence, made the same day: `render()` records each channel's ceiling, and a scan of the playback buffer before each write counts the periods that exceed it per channel; the MQTT thread logs them with the counters (§11.2). `ctest` covers a clean render and a corrupted one.
 
 # 2. Channel Plan
 
@@ -374,11 +380,17 @@ The file and the source are summed in float before the limiter, which protects t
 
 ## 11.2 Log
 
-To stderr, one line per event, with uptime, and picked up by the journal when run under systemd. Events: start with the ALSA parameters actually negotiated, every MQTT command received and what was done with it, every `peer` and `op` change, every `ambiguous` with the list of pilots and levels, `deaf` and `optone` changes, monitor source changes, file load results and warnings, xruns and clip counts, MQTT connect and disconnect, game-heartbeat loss (§13.2).
+To stderr, one line per event, with uptime, and picked up by the journal when run under systemd. Events: start with the ALSA parameters actually negotiated, every MQTT command received and what was done with it, every `peer` and `op` change, every `ambiguous` with the list of pilots and levels, `deaf` and `optone` changes, monitor source changes, file load results and warnings, xruns and clip counts, output-check excesses (§11.4), MQTT connect and disconnect, game-heartbeat loss (§13.2).
 
 ## 11.3 Spectrum Dump
 
 `--dump <circuit> <seconds>` writes that circuit's per-hop magnitude spectrum in dB above its guard-bin floor for every comb bin and bin 768, as CSV, for the stated duration, then continues normally. This is the commissioning tool for setting `MARGIN_DB` (station §8.7) and for the clock check in §15, and it is a command-line option rather than an MQTT command because it is used with a terminal open and nothing else running.
+
+## 11.4 Output Self-Check
+
+Every period, after `render()` and before the write, the program scans the playback buffer it is about to hand to ALSA and compares each channel's peak with the most that channel should carry this period: the pilot level on a circuit with no program source, the operator tone's on the tap with no file, the test tone's under test, the limiter's −3dBFS on a monitor channel, and nothing on a silent one. A channel with a file or a trunk tone is not checked — its source can reach full scale by design. A peak more than 0.5dB over its ceiling counts that period as an excess on that channel. The audio thread keeps the count and the highest peak per channel and hands them to Shared once a second; the MQTT thread logs them every ten seconds with the counters, one line naming each channel, its count of periods and its peak in dBFS. Silence in the log means every channel carried what it should. The scan is one pass over the buffer already in cache, with no allocation and no lock, and costs a few microseconds a period.
+
+It sees only the program's own buffer. Samples corrupted after the write — in ALSA, the USB stream or the Digiface — do not appear in it, and that is the point: a meter at the A32 that misbehaves while this check is silent puts the fault downstream of the program.
 
 # 12. MQTT Interface
 
