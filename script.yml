@@ -3499,7 +3499,7 @@ scenes:
             -   id: 2
                 called: Front desk.
             -   id: 3
-                caller: This is Anton in the dining room. There is a dog going from table to table, sitting up and begging.
+                caller: This is Anton in the dining room. There is a dog going from table to table, begging, and it is dressed like a grandmother.
             -   id: 4
                 called: Is she bothering the guests?
             -   id: 5
