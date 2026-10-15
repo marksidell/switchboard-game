@@ -73902,7 +73902,6 @@
 		(property "Reference" "C302"
 			(at 1.25 -2.5 0)
 			(layer "F.SilkS")
-			(hide yes)
 			(uuid "6d6498ca-b645-42a4-8bcd-538c233347bf")
 			(effects
 				(font

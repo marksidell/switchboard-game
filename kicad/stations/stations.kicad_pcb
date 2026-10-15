@@ -22543,7 +22543,7 @@
 		(descr "Diode, DO-35_SOD27 series, Axial, Horizontal, pin pitch=7.62mm, length*diameter=4*2mm^2, http://www.diodes.com/_files/packages/DO-35.pdf")
 		(tags "Diode DO-35_SOD27 series Axial Horizontal pin pitch 7.62mm  length 4mm diameter 2mm")
 		(property "Reference" "D702"
-			(at 17.96 -2.12 0)
+			(at 3.81 -2.64675 0)
 			(layer "F.SilkS")
 			(uuid "e123aba0-65a5-472f-9f70-fe656c112209")
 			(effects
@@ -22753,7 +22753,7 @@
 			(uuid "9bfd2530-9075-4dc6-b240-f1f37b0cc185")
 		)
 		(fp_text user "K"
-			(at 14.15 -1.8 180)
+			(at -0.0781 -1.8 180)
 			(layer "F.SilkS")
 			(uuid "9844f0a7-8782-4547-b65c-296ec4e5f1a2")
 			(effects
@@ -22775,7 +22775,7 @@
 			)
 		)
 		(fp_text user "K"
-			(at 14.15 -1.8 180)
+			(at -2.4781 0 180)
 			(layer "F.Fab")
 			(uuid "674610d9-0973-4870-b0e8-454f2c7ea407")
 			(effects
