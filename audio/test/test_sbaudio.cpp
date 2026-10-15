@@ -187,6 +187,25 @@ static void test_detector()
     add_pilot(s3, tbl, chan::pilot_bin(chan::trunk_slot(8)),   PILOT);
     add_noise(s3, NOISE, 5);
 
+    // Trunk 4: idle, hearing trunks 2 and 3 at 72dB under its own pilot -
+    // the trunk board's strip-to-strip crosstalk (station 8.7, Rev 3.46).
+    // Above the noise floor by more than MARGIN_DB, outside PEER_WINDOW_DB.
+    const double XTALK = PILOT - 72.0, QUIET = -110.0;
+    float* t4 = d + (size_t)(chan::trunk_slot(4) - 1) * chan::FFT_N;
+    add_pilot(t4, tbl, chan::pilot_bin(chan::trunk_slot(4)), PILOT);
+    add_pilot(t4, tbl, chan::pilot_bin(chan::trunk_slot(2)), XTALK);
+    add_pilot(t4, tbl, chan::pilot_bin(chan::trunk_slot(3)), XTALK);
+    add_noise(t4, QUIET, 7);
+
+    // Trunk 6: patched to station 9, with the same crosstalk from trunks 5
+    // and 8, and its own pilot 14dB down as it is with the loop closed.
+    float* t6 = d + (size_t)(chan::trunk_slot(6) - 1) * chan::FFT_N;
+    add_pilot(t6, tbl, chan::pilot_bin(chan::trunk_slot(6)),   PILOT - 14.0);
+    add_pilot(t6, tbl, chan::pilot_bin(chan::station_slot(9)), PILOT - 17.0);
+    add_pilot(t6, tbl, chan::pilot_bin(chan::trunk_slot(5)),   XTALK);
+    add_pilot(t6, tbl, chan::pilot_bin(chan::trunk_slot(8)),   XTALK);
+    add_noise(t6, QUIET, 8);
+
     // The tap: its own tone returning on its own channel.
     float* tap = d + (size_t)(chan::TAP_CH - 1) * chan::FFT_N;
     add_pilot(tap, tbl, chan::OP_BIN, -18.0);
@@ -222,6 +241,10 @@ static void test_detector()
           "station 3 hears two foreign pilots");
     check(last(Topic::OpTone, 0) == "ok" && f,
           "the tap hears its own tone");
+    check(last(Topic::Peer, chan::trunk_slot(4)) == "" && f,
+          "trunk 4 is idle: crosstalk 72dB under its own pilot is not a peer");
+    check(last(Topic::Peer, chan::trunk_slot(6)) == "station/9" && f,
+          "trunk 6 hears station 9 through the same crosstalk");
 
     // Every other circuit is silence: deaf, and no peer.
     check(last(Topic::Peer, chan::station_slot(10)) == "deaf" && f,

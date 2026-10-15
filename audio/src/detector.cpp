@@ -90,7 +90,8 @@ bool Detector::prepare()
         spread_ = 0;
         for (int i = 0; i < 4; ++i) guard_[i] = chan::GUARD_OFFSET[i];
         log_line("detector: rectangular window, guards at +-2/+-3, "
-                 "MARGIN_DB %.1f", sh_.opt.margin_db);
+                 "MARGIN_DB %.1f, PEER_WINDOW_DB %.1f",
+                 sh_.opt.margin_db, sh_.opt.peer_window_db);
     }
 
     if (!sh_.opt.dump_circuit.empty()) {
@@ -212,10 +213,16 @@ void Detector::analyse(int cap_index)
         // generates (audio.md 2). A pilot there cannot be a topology, so it
         // is reported as ambiguous rather than hidden: it means crosstalk,
         // a mis-wired strip, or a margin low enough to be reading noise.
+        // A pilot must also be within PEER_WINDOW_DB of the circuit's own
+        // (station 8.7, Rev 3.46). A real peer arrives a few dB under the own
+        // pilot; crosstalk between neighbouring trunk strips arrives 72dB or
+        // more under it, which can still be well above the noise floor.
+        const double window = own_db - sh_.opt.peer_window_db;
         int heard[chan::N_SLOTS], n = 0;
         for (int s = 1; s <= chan::N_SLOTS; ++s) {
             if (s == slot) continue;               // own pilot: the deaf check above
-            if (bin_db(chan::pilot_bin(s)) >= margin) heard[n++] = s;
+            const double db = bin_db(chan::pilot_bin(s));
+            if (db >= margin && db >= window) heard[n++] = s;
         }
         if (n == 0) {
             value[0] = '\0';                       // idle: an empty retained payload
