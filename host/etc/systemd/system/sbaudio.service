@@ -22,7 +22,7 @@ WorkingDirectory=/home/sidell/s/sbgame
 
 ExecStart=/usr/local/bin/sbaudio \
     --card USB24306452 \
-    --period 256 --periods 6 \
+    --period 256 --periods 3 \
     --broker localhost:1883 \
     --mqtt-user sbgame-audio --mqtt-pass-file /etc/sbgame/mqtt-audio.pass \
     --wav-dir /home/sidell/s/sbgame/wav
