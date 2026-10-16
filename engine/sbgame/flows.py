@@ -46,11 +46,13 @@ from .scenes import _quietly, hear, ringing_station, say
 from .tutor import REPEAT, REPEATS, Tutor
 
 # §5, Rev 46: dial tone comes this long after the trunk is seized, as an
-# exchange takes a moment to connect a register; and a call whose caller has
-# had neither the operator nor a connection, with no trunk up, for this long
-# before it is connected is abandoned.
+# exchange takes a moment to connect a register; and a caller left with
+# neither the operator nor a connection, with no trunk up, hangs up after
+# ABANDON before the call is connected - ABANDON_MISDIALLED once she has
+# dialled a wrong number for it (Rev 48: 10s and 5s, where Rev 46 had 20s).
 DIAL_DELAY = 1.0
-ABANDON = 20.0
+ABANDON = 10.0
+ABANDON_MISDIALLED = 5.0
 
 log = logging.getLogger("flow")
 
@@ -76,6 +78,7 @@ class Ctx:
     set_monitor: Callable[[str], Awaitable[None]]  # §6.4
     tutor: Tutor | None = None                     # §4.9, in tutor mode
     jack_of: Callable[[int], int | None] = lambda n: None   # station -> its jack (§6.3)
+    misdialled: bool = False                       # a wrong number this call (§5, Rev 48)
 
     @property
     def b(self) -> Board:
@@ -289,8 +292,9 @@ async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
     async def watch() -> None:
         while True:
             await ctx.b.wait_until(lost, None)
+            wait = ABANDON_MISDIALLED if ctx.misdialled else ABANDON
             try:
-                await ctx.b.wait_until(lambda b: not lost(b), ABANDON)
+                await ctx.b.wait_until(lambda b: not lost(b), wait)
             except TimeoutError:
                 return
 
@@ -310,7 +314,7 @@ async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
     watcher.result()                                  # Offline, if that is what ended it
-    ctx.say_event(f"{caller} lost for {ABANDON:g}s before connecting")
+    ctx.say_event(f"{caller} hung up, left alone before connecting")
     raise Abandoned("caller lost before connecting")
 
 
@@ -378,6 +382,7 @@ async def _wait_for_right_number(ctx: Ctx, trunk: int, want: str,
             ctx.say_event(f"dialled {got}, wanted {want}")
             log.info("%s: wrong number %s", ctx.scene.id, got)
         await ctx.hw.tone(trunk, "busy")                # Rev 46: not silence
+        ctx.misdialled = True                           # Rev 48: less patience
         # Wait for her to release and try again.
         await ctx.b.wait_until(lambda b, t=trunk: not b.on(f"trunk/{t}/seize"),
                                ctx.left(deadline))

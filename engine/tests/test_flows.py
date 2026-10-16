@@ -288,17 +288,28 @@ async def main() -> int:
     r = await h.run(station_to_station, switch_glitch)
     check(r.ok, f"the call rides through: {r.reason!r}")
 
-    print("\n== the caller lost before connecting is abandoned (§5, Rev 46)")
-    was = flows.ABANDON
-    flows.ABANDON = D * 10
+    print("\n== the caller left alone before connecting hangs up (§5, Rev 46, 48)")
+    was = flows.ABANDON, flows.ABANDON_MISDIALLED
+    flows.ABANDON, flows.ABANDON_MISDIALLED = D * 10, D * 3
     try:
         h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
                           dial="275-4101"))
+        t0 = asyncio.get_running_loop().time()
         r = await h.run(station_to_outside, pulls_the_cord_before_routing)
+        patient = asyncio.get_running_loop().time() - t0
         check(not r.ok and r.reason == Reason.CUT_OFF, f"fails as 'cut off': {r.reason!r}")
-        check(any("lost" in e for e in h.events), f"and says so: {h.events}")
+        check(any("hung up" in e for e in h.events), f"and says so: {h.events}")
+        h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
+                          dial="275-4101"))
+        h.ctx.misdialled = True
+        t0 = asyncio.get_running_loop().time()
+        r = await h.run(station_to_outside, pulls_the_cord_before_routing)
+        took = asyncio.get_running_loop().time() - t0
+        check(not r.ok and r.reason == Reason.CUT_OFF, "after a wrong number too")
+        check(took < patient - D * 5,
+              f"and sooner: {took:.2f}s against {patient:.2f}s")
     finally:
-        flows.ABANDON = was
+        flows.ABANDON, flows.ABANDON_MISDIALLED = was
 
     print("\n== station to outside")
     h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
