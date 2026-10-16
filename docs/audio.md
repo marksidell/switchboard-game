@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 15 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, All Commanded and Reported over MQTT*
+*Rev 16 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, All Commanded and Reported over MQTT*
 
 # 1. Overview
 
@@ -156,6 +156,12 @@ Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout t
 — Following station Rev 3.48: `--peer-window-db` and `--op-window-db` compare absolute bin levels, not each bin's level above its own floor, and `--peer-window-db` defaults to 25, down from 40. With the trunks on the switchboard, floors 15–30dB apart made trunk crosstalk 44dB under the own pilot read 12dB under it, and false trunk-to-trunk peers were published (2026-10-16).
 
 — Code consequence, made the same day: the change in the detector, and the `ambiguous` log gives each pilot's level against the own pilot in brackets after its level above the floor, which is what the window reads. `ctest` has an idle trunk whose own bin's floor is raised 40dB, which reads idle.
+
+## 1.16 Changes in Rev 16
+
+— The monitor limiter's threshold is a setting, `--monitor-limit`, −60 to −3dBFS, −3 by default as before (§10.1). Found on the switchboard, 2026-10-16: moving a cord pair's switch clicks loudly on the loudspeaker. The switch makes and breaks the line the monitor follows, and the click reaches the output far above speech, where a limiter at −3dBFS never touches it. Set just above the loudest speech, the limiter holds the click to that level. The installation sets −30dBFS: with the monitor at −12dB and the tutor's files at −18, speech peaks about −33dBFS at the output. A click suppressor that mutes the monitor for a few tens of milliseconds on a jump no speech makes is the next step if the clicks at speech level still bother; it is not done.
+
+— Code consequence, made the same day: the option, and the limiter releases before it attacks, so the sample that sets its gain is never let back above the threshold. In the old order it overshot by a little — nothing at −3dBFS, about 0.6% at −30. `ctest` has a click at −1dBFS held to −30, and speech below it untouched.
 
 # 2. Channel Plan
 
@@ -348,7 +354,7 @@ Channel 24 is the A32 output wired to the loudspeaker amplifier (station §7.9.8
 
 The filter coefficients are computed at startup from the passband edge, stopband edge and attenuation, which are options, so that a different passband edge (§1.1) is a command-line change and not a code change. The coefficients are computed with a standard elliptic design; a unit test compares the realised stopband at 6000Hz against the requirement, because the lowest pilot sits exactly there and 70dB is what keeps it out of the loudspeaker.
 
-Limiter: peak, threshold −3dBFS, instant attack, 100ms release. It is there so that setting the monitor level by ear with the operator on the headset cannot produce a clipped burst from a ring-trip transient or a shouted line, and its release is fast enough that it is not audible as pumping on speech.
+Limiter: peak, threshold −3dBFS unless `--monitor-limit` sets it lower (Rev 16), instant attack, 100ms release. It is there so that setting the monitor level by ear with the operator on the headset cannot produce a clipped burst from a ring-trip transient or a shouted line, and its release is fast enough that it is not audible as pumping on speech.
 
 ## 10.2 Command
 
@@ -492,6 +498,8 @@ Command-line options, each with the default given here, and no configuration fil
                        -30 to +30 (0)
 --monitor-file-trim DB gain added to a file on the monitor, -30 to +30 (0)
                        (§10.4)
+--monitor-limit DB     the monitor limiter's threshold, -60 to -3 dBFS (-3)
+                       (§10.1, Rev 16)
 --monitor-lp HZ HZ DB  monitor low-pass passband edge, stopband edge,
                        stopband dB (3600 5600 70)
 --vad-margin DB        speech threshold above floor (10)

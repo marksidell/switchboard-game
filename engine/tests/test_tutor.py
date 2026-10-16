@@ -28,7 +28,7 @@ from test_game import StateLink
 from sbgame.config import Config
 from sbgame.game import Game, pick_lessons
 from sbgame.session import SessionLog
-from test_sim import D
+from test_sim import D, HOLD
 
 logging.basicConfig(level=logging.WARNING, stream=sys.stdout)
 
@@ -192,7 +192,7 @@ async def run(h: Harness, flow, operator, *args):
 
 async def build_game(tmp: Path, wav: str = "../wav"):
     """test_game's, with a wav directory of our own."""
-    b = Board()
+    b = Board(hold=HOLD)
     link = StateLink(b)
     cfg = Config(script="../script.yml", wav_dir=wav, session_db=str(tmp / "s.db"))
     gs = build(cfg.resolved("script"), cfg.resolved("wav_dir"))

@@ -21,7 +21,7 @@ from sbgame.flows import Ctx, busy_scene, outside_to_station, station_to_station
 from sbgame.link import Hw
 from sbgame.script_data import SceneDef, Shape, Speech
 
-from test_sim import FakeLink, D           # the echoing fake from the sim harness
+from test_sim import FakeLink, D, HOLD           # the echoing fake from the sim harness
 
 logging.basicConfig(level=logging.WARNING, stream=sys.stdout)
 
@@ -52,7 +52,7 @@ class Harness:
     """Board, fake link, slots and a Ctx, with what happened recorded."""
 
     def __init__(self, sc: SceneDef) -> None:
-        self.b = Board()
+        self.b = Board(hold=HOLD)
         self.link = FakeLink(self.b)
         self.hw = Hw(self.link)
         self.events: list[str] = []
@@ -149,6 +149,19 @@ async def cuts_off(h: Harness) -> None:
     await asyncio.sleep(D * 4)
     await h.b.update("station/12/peer", "")          # yank the cord mid-conversation
     await h.b.update("station/2/peer", "")
+
+
+async def switch_glitch(h: Harness) -> None:
+    """Her switch moved mid-conversation: both lines break for a moment, read
+    deaf and then idle, and come back (§5, Rev 45). The call rides through."""
+    await good_station_operator(h)
+    await asyncio.sleep(D * 4)
+    for v in ("deaf", ""):
+        await h.b.update("station/12/peer", v)
+        await h.b.update("station/2/peer", v)
+        await asyncio.sleep(HOLD / 4)
+    await h.b.update("station/12/peer", "station/2")
+    await h.b.update("station/2/peer", "station/12")
 
 
 async def outgoing_operator(h: Harness, number: str, answer: bool = True) -> None:
@@ -258,6 +271,11 @@ async def main() -> int:
     r = await h.run(station_to_station, cuts_off)
     check(not r.ok and r.reason == Reason.CUT_OFF, f"fails as 'cut off': {r.reason!r}")
     check(h.connected, "was connected before it was cut")
+
+    print("\n== her switch breaks both lines for a moment (§5, Rev 45)")
+    h = Harness(scene(Shape.STATION_TO_STATION))
+    r = await h.run(station_to_station, switch_glitch)
+    check(r.ok, f"the call rides through: {r.reason!r}")
 
     print("\n== station to outside")
     h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,

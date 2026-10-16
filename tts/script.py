@@ -736,13 +736,39 @@ def _exchanges() -> dict[str, str]:
     return out
 
 
+_TEENS = ("ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
+          "seventeen", "eighteen", "nineteen")
+_TENS = ("", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety")
+
+
+def _two_digits(n: int) -> str:
+    """10-99 in words: "fourteen", "forty-four"."""
+    if n < 20:
+        return _TEENS[n - 10]
+    return _TENS[n // 10] + (f"-{DIGIT_WORDS[n % 10]}" if n % 10 else "")
+
+
+def _line_words(four: str) -> str:
+    """The four digits after the exchange, as an operator says them: round
+    thousands and hundreds whole, as tts/pronounce.yml has the cast say
+    them - "5000" "five thousand", "1400" "fourteen hundred" - and anything
+    else digit by digit (Mark, 2026-10-16)."""
+    if len(four) == 4 and four[0] != "0":
+        if four[1:] == "000":
+            return f"{DIGIT_WORDS[int(four[0])]} thousand"
+        if four[2:] == "00" and four[1] != "0":
+            return f"{_two_digits(int(four[:2]))} hundred"
+    return " ".join(DIGIT_WORDS[int(c)] for c in four)
+
+
 def number_words(number: str, exchanges: dict[str, str]) -> str:
-    """783-2250 as an operator says it from the card: "Sunset three, two two five oh"."""
+    """783-2250 as an operator says it from the card: "Sunset three, two two five oh";
+    784-5000, "Sunset four, five thousand"."""
     digits = "".join(c for c in number if c.isdigit())
     ex = exchanges.get(digits[:3]) if len(digits) == 7 else None
     if ex is None:
         return " ".join(DIGIT_WORDS[int(c)] for c in digits)
-    return f"{ex}, " + " ".join(DIGIT_WORDS[int(c)] for c in digits[3:])
+    return f"{ex}, " + _line_words(digits[3:])
 
 
 def _tutor_lines(raw: object, cast: dict, board: list[dict], stations: dict,

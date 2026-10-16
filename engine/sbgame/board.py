@@ -57,9 +57,17 @@ Predicate = Callable[["Board"], Any]
 
 
 class Board:
-    def __init__(self) -> None:
+    # A connection that goes away is believed only after HOLD seconds gone
+    # (game_control.md §5, Rev 45). Moving a cord pair's switch breaks both
+    # lines for about 0.2s, as do dial pulses; the detector reports that as
+    # `deaf` and then idle, and the call must ride through it.
+    HOLD = 1.0
+
+    def __init__(self, hold: float | None = None) -> None:
         self._v: dict[str, str] = {}
         self.cond = asyncio.Condition()
+        self.hold = self.HOLD if hold is None else hold
+        self._held: dict[str, asyncio.TimerHandle] = {}   # key -> its pending fall
         self._watchers: set[asyncio.Queue[Change]] = set()
 
         self.broker_up = False
@@ -135,6 +143,10 @@ class Board:
             n = key.split("/")[1]
             return self._set(f"trunk/{n}/dialled", self.dialled(int(n)) + payload)
 
+        held = self._hold(key, payload)
+        if held is not None:
+            return held
+
         changed = self._set(key, payload)
         if not changed:
             return False  # react to changes, not arrivals (mqtt.md §8.3)
@@ -150,6 +162,37 @@ class Board:
             n = key.split("/")[1]
             self._set(f"trunk/{n}/dialled", "")
         return True
+
+    def _hold(self, key: str, payload: str) -> bool | None:
+        """A circuit's `peer` and `op` going away, held (§5, Rev 45).
+
+        `deaf` is a circuit not hearing its own pilot, which says nothing
+        about what it is patched to: the last value stands. A `peer` going
+        empty or `op` going off is applied only if it is still the latest
+        after HOLD seconds. Returns whether anything changed, or None for a
+        message this does not handle.
+        """
+        kind = key.rsplit("/", 1)[-1]
+        if not (key.startswith(("station/", "trunk/")) and kind in ("peer", "op")):
+            return None
+        pending = self._held.pop(key, None)
+        if pending is not None:
+            pending.cancel()
+        if kind == "peer" and payload == "deaf":
+            return False
+        going = (payload == "") if kind == "peer" else (payload != "on")
+        if going and self._v.get(key) and self.hold > 0:
+            loop = asyncio.get_running_loop()
+            self._held[key] = loop.call_later(
+                self.hold, lambda: asyncio.ensure_future(self._settle(key, payload)))
+            return False
+        return self._set(key, payload)
+
+    async def _settle(self, key: str, payload: str) -> None:
+        async with self.cond:
+            self._held.pop(key, None)
+            if self._set(key, payload):
+                self.cond.notify_all()
 
     def _set(self, key: str, value: str) -> bool:
         old = self._v.get(key, "")
@@ -201,6 +244,9 @@ class Board:
         forever.
         """
         async with self.cond:
+            for h in self._held.values():
+                h.cancel()
+            self._held.clear()
             self._v.clear()
             self._control_status = self._audio_status = ""
             self._relive()

@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 44 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order, with the Tutor's Ring Lines Named for the Station, and a Scenario of Calls Arriving Together After the Tenth Call, with a Station Found Engaged, and a Scenario Chosen from the Page on a Clear Board, Starting by Itself*
+*Rev 45 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order, with the Tutor's Ring Lines Named for the Station, and a Scenario of Calls Arriving Together After the Tenth Call, with a Station Found Engaged, and a Scenario Chosen from the Page on a Clear Board, Starting by Itself*
 
 # 1. Overview
 
@@ -175,6 +175,12 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 — The page's countdown says "waiting" while a game runs in automatic pacing and no next call is scheduled — `next_at` empty, because in auto the latest call is not yet connected or ended, and in listen the board is not yet empty (§4.2) — and "–" when no game runs (§7.1), Mark's request, 2026-09-28. It said "–" in both. The deck's Next key already said "waiting" in that case; §7.4 now says so too. It is on the countdown rather than on the Next Call button because the button is hidden with the controls and the countdown is not.
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
+
+## 1.45 Changes in Rev 45
+
+— A circuit's `peer` going empty, or its `op` going off, counts only once it has stayed so for a second, and `deaf` leaves the last `peer` standing (§5, `cut off`). Found on the switchboard, 2026-10-16: returning a cord pair's switch to its centre position, as the tutor asks once the far end answers, breaks both lines for about 0.2s. The detector reports both ends `deaf` and then idle for that long, and the game read it as a cord pulled: it ended the call with the parties still talking, and the tutor said the call was over. The same happened while the operator answered, and on every dial pulse. A real pull is now noticed a second later, which nothing in the game minds. The game program applies the hold as the messages arrive, so every wait in it sees the held value; the page and the deck show the detector's own.
+
+— Code consequence for Claude Code, made the same day: `Board.HOLD` and `Board._hold()` in `board.py`, and the tests, which run it at their own speed. No topic changes.
 
 ## 1.44 Changes in Rev 44
 
@@ -585,7 +591,7 @@ A failure is logged with its reason. The reasons at Rev 1:
 | --- | --- |
 | `no answer` | The operator did not answer the calling line in time. |
 | `not connected` | The operator answered but did not connect the call in time — wrong station rung, number not dialled, or nothing done. |
-| `cut off` | A cord was pulled during the conversation — the calling or called line's `peer` went empty before the scene's end. |
+| `cut off` | A cord was pulled during the conversation — the calling or called line's `peer` went empty before the scene's end, and stayed empty for a second (Rev 45). |
 | `timeout` | The operator did not speak when a line was waiting for them (calls to the operator, busy scenes, and a `wait:` line, §4.6). |
 
 Timeouts are the game program's configuration, not the page's, at Rev 1: 60s to answer, 90s to connect after the request has played, 30s for the operator to speak. They are starting values for play-testing.

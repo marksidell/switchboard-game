@@ -178,14 +178,17 @@ public:
     //   down, so the log can say whether the limiter is working.
     inline double run(double x)
     {
-        const double a = std::fabs(x);
-        if (a > thresh_) {
-            const double g = thresh_ / a;
-            if (g < gain_) { gain_ = g; ++active_; }     // instant attack
-        }
+        // Release first, then attack, so the sample that sets the gain is
+        // never let back up past the threshold (Rev 16: at a threshold well
+        // below full scale the other order overshot by about 0.6%).
         if (gain_ < 1.0) {
             gain_ += (1.0 - gain_) * rel_;               // one-pole release
             if (gain_ > 1.0) gain_ = 1.0;
+        }
+        const double a = std::fabs(x);
+        if (a * gain_ > thresh_) {
+            gain_ = thresh_ / a;                         // instant attack
+            ++active_;
         }
         return x * gain_;
     }

@@ -17,6 +17,7 @@ logging.basicConfig(level=logging.INFO, format="%(relativeCreated)6.0f %(name)-6
 log = logging.getLogger("test")
 
 D = 0.02  # echo delay
+HOLD = 2 * D  # Board.HOLD at the tests' speed (game_control.md §5, Rev 45)
 
 
 class FakeLink:
@@ -110,7 +111,7 @@ async def operator(b: Board, *, ring: int = 2, pull_after_lines: int | None = No
 
 
 async def run_scene(**op_kw):
-    b = Board()
+    b = Board(hold=HOLD)
     link = FakeLink(b)
     hw = Hw(link)
     await bring_up(b)
@@ -145,7 +146,7 @@ async def main() -> None:
     assert r == "wrong station 5", r
 
     print("\n== 4. controller drops out while the scene waits for an answer")
-    b = Board(); link = FakeLink(b); hw = Hw(link)
+    b = Board(hold=HOLD); link = FakeLink(b); hw = Hw(link)
     await bring_up(b)
     t = asyncio.create_task(station_to_station(b, hw, SC))
     await asyncio.sleep(0.1)
@@ -158,7 +159,7 @@ async def main() -> None:
     assert ("station/12/hook/set", "off") in link.sent, "finally still hung up"
 
     print("\n== 5. file shorter than one wakeup: name -> '' before the waiter runs")
-    b = Board(); link = FakeLink(b); hw = Hw(link); link.file_len = 0
+    b = Board(hold=HOLD); link = FakeLink(b); hw = Hw(link); link.file_len = 0
     await bring_up(b)
     from sbgame.scenes import say
     await asyncio.wait_for(say(b, hw, st(3), "blip", 0.5), 1)
@@ -169,7 +170,7 @@ async def main() -> None:
         print("missing file raised FileNotFoundError:", e)
 
     print("\n== 6. outgoing: operator seizes trunk 4 and dials 275-4101")
-    b = Board(); link = FakeLink(b); hw = Hw(link)
+    b = Board(hold=HOLD); link = FakeLink(b); hw = Hw(link)
     await bring_up(b)
 
     async def dialler(number: str):

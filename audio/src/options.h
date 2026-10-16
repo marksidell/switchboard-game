@@ -64,6 +64,7 @@ struct Options {
     // voice, over the commanded gain, so her level is set against the calls'
     // once on the bench and monitor/set stays one number.
     double monitor_file_trim_db = 0.0;
+    double monitor_limit_db     = -3.0;   // audio.md 10.1, Rev 16: the limiter's threshold
     double lp_pass    = 3600.0;         // station 8.8
     double lp_stop    = 5600.0;
     double lp_att     = 70.0;

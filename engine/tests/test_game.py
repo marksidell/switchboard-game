@@ -25,7 +25,7 @@ from sbgame.script_data import build, fit, needs_trunk
 from sbgame.session import SessionLog
 from tts.script import ScriptError, load
 
-from test_sim import FakeLink, D
+from test_sim import FakeLink, D, HOLD
 
 logging.basicConfig(level=logging.WARNING, stream=sys.stdout)
 
@@ -53,7 +53,7 @@ class StateLink(FakeLink):
 
 
 async def build_game(tmp: Path, **cfg_kw):
-    b = Board()
+    b = Board(hold=HOLD)
     link = StateLink(b)
     cfg = Config(script="../script.yml", wav_dir="../wav",
                  session_db=str(tmp / "s.db"), **cfg_kw)

@@ -903,11 +903,38 @@ static void test_monitor_source()
     }
 }
 
+// test_monitor_limit()
+//   audio.md 10.1, Rev 16: a limiter set just above speech holds a switch's
+//   click to that level, and leaves speech below it alone.
+static void test_monitor_limit()
+{
+    std::printf("monitor limiter at --monitor-limit (audio.md 10.1, Rev 16)\n");
+    Limiter lim;
+    lim.init(-30.0, 0.100, chan::SAMPLE_RATE);
+    const double ceil = db_to_lin(-30.0);
+    double worst = 0.0;
+    for (int i = 0; i < 480; ++i) {                 // a 10ms click near full scale
+        const double y = lim.run((i % 2 ? -0.9 : 0.9));
+        worst = std::max(worst, std::fabs(y));
+    }
+    check(worst <= ceil * 1.0001, "a click at -1dBFS comes out no higher than -30dBFS");
+    Limiter quiet;
+    quiet.init(-30.0, 0.100, chan::SAMPLE_RATE);
+    const double speech = db_to_lin(-36.0);
+    bool same = true;
+    for (int i = 0; i < 4800; ++i) {
+        const double x = speech * std::sin(2.0 * M_PI * 1000.0 * i / chan::SAMPLE_RATE);
+        same = same && std::fabs(quiet.run(x) - x) < 1e-12;
+    }
+    check(same, "speech peaking at -36dBFS passes untouched");
+}
+
 int main()
 {
     log_start();
     test_pilot_map();
     test_monitor_filter();
+    test_monitor_limit();
     test_detector();
     test_listener();
     test_hf_meter();

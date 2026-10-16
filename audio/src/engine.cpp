@@ -16,8 +16,9 @@ using chan::FFT_N;
 using chan::FFT_HOP;
 using chan::SAMPLE_RATE;
 
-// The monitor's limiter threshold (audio.md 10.1), and the same as the most the
-// output self-check expects on a monitor channel (audio.md 11.4).
+// The most the monitor limiter's threshold may be (audio.md 10.1), and so the
+// most the output self-check expects on a monitor channel (audio.md 11.4).
+// --monitor-limit sets the threshold itself, at or below this (Rev 16).
 static constexpr double MON_LIMIT_DB = -3.0;
 static const float      MON_CEIL     = (float)std::pow(10.0, MON_LIMIT_DB / 20.0);
 
@@ -115,7 +116,10 @@ bool Engine::prepare()
     // the tap, so the trim is taken back out of the file's share.
     mon_file_lin_    = db_to_lin(sh_.opt.monitor_file_trim_db);
     mon_file_on_tap_ = db_to_lin(sh_.opt.monitor_file_trim_db - sh_.opt.monitor_tap_trim_db);
-    lim_.init(MON_LIMIT_DB, 0.100, SAMPLE_RATE);
+    // Rev 16: set just above speech, so a switch's click on the line is held
+    // to the level of the loudest speech rather than reaching -3dBFS.
+    lim_.init(sh_.opt.monitor_limit_db, 0.100, SAMPLE_RATE);
+    log_line("monitor: limiter at %.1f dBFS", sh_.opt.monitor_limit_db);
 
     const double at_6k = cascade_mag_db(mon_lp_, 6000.0, SAMPLE_RATE);
     log_line("monitor: elliptic low-pass order 8, pass %.0f Hz, stop %.0f Hz, "

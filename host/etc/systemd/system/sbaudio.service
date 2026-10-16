@@ -26,7 +26,9 @@ ExecStart=/usr/local/bin/sbaudio \
     --broker localhost:1883 \
     --mqtt-user sbgame-audio --mqtt-pass-file /etc/sbgame/mqtt-audio.pass \
     --wav-dir /home/sidell/s/sbgame/wav \
-    --monitor -12
+    --monitor -12 \
+    --monitor-file-trim -18 \
+    --monitor-limit -30
 
 # audio.md 13.2: there is no attempt to run without audio. An unrecoverable
 # stream failure exits non-zero, systemd brings the program back, and the
