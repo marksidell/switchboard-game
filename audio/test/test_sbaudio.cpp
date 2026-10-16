@@ -903,6 +903,59 @@ static void test_monitor_source()
     }
 }
 
+// test_monitor_gate()
+//   audio.md 10.5, Rev 17: speech on the monitor's source passes, 10ms late;
+//   ringing on the line shuts it, and it opens again after the hold.
+static void test_monitor_gate()
+{
+    std::printf("the monitor's line-disturbance gate (audio.md 10.5, Rev 17)\n");
+    auto sh = std::make_unique<Shared>();
+    sh->opt.monitor_gate_db   = -60.0;
+    sh->opt.monitor_gate_hold = 0.25;
+    AlsaStream st;
+    Engine eng(*sh, st);
+    check(eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
+    Command m;
+    m.verb = Verb::Monitor; m.on = true; m.arg = 0.0f;
+    sh->cmdq.push(m);
+    eng.drain_for_test();
+    double t = 0.0;
+    // Periods with 1 kHz speech-like tone at -20dBFS, and ring at 20 Hz if asked;
+    // returns the monitor's peak over them.
+    auto run = [&](int periods, bool ring) {
+        double peak = 0.0;
+        for (int p = 0; p < periods; ++p) {
+            float* in = eng.capture_row_for_test(chan::TAP_CH);
+            for (int i = 0; i < 256; ++i, t += 1.0 / chan::SAMPLE_RATE)
+                in[i] = (float)(0.1 * std::sin(2.0 * M_PI * 1000.0 * t)
+                                + (ring ? 0.3 * std::sin(2.0 * M_PI * 20.0 * t) : 0.0));
+            eng.capture_for_test();
+            eng.render_for_test();
+            const std::vector<int32_t>& out = eng.playback();
+            const int n = (int)out.size() / chan::N_PLAY_CH;
+            for (int f = 0; f < n; ++f) {
+                const size_t i = (size_t)f * chan::N_PLAY_CH + chan::MONITOR_CH - 1;
+                peak = std::max(peak, std::fabs((double)out[i] / 2147483648.0));
+            }
+        }
+        return 20.0 * std::log10(peak + 1e-12);
+    };
+    run(100, false);    // the tone's abrupt start is a step the gate rightly shuts on
+    const double speech = run(40, false);
+    std::printf("    speech %.1f dBFS\n", speech);
+    check(speech > -25.0, "speech passes");
+    run(4, true);                                   // the gate shuts on the first
+    const double ringing = run(40, true);
+    std::printf("    ringing %.1f dBFS\n", ringing);
+    check(ringing < speech - 40.0, "while it rings the monitor is shut");
+    run(10, false);                                 // 53ms after: still held
+    const double held = run(10, false);
+    check(held < speech - 40.0, "and stays shut through the hold");
+    run(60, false);                                 // the rest of the hold, and 20ms up
+    const double after = run(20, false);
+    check(after > speech - 1.0, "then opens again");
+}
+
 // test_monitor_limit()
 //   audio.md 10.1, Rev 16: a limiter set just above speech holds a switch's
 //   click to that level, and leaves speech below it alone.
@@ -935,6 +988,7 @@ int main()
     test_pilot_map();
     test_monitor_filter();
     test_monitor_limit();
+    test_monitor_gate();
     test_detector();
     test_listener();
     test_hf_meter();

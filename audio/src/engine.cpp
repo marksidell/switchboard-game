@@ -20,6 +20,8 @@ using chan::SAMPLE_RATE;
 // most the output self-check expects on a monitor channel (audio.md 11.4).
 // --monitor-limit sets the threshold itself, at or below this (Rev 16).
 static constexpr double MON_LIMIT_DB = -3.0;
+// audio.md 10.5, Rev 17: the monitor source's delay ahead of the gate, 10ms.
+static constexpr size_t GATE_DELAY = 480;
 static const float      MON_CEIL     = (float)std::pow(10.0, MON_LIMIT_DB / 20.0);
 
 // audio.md 8.2. The Bell System tones of the period the 551 belongs to, before
@@ -120,6 +122,17 @@ bool Engine::prepare()
     // to the level of the loudest speech rather than reaching -3dBFS.
     lim_.init(sh_.opt.monitor_limit_db, 0.100, SAMPLE_RATE);
     log_line("monitor: limiter at %.1f dBFS", sh_.opt.monitor_limit_db);
+    // audio.md 10.5, Rev 17. The delay line is allocated whether or not the
+    // gate is on, so the chain's latency does not depend on a setting.
+    gate_on_     = sh_.opt.monitor_gate_db != 0.0;
+    gate_lp_     = butter_lowpass(100.0, SAMPLE_RATE);
+    gate_thr_    = db_to_lin(sh_.opt.monitor_gate_db);
+    gate_hold_n_ = (int)(sh_.opt.monitor_gate_hold * SAMPLE_RATE);
+    gate_dly_.assign(GATE_DELAY, 0.0f);
+    if (gate_on_)
+        log_line("monitor: gate at %.1f dBFS below 100 Hz, hold %.2f s, delay %.0f ms",
+                 sh_.opt.monitor_gate_db, sh_.opt.monitor_gate_hold,
+                 1000.0 * GATE_DELAY / SAMPLE_RATE);
 
     const double at_6k = cascade_mag_db(mon_lp_, 6000.0, SAMPLE_RATE);
     log_line("monitor: elliptic low-pass order 8, pass %.0f Hz, stop %.0f Hz, "
@@ -187,6 +200,34 @@ double Engine::monitor_target(int src_ch) const
     const double db = mon_cmd_db_ +
                       (src_ch == chan::TAP_CH ? sh_.opt.monitor_tap_trim_db : 0.0);
     return db_to_lin(db);
+}
+
+// gate_step()                                                          [audio]
+//   audio.md 10.5, Rev 17. One sample of the line-disturbance gate: `raw` is
+//   the source's capture, `y` the same sample through the monitor's filters.
+//   A switch on the line, or ringing near it, puts far more below 100 Hz on
+//   it than speech ever does - telephone speech has nothing below 300 Hz. While
+//   the low band's peak exceeds the threshold, and for the hold after, the
+//   source is shut: 1ms down, 20ms back up. The filtered source is delayed by
+//   GATE_DELAY so the gate is shut before a click's onset reaches the output.
+//   Returns the delayed, gated sample.
+double Engine::gate_step(float raw, double y)
+{
+    const double d = gate_dly_[gate_pos_];
+    gate_dly_[gate_pos_] = (float)y;
+    if (++gate_pos_ == gate_dly_.size()) gate_pos_ = 0;
+    if (!gate_on_) return d;
+
+    const double lf = gate_s2_.run(gate_lp_, gate_s1_.run(gate_lp_, (double)raw));
+    if (std::fabs(lf) > gate_thr_) {
+        if (gate_left_ == 0) ++gate_hits_;
+        gate_left_ = gate_hold_n_;
+    } else if (gate_left_ > 0) {
+        --gate_left_;
+    }
+    if (gate_left_ > 0) gate_g_ = std::max(0.0, gate_g_ - 1.0 / (0.001 * SAMPLE_RATE));
+    else                gate_g_ = std::min(1.0, gate_g_ + 1.0 / (0.020 * SAMPLE_RATE));
+    return d * gate_g_;
 }
 
 // monitor_ramp_to()                                                    [audio]
@@ -505,6 +546,7 @@ void Engine::process_capture()
         for (unsigned i = 0; i < period_; ++i) {
             double y = mon_hp_s_.run(mon_hp_, (double)src[i]);
             for (size_t s = 0; s < mon_lp_.size(); ++s) y = mon_lp_s_[s].run(mon_lp_[s], y);
+            y = gate_step(src[i], y);
             double f = (i < fn) ? (double)fs[i] : 0.0;
             for (size_t s = 0; s < mon_lp_.size(); ++s) f = mon_file_lp_s_[s].run(mon_lp_[s], f);
             if (mon_ramp_ > 0) { mon_gain_ += mon_step_; --mon_ramp_; }
@@ -815,6 +857,7 @@ void Engine::run()
         const double now = monotonic_s();
         if (now - last_report >= 1.0) {
             if (clips_) { sh_.clips.fetch_add(clips_, std::memory_order_relaxed); clips_ = 0; }
+            if (gate_hits_) { sh_.gate_hits.fetch_add(gate_hits_, std::memory_order_relaxed); gate_hits_ = 0; }
             const unsigned l = lim_.take_active();
             if (l) sh_.limiter_hits.fetch_add(l, std::memory_order_relaxed);
             for (int ch = 1; ch <= chan::N_PLAY_CH; ++ch) {

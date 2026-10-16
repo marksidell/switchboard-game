@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 16 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, All Commanded and Reported over MQTT*
+*Rev 17 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, All Commanded and Reported over MQTT*
 
 # 1. Overview
 
@@ -162,6 +162,12 @@ Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout t
 — The monitor limiter's threshold is a setting, `--monitor-limit`, −60 to −3dBFS, −3 by default as before (§10.1). Found on the switchboard, 2026-10-16: moving a cord pair's switch clicks loudly on the loudspeaker. The switch makes and breaks the line the monitor follows, and the click reaches the output far above speech, where a limiter at −3dBFS never touches it. Set just above the loudest speech, the limiter holds the click to that level. The installation sets −30dBFS: with the monitor at −12dB and the tutor's files at −18, speech peaks about −33dBFS at the output. A click suppressor that mutes the monitor for a few tens of milliseconds on a jump no speech makes is the next step if the clicks at speech level still bother; it is not done.
 
 — Code consequence, made the same day: the option, and the limiter releases before it attacks, so the sample that sets its gain is never let back above the threshold. In the old order it overshot by a little — nothing at −3dBFS, about 0.6% at −30. `ctest` has a click at −1dBFS held to −30, and speech below it untouched.
+
+## 1.17 Changes in Rev 17
+
+— The line-disturbance gate (§10.5), 2026-10-16: the switch clicks were still heard at speech level under Rev 16's limiter, and ringing a station rumbled on the loudspeaker. A recording of the switchboard showed both as energy below 100Hz far above anything speech carries, so the source is muted while that lasts, plus a quarter second, behind a 10ms delay that lets it shut before the onset. This is the click suppressor Rev 16 kept in reserve, keyed on the low band rather than on a jump in level. `--monitor-gate` and `--monitor-gate-hold`; the counters line gains `gate`.
+
+— Code consequence, made the same day: `Engine::gate_step()`, the options, and the counter. `ctest` has speech passing, ringing shutting it, the hold, and the reopening.
 
 # 2. Channel Plan
 
@@ -394,6 +400,14 @@ Gain. The monitor's commanded gain applies to the file as to the source, ramps a
 
 The file and the source are summed in float before the limiter, which protects the output as it does for the source alone. A file on the monitor is stopped with the game's other files when the program loses the game or the broker (§13.2).
 
+## 10.5 The Line-Disturbance Gate
+
+Rev 17. A switch moved on the line the monitor follows, or ringing on or near it, reaches the loudspeaker as a click or a rumble far louder than speech. Both carry most of their energy below 100Hz — a step in the line's DC current, ringing at 20Hz — where telephone speech has none: the switchboard path is 300–3400Hz and the authored speech is band-limited the same way. So the gate watches the source's raw capture, before the chain's high-pass, through a 100Hz low-pass (a second-order Butterworth, run twice), and while that signal's peak exceeds `--monitor-gate`, and for `--monitor-gate-hold` after (0.25s), it shuts the source: down in 1ms, back up over 20ms. The filtered source passes through a 10ms delay ahead of the gate, so the gate is shut before a click's onset reaches the output. The delay is there whether or not the gate is on, so the chain's latency does not depend on a setting, and 10ms is well inside what §10.1's acoustic loop tolerates.
+
+Only the source is gated. A file on the monitor (§10.4) is summed in after the gate and plays on through it: the tutor is not cut off because a phone is ringing. The log's counters line reports how many times the gate shut in each ten seconds, `gate N`, so a threshold low enough to catch the operator's own voice shows up there.
+
+Off unless `--monitor-gate` is given. The installation sets −60dBFS, from a recording of the switchboard, 2026-10-16: on trunk 1, the low band read −90 to −117dBFS between events and −18 to −45 on each switch flip and ring, and the gate at −60 brought the worst of them at the output, at −12dB monitor gain, from −10.5dBFS to −44.5, below speech.
+
 # 11. Diagnostics
 
 ## 11.1 Test Tone
@@ -500,6 +514,9 @@ Command-line options, each with the default given here, and no configuration fil
                        (§10.4)
 --monitor-limit DB     the monitor limiter's threshold, -60 to -3 dBFS (-3)
                        (§10.1, Rev 16)
+--monitor-gate DB      mute the source while its line carries more than this
+                       below 100Hz, -90 to -10 dBFS (off) (§10.5, Rev 17)
+--monitor-gate-hold S  how long it stays muted after, 0.05 to 2 (0.25)
 --monitor-lp HZ HZ DB  monitor low-pass passband edge, stopband edge,
                        stopband dB (3600 5600 70)
 --vad-margin DB        speech threshold above floor (10)

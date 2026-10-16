@@ -65,6 +65,9 @@ struct Options {
     // once on the bench and monitor/set stays one number.
     double monitor_file_trim_db = 0.0;
     double monitor_limit_db     = -3.0;   // audio.md 10.1, Rev 16: the limiter's threshold
+    // audio.md 10.5, Rev 17: the line-disturbance gate. Off (0) by default.
+    double monitor_gate_db      = 0.0;    // below-100Hz level that shuts it, dBFS
+    double monitor_gate_hold    = 0.25;   // seconds it stays shut once that is gone
     double lp_pass    = 3600.0;         // station 8.8
     double lp_stop    = 5600.0;
     double lp_att     = 70.0;

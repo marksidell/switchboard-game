@@ -65,6 +65,7 @@ public:
     void drain_for_test()                        { drain_commands(); }
     void set_monitor_row_for_test(float v)       { std::fill(mon_row_.begin(), mon_row_.end(), v); }
     void capture_for_test()                      { process_capture(); }
+    float* capture_row_for_test(int ch)          { return &capf_[(size_t)(ch - 1) * period_]; }
     const std::vector<float>& monitor_row() const { return mon_row_; }
     const std::vector<int32_t>& playback() const { return obuf_; }
     std::vector<int32_t>& playback_for_test()    { return obuf_; }
@@ -75,6 +76,7 @@ public:
     //   What prepare() designed, for the startup log and the unit test.
     double monitor_ripple_db() const { return mon_ripple_db_; }
     const std::vector<Biquad>& monitor_lowpass() const { return mon_lp_; }
+    double gate_gain() const { return gate_g_; }
 
 private:
     // Prog - what one circuit is playing on top of its pilot: nothing, a file
@@ -115,6 +117,7 @@ private:
     // with the tap trim added while the source is the tap, or 0 when muted.
     double monitor_target(int src_ch) const;
     void   monitor_ramp_to(double target);
+    double gate_step(float raw, double y);
     void   monitor_switch_to(int ch);       // at the bottom of the ramp
     void process_capture();
     void render();
@@ -184,6 +187,19 @@ private:
     double  mon_file_lin_ = 1.0;            // --monitor-file-trim, linear
     double  mon_file_on_tap_ = 1.0;         // the same, less the tap trim
     Limiter                  lim_;
+    // ---- the line-disturbance gate (audio.md 10.5, Rev 17): the source's raw
+    // capture below 100 Hz, and a 10ms delay on the filtered source so the
+    // gate shuts before a click's onset reaches the output.
+    bool    gate_on_ = false;
+    Biquad  gate_lp_;                       // 100 Hz low-pass, run twice
+    BiquadState gate_s1_, gate_s2_;
+    double  gate_thr_ = 0.0;                // linear peak threshold
+    int     gate_hold_n_ = 0;               // samples it stays shut after
+    int     gate_left_ = 0;                 // samples of shut remaining
+    double  gate_g_ = 1.0;                  // 0 shut .. 1 open
+    unsigned gate_hits_ = 0;                // times shut, for the log
+    std::vector<float> gate_dly_;           // GATE_DELAY samples
+    size_t  gate_pos_ = 0;
     double  mon_ripple_db_ = 0.0;
     // audio.md 10.3. The commanded gain is kept apart from the ramp's target
     // because a source switch ramps to silence and back, and has to know what

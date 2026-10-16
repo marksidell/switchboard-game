@@ -167,6 +167,7 @@ struct Shared {
     std::atomic<unsigned> hops_lost    { 0 };
     std::atomic<unsigned> clips        { 0 };
     std::atomic<unsigned> limiter_hits { 0 };
+    std::atomic<unsigned> gate_hits    { 0 };   // audio.md 10.5: times the gate shut
     std::atomic<unsigned> res_dropped  { 0 };
 
     // Output self-check (audio.md 11.4), per playback channel 1-34, element 0

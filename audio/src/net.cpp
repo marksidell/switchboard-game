@@ -596,9 +596,10 @@ void Net::report_counters(double now)
     const unsigned c = sh_.clips.exchange(0);
     const unsigned l = sh_.limiter_hits.exchange(0);
     const unsigned d = sh_.res_dropped.exchange(0);
-    if (x || h || c || l || d)
+    const unsigned g = sh_.gate_hits.exchange(0);
+    if (x || h || c || l || d || g)
         log_line("counters: xruns %u, hops dropped %u, clipped samples %u, "
-                 "limiter %u, results dropped %u", x, h, c, l, d);
+                 "limiter %u, gate %u, results dropped %u", x, h, c, l, g, d);
 
     // The output self-check (audio.md 11.4): one line naming every channel
     // that carried more than it should, with its count of periods and its

@@ -64,6 +64,9 @@ static void usage(const char* p)
 "  --monitor-tap-trim DB  gain added only while the source is the tap (0)\n"
 "  --monitor-file-trim DB gain added to a file on the monitor (0)\n"
 "  --monitor-limit DB     the monitor limiter's threshold, dBFS, -60 to -3 (-3)\n"
+"  --monitor-gate DB      mute the monitor's source while its line carries more\n"
+"                         than this below 100Hz, dBFS, -90 to -10 (off)\n"
+"  --monitor-gate-hold S  how long it stays muted after, 0.05 to 2 (0.25)\n"
 "  --monitor-lp HZ HZ DB  monitor low-pass passband edge, stopband edge,\n"
 "                         stopband dB (3600 5600 70)\n"
 "  --vad-margin DB        speech threshold above floor (10)\n"
@@ -189,6 +192,8 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         else if (a == "--monitor-tap-trim"){ o.monitor_tap_trim_db = atof(nx); ++i; }
         else if (a == "--monitor-file-trim"){ o.monitor_file_trim_db = atof(nx); ++i; }
         else if (a == "--monitor-limit")  { o.monitor_limit_db = atof(nx); ++i; }
+        else if (a == "--monitor-gate")   { o.monitor_gate_db = atof(nx); ++i; }
+        else if (a == "--monitor-gate-hold"){ o.monitor_gate_hold = atof(nx); ++i; }
         else if (a == "--monitor-lp")     { if (!want(argc, i, 3, "--monitor-lp")) return false;
                                             o.lp_pass = atof(argv[i + 1]);
                                             o.lp_stop = atof(argv[i + 2]);
@@ -242,6 +247,14 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
     if (o.monitor_limit_db < -60.0 || o.monitor_limit_db > -3.0) {
         std::fprintf(stderr, "--monitor-limit: %g dBFS is outside -60 to -3\n",
                      o.monitor_limit_db);
+        return false;
+    }
+    if (o.monitor_gate_db != 0.0 && (o.monitor_gate_db < -90.0 || o.monitor_gate_db > -10.0)) {
+        std::fprintf(stderr, "--monitor-gate: %g dBFS is outside -90 to -10\n", o.monitor_gate_db);
+        return false;
+    }
+    if (o.monitor_gate_hold < 0.05 || o.monitor_gate_hold > 2.0) {
+        std::fprintf(stderr, "--monitor-gate-hold: %g s is outside 0.05 to 2\n", o.monitor_gate_hold);
         return false;
     }
     if (o.lp_stop <= o.lp_pass)           { std::fprintf(stderr, "--monitor-lp: stopband edge must exceed passband edge\n"); return false; }
