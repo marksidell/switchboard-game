@@ -729,8 +729,8 @@ jacks:
         label: "Lobby"
         station: lobby
     -   jack: 23
-        label: "Stoneburner"
-        station: restaurant
+        label: "Maintenance"
+        station:
     -   jack: 24
         label: "Room Service"
         station: roomservice
@@ -747,8 +747,8 @@ jacks:
         label: "Concierge"
         station: concierge
     -   jack: 29
-        label: "Maintenance"
-        station:
+        label: "Stoneburner"
+        station: restaurant
     -   jack: 30
         label: "Penthouse"
         station: imperialsuite
