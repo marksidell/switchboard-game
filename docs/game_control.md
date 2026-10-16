@@ -178,7 +178,7 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 
 ## 1.46 Changes in Rev 46
 
-— Three changes from a tutored game on the switchboard, 2026-10-16 (§5). A wrong number was met with silence, which tells the operator nothing; it gets busy tone now, until she hangs the trunk up. Pulling both cords mid-call, before it was connected, left the call open for good: from routing until connection the game watched only the trunk, the caller stayed off-hook with its lamp lit, and tutor mode has no timeouts, so nothing could end it and Next Call was refused. Now a caller lost for 20s before connection — no operator on its line, patched to nothing, no trunk up — is abandoned as `cut off`. The 20s is what tells a pulled answering cord from the switch centred before the front cord goes in, which look the same, since the game cannot see a cord in a station jack. And dial tone comes half a second after the seizure rather than at once, as an exchange takes a moment to answer (Mark's request).
+— Three changes from a tutored game on the switchboard, 2026-10-16 (§5). A wrong number was met with silence, which tells the operator nothing; it gets busy tone now, until she hangs the trunk up. Pulling both cords mid-call, before it was connected, left the call open for good: from routing until connection the game watched only the trunk, the caller stayed off-hook with its lamp lit, and tutor mode has no timeouts, so nothing could end it and Next Call was refused. Now a caller lost for 20s before connection — no operator on its line, patched to nothing, no trunk up — is abandoned as `cut off`. The 20s is what tells a pulled answering cord from the switch centred before the front cord goes in, which look the same, since the game cannot see a cord in a station jack. And dial tone comes a second after the seizure rather than at once, as an exchange takes a moment to answer (Mark's request; tried at half a second first, and lengthened the same afternoon).
 
 — Code consequence for Claude Code, made the same day: `_dial_tone()`, `_unless_abandoned()` and the busy tone in `_wait_for_right_number()` in `flows.py`, and the tests. No topic changes.
 
@@ -602,7 +602,7 @@ A failure is logged with its reason. The reasons at Rev 1:
 
 Timeouts are the game program's configuration, not the page's, at Rev 1: 60s to answer, 90s to connect after the request has played, 30s for the operator to speak. They are starting values for play-testing.
 
-A wrong connection is logged but is not a failure on its own. An operator who plugs the wrong jack and corrects it within the connect timeout has made the call. A wrong number gets busy tone on the trunk until she hangs it up (Rev 46); a fresh seizure gets dial tone again, half a second after it, as on every seizure for a call out. Whether a wrong party answering should end the call is open (§10).
+A wrong connection is logged but is not a failure on its own. An operator who plugs the wrong jack and corrects it within the connect timeout has made the call. A wrong number gets busy tone on the trunk until she hangs it up (Rev 46); a fresh seizure gets dial tone again, a second after it, as on every seizure for a call out. Whether a wrong party answering should end the call is open (§10).
 
 # 6. Calls in Progress, the Log and the Board
 
@@ -626,7 +626,7 @@ Each call in progress occupies one of eight slots, `game/call/<1-8>/…`. A slot
 - `signalling` — the calling station is off-hook, or the incoming trunk has been rung (one short burst, Rev 28); waiting for the operator.
 - `request` — the operator has answered; the request is playing.
 - `routing` — waiting for the operator to ring a station or take a trunk.
-- `dialling` — the operator has seized a trunk; digits are arriving. Dial tone is on the trunk from half a second after the seizure (Rev 46) to the first digit, and again on each fresh seizure if she hangs up and tries again (Rev 42).
+- `dialling` — the operator has seized a trunk; digits are arriving. Dial tone is on the trunk from a second after the seizure (Rev 46; half a second in its first form) to the first digit, and again on each fresh seizure if she hangs up and tries again (Rev 42).
 - `ringing` — the called station is ringing, or ringback is on the trunk.
 - `busy` — busy tone is on the trunk, or the called station is found engaged (§4.11, Rev 39); waiting for the operator to go back to the caller.
 - `talking` — the conversation is playing.

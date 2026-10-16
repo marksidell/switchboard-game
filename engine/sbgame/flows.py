@@ -49,7 +49,7 @@ from .tutor import REPEAT, REPEATS, Tutor
 # exchange takes a moment to connect a register; and a call whose caller has
 # had neither the operator nor a connection, with no trunk up, for this long
 # before it is connected is abandoned.
-DIAL_DELAY = 0.5
+DIAL_DELAY = 1.0
 ABANDON = 20.0
 
 log = logging.getLogger("flow")
