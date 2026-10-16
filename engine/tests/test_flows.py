@@ -159,9 +159,11 @@ async def outgoing_operator(h: Harness, number: str, answer: bool = True) -> Non
     await h.b.update("trunk/3/peer", c)
     await h.b.update(f"{c}/peer", "trunk/3")     # both ends, as the controller does
     await h.b.wait_until(lambda b: b.get("trunk/3/tone") == "dial", 5)
-    for d in number:
+    for i, d in enumerate(number):
         await asyncio.sleep(D / 2)
         await h.b.update("trunk/3/digit", d)
+        if i == 0:                                    # dial tone stops (§5, Rev 42)
+            await h.b.wait_until(lambda b: b.get("trunk/3/tone") != "dial", 5)
 
 
 async def wrong_then_right_number(h: Harness) -> None:
@@ -176,6 +178,7 @@ async def wrong_then_right_number(h: Harness) -> None:
         await asyncio.sleep(D / 2)
         await h.b.update("trunk/3/digit", d)
     await asyncio.sleep(D * 3)
+    assert h.b.get("trunk/3/tone") != "dial"
     await h.b.update("trunk/3/seize", "off")          # release clears dialled
     await asyncio.sleep(D)
     await h.b.update("trunk/3/seize", "on")

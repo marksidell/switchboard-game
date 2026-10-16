@@ -239,20 +239,25 @@ def needs_trunk(sc: SceneDef) -> bool:
     return sc.from_station is None or (sc.shape != Shape.TO_OPERATOR and sc.to_station is None)
 
 
-def fit(gs: GameScript, stations: int = N_STATIONS,
-        trunks: int = N_TRUNKS) -> tuple[GameScript, list[str]]:
+def fit(gs: GameScript, stations: int = N_STATIONS, trunks: int = N_TRUNKS,
+        out: frozenset[int] = frozenset()) -> tuple[GameScript, list[str]]:
     """The game fitted to the circuits built (game_control.md §6.5, Rev 25).
 
     Leaves out a scene whose calling or called station is numbered above
-    `stations`, or that needs a trunk when `trunks` is 0, and every `after:`
-    scene down the chain from one left out. Returns the fitted script and a
-    line saying why for each scene left out.
+    `stations` or is out of service (`out`, Rev 43), or that needs a trunk
+    when `trunks` is 0, and every `after:` scene down the chain from one left
+    out. Returns the fitted script and a line saying why for each scene left
+    out.
     """
     why: dict[str, str] = {}
     for sid, sc in gs.scenes.items():
-        high = [n for n in (sc.from_station, sc.to_station) if n is not None and n > stations]
+        used = [n for n in (sc.from_station, sc.to_station) if n is not None]
+        high = [n for n in used if n > stations]
+        down = [n for n in used if n in out]
         if high:
             why[sid] = f"station {max(high)} is not fitted"
+        elif down:
+            why[sid] = f"station {min(down)} is out of service"
         elif trunks == 0 and needs_trunk(sc):
             why[sid] = "no trunk is fitted"
     changed = True

@@ -341,7 +341,8 @@ async def main() -> int:
         cfg = Config(out_of_service=oos)
         cfg.check()
         check(cfg.working_trunks() == [1, 2, 3, 4, 5, 7], f"working trunks: {cfg.working_trunks()}")
-        for bad_oos in ({"trunks": {"9": "x"}}, {"trunks": {"6": ""}}, {"stations": {"1": "x"}}):
+        for bad_oos in ({"trunks": {"9": "x"}}, {"trunks": {"6": ""}}, {"stations": {"23": "x"}},
+                        {"stations": {"1": ""}}, {"rooms": {"1": "x"}}):
             try:
                 Config(out_of_service=bad_oos).check()
                 check(False, f"refused {bad_oos}")
@@ -355,6 +356,42 @@ async def main() -> int:
         await b2.update("trunk/7/seize", "off")
         check(g2._free_trunk() == 7, "and a working one is offered when it comes free")
         await sess2.close()
+
+        print("\n== stations out of service (§6.5, Rev 43)")
+        so = {"stations": {"1": "top row dead", "9": "top row dead"}}
+        cfg = Config(out_of_service=so)
+        cfg.check()
+        check(cfg.stations_out() == {1, 9}, f"stations out: {sorted(cfg.stations_out())}")
+        kept, left = fit(full, out=cfg.stations_out())
+        uses = lambda sc: {sc.from_station, sc.to_station} & {1, 9}
+        check(not any(uses(sc) for sc in kept.scenes.values()),
+              "no kept scene calls from or to station 1 or 9")
+        check(any("out of service" in w for w in left), "and each left out says why")
+        check(all(not (sc.after and sc.after not in kept.scenes) for sc in kept.scenes.values()),
+              "no kept after: scene follows one left out")
+        check(all(i in kept.scenes for grp in kept.lessons for i in grp),
+              "every tutor lesson left is a kept scene")
+
+        print("\n== back to tutor when stopped (§4.9, Rev 44)")
+        b3, link3, g3, sess3 = await build_game(tmp / "idle" if (tmp / "idle").mkdir() is None else tmp,
+                                                pace="manual", idle_tutor=0.2)
+        await asyncio.sleep(0.4)
+        check(link3.state_v.get("game/pace") == "tutor", "stopped at start-up: tutor after the wait")
+        await g3.on_command("pace", "auto")
+        await asyncio.sleep(0.1)
+        await g3.on_command("pace", "listen")               # starts the wait over
+        await asyncio.sleep(0.15)
+        check(link3.state_v.get("game/pace") == "listen", "a fresh choice starts the wait over")
+        await asyncio.sleep(0.2)
+        check(link3.state_v.get("game/pace") == "tutor", "and then it returns to tutor")
+        await g3.on_command("pace", "manual")
+        await g3.start()
+        await asyncio.sleep(0.4)
+        check(link3.state_v.get("game/pace") == "manual", "never while a game runs")
+        await g3.stop("stop")
+        await asyncio.sleep(0.4)
+        check(link3.state_v.get("game/pace") == "tutor", "and from the stop")
+        await sess3.close()
 
         print("\n== diagnostics (§7.5, Rev 25)")
         check(link.state_v.get("game/diag/station/3/tone") == "off"

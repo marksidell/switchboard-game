@@ -62,13 +62,15 @@ async def run(cfg: Config) -> int:
     except (OSError, ValueError) as e:
         print(f"script: {e}", file=sys.stderr)
         return 2
-    gs, left_out = fit(gs, cfg.stations, len(cfg.working_trunks()))
+    gs, left_out = fit(gs, cfg.stations, len(cfg.working_trunks()), cfg.stations_out())
     for w in left_out:
         log.info("left out: %s", w)
     log.info("circuits fitted: %d stations, %d trunks; %d scenes left out",
              cfg.stations, cfg.trunks, len(left_out))
-    for n, why in sorted((cfg.out_of_service.get("trunks") or {}).items(), key=lambda kv: int(kv[0])):
-        log.info("trunk %s out of service: %s", n, why)
+    for kind in ("trunks", "stations"):
+        for n, why in sorted((cfg.out_of_service.get(kind) or {}).items(),
+                             key=lambda kv: int(kv[0])):
+            log.info("%s %s out of service: %s", kind[:-1], n, why)
     log.info("script: %d active scenes of %d, %d in the deck, %d jacks",
              len(gs.scenes), len(gs.script.scenes), len(gs.deck_scenes()),
              sum(1 for j in gs.jacks if j.circuit))
@@ -160,12 +162,13 @@ def main(argv: list[str] | None = None) -> int:
             for f in e.failures:
                 print(f"  {f}", file=sys.stderr)
             return 1
-        gs, left_out = fit(gs, cfg.stations, len(cfg.working_trunks()))
+        gs, left_out = fit(gs, cfg.stations, len(cfg.working_trunks()), cfg.stations_out())
         for w in left_out:
             print(f"  left out: {w}")
-        for n, why in sorted((cfg.out_of_service.get("trunks") or {}).items(),
-                             key=lambda kv: int(kv[0])):
-            print(f"  trunk {n} out of service: {why}")
+        for kind in ("trunks", "stations"):
+            for n, why in sorted((cfg.out_of_service.get(kind) or {}).items(),
+                                 key=lambda kv: int(kv[0])):
+                print(f"  {kind[:-1]} {n} out of service: {why}")
         print(f"{cfg.resolved('script')}: {len(gs.scenes)} active scenes "
               f"of {len(gs.script.scenes)}, "
               f"{len(gs.deck_scenes())} in the deck, "

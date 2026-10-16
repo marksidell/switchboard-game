@@ -100,6 +100,7 @@ class Game:
         self._more: asyncio.Event | None = None   # More Help, during it (Rev 31)
         self._waiting_for = ""          # game/tutor/waiting (Rev 33)
         self._lessons: list[str] = []   # the scenes a tutored game starts with
+        self._to_tutor: asyncio.Task | None = None    # back to tutor when stopped (Rev 44)
         # Station numbers to the script's line names, for holding a station
         # under test out of dealing (§7.5).
         self._station_lines: dict[int, frozenset[str]] = {}
@@ -138,6 +139,7 @@ class Game:
         await link.state("game/next_at", "")
         await link.state("game/error", "")
         await self.log.clear("game program started" if not self.running else "reconnected")
+        self._arm_idle()
         for j in self.gs.jacks:
             await link.state(f"board/{j.kind}/{j.number}/label", j.label)
             await link.state(f"board/{j.kind}/{j.number}/circuit", j.circuit)
@@ -269,6 +271,7 @@ class Game:
                 else:
                     self.pacing.next_at = None
                     await self._publish_pacing()
+                    self._arm_idle()                 # from the latest choice (Rev 44)
                 return
 
             if name in ("gap", "ramp", "floor", "jitter", "pause"):
@@ -359,6 +362,7 @@ class Game:
             return                                  # ignored while running (§3)
         assert self.link is not None and self.slots is not None and self.log is not None
         self.running = True
+        self._disarm_idle()
         self.tallies.zero()
         self.next_number = 1
         self.pacing.connected = 0
@@ -427,6 +431,37 @@ class Game:
                                     self.tallies.success, self.tallies.fail)
         await self.link.state("game/run", "off")
         await self._publish_pacing()
+        self._arm_idle()
+
+    # ---- back to tutor when stopped (§4.9, Rev 44) ------------------------
+
+    def _disarm_idle(self) -> None:
+        if self._to_tutor is not None and self._to_tutor is not asyncio.current_task():
+            self._to_tutor.cancel()
+        self._to_tutor = None
+
+    def _arm_idle(self) -> None:
+        """Start, or start over, the wait that returns a stopped game to tutor."""
+        self._disarm_idle()
+        if (self.cfg.idle_tutor > 0 and not self.running
+                and self.pacing.pace != "tutor" and not self.gs.tutor_missing):
+            self._to_tutor = asyncio.create_task(self._idle_timer(), name="idle-tutor")
+
+    async def _idle_timer(self) -> None:
+        try:
+            await asyncio.sleep(self.cfg.idle_tutor)
+            if self.running or self.pacing.pace == "tutor":
+                return
+            self.pacing.pace = "tutor"
+            await self._say(f"pace tutor: stopped {self.cfg.idle_tutor:g}s")
+            await self._publish_pacing()
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:                       # offline: try again later
+            log.info("idle tutor: %s", e)
+        finally:
+            if self._to_tutor is asyncio.current_task():
+                self._to_tutor = None
 
     async def _monitor(self, source: str) -> None:
         """The game moving the loudspeaker (§6.4). That ends a monitor test."""

@@ -267,19 +267,28 @@ async def _wait_for_right_number(ctx: Ctx, trunk: int, want: str,
 
     A wrong number is logged, and the flow keeps waiting. A redial arrives as
     a release and a fresh seizure, which clears `dialled` (board.py), so this
-    also follows the operator onto another trunk if she takes one.
+    also follows the operator onto another trunk if she takes one. Dial tone,
+    which the caller has started, stops at the first digit and comes back on
+    each fresh seizure (§5, Rev 42).
     """
     digits = "".join(c for c in want if c.isdigit())
     wrong_seen: set[str] = set()
+    released = lambda b, t: not b.on(f"trunk/{t}/seize") and "released"
     while True:
         got = await ctx.b.wait_until(
-            lambda b, t=trunk: (len(b.dialled(t)) >= len(digits) and b.dialled(t))
-            or (not b.on(f"trunk/{t}/seize") and "released"),
-            ctx.left(deadline))
+            lambda b, t=trunk: b.dialled(t) or released(b, t), ctx.left(deadline))
+        if got != "released":
+            await ctx.hw.tone(trunk, "off")
+            got = await ctx.b.wait_until(
+                lambda b, t=trunk: (len(b.dialled(t)) >= len(digits) and b.dialled(t))
+                or released(b, t),
+                ctx.left(deadline))
         if got == "released":
             # She hung up the trunk: wait for the next seizure and start over.
+            await ctx.hw.tone(trunk, "off")
             trunk = await _seized_trunk(ctx, deadline)
             await ctx.slots.set(ctx.call, "trunk", f"trunk/{trunk}")
+            await ctx.hw.tone(trunk, "dial")
             continue
         if got == digits:
             await ctx.slots.set(ctx.call, "digits", got)

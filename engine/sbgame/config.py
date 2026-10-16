@@ -44,6 +44,9 @@ class Config:
     floor: float = 5.0
     jitter: float = 0.0            # percent (Rev 12); 0 is the fixed wait
     pause: float = 3.0             # listen's wait after the board empties (Rev 17)
+    # Back to tutor after this long stopped in another pacing (Rev 44), so
+    # the next visitor finds the game as a newcomer should; 0 never does.
+    idle_tutor: float = 300.0
 
     # ---- timeouts (§5), all play-testing values ------------------------
     answer_timeout: float = 60.0   # operator to answer a lamp
@@ -65,7 +68,13 @@ class Config:
     # Out of service (Rev 36): fitted, but not to be rung in on, each with why.
     # game.toml's [out_of_service.trunks], trunk number -> reason, e.g.
     #   6 = "switchboard jack 6's lamp does not latch"
+    # and [out_of_service.stations] (Rev 43), station number -> reason: no
+    # scene calling from or to one is played.
     out_of_service: dict = field(default_factory=dict)
+
+    def stations_out(self) -> frozenset[int]:
+        """The fitted stations no scene may use (§6.5, Rev 43)."""
+        return frozenset(int(k) for k in (self.out_of_service.get("stations") or {}))
 
     def working_trunks(self) -> list[int]:
         """The fitted trunks a call may ring in on (§6.5)."""
@@ -109,6 +118,8 @@ class Config:
             bad.append(f"floor {self.floor} outside 0-600")
         if not 0 <= self.jitter <= 100:
             bad.append(f"jitter {self.jitter} outside 0-100")
+        if not 0 <= self.idle_tutor <= 86400:
+            bad.append(f"idle_tutor {self.idle_tutor} outside 0-86400")
         if not 0 <= self.pause <= 60:
             bad.append(f"pause {self.pause} outside 0-60")
         if self.floor > self.gap:
@@ -121,13 +132,16 @@ class Config:
         if not (isinstance(self.trunks, int) and 0 <= self.trunks <= 8):
             bad.append(f"trunks {self.trunks!r} is not a whole number 0-8")
         oos = self.out_of_service
-        if not isinstance(oos, dict) or set(oos) - {"trunks"}:
-            bad.append("out_of_service takes only a [out_of_service.trunks] table")
+        if not isinstance(oos, dict) or set(oos) - {"trunks", "stations"}:
+            bad.append("out_of_service takes only [out_of_service.trunks] and "
+                       "[out_of_service.stations] tables")
         else:
-            for k, v in (oos.get("trunks") or {}).items():
-                if not (str(k).isdigit() and 1 <= int(k) <= 8):
-                    bad.append(f"out_of_service.trunks: {k!r} is not a trunk 1-8")
-                elif not (isinstance(v, str) and v.strip()):
-                    bad.append(f"out_of_service.trunks.{k}: give the reason as text")
+            for kind, top in (("trunks", 8), ("stations", 22)):
+                for k, v in (oos.get(kind) or {}).items():
+                    if not (str(k).isdigit() and 1 <= int(k) <= top):
+                        bad.append(f"out_of_service.{kind}: {k!r} is not a "
+                                   f"{kind[:-1]} 1-{top}")
+                    elif not (isinstance(v, str) and v.strip()):
+                        bad.append(f"out_of_service.{kind}.{k}: give the reason as text")
         if bad:
             raise ValueError("; ".join(bad))

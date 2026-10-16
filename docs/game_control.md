@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 38 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order, with the Tutor's Ring Lines Named for the Station, and a Scenario of Calls Arriving Together After the Tenth Call, with a Station Found Engaged, and a Scenario Chosen from the Page on a Clear Board, Starting by Itself*
+*Rev 44 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order, with the Tutor's Ring Lines Named for the Station, and a Scenario of Calls Arriving Together After the Tenth Call, with a Station Found Engaged, and a Scenario Chosen from the Page on a Clear Board, Starting by Itself*
 
 # 1. Overview
 
@@ -175,6 +175,24 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 — The page's countdown says "waiting" while a game runs in automatic pacing and no next call is scheduled — `next_at` empty, because in auto the latest call is not yet connected or ended, and in listen the board is not yet empty (§4.2) — and "–" when no game runs (§7.1), Mark's request, 2026-09-28. It said "–" in both. The deck's Next key already said "waiting" in that case; §7.4 now says so too. It is on the countdown rather than on the Next Call button because the button is hidden with the controls and the countdown is not.
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
+
+## 1.44 Changes in Rev 44
+
+— The game starts in tutor, and returns to tutor after five minutes stopped (§4.9), Mark's request, 2026-10-16: the installation's `game.toml` sets `pace = "tutor"`, and a new setting, `idle_tutor`, 300s, returns a stopped game in another pacing to tutor. A player who has moved on to manual or auto leaves it that way, and the next visitor, who has never seen a switchboard, should meet the tutor.
+
+— Code consequence for Claude Code, made the same day: `Config.idle_tutor`, the timer in `game.py`, and the tests. No topic changes.
+
+## 1.43 Changes in Rev 43
+
+— Stations can be marked out of service (§6.5), Mark's request, 2026-10-16: `game.toml` gains `[out_of_service.stations]`, a station's number and the reason, beside Rev 36's trunks. Found on the switchboard: jacks 21–30 draw no loop current after a spark while station 3 was being moved from jack 23 to 29, so no lamp on that row lights, and the first lesson of a tutored game was a call from Housekeeping on jack 26, waiting for good. A station is out of every call, not only calls rung in, because a dead line can neither call nor be heard: its scenes are left out as if it were not fitted, `after:` chains and tutor lessons with them. Rev 36 noted stations might need this.
+
+— Code consequence for Claude Code, made the same day: `Config.stations_out()` and its check, `fit()` in `script_data.py`, the start and `--check` logs in `main.py`, and the tests. No topic changes.
+
+## 1.42 Changes in Rev 42
+
+— Dial tone stops at the first digit (§5, `dialling`), found in the first game on the switchboard, 2026-10-16. It ran on under the dialling until the whole number was in, where a real exchange drops it as the first pulse arrives. It also comes back on a fresh seizure when the operator hangs up a trunk and tries again; before, a redial got no dial tone at all.
+
+— Code consequence for Claude Code, made the same day: `_wait_for_right_number()` in `flows.py`, and the tests. No topic changes.
 
 ## 1.41 Changes in Rev 41
 
@@ -459,6 +477,8 @@ Rev 29. A voice on the audience loudspeaker talks a new player through each call
 
 **The pacing** (Rev 32). Tutor mode is the pacing `tutor`, first of the four on `game/pace` and the deck's pacing key (§7.4). It is manual pacing with her: each call on Next Call, never on a schedule. Rev 29 to Rev 31 had it as a switch of its own, `game/tutor/set`, beside the pacing. It may be chosen whether or not a game runs. Chosen before Start, she introduces the board and the game starts with the lessons; chosen mid-game, she tutors from the next call, with no introduction and no lessons. Another pacing chosen mid-game takes effect at once: she stops mid-word, and calls in progress go on without her — which is how a player is moved on. `pace/set` `"tutor"` is refused on `game/error` while any of her lines has no wav, naming them, since a tutor with gaps is worse than none; the game program does not refuse to start for it, and a configured `pace = "tutor"` falls back to manual.
 
+**Back to tutor** (Rev 44). The installation's `game.toml` sets `pace = "tutor"`, so the game program starts in tutor. A game left stopped in any other pacing returns to tutor after `idle_tutor` seconds, 300 by default — counted from the stop, from start-up, or from the last pacing chosen while stopped, whichever is latest — so the next visitor finds it as a newcomer should. Never while a game runs; 0 turns it off. The return is logged, "pace tutor: stopped 300s", and published on `game/pace` like any other change.
+
 **When she speaks.** At each step, before the player has to act, with the call held until she has finished:
 
 | **Step** | **She says** | **The game then waits for** |
@@ -594,7 +614,7 @@ Each call in progress occupies one of eight slots, `game/call/<1-8>/…`. A slot
 - `signalling` — the calling station is off-hook, or the incoming trunk has been rung (one short burst, Rev 28); waiting for the operator.
 - `request` — the operator has answered; the request is playing.
 - `routing` — waiting for the operator to ring a station or take a trunk.
-- `dialling` — the operator has seized a trunk; digits are arriving.
+- `dialling` — the operator has seized a trunk; digits are arriving. Dial tone is on the trunk from the seizure to the first digit, and again on each fresh seizure if she hangs up and tries again (Rev 42).
 - `ringing` — the called station is ringing, or ringback is on the trunk.
 - `busy` — busy tone is on the trunk, or the called station is found engaged (§4.11, Rev 39); waiting for the operator to go back to the caller.
 - `talking` — the conversation is playing.
@@ -661,7 +681,7 @@ Recabling a station circuit to a different jack moves its `station:` from one it
 
 ## 6.5 The Circuits Fitted
 
-Rev 25. The switchboard is being built a board at a time, so the game program is told how many circuits exist: `stations` and `trunks` in its configuration file, each overridden by `--stations` and `--trunks` on its command line. Stations are the first `stations` of 1–22 and trunks the first `trunks` of 1–8; the defaults are all of them. **Out of service** (Rev 36): a fitted trunk listed in the configuration file's `[out_of_service.trunks]` table, by number with the reason as text, is never rung in on; the game picks only from the rest, and logs each one listed at start. A call out goes on any trunk the operator takes, since the faults so far — a ring relay that does not latch, a lamp that does not light — matter only to a call rung in. A scene is left out of the game if its calling or called line is a station numbered above `stations`, or if it needs an outside line and `trunks` is 0; an `after:` scene following one that is left out is left out as well, down the chain. Calls ring in and go out on trunks 1 to `trunks` only. The game program logs how many scenes it left out and why when it starts, publishes `game/stations` and `game/trunks`, and refuses a diagnostic on a circuit that is not fitted (§7.5).
+Rev 25. The switchboard is being built a board at a time, so the game program is told how many circuits exist: `stations` and `trunks` in its configuration file, each overridden by `--stations` and `--trunks` on its command line. Stations are the first `stations` of 1–22 and trunks the first `trunks` of 1–8; the defaults are all of them. **Out of service** (Rev 36): a fitted trunk listed in the configuration file's `[out_of_service.trunks]` table, by number with the reason as text, is never rung in on; the game picks only from the rest, and logs each one listed at start. A call out goes on any trunk the operator takes, since the faults so far — a ring relay that does not latch, a lamp that does not light — matter only to a call rung in. A fitted station listed in `[out_of_service.stations]` (Rev 43), the same way, is in no call at all: a scene calling from it or to it is left out, as a scene on an unfitted station is, with its `after:` chain and its place in the tutor's lessons, and each one listed is logged at start. A scene is left out of the game if its calling or called line is a station numbered above `stations`, or if it needs an outside line and `trunks` is 0; an `after:` scene following one that is left out is left out as well, down the chain. Calls ring in and go out on trunks 1 to `trunks` only. The game program logs how many scenes it left out and why when it starts, publishes `game/stations` and `game/trunks`, and refuses a diagnostic on a circuit that is not fitted (§7.5).
 
 ## 6.4 The Audience Loudspeaker
 

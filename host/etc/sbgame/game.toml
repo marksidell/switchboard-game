@@ -27,8 +27,9 @@ wav_dir = "/srv/sbgame/wav"
 # StateDirectory=sbgame in the unit makes this, owned by the service user.
 session_db = "/var/lib/sbgame/sessions.db"
 
-# Pacing at start-up (§4.3): tutor, manual, auto or listen. manual until Mark has played a few games.
-pace = "manual"
+# Pacing at start-up (§4.3): tutor, manual, auto or listen. tutor since Rev 44.
+pace = "tutor"
+idle_tutor = 300            # stopped this long in another pacing: back to tutor (Rev 44)
 gap = 20.0
 ramp = 0.0
 floor = 5.0
@@ -57,3 +58,16 @@ trunks = 8
 [out_of_service.trunks]
 6 = "switchboard trunk jack 6's ring relay does not latch (2026-10-10)"
 8 = "switchboard trunk jack 8's lamp does not light, probably burned out (2026-10-10)"
+
+# Jacks 21-30, the board's top row, draw no loop current since a spark on
+# 2026-10-16 (TODO.md): no lamp on the row lights. Stations 1-9 are cabled there.
+[out_of_service.stations]
+1 = "top-row jack 21: no loop current since 2026-10-16"
+2 = "top-row jack 22: no loop current since 2026-10-16"
+3 = "top-row jack 29: no loop current since 2026-10-16"
+4 = "top-row jack 24: no loop current since 2026-10-16"
+5 = "top-row jack 25: no loop current since 2026-10-16"
+6 = "top-row jack 26: no loop current since 2026-10-16"
+7 = "top-row jack 27: no loop current since 2026-10-16"
+8 = "top-row jack 28: no loop current since 2026-10-16"
+9 = "top-row jack 30: no loop current since 2026-10-16"
