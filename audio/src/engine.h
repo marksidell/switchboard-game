@@ -189,10 +189,10 @@ private:
     double  mon_file_on_tap_ = 1.0;         // the same, less the tap trim
     Limiter                  lim_;
     // ---- the line-disturbance gate (audio.md 10.5, Rev 17): the source's raw
-    // capture below 100 Hz, and a 10ms delay on the filtered source so the
+    // capture below 50 Hz (Rev 19), and a 10ms delay on the filtered source so the
     // gate shuts before a click's onset reaches the output.
     bool    gate_on_ = false;
-    Biquad  gate_lp_;                       // 100 Hz low-pass, run twice
+    Biquad  gate_lp_;                       // 50 Hz low-pass, run twice (Rev 19)
     BiquadState gate_s1_, gate_s2_;
     double  gate_thr_ = 0.0;                // linear peak threshold
     int     gate_hold_n_ = 0;               // samples it stays shut after

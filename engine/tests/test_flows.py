@@ -369,6 +369,18 @@ async def main() -> int:
     check(h.connected, "connected when the request finished (§4.3)")
     check(Stage.OPERATOR in h.stages, f"showed the operator stage: {h.stages}")
 
+    print("\n== a question to the operator waits for her answer, the closing (§4.7, Rev 47)")
+    h = Harness(scene(Shape.TO_OPERATOR, to_line="", to_station=None,
+                      conversation=(), closing="t.2"))
+    r = await h.run(to_operator, speaks_when_asked)
+    listens = [k for k, v in h.link.sent if k == "station/12/listen/set"]
+    check(r.ok, "succeeds")
+    check(len(listens) == 2, f"listened for her greeting and her answer: {len(listens)}")
+    h = Harness(scene(Shape.TO_OPERATOR, to_line="", to_station=None, conversation=()))
+    r = await h.run(to_operator, speaks_when_asked)
+    listens = [k for k, v in h.link.sent if k == "station/12/listen/set"]
+    check(r.ok and len(listens) == 1, "with no closing, only the greeting")
+
     print("\n== time and charges: a call to the operator rung in on a trunk (Rev 24)")
     h = Harness(scene(Shape.TO_OPERATOR, from_line="operator", from_station=None,
                       to_line="", to_station=None, conversation=()))

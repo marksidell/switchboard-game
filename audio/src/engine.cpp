@@ -22,6 +22,9 @@ using chan::SAMPLE_RATE;
 static constexpr double MON_LIMIT_DB = -3.0;
 // audio.md 10.5, Rev 17: the monitor source's delay ahead of the gate, 10ms.
 static constexpr size_t GATE_DELAY = 480;
+// Rev 19: the gate's band, below 50 Hz. At 100 Hz a man's voice, whose
+// fundamental is near 100-130 Hz, reached it within a few dB of the threshold.
+static constexpr double GATE_LP_HZ = 50.0;
 static const float      MON_CEIL     = (float)std::pow(10.0, MON_LIMIT_DB / 20.0);
 
 // audio.md 8.2. The Bell System tones of the period the 551 belongs to, before
@@ -124,13 +127,13 @@ bool Engine::prepare()
     // audio.md 10.5, Rev 17. The delay line is allocated whether or not the
     // gate is on, so the chain's latency does not depend on a setting.
     gate_on_     = sh_.opt.monitor_gate_db != 0.0;
-    gate_lp_     = butter_lowpass(100.0, SAMPLE_RATE);
+    gate_lp_     = butter_lowpass(GATE_LP_HZ, SAMPLE_RATE);
     gate_thr_    = db_to_lin(sh_.opt.monitor_gate_db);
     gate_hold_n_ = (int)(sh_.opt.monitor_gate_hold * SAMPLE_RATE);
     gate_dly_.assign(GATE_DELAY, 0.0f);
     if (gate_on_)
-        log_line("monitor: gate at %.1f dBFS below 100 Hz, hold %.2f s, delay %.0f ms",
-                 sh_.opt.monitor_gate_db, sh_.opt.monitor_gate_hold,
+        log_line("monitor: gate at %.1f dBFS below %.0f Hz, hold %.2f s, delay %.0f ms",
+                 sh_.opt.monitor_gate_db, GATE_LP_HZ, sh_.opt.monitor_gate_hold,
                  1000.0 * GATE_DELAY / SAMPLE_RATE);
 
     const double at_6k = cascade_mag_db(mon_lp_, 6000.0, SAMPLE_RATE);
@@ -204,7 +207,7 @@ double Engine::monitor_target(int src_ch) const
 // gate_step()                                                          [audio]
 //   audio.md 10.5, Rev 17. One sample of the line-disturbance gate: `raw` is
 //   the source's capture, `y` the same sample through the monitor's filters.
-//   A switch on the line, or ringing near it, puts far more below 100 Hz on
+//   A switch on the line, or ringing near it, puts far more below 50 Hz on
 //   it than speech ever does - telephone speech has nothing below 300 Hz. While
 //   the low band's peak exceeds the threshold, and for the hold after, the
 //   source is shut: 1ms down, 20ms back up. The filtered source is delayed by

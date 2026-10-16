@@ -314,6 +314,26 @@ async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
     raise Abandoned("caller lost before connecting")
 
 
+async def _closing(ctx: Ctx, caller: str, abort_if) -> None:
+    """Her closing words, waited for before the caller hangs up (§4.7, Rev 47).
+
+    A scene's closing: is what she says after its last line - "That call was
+    from the lobby, sir." In tutor mode she is prompted to say it. A closing
+    not said within the speak timeout is let go: the caller hangs up and the
+    call has still succeeded, since she has done everything it asked.
+    """
+    sc = ctx.scene
+    if not sc.closing:
+        return
+    sp = Speech(name=sc.closing, seconds=0.0, by="caller", operator=sc.closing)
+    try:
+        await _operator_speaks(ctx, caller, sp, abort_if)
+    except TimeoutError:
+        log.info("%s: closing not heard", sc.id)
+    except Abandoned:
+        log.info("%s: cord pulled before the closing", sc.id)   # the call is over
+
+
 def _dial_key(sc: SceneDef) -> str:
     """The tutor's line telling her what to dial (§4.9)."""
     return "dial-operator" if sc.dial == "0" else f"dial-{sc.to_line}"
@@ -613,6 +633,7 @@ async def busy_scene(ctx: Ctx) -> Outcome:
                 await _play(ctx, caller, line, gone)
         except TimeoutError:
             return Outcome(False, Reason.TIMEOUT)
+        await _closing(ctx, caller, gone)
         return Outcome(True)
     except Abandoned:
         return Outcome(False, Reason.CUT_OFF)
@@ -725,6 +746,7 @@ async def to_operator(ctx: Ctx, trunk: int | None = None) -> Outcome:
                 await _play(ctx, caller, line, gone)
         except TimeoutError:
             return Outcome(False, Reason.TIMEOUT)
+        await _closing(ctx, caller, gone)
         return Outcome(True)
     except Abandoned:
         return Outcome(False, Reason.CUT_OFF)

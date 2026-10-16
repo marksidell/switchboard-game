@@ -70,6 +70,7 @@ class SceneDef:
     concurrent: bool = False    # mode: concurrent, starts with the one it follows (§4.4)
     after_handled: int | None = None   # starts a scenario after n handled (§4.10)
     if_busy: tuple[Speech, ...] = ()   # if the called station is engaged (§4.11)
+    closing: str = ""           # her closing line's name (§4.7); the caller waits for it (Rev 47)
 
     @property
     def lines(self) -> tuple[str, ...]:
@@ -215,6 +216,7 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
             concurrent=raw.get("mode") == "concurrent",
             after_handled=raw.get("after_handled"),
             if_busy=tuple(speech(u, "caller") for u in s.busy_lines(sid)),
+            closing=s.closings.get(sid, ""),
         )
         people[sid] = (calling.get("person", ""), (called or {}).get("person", ""))
 

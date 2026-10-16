@@ -65,7 +65,7 @@ static void usage(const char* p)
 "  --monitor-file-trim DB gain added to a file on the monitor (0)\n"
 "  --monitor-limit DB     the monitor limiter's threshold, dBFS, -60 to -3 (-3)\n"
 "  --monitor-gate DB      mute the monitor's source while its line carries more\n"
-"                         than this below 100Hz, dBFS, -90 to -10 (off)\n"
+"                         than this below 50Hz, dBFS, -90 to -10 (off)\n"
 "  --monitor-gate-hold S  how long it stays muted after, 0.05 to 2 (0.25)\n"
 "  --monitor-lp HZ HZ DB  monitor low-pass passband edge, stopband edge,\n"
 "                         stopband dB (3600 5600 70)\n"

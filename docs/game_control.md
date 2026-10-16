@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 46 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order, with the Tutor's Ring Lines Named for the Station, and a Scenario of Calls Arriving Together After the Tenth Call, with a Station Found Engaged, and a Scenario Chosen from the Page on a Clear Board, Starting by Itself*
+*Rev 47 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order, with the Tutor's Ring Lines Named for the Station, and a Scenario of Calls Arriving Together After the Tenth Call, with a Station Found Engaged, and a Scenario Chosen from the Page on a Clear Board, Starting by Itself*
 
 # 1. Overview
 
@@ -175,6 +175,12 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 — The page's countdown says "waiting" while a game runs in automatic pacing and no next call is scheduled — `next_at` empty, because in auto the latest call is not yet connected or ended, and in listen the board is not yet empty (§4.2) — and "–" when no game runs (§7.1), Mark's request, 2026-09-28. It said "–" in both. The deck's Next key already said "waiting" in that case; §7.4 now says so too. It is on the countdown rather than on the Next Call button because the button is hidden with the controls and the countdown is not.
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
+
+## 1.47 Changes in Rev 47
+
+— The caller waits for her `closing:` (§4.7), found in a game on the switchboard, 2026-10-16: nbn-trace's guest asks "was that an outside call or from the lobby?" and hung up as the question ended, before she could answer, because a call to the operator with no conversation hangs up once its request has played. The game listens for her closing now, in every call that has one, and the tutor prompts it. Not saying it does not fail the call: she has done what it asked.
+
+— Code consequence for Claude Code, made the same day: `SceneDef.closing`, `_closing()` in `flows.py`, called at the end of a call to the operator and of a busy call, and the tests. No topic changes.
 
 ## 1.46 Changes in Rev 46
 
@@ -577,7 +583,7 @@ The player speaks for the hotel operator, and the game only listens for her. scr
 - **`operator_lines:`**, at the top level — stock lines by name, each with an `id:` and `text:`. The TTS run renders them in `hotel_operator`'s voice as `operator.<id>`, so no scene may be called `operator`.
 - **`operator: <name>`**, or **`operator:`** with an `id:` and `text:`, on the request or a conversation line — what she says just before that line. The inline form is one of the scene's utterances, `<scene>.<id>`, its id unique in the scene and permanent like any other.
 
-- **`closing:`**, on a scene, in either form — what she says after the last line, before the caller hangs up. Only in a call to the operator or a busy call: in any other she has left the line by the end.
+- **`closing:`**, on a scene, in either form — what she says after the last line, before the caller hangs up. Only in a call to the operator or a busy call: in any other she has left the line by the end. The game waits for her to say it (Rev 47) — a listen on the caller's line, with the tutor's "Say:" prompt in tutor mode — and the caller hangs up after; a closing not said within the speak timeout, or cut short by her pulling the cord, is let go and the call still succeeds.
 
 `operator:` is allowed only where the game waits for her to speak: the request, a `wait: true` line, and every line of a call to the operator or a busy call (§4.6). Both are optional. The game program never plays these lines and never needs their wavs.
 
