@@ -103,7 +103,7 @@ private:
     // goes to the Listener (vad.h). The Listener keeps the history and makes
     // every decision; this struct is only the signal processing in front of it.
     struct Vad {
-        BiquadState hp, lp;                 // 300-3400Hz band-pass
+        BiquadState hp, lp[3];              // 300-3400Hz band-pass (Rev 18: 6th-order low)
         double      acc      = 0.0;         // sum of squares in this frame
         int         nacc     = 0;           // samples in acc so far, 0-479
         bool        src_seen = false;       // a source ran during this frame
@@ -164,7 +164,8 @@ private:
     uint32_t test_ph_ = 0, test_inc_ = 0;   // 1 kHz test tone, Q32
     std::vector<float> test_row_;           // one period of 1kHz, shared
 
-    Biquad    vad_hp_, vad_lp_;             // 300-3400Hz, shared coefficients
+    Biquad    vad_hp_;                      // 300-3400Hz, shared coefficients
+    Biquad    vad_lp_[3];                   // the low-pass's three sections (Rev 18)
     VadParams vad_params_;                  // from the options, set in prepare()
 
     // ---- per-channel state, indexed by slot 1-32 or playback channel 1-34;

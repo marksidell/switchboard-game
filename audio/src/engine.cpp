@@ -86,16 +86,15 @@ bool Engine::prepare()
     test_inc_  = SineTable::inc_q32(1000.0, SAMPLE_RATE);
 
     // Speech detector band-pass: the pilots at 6-9kHz are the loudest thing on
-    // the channel and must not count; hum must not either (audio.md 9.2). Two
-    // second-order sections is what that section specifies, and they leave the
-    // lowest pilot only 10.9dB down - so the pilot residual is part of the
-    // noise floor the detector measures, and it is the ratiometric floor +
-    // --vad-margin term that keeps it from counting as speech. The absolute
-    // --vad-floor is a lower bound for a dead-quiet channel and nothing more.
-    const Biquad vhp = butter_highpass(300.0,  SAMPLE_RATE);
-    const Biquad vlp = butter_lowpass (3400.0, SAMPLE_RATE);
-    vad_hp_ = vhp;
-    vad_lp_ = vlp;
+    // the channel and must not count; hum must not either (audio.md 9.2). The
+    // low-pass is sixth-order since Rev 18: one section left the lowest pilot
+    // only 10.9dB down, so the pilot residual set the noise floor - about
+    // -71dBFS on a station - and floor + --vad-margin put the bar above an
+    // operator's normal voice. Three sections put it 30dB or more down, below
+    // the line's own noise, and --vad-floor is the bar on a quiet line.
+    vad_hp_ = butter_highpass(300.0, SAMPLE_RATE);
+    const std::vector<Biquad> vlp = butter_lowpass6(3400.0, SAMPLE_RATE);
+    for (int s = 0; s < 3; ++s) vad_lp_[s] = vlp[(size_t)s];
     vad_params_.margin_db         = sh_.opt.vad_margin;
     vad_params_.abs_floor_db      = sh_.opt.vad_floor;
     vad_params_.hangover_frames   =
@@ -499,7 +498,8 @@ void Engine::process_capture()
         if (src_active) v.src_seen = true;
 
         for (unsigned i = 0; i < period_; ++i) {
-            const double y = v.lp.run(vad_lp_, v.hp.run(vad_hp_, (double)src[i]));
+            double y = v.hp.run(vad_hp_, (double)src[i]);
+            for (int s = 0; s < 3; ++s) y = v.lp[s].run(vad_lp_[s], y);
             v.acc += y * y;
             if (++v.nacc < VAD_FRAME) continue;
 

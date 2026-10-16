@@ -123,6 +123,13 @@ struct BiquadState {
 Biquad butter_lowpass (double fc, double fs);
 Biquad butter_highpass(double fc, double fs);
 
+// butter_lowpass6()                                                  [startup]
+//   Sixth-order Butterworth low-pass as three sections, Q 0.518, 0.707 and
+//   1.932, run in series: -3 dB at fc, then 36 dB/octave. The speech
+//   detector's low-pass since audio.md Rev 18, which puts the pilots 30 dB
+//   or more down where one section left the lowest only 10.
+std::vector<Biquad> butter_lowpass6(double fc, double fs);
+
 // elliptic_lowpass()                                                 [startup]
 //   Elliptic low-pass, even order, as cascaded second-order sections (station
 //   8.8: passband edge 3.6kHz, stopband edge 5.6kHz, stopband 70dB or better).

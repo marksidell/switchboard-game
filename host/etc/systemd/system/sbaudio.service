@@ -29,7 +29,8 @@ ExecStart=/usr/local/bin/sbaudio \
     --monitor -12 \
     --monitor-file-trim -18 \
     --monitor-limit -30 \
-    --monitor-gate -60
+    --monitor-gate -60 \
+    --vad-floor -70
 
 # audio.md 13.2: there is no attempt to run without audio. An unrecoverable
 # stream failure exits non-zero, systemd brings the program back, and the

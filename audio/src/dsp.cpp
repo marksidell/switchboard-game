@@ -42,6 +42,23 @@ Biquad butter_lowpass(double fc, double fs)
                      1.0 + al, -2.0 * c, 1.0 - al);
 }
 
+// butter_lowpass6()                                                  [startup]
+//   Three cookbook low-pass sections at fc, with the Q of each pole pair of a
+//   sixth-order Butterworth: 1 / (2 sin((2k - 1) pi / 12)), k = 1..3.
+std::vector<Biquad> butter_lowpass6(double fc, double fs)
+{
+    std::vector<Biquad> out;
+    const double w0 = 2.0 * M_PI * fc / fs;
+    const double c  = std::cos(w0), s = std::sin(w0);
+    for (int k = 1; k <= 3; ++k) {
+        const double q  = 1.0 / (2.0 * std::sin((2 * k - 1) * M_PI / 12.0));
+        const double al = s / (2.0 * q);
+        out.push_back(normalise((1.0 - c) / 2.0, 1.0 - c, (1.0 - c) / 2.0,
+                                1.0 + al, -2.0 * c, 1.0 - al));
+    }
+    return out;
+}
+
 // butter_highpass()                                                  [startup]
 //   The cookbook high-pass, same Q. Same denominator as the low-pass; only
 //   the numerator differs.

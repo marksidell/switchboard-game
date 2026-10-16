@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 17 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, All Commanded and Reported over MQTT*
+*Rev 18 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, All Commanded and Reported over MQTT*
 
 # 1. Overview
 
@@ -169,6 +169,12 @@ Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout t
 
 — Code consequence, made the same day: `Engine::gate_step()`, the options, and the counter. `ctest` has speech passing, ringing shutting it, the hold, and the reopening.
 
+## 1.18 Changes in Rev 18
+
+— The speech detector's low-pass is sixth-order, and the installation's `--vad-floor` is −70dBFS (§9.2). Found on the switchboard, 2026-10-16: the detector heard the operator only when she spoke loudly. Bridged onto station 13 and counting one to ten at a normal level, she was not heard in a 30s listen. A recording of the line put her voice at −55 to −65dBFS in the detector's band, peaks −47, against a threshold of −50, the absolute bound, which no word cleared for the 200ms of 300 a start needs. Lowering the bound alone does not do: through one low-pass section the station's own pilot, measured at −58.4dBFS on the line, arrives at −71.5 and sets the floor, so floor + 10dB is −61, still above most of her voice. With three sections the pilot is at −97, under the line's own noise near −91, and with the bound at −70 the recording declares speech one second into the count, with no frame above −70 in the quiet before it. Her voice is about 30dB below the authored speech on the line; a stronger transmitter would give more margin, and the electret headset (kicad/electret) is the way to it.
+
+— Code consequence, made the same day: `butter_lowpass6()` in `dsp.cpp`, the detector's three sections, and the tests. `sbaudio.service` gains `--vad-floor -70`.
+
 # 2. Channel Plan
 
 One ALSA card, the Digiface USB, opened in both directions at 48kHz, S32_LE. Playback is 34 channels — confirmed on the host at station Rev 3.37 — and capture is expected to be 32 (the four ADAT ports; the Digiface has no analog input) and is to be confirmed the same way (§16).
@@ -334,10 +340,10 @@ The final value — `"silence"` or `"timeout"` — persists until the next `list
 
 Energy-based, in the voice band, on 10ms frames, in the audio thread:
 
-- The channel's capture is band-passed 300–3400Hz — one second-order high-pass and one second-order low-pass biquad — before anything is measured. The pilots at 6–9kHz are the loudest thing on the channel and must not count; hum must not either.
+- The channel's capture is band-passed 300–3400Hz — one second-order high-pass and a sixth-order Butterworth low-pass, three biquads (Rev 18) — before anything is measured. The pilots at 6–9kHz are the loudest thing on the channel and must not count; hum must not either. The low-pass puts the lowest pilot 30dB down and the operator tone 50dB down, so that neither sets the noise floor; with one section, as Rev 1 to Rev 17 had it, the lowest pilot was only 10.9dB down and the station's own pilot set a floor near −71dBFS.
 - RMS per 480-sample frame, in dBFS referenced to a full-scale sine (RMS × √2), which is the convention for every dBFS figure the program reports or accepts.
 - The noise floor is the 10th percentile of the frame levels over the second before the command arrived, which the audio thread keeps as a rolling history per channel at all times so it is available the instant a listen starts. During the listen the floor may rise at no more than 1dB/s and never fall, so a slowly rising room does not trigger and a burst does not lower the bar.
-- Threshold is the greater of floor + 10dB and an absolute −50dBFS. The absolute term is what stops a very quiet channel from triggering on nothing.
+- Threshold is the greater of floor + 10dB and an absolute −50dBFS by default, `--vad-floor`. The absolute term is what stops a very quiet channel from triggering on nothing. The installation sets −70 (Rev 18): through the 551 an operator's normal voice reaches a station's line at −55 to −65dBFS in this band, peaks near −47, and never cleared −50 for 200ms of 300.
 - Speech is declared when at least 20 of the last 30 frames — 200ms of 300ms — are above threshold. A single click or a relay operating is a frame or two; a word is many.
 - Speech is declared ended when no more than 2 of the last 30 frames are above threshold and that has held for the hangover time — 1.5s by default. The pauses inside a sentence are shorter than that; the pause after one is longer. A cough or a chair after the caller has stopped is a frame or two above threshold inside the window and does not restart the count; a second sentence does.
 - The maximum speech time — 30s by default — runs from the frame that declared speech. If speech has not ended by then the listen reports `"timeout"` and stops. It is a bound on a caller who keeps talking, or on a line that has gone noisy enough to read as speech forever, so that the game is never left waiting on a listen that cannot resolve.

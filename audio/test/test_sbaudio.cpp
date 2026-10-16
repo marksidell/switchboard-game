@@ -103,13 +103,14 @@ static void test_monitor_filter()
     check(cascade_mag_db({ hp }, 1000.0, fs) > -0.2, "and flat at 1 kHz");
     const Biquad vlp = butter_lowpass(3400.0, fs);
     check_near(cascade_mag_db({ vlp }, 3400.0, fs), -3.0, 0.2, "3400 Hz low-pass is -3 dB at 3400 Hz");
-    // One second-order section is all audio.md 9.2 specifies, and it is worth
-    // knowing what that buys: 10.9 dB at the lowest pilot, not rejection. The
-    // pilot residual is therefore part of the speech detector's noise floor,
-    // and it is the ratiometric floor+margin term that keeps it from counting,
-    // never the absolute --vad-floor.
-    check(cascade_mag_db({ vlp }, 6000.0, fs) < -10.0,
-          "and puts the lowest pilot 10 dB down (not out - see the comment)");
+    // audio.md 9.2, Rev 18: the speech detector's low-pass is sixth-order, so
+    // the pilots fall below the line's noise rather than setting the floor.
+    const std::vector<Biquad> vlp6 = butter_lowpass6(3400.0, fs);
+    check(vlp6.size() == 3, "the speech detector's low-pass is three sections");
+    check_near(cascade_mag_db(vlp6, 3400.0, fs), -3.0, 0.2, "-3 dB at 3400 Hz");
+    check(cascade_mag_db(vlp6, 1000.0, fs) > -0.1, "flat at 1 kHz");
+    check(cascade_mag_db(vlp6, 6000.0, fs) < -29.0, "the lowest pilot 29 dB down or more");
+    check(cascade_mag_db(vlp6, 9000.0, fs) < -49.0, "the operator tone 49 dB down or more");
 }
 
 // ---------------------------------------------------------------- detector
