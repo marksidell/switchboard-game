@@ -207,6 +207,17 @@ static void test_detector()
     add_pilot(t6, tbl, chan::pilot_bin(chan::trunk_slot(8)),   XTALK);
     add_noise(t6, QUIET, 8);
 
+    // Trunk 8: idle, with trunk 7's crosstalk 72dB under its own pilot, and
+    // noise close around its own pilot raising that bin's floor 40dB above
+    // the others - so measured against each bin's floor the crosstalk looks
+    // only 30dB down. The window reads absolute levels (Rev 3.48).
+    float* t8 = d + (size_t)(chan::trunk_slot(8) - 1) * chan::FFT_N;
+    const int b8 = chan::pilot_bin(chan::trunk_slot(8));
+    add_pilot(t8, tbl, b8, PILOT);
+    for (int o : {-3, -2, 2, 3}) add_pilot(t8, tbl, b8 + o, PILOT - 35.0);
+    add_pilot(t8, tbl, chan::pilot_bin(chan::trunk_slot(7)), XTALK);
+    add_noise(t8, QUIET, 9);
+
     // The tap: its own tone returning on its own channel.
     float* tap = d + (size_t)(chan::TAP_CH - 1) * chan::FFT_N;
     add_pilot(tap, tbl, chan::OP_BIN, -18.0);
@@ -246,6 +257,8 @@ static void test_detector()
           "trunk 4 is idle: crosstalk 72dB under its own pilot is not a peer");
     check(last(Topic::Op, chan::trunk_slot(4)) == "off" && f,
           "and the operator tone leaking from the tap is not the operator");
+    check(last(Topic::Peer, chan::trunk_slot(8)) == "" && f,
+          "trunk 8 is idle though its own floor is raised: the window is absolute");
     check(last(Topic::Peer, chan::trunk_slot(6)) == "station/9" && f,
           "trunk 6 hears station 9 through the same crosstalk");
 

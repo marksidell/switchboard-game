@@ -126,6 +126,17 @@ double Detector::bin_power(int b) const
     return p;
 }
 
+// bin_level()                                                       [analysis]
+//   Power at bin b in dB, absolute rather than against a floor. The windows
+//   of station 8.7 (Rev 3.48) compare two bins' levels with each other, and
+//   two bins' floors need not be the same: through the switchboard they were
+//   found 15-30dB apart, which bin_db() differences carry straight through.
+double Detector::bin_level(int b) const
+{
+    const double p = bin_power(b);
+    return p > 0.0 ? 10.0 * std::log10(p) : -INFINITY;
+}
+
 // bin_db()                                                          [analysis]
 //   dB of one bin above the median of its guard bins, station 8.7. Powers
 //   rather than magnitudes, so the factor is 10 and not 20. The median of
@@ -199,13 +210,16 @@ void Detector::analyse(int cap_index)
     const double op_db  = bin_db(chan::OP_BIN);
     // A pilot must also be within PEER_WINDOW_DB of the circuit's own pilot,
     // and the operator tone within OP_WINDOW_DB of it (station 8.7, Rev
-    // 3.46-3.47). A real peer arrives a few dB under the own pilot and the
-    // operator tone above it; crosstalk on the boards arrives 46dB or more
-    // under it, which can still be well above the noise floor.
-    const double window    = own_db - sh_.opt.peer_window_db;
-    const double op_window = own_db - sh_.opt.op_window_db;
+    // 3.46-3.48), each by absolute level. A real peer arrives a few dB under
+    // the own pilot and the operator tone above it; crosstalk in the boards
+    // and the switchboard cabling arrives 46dB or more under it, which can
+    // still be well above the noise floor.
+    const double own_lvl   = bin_level(chan::pilot_bin(slot));
+    const double window    = own_lvl - sh_.opt.peer_window_db;
+    const double op_window = own_lvl - sh_.opt.op_window_db;
 
-    confirm(op_[slot], Topic::Op, slot, op_db >= margin && op_db >= op_window ? "on" : "off",
+    confirm(op_[slot], Topic::Op, slot,
+            op_db >= margin && bin_level(chan::OP_BIN) >= op_window ? "on" : "off",
             !op_[slot].seen);
 
     char value[40];
@@ -224,8 +238,8 @@ void Detector::analyse(int cap_index)
         int heard[chan::N_SLOTS], n = 0;
         for (int s = 1; s <= chan::N_SLOTS; ++s) {
             if (s == slot) continue;               // own pilot: the deaf check above
-            const double db = bin_db(chan::pilot_bin(s));
-            if (db >= margin && db >= window) heard[n++] = s;
+            const int b = chan::pilot_bin(s);
+            if (bin_db(b) >= margin && bin_level(b) >= window) heard[n++] = s;
         }
         if (n == 0) {
             value[0] = '\0';                       // idle: an empty retained payload
@@ -235,7 +249,8 @@ void Detector::analyse(int cap_index)
             std::snprintf(value, sizeof value, "ambiguous");
         }
 
-        // Log the full list with levels. That alone usually identifies which
+        // Log the full list with levels - above the floor, and in brackets
+        // against the own pilot, which is what the window reads. That alone usually identifies which
         // of the three causes it is (station 8.7): a threshold problem shows
         // several weak pilots, crosstalk one strong and one weak, a cord fault
         // two strong. Logged when the circuit becomes ambiguous and then at
@@ -245,16 +260,17 @@ void Detector::analyse(int cap_index)
         const double now = monotonic_s();
         if (amb && (!amb_prev_[slot] || now - amb_logged_[slot] >= 1.0)) {
             amb_logged_[slot] = now;
-            char line[256];
+            char line[384];
             int  k = std::snprintf(line, sizeof line, "detector: slot %d ambiguous, heard", slot);
-            for (int i = 0; i < n && k < (int)sizeof line - 32; ++i) {
+            for (int i = 0; i < n && k < (int)sizeof line - 48; ++i) {
                 char id[24];
                 chan::circuit_id(heard[i], id, sizeof id);
                 // A slot with no circuit has no id; name the slot itself, so
                 // the line says which bin was heard.
                 if (!id[0]) std::snprintf(id, sizeof id, "slot/%d", heard[i]);
-                k += std::snprintf(line + k, sizeof line - k, " %s %.1fdB",
-                                   id, bin_db(chan::pilot_bin(heard[i])));
+                const int b = chan::pilot_bin(heard[i]);
+                k += std::snprintf(line + k, sizeof line - k, " %s %.1fdB (%+.1f)",
+                                   id, bin_db(b), bin_level(b) - own_lvl);
             }
             log_line("%s (own %.1fdB)", line, own_db);
         }

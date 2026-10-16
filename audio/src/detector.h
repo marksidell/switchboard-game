@@ -69,6 +69,7 @@ private:
 
     void   analyse(int cap_index);
     double bin_db(int b) const;
+    double bin_level(int b) const;
     double bin_power(int b) const;
     void   confirm(Confirm& c, Topic t, int idx, const char* value, bool first);
     void   dump_row(uint64_t hop);

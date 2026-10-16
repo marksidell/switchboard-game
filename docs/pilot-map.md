@@ -89,16 +89,17 @@ bin 512.
 ```
 guard offsets   ±2, ±3 bins       median of the four is the local noise floor
 MARGIN_DB       20.0              a bin counts as present at that much above its floor
-PEER_WINDOW_DB  40.0              and, for a comb pilot, no more than this below the own pilot
+PEER_WINDOW_DB  25.0              and, for a comb pilot, no more than this below the own pilot
 OP_WINDOW_DB    20.0              and, for bin 768, no more than this below the own pilot
+                                  (both windows by absolute level, Rev 3.48)
 own slot        excluded from the peer search; its level is the "deaf" health check
 ```
 
 `MARGIN_DB` is a bench setting (station §8.7, `audio.md` §15 step 6) and is the
 `--margin-db` option; 20 dB is the starting value and what this table records.
-`PEER_WINDOW_DB` (station Rev 3.46) is the same kind of setting, `--peer-window-db`; 40 dB
-is its starting value, chosen against the trunk board's strip-to-strip crosstalk, 72 dB
-or more under the own pilot, and to be confirmed through the switchboard. `OP_WINDOW_DB`
+`PEER_WINDOW_DB` (station Rev 3.46) is the same kind of setting, `--peer-window-db`; 25 dB
+is its starting value since Rev 3.48, chosen against the trunk crosstalk on the switchboard,
+44 dB or more under the own pilot, with a peer through a cord at 3–4 dB under it. `OP_WINDOW_DB`
 (Rev 3.47), `--op-window-db`, starts at 20 dB, against the tap's leak, 46 dB under the
 own pilot on station 22.
 
