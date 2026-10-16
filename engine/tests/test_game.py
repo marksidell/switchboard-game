@@ -79,8 +79,8 @@ async def main() -> int:
         check(link.state_v.get("game/call/1/scene") == "", "every slot is clear")
         labels = [k for k in link.state_v if k.startswith("board/station/") and k.endswith("/label")]
         check(len(labels) == 30, f"30 station jacks published, got {len(labels)}")
-        check(link.state_v.get("board/station/21/label") == "Front Desk",
-              f"jack 21 is {link.state_v.get('board/station/21/label')!r}")
+        check(link.state_v.get("board/station/22/label") == "Lobby",
+              f"jack 22 is {link.state_v.get('board/station/22/label')!r}")
         check(link.state_v.get("board/trunk/9/circuit") == "",
               "trunk jack 9 carries nothing")
         check(link.state_v.get("board/station/21/circuit") == "station/1",
@@ -130,7 +130,7 @@ async def main() -> int:
                           "                called: Valet service.\n"
                           "                pause: a while\n", 1)),
             ("the old switchboard: key on a station",
-             real.replace("        number: 1\n", "        number: 1\n        switchboard: 1\n", 1)),
+             real.replace("        number: 2\n", "        number: 2\n        switchboard: 22\n", 1)),
             ("operator: where the game does not wait for her (§4.7)",
              real.replace("                caller: Yes, fast.\n",
                           "                caller: Yes, fast.\n"

@@ -45,6 +45,13 @@ from .script_data import SceneDef, Shape, Speech
 from .scenes import _quietly, hear, ringing_station, say
 from .tutor import REPEAT, REPEATS, Tutor
 
+# §5, Rev 46: dial tone comes this long after the trunk is seized, as an
+# exchange takes a moment to connect a register; and a call whose caller has
+# had neither the operator nor a connection, with no trunk up, for this long
+# before it is connected is abandoned.
+DIAL_DELAY = 0.5
+ABANDON = 20.0
+
 log = logging.getLogger("flow")
 
 
@@ -256,6 +263,57 @@ async def _seized_trunk(ctx: Ctx, deadline: float) -> int:
     return await ctx.b.wait_until(_any_seized, ctx.left(deadline))
 
 
+async def _dial_tone(ctx: Ctx, trunk: int) -> None:
+    """Dial tone on a freshly seized trunk, after DIAL_DELAY (§5, Rev 46)."""
+    await asyncio.sleep(DIAL_DELAY)
+    await ctx.hw.tone(trunk, "dial")
+
+
+async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
+    """Run `work`, the routing of a call; raise Abandoned if the caller is lost
+    for ABANDON seconds first (§5, Rev 46).
+
+    Lost: the operator is not on the caller's line, it is patched to nothing,
+    and no trunk is up - for a trunk caller, its own; for a station, any, since
+    she may be dialling out for it. The game cannot see a cord go into or out
+    of a station jack, so a pulled answering cord and a switch centred before
+    the front cord goes in look the same; the wait is what tells them apart.
+    """
+    def lost(b: Board) -> bool:
+        if b.on(f"{caller}/op") or b.get(f"{caller}/peer"):
+            return False
+        if caller.startswith("trunk/"):
+            return not b.on(f"{caller}/seize")
+        return _any_seized(b) is None
+
+    async def watch() -> None:
+        while True:
+            await ctx.b.wait_until(lost, None)
+            try:
+                await ctx.b.wait_until(lambda b: not lost(b), ABANDON)
+            except TimeoutError:
+                return
+
+    task = asyncio.ensure_future(work)
+    watcher = asyncio.ensure_future(watch())
+    try:
+        done, _ = await asyncio.wait({task, watcher}, return_when=asyncio.FIRST_COMPLETED)
+    except BaseException:
+        task.cancel()
+        watcher.cancel()
+        await asyncio.gather(task, watcher, return_exceptions=True)
+        raise
+    if task in done:
+        watcher.cancel()
+        await asyncio.gather(watcher, return_exceptions=True)
+        return task.result()
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    watcher.result()                                  # Offline, if that is what ended it
+    ctx.say_event(f"{caller} lost for {ABANDON:g}s before connecting")
+    raise Abandoned("caller lost before connecting")
+
+
 def _dial_key(sc: SceneDef) -> str:
     """The tutor's line telling her what to dial (§4.9)."""
     return "dial-operator" if sc.dial == "0" else f"dial-{sc.to_line}"
@@ -269,7 +327,8 @@ async def _wait_for_right_number(ctx: Ctx, trunk: int, want: str,
     a release and a fresh seizure, which clears `dialled` (board.py), so this
     also follows the operator onto another trunk if she takes one. Dial tone,
     which the caller has started, stops at the first digit and comes back on
-    each fresh seizure (§5, Rev 42).
+    each fresh seizure (§5, Rev 42); a wrong number gets busy tone until she
+    hangs up (Rev 46).
     """
     digits = "".join(c for c in want if c.isdigit())
     wrong_seen: set[str] = set()
@@ -288,7 +347,7 @@ async def _wait_for_right_number(ctx: Ctx, trunk: int, want: str,
             await ctx.hw.tone(trunk, "off")
             trunk = await _seized_trunk(ctx, deadline)
             await ctx.slots.set(ctx.call, "trunk", f"trunk/{trunk}")
-            await ctx.hw.tone(trunk, "dial")
+            await _dial_tone(ctx, trunk)
             continue
         if got == digits:
             await ctx.slots.set(ctx.call, "digits", got)
@@ -298,6 +357,7 @@ async def _wait_for_right_number(ctx: Ctx, trunk: int, want: str,
             wrong_seen.add(got)
             ctx.say_event(f"dialled {got}, wanted {want}")
             log.info("%s: wrong number %s", ctx.scene.id, got)
+        await ctx.hw.tone(trunk, "busy")                # Rev 46: not silence
         # Wait for her to release and try again.
         await ctx.b.wait_until(lambda b, t=trunk: not b.on(f"trunk/{t}/seize"),
                                ctx.left(deadline))
@@ -404,7 +464,8 @@ async def station_to_station(ctx: Ctx) -> Outcome:
 
         deadline = time.time() + ctx.cfg.connect_timeout
         await ctx.slots.set_stage(ctx.call, Stage.ROUTING, deadline)
-        try:
+        async def route() -> Outcome | None:
+            nonlocal answered
             if await _route_unless_engaged(ctx, sc.to_station, deadline):
                 return await _found_engaged(ctx, caller, gone)
             await ctx.slots.set_stage(ctx.call, Stage.RINGING, deadline)
@@ -415,6 +476,11 @@ async def station_to_station(ctx: Ctx) -> Outcome:
             await ctx.hw.hook(sc.to_station, True)         # the called party answers
             await ctx.b.wait_until(
                 lambda b: b.get(f"{caller}/peer") == called, ctx.left(deadline))
+            return None
+        try:
+            engaged = await _unless_abandoned(ctx, caller, route())
+            if engaged is not None:
+                return engaged
         except TimeoutError:
             return Outcome(False, Reason.NOT_CONNECTED)
 
@@ -456,15 +522,17 @@ async def station_to_outside(ctx: Ctx) -> Outcome:
 
         deadline = time.time() + ctx.cfg.connect_timeout
         await ctx.slots.set_stage(ctx.call, Stage.ROUTING, deadline)
-        try:
+        async def route() -> int:
             await _tut(ctx, "trunk-front", until=_any_seized)            # tutor
-            trunk = await _seized_trunk(ctx, deadline)
-            await ctx.slots.set(ctx.call, "trunk", f"trunk/{trunk}")
+            t = await _seized_trunk(ctx, deadline)
+            await ctx.slots.set(ctx.call, "trunk", f"trunk/{t}")
             await ctx.slots.set_stage(ctx.call, Stage.DIALLING, deadline)
-            await ctx.hw.tone(trunk, "dial")
+            await _dial_tone(ctx, t)
             await _tut(ctx, _dial_key(sc),                              # tutor
-                       until=lambda b, t=trunk: b.dialled(t) or not b.on(f"trunk/{t}/seize"))
-            trunk = await _wait_for_right_number(ctx, trunk, sc.dial, deadline)
+                       until=lambda b, t=t: b.dialled(t) or not b.on(f"trunk/{t}/seize"))
+            return await _wait_for_right_number(ctx, t, sc.dial, deadline)
+        try:
+            trunk = await _unless_abandoned(ctx, caller, route())
         except TimeoutError:
             return Outcome(False, Reason.NOT_CONNECTED)
 
@@ -516,15 +584,17 @@ async def busy_scene(ctx: Ctx) -> Outcome:
 
         deadline = time.time() + ctx.cfg.connect_timeout
         await ctx.slots.set_stage(ctx.call, Stage.ROUTING, deadline)
-        try:
+        async def route() -> int:
             await _tut(ctx, "trunk-front", until=_any_seized)            # tutor
-            trunk = await _seized_trunk(ctx, deadline)
-            await ctx.slots.set(ctx.call, "trunk", f"trunk/{trunk}")
+            t = await _seized_trunk(ctx, deadline)
+            await ctx.slots.set(ctx.call, "trunk", f"trunk/{t}")
             await ctx.slots.set_stage(ctx.call, Stage.DIALLING, deadline)
-            await ctx.hw.tone(trunk, "dial")
+            await _dial_tone(ctx, t)
             await _tut(ctx, _dial_key(sc),                              # tutor
-                       until=lambda b, t=trunk: b.dialled(t) or not b.on(f"trunk/{t}/seize"))
-            trunk = await _wait_for_right_number(ctx, trunk, sc.dial, deadline)
+                       until=lambda b, t=t: b.dialled(t) or not b.on(f"trunk/{t}/seize"))
+            return await _wait_for_right_number(ctx, t, sc.dial, deadline)
+        try:
+            trunk = await _unless_abandoned(ctx, caller, route())
         except TimeoutError:
             return Outcome(False, Reason.NOT_CONNECTED)
 
@@ -578,7 +648,7 @@ async def outside_to_station(ctx: Ctx, trunk: int) -> Outcome:
 
         deadline = time.time() + ctx.cfg.connect_timeout
         await ctx.slots.set_stage(ctx.call, Stage.ROUTING, deadline)
-        try:
+        async def route() -> None:
             await _wait_for_right_station(ctx, sc.to_station, deadline)
             await ctx.slots.set_stage(ctx.call, Stage.RINGING, deadline)
             await asyncio.sleep(1.5)
@@ -589,6 +659,8 @@ async def outside_to_station(ctx: Ctx, trunk: int) -> Outcome:
             await ctx.hw.hook(sc.to_station, True)
             await ctx.b.wait_until(
                 lambda b: b.get(f"{caller}/peer") == called, ctx.left(deadline))
+        try:
+            await _unless_abandoned(ctx, caller, route())
         except TimeoutError:
             return Outcome(False, Reason.NOT_CONNECTED)
 

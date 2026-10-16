@@ -13,6 +13,7 @@ import asyncio
 import logging
 import sys
 
+import sbgame.flows as flows
 from sbgame.board import Board
 from sbgame.calls import Call, Reason, Slots, Stage
 from sbgame.config import Config
@@ -164,6 +165,16 @@ async def switch_glitch(h: Harness) -> None:
     await h.b.update("station/2/peer", "station/12")
 
 
+async def pulls_the_cord_before_routing(h: Harness) -> None:
+    """She answers, hears the request, and pulls the answering cord before
+    taking a trunk (§5, Rev 46): the caller is lost, and the call abandoned."""
+    c = "station/12"
+    await answers(h, c)
+    await request_heard(h, c)
+    await h.b.update(f"{c}/op", "off")
+    await asyncio.sleep(60)
+
+
 async def outgoing_operator(h: Harness, number: str, answer: bool = True) -> None:
     c = "station/12"
     await answers(h, c)
@@ -191,7 +202,7 @@ async def wrong_then_right_number(h: Harness) -> None:
         await asyncio.sleep(D / 2)
         await h.b.update("trunk/3/digit", d)
     await asyncio.sleep(D * 3)
-    assert h.b.get("trunk/3/tone") != "dial"
+    assert h.b.get("trunk/3/tone") == "busy", h.b.get("trunk/3/tone")   # Rev 46
     await h.b.update("trunk/3/seize", "off")          # release clears dialled
     await asyncio.sleep(D)
     await h.b.update("trunk/3/seize", "on")
@@ -276,6 +287,18 @@ async def main() -> int:
     h = Harness(scene(Shape.STATION_TO_STATION))
     r = await h.run(station_to_station, switch_glitch)
     check(r.ok, f"the call rides through: {r.reason!r}")
+
+    print("\n== the caller lost before connecting is abandoned (§5, Rev 46)")
+    was = flows.ABANDON
+    flows.ABANDON = D * 10
+    try:
+        h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
+                          dial="275-4101"))
+        r = await h.run(station_to_outside, pulls_the_cord_before_routing)
+        check(not r.ok and r.reason == Reason.CUT_OFF, f"fails as 'cut off': {r.reason!r}")
+        check(any("lost" in e for e in h.events), f"and says so: {h.events}")
+    finally:
+        flows.ABANDON = was
 
     print("\n== station to outside")
     h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,

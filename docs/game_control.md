@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 45 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order, with the Tutor's Ring Lines Named for the Station, and a Scenario of Calls Arriving Together After the Tenth Call, with a Station Found Engaged, and a Scenario Chosen from the Page on a Clear Board, Starting by Itself*
+*Rev 46 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order, with the Tutor's Ring Lines Named for the Station, and a Scenario of Calls Arriving Together After the Tenth Call, with a Station Found Engaged, and a Scenario Chosen from the Page on a Clear Board, Starting by Itself*
 
 # 1. Overview
 
@@ -175,6 +175,12 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 — The page's countdown says "waiting" while a game runs in automatic pacing and no next call is scheduled — `next_at` empty, because in auto the latest call is not yet connected or ended, and in listen the board is not yet empty (§4.2) — and "–" when no game runs (§7.1), Mark's request, 2026-09-28. It said "–" in both. The deck's Next key already said "waiting" in that case; §7.4 now says so too. It is on the countdown rather than on the Next Call button because the button is hidden with the controls and the countdown is not.
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
+
+## 1.46 Changes in Rev 46
+
+— Three changes from a tutored game on the switchboard, 2026-10-16 (§5). A wrong number was met with silence, which tells the operator nothing; it gets busy tone now, until she hangs the trunk up. Pulling both cords mid-call, before it was connected, left the call open for good: from routing until connection the game watched only the trunk, the caller stayed off-hook with its lamp lit, and tutor mode has no timeouts, so nothing could end it and Next Call was refused. Now a caller lost for 20s before connection — no operator on its line, patched to nothing, no trunk up — is abandoned as `cut off`. The 20s is what tells a pulled answering cord from the switch centred before the front cord goes in, which look the same, since the game cannot see a cord in a station jack. And dial tone comes half a second after the seizure rather than at once, as an exchange takes a moment to answer (Mark's request).
+
+— Code consequence for Claude Code, made the same day: `_dial_tone()`, `_unless_abandoned()` and the busy tone in `_wait_for_right_number()` in `flows.py`, and the tests. No topic changes.
 
 ## 1.45 Changes in Rev 45
 
@@ -591,12 +597,12 @@ A failure is logged with its reason. The reasons at Rev 1:
 | --- | --- |
 | `no answer` | The operator did not answer the calling line in time. |
 | `not connected` | The operator answered but did not connect the call in time — wrong station rung, number not dialled, or nothing done. |
-| `cut off` | A cord was pulled during the conversation — the calling or called line's `peer` went empty before the scene's end, and stayed empty for a second (Rev 45). |
+| `cut off` | A cord was pulled during the conversation — the calling or called line's `peer` went empty before the scene's end, and stayed empty for a second (Rev 45). Or, before the call was connected, the caller was lost for 20s: the operator not on its line, the line patched to nothing, and no trunk up — for a trunk caller its own, for a station any (Rev 46). |
 | `timeout` | The operator did not speak when a line was waiting for them (calls to the operator, busy scenes, and a `wait:` line, §4.6). |
 
 Timeouts are the game program's configuration, not the page's, at Rev 1: 60s to answer, 90s to connect after the request has played, 30s for the operator to speak. They are starting values for play-testing.
 
-A wrong connection is logged but is not a failure on its own. An operator who plugs the wrong jack and corrects it within the connect timeout has made the call. Whether a wrong party answering should end the call is open (§10).
+A wrong connection is logged but is not a failure on its own. An operator who plugs the wrong jack and corrects it within the connect timeout has made the call. A wrong number gets busy tone on the trunk until she hangs it up (Rev 46); a fresh seizure gets dial tone again, half a second after it, as on every seizure for a call out. Whether a wrong party answering should end the call is open (§10).
 
 # 6. Calls in Progress, the Log and the Board
 
@@ -620,7 +626,7 @@ Each call in progress occupies one of eight slots, `game/call/<1-8>/…`. A slot
 - `signalling` — the calling station is off-hook, or the incoming trunk has been rung (one short burst, Rev 28); waiting for the operator.
 - `request` — the operator has answered; the request is playing.
 - `routing` — waiting for the operator to ring a station or take a trunk.
-- `dialling` — the operator has seized a trunk; digits are arriving. Dial tone is on the trunk from the seizure to the first digit, and again on each fresh seizure if she hangs up and tries again (Rev 42).
+- `dialling` — the operator has seized a trunk; digits are arriving. Dial tone is on the trunk from half a second after the seizure (Rev 46) to the first digit, and again on each fresh seizure if she hangs up and tries again (Rev 42).
 - `ringing` — the called station is ringing, or ringback is on the trunk.
 - `busy` — busy tone is on the trunk, or the called station is found engaged (§4.11, Rev 39); waiting for the operator to go back to the caller.
 - `talking` — the conversation is playing.
