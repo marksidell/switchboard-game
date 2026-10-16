@@ -59,15 +59,8 @@ trunks = 8
 6 = "switchboard trunk jack 6's ring relay does not latch (2026-10-10)"
 8 = "switchboard trunk jack 8's lamp does not light, probably burned out (2026-10-10)"
 
-# Jacks 21-30, the board's top row, draw no loop current since a spark on
-# 2026-10-16 (TODO.md): no lamp on the row lights. Stations 1-9 are cabled there.
+# Station 1 (channel 1, board a strip 1) draws no loop current since a spark
+# on 2026-10-16: a 500 set lights its jack, the channel does not (TODO.md).
+# The Front Desk moved to channel 7, so station 1 is now the Bell Captain.
 [out_of_service.stations]
-1 = "top-row jack 21: no loop current since 2026-10-16"
-2 = "top-row jack 22: no loop current since 2026-10-16"
-3 = "top-row jack 29: no loop current since 2026-10-16"
-4 = "top-row jack 24: no loop current since 2026-10-16"
-5 = "top-row jack 25: no loop current since 2026-10-16"
-6 = "top-row jack 26: no loop current since 2026-10-16"
-7 = "top-row jack 27: no loop current since 2026-10-16"
-8 = "top-row jack 28: no loop current since 2026-10-16"
-9 = "top-row jack 30: no loop current since 2026-10-16"
+1 = "channel 1's loop is open: board a strip 1 or its cable pair (2026-10-16)"
