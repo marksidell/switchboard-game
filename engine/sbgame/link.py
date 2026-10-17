@@ -186,7 +186,7 @@ class Hw:
     async def stop(self, circuit: str) -> None:
         await self._p(f"{circuit}/play/set", "stop")
 
-    async def tone(self, trunk: int, tone: str) -> None:  # dial, ringback, busy, off
+    async def tone(self, trunk: int, tone: str) -> None:  # dial, ringback, busy, reorder, off
         await self._p(f"trunk/{trunk}/tone/set", tone)
 
     async def listen(self, circuit: str, seconds: float) -> None:

@@ -243,7 +243,20 @@ async def incoming_operator(h: Harness) -> None:
 # ----------------------------------------------------------------- cases ----
 
 
+async def misdialling_operator(h: Harness, number: str) -> None:
+    """Dials `number`, waits for reorder, listens a while, then releases."""
+    await outgoing_operator(h, number)
+    await h.b.wait_until(lambda b: b.get("trunk/3/tone") == "reorder", 5)
+    h.reorder_at = h.b.get("trunk/3/dialled")
+    await asyncio.sleep(D * 4)
+    h.still = h.b.get("trunk/3/tone")
+    await h.b.update("trunk/3/seize", "off")
+
+
 async def main() -> int:
+    # §5, Rev 56, at the tests' speed: digits come D/2 apart.
+    flows.DIAL_SETTLE, flows.DIAL_PAUSE = D, D * 6
+
     print("\n== station to station, a good operator")
     h = Harness(scene(Shape.STATION_TO_STATION))
     r = await h.run(station_to_station, good_station_operator)
@@ -363,6 +376,19 @@ async def main() -> int:
     r = await h.run(station_to_outside, wrong_then_right_number)
     check(r.ok, "still succeeds (§5)")
     check(any("wanted 275-4101" in e for e in h.events), f"logged the wrong number: {h.events}")
+
+    for what, number in (("too many digits", "27541012"), ("too few digits", "27541")):
+        print(f"\n== the operator dials {what} (Rev 56)")
+        h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
+                          dial="275-4101"))
+        r = await h.run(station_to_outside, lambda hh: misdialling_operator(hh, number))
+        check(not r.ok and r.reason == Reason.MISDIALLED, f"fails as misdialled: {r.reason!r}")
+        check(h.reorder_at == number, f"reorder once {h.reorder_at!r} is in")
+        check(h.still == "reorder", "and goes on while she stays on the trunk")
+        tones = [v for k, v in h.link.sent if k == "trunk/3/tone/set"]
+        check(tones[-2:] == ["reorder", "off"], f"stops when she releases: {tones}")
+        check(any("too " + ("many" if len(number) > 7 else "few") in e for e in h.events),
+              f"logged: {h.events[-1:]}")
 
     print("\n== a busy scene")
     h = Harness(scene(Shape.BUSY, to_line="pizza", to_station=None, dial="275-4101",

@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 34 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
+*Rev 35 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
 
 # 1. Overview
 
@@ -204,6 +204,10 @@ This document specifies the messages: the topic names, who publishes each, what 
 
 — `trunk/<n>/shortring/set` added (§6, §8.4), following control.md Rev 25, 2026-10-05: `"on"` rings the trunk once for 0.5s, `"off"` cancels the burst; the ESP32 echoes the relay on the existing `ring` topic, `"on"` then `"off"`. The game program uses it to signal a call in on a trunk (game_control.md Rev 28). It is the third command that is not absolute state, after `next/set` and the station's `dial/set`: a duplicate delivered after the first burst has ended rings once more. That is harmless — the switchboard's trunk signal latches, and a second burst on an unanswered trunk changes nothing the operator sees; a duplicate during the burst, or after the trunk is seized, is ignored by the controller. QoS 1 as for every command. The ESP32 subscribes to one more pattern. No existing topic or payload changes.
 
+## 1.35 Changes in Rev 35
+
+— `"reorder"` added to the `tone/set` and `tone` payloads (§5, §6), following audio.md Rev 20 and game_control.md Rev 56, 2026-10-17: the fast busy, for a number dialled with too many digits or too few. One more value on an existing topic; no new topic.
+
 ## 1.34 Changes in Rev 34
 
 — `game/tutor/more` added (§6.1), following game_control.md Rev 55, 2026-10-17: the full line More Help would say for the short prompt the tutor last finished, or `""`. `game/more/set` is now accepted outside the introduction while it is set. `game/tutor/repeat` may name a short form, `brief-<key>`. All additions; no existing topic or payload changes.
@@ -303,7 +307,7 @@ The audio program publishes what its pilot detector finds, per circuit; the stat
 | `sbgame/station/<1-22>/play`, `sbgame/trunk/<1-8>/play` | base filename, `""` or `"missing"` | yes | The file now playing on this circuit's output. Empty when nothing is — which is how a file's finishing is reported (audio.md §7.4). `"missing"`: the last `play/set` named a file that could not be loaded; persists until the next `play/set`. |
 | `sbgame/audio/tap/play` | base filename, `""` or `"missing"` | yes | The file now playing on the operator tap's output, over the operator tone, as `play` for a circuit (audio.md §7, Rev 10; Rev 23). |
 | `sbgame/audio/monitor/play` | base filename, `""` or `"missing"` | yes | The file now playing on the loudspeaker, summed into the monitor, as `play` for a circuit (audio.md §10.4, Rev 11; Rev 27). |
-| `sbgame/trunk/<1-8>/tone` | `"dial"`, `"ringback"`, `"busy"` or `""` | yes | The tone now playing on this trunk. Empty when none. |
+| `sbgame/trunk/<1-8>/tone` | `"dial"`, `"ringback"`, `"busy"`, `"reorder"` (Rev 35) or `""` | yes | The tone now playing on this trunk. Empty when none. |
 | `sbgame/station/<1-22>/listen`, `sbgame/trunk/<1-8>/listen` | `"listening"`, `"speech"`, `"silence"`, `"timeout"` or `""` | yes | The listen on this circuit as it runs: `"listening"` from the command; `"speech"` when speech starts, and the listen continues; `"silence"` when it ends, which finishes the listen; `"timeout"` if speech never started within the commanded seconds or never ended within the program's cap. The final value persists until the next `listen/set`; empty after a cancel (audio.md §9.1). |
 | `sbgame/audio/monitor` | `"off"` or gain in dB | yes | The loudspeaker feed: muted, or the gain applied, as a signed decimal string. Echoes `monitor/set` after clamping to range (audio.md §10.2). |
 | `sbgame/audio/monitor/source` | `"tap"` or circuit id | yes | The receive channel the loudspeaker is fed from: the operator tap, or that station's or trunk's. Echoes `monitor/source/set` once the switch is made; `"tap"` after the program loses the game or the broker (audio.md §10.3, §13.2; Rev 13). |
@@ -330,7 +334,7 @@ The game program is the only client that commands the ESP32 and the audio progra
 | `sbgame/station/<1-22>/play/set`, `sbgame/trunk/<1-8>/play/set` | base filename, or `"stop"` | no | audio | Play `<wav-dir>/<name>.wav` on this circuit's output, replacing whatever it is playing; `"stop"` stops it. Echoed on `play`; finishing is `play` going empty. |
 | `sbgame/audio/tap/play/set` | base filename, or `"stop"` | no | audio | Play a file on the operator tap's output, over the operator tone, which is never displaced; `"stop"` stops it. Echoed on `audio/tap/play`. Only the game program's diagnostics use it (game_control.md §7.5; Rev 23). |
 | `sbgame/audio/monitor/play/set` | base filename, or `"stop"` | no | audio | Play a file on the loudspeaker, summed into the monitor under its gain; `"stop"` stops it. Echoed on `audio/monitor/play`. The game program's tutor (game_control.md §4.9; Rev 27). |
-| `sbgame/trunk/<1-8>/tone/set` | `"dial"`, `"ringback"`, `"busy"` or `"off"` | no | audio | Play this tone on the trunk until told otherwise; a new value replaces the current tone. Trunks only — a station is the telephone and sends none of them. Echoed on `tone`. |
+| `sbgame/trunk/<1-8>/tone/set` | `"dial"`, `"ringback"`, `"busy"`, `"reorder"` (Rev 35) or `"off"` | no | audio | Play this tone on the trunk until told otherwise; a new value replaces the current tone. Trunks only — a station is the telephone and sends none of them. Echoed on `tone`. |
 | `sbgame/station/<1-22>/listen/set`, `sbgame/trunk/<1-8>/listen/set` | timeout in seconds, or `"0"` | no | audio | Listen on this circuit's receive channel, allowing this long for speech to start; `"0"` cancels. The sequence — start of speech, then end or timeout — is reported on `listen`. |
 | `sbgame/audio/monitor/set` | `"off"` or gain in dB | no | audio | Feed the monitor's source to the loudspeaker at this gain, 0 being unity into A32 output 24, range −60 to +20; or mute. Echoed on `monitor`. |
 | `sbgame/audio/monitor/source/set` | `"tap"` or circuit id | no | audio | Feed the loudspeaker from this receive channel: the operator tap, or a station 1–22 or trunk 1–8. The game program sends the calling line when the operator answers a call, and `"tap"` when a game starts or stops (game_control.md §6.4). Echoed on `monitor/source` (Rev 13). |
@@ -422,7 +426,7 @@ The two diagnostics are literal strings on the same topic, rather than a separat
 
 **Filenames** on `play/set` and `play` are the base name only — no directory, no `.wav`, no path separator. The audio program rejects a payload containing `/` or `..`. `"stop"` is reserved as the stop verb on `play/set`, so no file may be named `stop`. It is the one place a filename and a verb share a topic; the alternative, a separate `play/stop` topic, would break the `/set` convention for one command.
 
-**Tone names** on `tone/set` and `tone` are `"dial"`, `"ringback"` and `"busy"`, lower case. What each sounds like is audio.md §8.2; a new tone is a new name here and a row there.
+**Tone names** on `tone/set` and `tone` are `"dial"`, `"ringback"`, `"busy"` and `"reorder"` (Rev 35), lower case. What each sounds like is audio.md §8.2; a new tone is a new name here and a row there.
 
 **Gain in dB** on `monitor/set` and `monitor` is a signed decimal string: `"0"`, `"-12"`, `"6.5"`. No unit suffix, no `+`. The audio program clamps to its range and echoes what it applied, so the state topic may differ from the command.
 

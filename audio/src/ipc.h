@@ -48,7 +48,7 @@ struct AudioBuffer {
 };
 
 // The three trunk tones, and Off. Carried as a float in Command::arg.
-enum class ToneKind : uint8_t { Off = 0, Dial, Ringback, Busy };
+enum class ToneKind : uint8_t { Off = 0, Dial, Ringback, Busy, Reorder };
 
 // What a Command asks the audio thread to do. The comment on each says which
 // Command fields it uses.

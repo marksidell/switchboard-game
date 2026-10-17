@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 19 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, All Commanded and Reported over MQTT*
+*Rev 20 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, All Commanded and Reported over MQTT*
 
 # 1. Overview
 
@@ -175,6 +175,12 @@ Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout t
 
 — Code consequence, made the same day: `butter_lowpass6()` in `dsp.cpp`, the detector's three sections, and the tests. `sbaudio.service` gains `--vad-floor -70`.
 
+## 1.20 Changes in Rev 20
+
+— Reorder, the fast busy, added to the trunk tones (§8.1, §8.2), following game_control.md Rev 56, 2026-10-17: the game plays it on a trunk when the operator dials a number with too many digits or too few. The busy waveform interrupted at 120 IPM, 0.25s on and 0.25s off, which is how the period offices made it, from the same source as busy. `"reorder"` on `tone/set` (mqtt.md Rev 35).
+
+— Code consequence, made the same day: `ToneKind::Reorder`, its row in `TONES[]` and `TONE_NAME[]` in `engine.cpp`, and its name in `net.cpp`.
+
 ## 1.19 Changes in Rev 19
 
 — The line-disturbance gate listens below 50Hz, not 100Hz, and the installation's threshold is −70dBFS, not −60 (§10.5). In play on the switchboard, 2026-10-16, the gate shut four and seven times in ten seconds in the middle of a conversation, with nobody at the board. A man's voice has its fundamental near 100–130Hz: the authored lines carry up to −42.5dBFS below 100Hz, which reaches a line at about −60, the threshold, and the gate was cutting words out of the loudspeaker. Below 50Hz the loudest line reaches it at −84 and the operator's own voice at −99, while ringing and switch thumps are still at −15 to −45; at −70 the recording of the switchboard is gated exactly as before.
@@ -303,7 +309,7 @@ The circuit's `play` topic — `sbgame/audio/tap/play` for the tap (Rev 10), `sb
 
 ## 8.1 Command
 
-`sbgame/trunk/<n>/tone/set` with `"dial"`, `"ringback"`, `"busy"` or `"off"`. Trunks only: dial tone, ringback and busy tone are what a central office sends toward the switchboard, and a station is the telephone, which sends none of them. A tone runs until `"off"`, until another `tone/set` replaces it, until a `play/set` replaces it (§5.2), or until the program loses the game (§13.2). The state topic `tone`, retained, echoes `"dial"`, `"ringback"`, `"busy"` or empty.
+`sbgame/trunk/<n>/tone/set` with `"dial"`, `"ringback"`, `"busy"`, `"reorder"` (Rev 20) or `"off"`. Trunks only: dial tone, ringback, busy and reorder are what a central office sends toward the switchboard, and a station is the telephone, which sends none of them. A tone runs until `"off"`, until another `tone/set` replaces it, until a `play/set` replaces it (§5.2), or until the program loses the game (§13.2). The state topic `tone`, retained, echoes `"dial"`, `"ringback"`, `"busy"`, `"reorder"` or empty.
 
 ## 8.2 Tones
 
@@ -312,6 +318,7 @@ The circuit's `play` topic — `sbgame/audio/tap/play` for the tap (Rev 10), `sb
 | Dial | 600Hz, amplitude-modulated by 120Hz | Continuous |
 | Ringback | 420Hz, amplitude-modulated by 40Hz | 2.0s on, 4.0s off |
 | Busy | 600Hz, amplitude-modulated by 120Hz | 0.5s on, 0.5s off |
+| Reorder (Rev 20) | 600Hz, amplitude-modulated by 120Hz | 0.25s on, 0.25s off |
 
 These are the Bell System tones of the period the 551 belongs to, before the precise tone plan of the 1960s replaced them with two-frequency sums — dial tone 350 + 440Hz, ringback 440 + 480Hz, busy 480 + 620Hz, same cadences. The precise tones are the alternative, one table away, and are not used: they are what a modern ear expects, and on a board of this age they would be the one anachronism the operator hears on every call. The cadence starts at the beginning of the on period when the tone is commanded, so the operator always hears a burst first.
 
@@ -321,7 +328,7 @@ Each tone is a carrier sine multiplied by `(1 + m × sin(2π f_mod t))`, so the 
 
 ## 8.3 Level
 
-−20dBFS peak by default, an option, the same for all three tones. The period tones had no single specified level; what matters is that dial tone is unmistakable at the headset and ringback and busy are not louder than speech. Set on the bench by measuring at the switchboard's trunk jack and listening at the headset.
+−20dBFS peak by default, an option, the same for every tone. The period tones had no single specified level; what matters is that dial tone is unmistakable at the headset and ringback and busy are not louder than speech. Set on the bench by measuring at the switchboard's trunk jack and listening at the headset.
 
 # 9. Speech Detection
 

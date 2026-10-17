@@ -252,6 +252,7 @@ void Net::handle_tone(int slot, const char* circuit, const char* payload)
     else if (std::strcmp(payload, "dial")     == 0) k = ToneKind::Dial;
     else if (std::strcmp(payload, "ringback") == 0) k = ToneKind::Ringback;
     else if (std::strcmp(payload, "busy")     == 0) k = ToneKind::Busy;
+    else if (std::strcmp(payload, "reorder")  == 0) k = ToneKind::Reorder;
     else { log_line("mqtt: %s tone/set %s - unknown tone, dropped", circuit, payload); return; }
 
     log_line("mqtt: %s tone/set %s", circuit, payload);

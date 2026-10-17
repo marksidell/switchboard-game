@@ -53,6 +53,18 @@ from .tutor import REPEAT, REPEATS, Tutor
 DIAL_DELAY = 1.0
 ABANDON = 10.0
 ABANDON_MISDIALLED = 5.0
+# §5, Rev 56: a number dialled with too many digits or too few gets reorder,
+# the fast busy, and fails the call as `misdialled`. Too few is a pause of
+# DIAL_PAUSE after a digit, short of the number; too many is a digit more
+# within DIAL_SETTLE of the last one it needs, which is how long the game
+# waits before it takes a number as dialled - longer than a dial takes to
+# return and run ten pulses (control.md §8).
+DIAL_PAUSE = 10.0
+DIAL_SETTLE = 3.0
+
+
+class Misdialled(Exception):
+    """A number dialled with too many digits or too few (§5, Rev 56)."""
 
 log = logging.getLogger("flow")
 
@@ -362,10 +374,9 @@ async def _wait_for_right_number(ctx: Ctx, trunk: int, want: str,
             lambda b, t=trunk: b.dialled(t) or released(b, t), ctx.left(deadline))
         if got != "released":
             await ctx.hw.tone(trunk, "off")
-            got = await ctx.b.wait_until(
-                lambda b, t=trunk: (len(b.dialled(t)) >= len(digits) and b.dialled(t))
-                or released(b, t),
-                ctx.left(deadline))
+            got = await _number(ctx, trunk, len(digits), deadline)
+        if got in ("short", "long"):
+            await _reorder(ctx, trunk, got, want, deadline)
         if got == "released":
             # She hung up the trunk: wait for the next seizure and start over.
             await ctx.hw.tone(trunk, "off")
@@ -386,6 +397,42 @@ async def _wait_for_right_number(ctx: Ctx, trunk: int, want: str,
         # Wait for her to release and try again.
         await ctx.b.wait_until(lambda b, t=trunk: not b.on(f"trunk/{t}/seize"),
                                ctx.left(deadline))
+
+
+async def _number(ctx: Ctx, trunk: int, n: int, deadline: float) -> str:
+    """The digits once a number of `n` is dialled, or "short", "long" or
+    "released" (§5, Rev 56). The first digit is in already."""
+    while True:
+        have = ctx.b.dialled(trunk)
+        if len(have) > n:
+            return "long"
+        wait = DIAL_SETTLE if len(have) == n else DIAL_PAUSE
+        left = ctx.left(deadline)
+        try:
+            got = await ctx.b.wait_until(
+                lambda b, t=trunk, k=len(have): ((not b.on(f"trunk/{t}/seize") and "released")
+                                                 or len(b.dialled(t)) > k),
+                min(wait, left))
+        except TimeoutError:
+            if wait >= left:
+                raise                   # the call's own deadline, not the pause
+            return have if len(have) == n else "short"
+        if got == "released":
+            return "released"
+
+
+async def _reorder(ctx: Ctx, trunk: int, why: str, want: str, deadline: float) -> None:
+    """Fast busy until she releases the trunk, then the call fails (§5, Rev 56)."""
+    got = ctx.b.dialled(trunk)
+    ctx.say_event(f"dialled {got}, wanted {want}: too {'many' if why == 'long' else 'few'} digits")
+    log.info("%s: misdialled %s (%s)", ctx.scene.id, got, why)
+    try:
+        await ctx.hw.tone(trunk, "reorder")
+        await ctx.b.wait_until(lambda b, t=trunk: not b.on(f"trunk/{t}/seize"),
+                               ctx.left(deadline))
+    finally:
+        await _quietly(ctx.hw.tone(trunk, "off"))
+    raise Misdialled(why)
 
 
 def _cord_broken(a: str, c: str):
@@ -560,6 +607,8 @@ async def station_to_outside(ctx: Ctx) -> Outcome:
             trunk = await _unless_abandoned(ctx, caller, route())
         except TimeoutError:
             return Outcome(False, Reason.NOT_CONNECTED)
+        except Misdialled:
+            return Outcome(False, Reason.MISDIALLED)            # Rev 56
 
         called = f"trunk/{trunk}"
         await ctx.hw.tone(trunk, "ringback")
@@ -622,6 +671,8 @@ async def busy_scene(ctx: Ctx) -> Outcome:
             trunk = await _unless_abandoned(ctx, caller, route())
         except TimeoutError:
             return Outcome(False, Reason.NOT_CONNECTED)
+        except Misdialled:
+            return Outcome(False, Reason.MISDIALLED)            # Rev 56
 
         await ctx.hw.tone(trunk, "busy")
         await ctx.slots.set_stage(ctx.call, Stage.BUSY,

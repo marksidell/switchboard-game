@@ -39,6 +39,7 @@ class Reason:
     NOT_CONNECTED = "not connected"
     CUT_OFF = "cut off"
     TIMEOUT = "timeout"
+    MISDIALLED = "misdialled"     # too many digits or too few (Rev 56)
 
 
 @dataclass

@@ -31,7 +31,8 @@ static const float      MON_CEIL     = (float)std::pow(10.0, MON_LIMIT_DB / 20.0
 // the precise tone plan replaced them with two-frequency sums. Busy is the
 // dial-tone waveform interrupted at 60 IPM, which is how the period offices
 // made it - one tone source, one interrupter - and a listener tells the two
-// apart by the cadence alone.
+// apart by the cadence alone. Reorder, the fast busy (Rev 20), is the same
+// again at 120 IPM.
 //
 // ToneSpec - one row of the tone table: carrier and modulation frequency, and
 // the cadence as "on for on_samples out of every period_samples". TONES[] is
@@ -45,11 +46,12 @@ static const ToneSpec TONES[] = {
     { 0.0,   0.0,   0,                  0 },                  // Off
     { 600.0, 120.0, 0,                  0 },                  // Dial, continuous
     { 420.0,  40.0, 2 * SAMPLE_RATE,    6 * SAMPLE_RATE },    // Ringback 2s/4s
-    { 600.0, 120.0, SAMPLE_RATE / 2,    SAMPLE_RATE }         // Busy 0.5s/0.5s
+    { 600.0, 120.0, SAMPLE_RATE / 2,    SAMPLE_RATE },        // Busy 0.5s/0.5s
+    { 600.0, 120.0, SAMPLE_RATE / 4,    SAMPLE_RATE / 2 }     // Reorder 0.25s/0.25s
 };
 
 // The payload echoed on `tone` for each ToneKind; "" for Off clears the topic.
-static const char* TONE_NAME[] = { "", "dial", "ringback", "busy" };
+static const char* TONE_NAME[] = { "", "dial", "ringback", "busy", "reorder" };
 
 // Speech detection runs on 10ms frames (audio.md 9.2); the decisions and their
 // constants are in vad.h.
