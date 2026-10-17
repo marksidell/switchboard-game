@@ -26,6 +26,12 @@ let lastGameBeat = 0, lastEspBeat = 0;   // our clock, for staleness
 let stopArmed = 0;                  // Stop needs a second tap within 3 s
 let panelOpen = null;               // "station/7" while its panel is up
 let nextEnabledAt = 0;              // Next Call re-enables after 3 s regardless
+// A circuit's `peer` going `deaf` or `ambiguous` is a fault only once it has
+// stayed so for a second (§7.1, Rev 52): a relay or the cord switch breaks the
+// line for about 0.2s, and the detector reports `deaf` for that long.
+const PEER_FAULT_MS = 1000;
+const peerFaultSince = Object.create(null);   // circuit -> our clock, ms
+const peerBefore = Object.create(null);       // circuit -> the last other peer
 
 // Whether this iPad shows the controls (§7.1, Rev 13). A preference of this
 // device alone, so it lives in the browser and not on the bus. Shown unless
@@ -81,6 +87,16 @@ function connect() {
     // slot's `digits` and the log carry what the page missed while away.
     if (/^trunk\/\d+\/digit$/.test(key)) return;
 
+    const peerKey = /^((?:station|trunk)\/\d+)\/peer$/.exec(key);
+    if (peerKey) {
+      const c = peerKey[1];
+      if (text === 'deaf' || text === 'ambiguous') {
+        if (!(c in peerFaultSince)) { peerFaultSince[c] = Date.now(); peerBefore[c] = get(key); }
+      } else {
+        delete peerFaultSince[c];
+      }
+    }
+
     if (text === '') delete S[key]; else S[key] = text;
     render();
   });
@@ -133,7 +149,9 @@ function labelOf(circuit) {
  *  nothing cabled to it is drawn as a working jack at rest (Rev 11). */
 function tileState(kind, circuit, label) {
   if (!circuit) return label ? 'idle' : 'none';
-  const peer = get(`${circuit}/peer`);
+  let peer = get(`${circuit}/peer`);
+  if (circuit in peerFaultSince && Date.now() - peerFaultSince[circuit] < PEER_FAULT_MS)
+    peer = peerBefore[circuit];        // held, as the game holds it (§5)
   if (peer === 'ambiguous' || peer === 'deaf' || get(`${circuit}/play`) === 'missing'
       || on(`${circuit}/fault`)) return 'fault';
   if (on(`${circuit}/ring`)) return 'ringing';

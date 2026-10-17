@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 51 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order, with the Tutor's Ring Lines Named for the Station, and a Scenario of Calls Arriving Together After the Tenth Call, with a Station Found Engaged, and a Scenario Chosen from the Page on a Clear Board, Starting by Itself, and Then Not Dealt Again, and a Sweep of the Trunks or the Stations from the Stream Deck, and Ringback on the Loudspeaker While the Operator Rings a Station*
+*Rev 52 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order, with the Tutor's Ring Lines Named for the Station, and a Scenario of Calls Arriving Together After the Tenth Call, with a Station Found Engaged, and a Scenario Chosen from the Page on a Clear Board, Starting by Itself, and Then Not Dealt Again, and a Sweep of the Trunks or the Stations from the Stream Deck, and Ringback on the Loudspeaker While the Operator Rings a Station, and a Line's Momentary Break Not Shown as a Fault*
 
 # 1. Overview
 
@@ -175,6 +175,12 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 — The page's countdown says "waiting" while a game runs in automatic pacing and no next call is scheduled — `next_at` empty, because in auto the latest call is not yet connected or ended, and in listen the board is not yet empty (§4.2) — and "–" when no game runs (§7.1), Mark's request, 2026-09-28. It said "–" in both. The deck's Next key already said "waiting" in that case; §7.4 now says so too. It is on the countdown rather than on the Next Call button because the button is hidden with the controls and the countdown is not.
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
+
+## 1.52 Changes in Rev 52
+
+— On the page, a `peer` of `"deaf"` or `"ambiguous"` makes a tile a fault only once it has stayed so for a second (§7.1); until then the tile shows the `peer` before it. Found 2026-10-17 with the station `hook` test: the lamp flashed red as the station went off-hook and again as it went back, because the relay breaks the line for a moment and the detector reports `deaf` for that long, as it does for the cord switch's 0.2s break (Rev 45). A real fault is shown a second later. The tile's panel still shows the detector's own value, and `play` `"missing"` and `fault` are shown at once. The deck shows no `peer` faults, so it is unchanged.
+
+— Code consequence for Claude Code, made the same day: `tileState()` in `web/app.js`. No topic changes.
 
 ## 1.51 Changes in Rev 51
 
@@ -807,7 +813,7 @@ A tile shows little:
 
 | **State** | **Station jack** | **Trunk jack** |
 | --- | --- | --- |
-| fault | `peer` `"ambiguous"` or `"deaf"`, `play` `"missing"` | the same, or `fault` set |
+| fault | `peer` `"ambiguous"` or `"deaf"` for a second (Rev 52), `play` `"missing"` | the same, or `fault` set |
 | ringing | `ring` on, flashing | `ring` on, flashing with the cadence |
 | calling | `hook` on, `op` off and `peer` empty: the line lamp is lit, nobody has answered | — |
 | connected | `peer` set, in a colour shared by both ends of the pair | `peer` set, the same way |
