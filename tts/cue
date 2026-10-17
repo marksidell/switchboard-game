@@ -2,9 +2,11 @@
 """Render the ring cue (game_control.md §6.6, Rev 51) to wav/cue.ringback.wav.
 
 The audience loudspeaker plays it while a station reports ring, so the room
-hears the operator ringing. It is the period ringback of audio.md §8.2 — a
-420Hz carrier multiplied by (1 + m sin 2π 40t), m = 1 — but steady, with no
-cadence: it follows the operator's ringing key, not an office's interrupter.
+hears the operator ringing. It is the period ringback of audio.md §8.2 — the
+city ring measured from a recording, Rev 21, whose partials are read from
+audio/src/cityring.h so the trunks and the loudspeaker sound the same — but
+steady, with no cadence: it follows the operator's ringing key, not an
+office's interrupter.
 A tone, not speech, so it is made here rather than by the TTS run, and
 tts/process leaves `cue.*` out of its check for files in no scene.
 
@@ -20,28 +22,41 @@ from __future__ import annotations
 
 import argparse
 import math
+import re
 import wave
 from pathlib import Path
 
 RATE = 48000
-CARRIER, MOD, DEPTH = 420.0, 40.0, 1.0    # audio.md §8.2's ringback
+CITY_RING = Path(__file__).resolve().parent.parent / "audio" / "src" / "cityring.h"
+PERIOD = RATE // 20                       # one period of the city ring, 20Hz
 EDGE = 0.010                              # s of raised-cosine fade each end
 
 
-def render(seconds: float, rms_db: float) -> bytes:
-    # RMS of sin(wc t)(1 + m sin(wm t)) is sqrt((1 + m²/2) / 2).
-    amp = 10 ** (rms_db / 20) / math.sqrt((1 + DEPTH ** 2 / 2) / 2)
+def partials() -> list[tuple[int, float, float]]:
+    """cityring.h's rows: harmonic of 20Hz, amplitude, phase."""
+    row = re.compile(r"^\s*\{\s*(\d+),\s*([0-9.]+)f,\s*([-+0-9.]+)f\s*\},", re.M)
+    out = [(int(n), float(a), float(p)) for n, a, p in row.findall(CITY_RING.read_text())]
+    if not out:
+        raise SystemExit(f"{CITY_RING}: no partials found")
+    return out
+
+
+def render(seconds: float, rms_db: float) -> tuple[bytes, float]:
+    rows = partials()
+    one = [sum(a * math.cos(2 * math.pi * n * 20 * i / RATE + p) for n, a, p in rows)
+           for i in range(PERIOD)]
+    rms = math.sqrt(sum(v * v for v in one) / PERIOD)
+    amp = 10 ** (rms_db / 20) / rms
     n = int(seconds * RATE)
     edge = int(EDGE * RATE)
     out = bytearray()
     for i in range(n):
-        t = i / RATE
-        x = amp * math.sin(2 * math.pi * CARRIER * t) * (1 + DEPTH * math.sin(2 * math.pi * MOD * t))
+        x = amp * one[i % PERIOD]
         k = min(i, n - 1 - i)
         if k < edge:
             x *= 0.5 - 0.5 * math.cos(math.pi * k / edge)
         out += int(round(x * (2 ** 23 - 1))).to_bytes(3, "little", signed=True)
-    return bytes(out)
+    return bytes(out), 20 * math.log10(amp * max(abs(v) for v in one))
 
 
 def main() -> int:
@@ -56,8 +71,9 @@ def main() -> int:
         w.setnchannels(1)
         w.setsampwidth(3)
         w.setframerate(RATE)
-        w.writeframes(render(a.seconds, a.rms))
-    print(f"{a.out}: {a.seconds:g}s, {a.rms:g}dBFS RMS, peak {a.rms + 20 * math.log10(2 / math.sqrt(1.5)):.1f}dBFS")
+        frames, peak = render(a.seconds, a.rms)
+        w.writeframes(frames)
+    print(f"{a.out}: {a.seconds:g}s, {a.rms:g}dBFS RMS, peak {peak:.1f}dBFS")
     return 0
 
 

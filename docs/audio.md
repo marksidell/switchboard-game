@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 20 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, All Commanded and Reported over MQTT*
+*Rev 21 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, All Commanded and Reported over MQTT*
 
 # 1. Overview
 
@@ -175,6 +175,12 @@ Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout t
 
 — Code consequence, made the same day: `butter_lowpass6()` in `dsp.cpp`, the detector's three sections, and the tests. `sbaudio.service` gains `--vad-floor -70`.
 
+## 1.21 Changes in Rev 21
+
+— Ringback is the city ring of a real 803C tone alternator, measured from a recording, in place of a 420Hz carrier amplitude-modulated by 40Hz (§8.2). Mark's request, 2026-10-17, after comparing the two: ours had exactly three lines, 380, 420 and 460Hz, and none of the machine's character. The recording, of the Atlanta "755" step-by-step office (atlantatelephonehistory.org, `atlanta:ringing`, `1060-A-1333-755R.wav`; Mark's choice of the samples there), measured: every component a whole multiple of the ringing frequency, 19.744Hz — the machine ran 1.3% slow, and its cadence with it, 1.95s in 6.08s; almost no energy at the nominal 420Hz; the strongest lines at 420 ± 20, ± 60 and ± 100Hz, which is 420Hz multiplied by the 20Hz ringing current, and the 40Hz beat of that; a group near 1240Hz, three times 420, 18dB down; and a comb of low harmonics, 100–320Hz, 17–30dB down. The other two city rings measured, Tucker "938" and "577", have the same lines with the lower sideband strongest. A least-squares fit of the 755 recording to the harmonics of 19.744Hz, kept within 40dB of the strongest — 48 of them, all below 1.4kHz — is set on 20Hz exactly, so 420Hz nominal and the cadence 2s in 6s as before, and one period is 2400 samples. The hiss and the mercury interrupters' "shhh" of the recording, about 20dB under the ring in the silent interval, are not reproduced.
+
+— Code consequence, made the same day: `audio/src/cityring.h`, the 48 partials; the table built once in `prepare()` and played a sample at a time for ringback in `engine.cpp`; `test_trunk_tones()` in the tests, which checks reorder's cadence too. `tts/cue` reads the same partials for the loudspeaker's ring cue (game_control.md §6.6), so the trunks and the loudspeaker sound alike. `--tone-mod` now sets dial, busy and reorder only. No MQTT change.
+
 ## 1.20 Changes in Rev 20
 
 — Reorder, the fast busy, added to the trunk tones (§8.1, §8.2), following game_control.md Rev 56, 2026-10-17: the game plays it on a trunk when the operator dials a number with too many digits or too few. The busy waveform interrupted at 120 IPM, 0.25s on and 0.25s off, which is how the period offices made it, from the same source as busy. `"reorder"` on `tone/set` (mqtt.md Rev 35).
@@ -316,7 +322,7 @@ The circuit's `play` topic — `sbgame/audio/tap/play` for the tap (Rev 10), `sb
 | **Tone** | **Waveform** | **Cadence** |
 | --- | --- | --- |
 | Dial | 600Hz, amplitude-modulated by 120Hz | Continuous |
-| Ringback | 420Hz, amplitude-modulated by 40Hz | 2.0s on, 4.0s off |
+| Ringback | the city ring of `cityring.h` (Rev 21): 48 harmonics of 20Hz, strongest at 440, 400 and 360Hz, measured from an 803C recording; nominally 420Hz mixed with 20Hz ringing current, beating at 40Hz | 2.0s on, 4.0s off |
 | Busy | 600Hz, amplitude-modulated by 120Hz | 0.5s on, 0.5s off |
 | Reorder (Rev 20) | 600Hz, amplitude-modulated by 120Hz | 0.25s on, 0.25s off |
 
@@ -324,7 +330,9 @@ These are the Bell System tones of the period the 551 belongs to, before the pre
 
 Busy is the dial-tone waveform interrupted at 60 IPM, which is how the period offices made it — one tone source, one interrupter — and a listener tells the two apart by the cadence alone. That is faithful and it is also the reason to keep the busy cadence exact: a dial tone with a dropout could be mistaken for it. A scenario switches a trunk from ringback to busy, or from dial to busy after the operator dials a busy number, with one `tone/set`; the change takes effect at the next period and the new cadence starts from its on phase.
 
-Each tone is a carrier sine multiplied by `(1 + m × sin(2π f_mod t))`, so the spectrum is the carrier plus one sideband either side at ± f_mod — 480, 600 and 720Hz for dial and busy tone, 380, 420 and 460Hz for ringback — all inside the switchboard's passband and all well clear of the comb. Modulation depth m is an option, 1.0 by default; the period tones were made by beating two sources through a nonlinear element and the exact depth varied by office, so set it by ear against a recording if one is to hand. The generator is two phase-accumulator sines per tone, not the 4096-table, because these frequencies are not an integer number of cycles per 4096 samples and do not need to be — they are program audio, not pilots. Their harmonics are not a concern for the detector: a digitally generated sine has none, and the transformer's distortion at −20dBFS is far below the −60dBFS content rule.
+**Ringback** (Rev 21) is one 2400-sample period of the city ring, built at startup from the partials in `audio/src/cityring.h` — each a harmonic of 20Hz with its amplitude and phase, measured from a recording of the Atlanta 755 office's 803C machine (§1.21) — set to a peak of 1 and played a sample at a time, so it costs less than the two sines it replaced. Every component is below 1.4kHz, clear of the comb. At the same peak as the other tones its RMS is 2.7dB higher.
+
+Each other tone is a carrier sine multiplied by `(1 + m × sin(2π f_mod t))`, so the spectrum is the carrier plus one sideband either side at ± f_mod — 480, 600 and 720Hz for dial, busy and reorder (Rev 21: ringback was 380, 420 and 460Hz) — all inside the switchboard's passband and all well clear of the comb. Modulation depth m is an option, 1.0 by default; the period tones were made by beating two sources through a nonlinear element and the exact depth varied by office, so set it by ear against a recording if one is to hand. The generator is two phase-accumulator sines per tone, not the 4096-table, because these frequencies are not an integer number of cycles per 4096 samples and do not need to be — they are program audio, not pilots. Their harmonics are not a concern for the detector: a digitally generated sine has none, and the transformer's distortion at −20dBFS is far below the −60dBFS content rule.
 
 ## 8.3 Level
 
@@ -514,7 +522,7 @@ Command-line options, each with the default given here, and no configuration fil
 --pilot-db DB          pilot level (-40)
 --op-db DB             operator tone level (-18)
 --tone-db DB           trunk tone peak level (-20)
---tone-mod M           trunk tone modulation depth, 0-1 (1.0)
+--tone-mod M           trunk tone modulation depth, 0-1 (1.0); dial, busy, reorder
 --test-db DB           test tone level (-20)
 --margin-db DB         detector MARGIN_DB (20)
 --peer-window-db DB    detector PEER_WINDOW_DB: a pilot further than this

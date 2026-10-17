@@ -163,6 +163,7 @@ private:
 
     uint32_t test_ph_ = 0, test_inc_ = 0;   // 1 kHz test tone, Q32
     std::vector<float> test_row_;           // one period of 1kHz, shared
+    std::vector<float> city_;               // one period of ringback, peak 1 (Rev 21)
 
     Biquad    vad_hp_;                      // 300-3400Hz, shared coefficients
     Biquad    vad_lp_[3];                   // the low-pass's three sections (Rev 18)

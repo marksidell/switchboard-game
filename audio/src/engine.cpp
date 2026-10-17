@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstring>
 
+#include "cityring.h"
 #include "util.h"
 
 using chan::FFT_N;
@@ -32,7 +33,8 @@ static const float      MON_CEIL     = (float)std::pow(10.0, MON_LIMIT_DB / 20.0
 // dial-tone waveform interrupted at 60 IPM, which is how the period offices
 // made it - one tone source, one interrupter - and a listener tells the two
 // apart by the cadence alone. Reorder, the fast busy (Rev 20), is the same
-// again at 120 IPM.
+// again at 120 IPM. Ringback is the city ring measured from a recording
+// (Rev 21, cityring.h): one period of it in a table, played sample by sample.
 //
 // ToneSpec - one row of the tone table: carrier and modulation frequency, and
 // the cadence as "on for on_samples out of every period_samples". TONES[] is
@@ -40,14 +42,15 @@ static const float      MON_CEIL     = (float)std::pow(10.0, MON_LIMIT_DB / 20.0
 struct ToneSpec {
     double carrier_hz, mod_hz;
     unsigned on_samples, period_samples;   // period 0 = continuous
+    bool table;                            // city_ in place of carrier and mod
 };
 
 static const ToneSpec TONES[] = {
-    { 0.0,   0.0,   0,                  0 },                  // Off
-    { 600.0, 120.0, 0,                  0 },                  // Dial, continuous
-    { 420.0,  40.0, 2 * SAMPLE_RATE,    6 * SAMPLE_RATE },    // Ringback 2s/4s
-    { 600.0, 120.0, SAMPLE_RATE / 2,    SAMPLE_RATE },        // Busy 0.5s/0.5s
-    { 600.0, 120.0, SAMPLE_RATE / 4,    SAMPLE_RATE / 2 }     // Reorder 0.25s/0.25s
+    { 0.0,   0.0,   0,                  0,                 false },  // Off
+    { 600.0, 120.0, 0,                  0,                 false },  // Dial, continuous
+    { 420.0,  40.0, 2 * SAMPLE_RATE,    6 * SAMPLE_RATE,   true  },  // Ringback 2s/4s
+    { 600.0, 120.0, SAMPLE_RATE / 2,    SAMPLE_RATE,       false },  // Busy 0.5s/0.5s
+    { 600.0, 120.0, SAMPLE_RATE / 4,    SAMPLE_RATE / 2,   false }   // Reorder 0.25s/0.25s
 };
 
 // The payload echoed on `tone` for each ToneKind; "" for Off clears the topic.
@@ -88,6 +91,21 @@ bool Engine::prepare()
     tone_amp_  = (float)db_to_lin(sh_.opt.tone_db);
     test_amp_  = (float)db_to_lin(sh_.opt.test_db);
     tone_mod_  = sh_.opt.tone_mod;
+
+    // Ringback's one period (audio.md 8.2, Rev 21), summed from cityring.h and
+    // set to a peak of 1, so tone_amp_ is its peak as it is the other tones'.
+    city_.assign(CITY_RING_PERIOD, 0.0f);
+    {
+        std::vector<double> w(CITY_RING_PERIOD, 0.0);
+        double peak = 0.0;
+        for (unsigned i = 0; i < CITY_RING_PERIOD; ++i) {
+            const double t = (double)i / SAMPLE_RATE;
+            for (const CityPartial& c : CITY_RING)
+                w[i] += c.amp * std::cos(2.0 * M_PI * c.n * 20.0 * t + c.phase);
+            peak = std::max(peak, std::fabs(w[i]));
+        }
+        for (unsigned i = 0; i < CITY_RING_PERIOD; ++i) city_[i] = (float)(w[i] / peak);
+    }
     test_inc_  = SineTable::inc_q32(1000.0, SAMPLE_RATE);
 
     // Speech detector band-pass: the pilots at 6-9kHz are the loudest thing on
@@ -761,7 +779,10 @@ void Engine::render()
             for (unsigned i = 0; i < period_; ++i) {
                 const bool on = (t.period_samples == 0) || (p.cad < t.on_samples);
                 float v = amp * tbl_.at(b * n);
-                if (on) {
+                if (on && t.table) {
+                    // The city ring: p.ph counts samples into its period.
+                    v += tone_amp_ * city_[p.ph];
+                } else if (on) {
                     // Carrier times (1 + m sin), so the spectrum is the carrier
                     // plus one sideband either side - all inside the
                     // switchboard's passband and all well clear of the comb.
@@ -771,7 +792,8 @@ void Engine::render()
                 if (v > 1.0f)  { v =  1.0f; ++clips_; }
                 if (v < -1.0f) { v = -1.0f; ++clips_; }
                 out[i * stride] = float_to_s32(v);
-                p.ph  += inc;
+                if (t.table) p.ph = (p.ph + 1) % CITY_RING_PERIOD;
+                else         p.ph += inc;
                 p.mph += minc;
                 if (t.period_samples) p.cad = (p.cad + 1) % t.period_samples;
                 n = (n + 1) & (FFT_N - 1);

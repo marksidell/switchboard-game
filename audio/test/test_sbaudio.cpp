@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "../src/channels.h"
+#include "../src/cityring.h"
 #include "../src/detector.h"
 #include "../src/dsp.h"
 #include "../src/ipc.h"
@@ -751,6 +752,91 @@ static void test_tap_play()
     check(echoed, "and posts the tap's play echo");
 }
 
+// tone_out()
+//   One trunk's tone, alone: `periods` renders with the tone on, less the same
+//   renders with it off, so the pilot cancels. Samples of that channel, -1..1.
+static std::vector<double> tone_out(ToneKind k, int periods)
+{
+    const int ch = chan::trunk_slot(1);
+    auto render = [&](bool on) {
+        std::vector<double> out;
+        auto sh = std::make_unique<Shared>();
+        AlsaStream st;
+        Engine eng(*sh, st);
+        if (!eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH)) return out;
+        if (on) {
+            Command c;
+            c.verb = Verb::Tone;
+            c.idx  = (int16_t)ch;
+            c.arg  = (float)(int)k;
+            sh->cmdq.push(c);
+            eng.drain_for_test();
+        }
+        for (int p = 0; p < periods; ++p) {
+            eng.render_for_test();
+            const std::vector<int32_t> b = eng.playback();
+            for (size_t f = 0; f < b.size() / chan::N_PLAY_CH; ++f)
+                out.push_back(b[f * chan::N_PLAY_CH + ch - 1] / 2147483648.0);
+        }
+        return out;
+    };
+    std::vector<double> a = render(true), b = render(false);
+    for (size_t i = 0; i < a.size() && i < b.size(); ++i) a[i] -= b[i];
+    return a;
+}
+
+// goertzel_db()
+//   Level of one frequency in x, in dB relative to full-scale sine.
+static double goertzel_db(const std::vector<double>& x, double hz)
+{
+    double re = 0, im = 0;
+    for (size_t i = 0; i < x.size(); ++i) {
+        const double w = 2.0 * M_PI * hz * (double)i / chan::SAMPLE_RATE;
+        re += x[i] * std::cos(w);
+        im += x[i] * std::sin(w);
+    }
+    return 20.0 * std::log10(2.0 * std::hypot(re, im) / (double)x.size() + 1e-12);
+}
+
+// test_trunk_tones()
+//   audio.md 8.2: ringback is the city ring of cityring.h (Rev 21) - repeating
+//   every 2400 samples, its strongest line at 440Hz and almost nothing at the
+//   nominal 420Hz, at the tones' peak level - and reorder runs 0.25s on, 0.25s
+//   off (Rev 20).
+static void test_trunk_tones()
+{
+    std::printf("trunk tones (audio.md 8.2, Rev 20, Rev 21)\n");
+    const std::vector<double> r = tone_out(ToneKind::Ringback, 2 * chan::SAMPLE_RATE / 256);
+    check(r.size() > 4 * CITY_RING_PERIOD, "ringback renders");
+    double rep = 0, peak = 0;
+    for (size_t i = 0; i + CITY_RING_PERIOD < r.size(); ++i) {
+        rep  = std::max(rep, std::fabs(r[i] - r[i + CITY_RING_PERIOD]));
+        peak = std::max(peak, std::fabs(r[i]));
+    }
+    check(rep < 1e-6, "ringback repeats every 2400 samples, 20Hz");
+    const double want = std::pow(10.0, Options{}.tone_db / 20.0);
+    check(std::fabs(peak - want) < 0.01 * want, "ringback's peak is the tone level");
+    const std::vector<double> mid(r.begin(), r.begin() + 24 * CITY_RING_PERIOD / 2);
+    const double l440 = goertzel_db(mid, 440), l420 = goertzel_db(mid, 420),
+                 l1240 = goertzel_db(mid, 1240), l6000 = goertzel_db(mid, 6000);
+    std::printf("    440Hz %.1f, 420Hz %.1f, 1240Hz %.1f, 6000Hz %.1f dBFS\n",
+                l440, l420, l1240, l6000);
+    check(l440 - l420 > 20, "the 440Hz sideband, not a 420Hz carrier");
+    check(l440 - l1240 > 10 && l440 - l1240 < 25, "and the third harmonic's group near 1240Hz");
+    check(l440 - l6000 > 80, "nothing near the comb");
+
+    const std::vector<double> o = tone_out(ToneKind::Reorder, chan::SAMPLE_RATE / 256);
+    auto rms = [&](size_t a, size_t b) {
+        double s = 0;
+        for (size_t i = a; i < b; ++i) s += o[i] * o[i];
+        return std::sqrt(s / (double)(b - a));
+    };
+    const size_t q = chan::SAMPLE_RATE / 4;
+    check(o.size() >= 4 * q - 256, "reorder renders");
+    check(rms(0, q - 100) > 0.02 && rms(q + 100, 2 * q - 100) < 1e-6
+          && rms(2 * q + 100, 3 * q - 100) > 0.02, "reorder: 0.25s on, 0.25s off");
+}
+
 // test_monitor_play()
 //   audio.md 10.4, Rev 11: a file on the monitor plays through the monitor's
 //   gain and low-pass onto channel 24, clears its own play topic when it
@@ -999,6 +1085,7 @@ int main()
     test_output_check();
     test_tap_play();
     test_monitor_play();
+    test_trunk_tones();
     std::printf("\n%s\n", failures ? "FAILURES" : "all checks passed");
     return failures ? 1 : 0;
 }
