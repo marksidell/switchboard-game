@@ -543,6 +543,11 @@ tutor:
     say: "Say: {line}"
     greet: Greet the caller.
     respond: Now it is your turn to speak.
+    # A call to the operator herself, once the caller has asked (Rev 59):
+    # said before her first reply, so she knows the call needs no cord.
+    for-you: >
+        This call is for you, not for another line. Answer the caller
+        yourself.
 
     # Putting a call through to a room.
     ring-front: >
@@ -609,6 +614,7 @@ tutor:
         hangup-pair: The call is over. Pull both cords, and center the switches.
         hangup-one: The caller has hung up. Pull the cord, and center the switches.
         ready-manual: Next Call, when you are ready.
+        for-you: This call is for you.
 
     # The first calls of a game in tutor mode, one of each kind in this
     # order (game_control.md 4.9, Rev 30): each game picks one scene from

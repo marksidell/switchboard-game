@@ -18,7 +18,7 @@ import sbgame.flows as flows
 import sbgame.tutor as tutor_mod
 from sbgame.board import Board
 from sbgame.calls import Call
-from sbgame.flows import outside_to_station, station_to_outside, station_to_station
+from sbgame.flows import outside_to_station, station_to_outside, station_to_station, to_operator
 from sbgame.script_data import Speech, Shape, build
 from sbgame.tutor import Tutor
 from tts.script import load
@@ -43,7 +43,7 @@ def check(ok: bool, what: str) -> None:
 
 
 KEYS = ("intro-jacks", "intro-cords", "intro-switches", "answer-station", "answer-trunk", "talk", "greet",
-        "respond", "ring-front-b", "ring-rear-b", "center-ringing", "trunk-front",
+        "respond", "for-you", "ring-front-b", "ring-rear-b", "center-ringing", "trunk-front",
         "dial-pizza", "dial-operator", "center-dialled", "center", "busy-heard",
         "hangup-pair", "hangup-one", "ready-manual")
 
@@ -386,6 +386,15 @@ async def main() -> int:
     check(out.ok, f"success, {out.reason!r}")
     check(h.w.said == ["answer-station", "greet", "trunk-front", "dial-pizza", "center-dialled"],
           f"the trunk, the number, the switch back during ringback: {h.w.said}")
+
+    print("\n== a call to the operator: the call is for her (Rev 59)")
+    h = tutored(scene(Shape.TO_OPERATOR, to_line="", to_station=None,
+                      conversation=(speech("t.2", "caller"),)))
+    out = await run(h, to_operator, lambda hh: answers(hh, "station/12"))
+    check(out.ok, f"success, {out.reason!r}")
+    check(h.w.said[:3] == ["answer-station", "greet", "for-you"],
+          f"told the call is for her, after the request: {h.w.said}")
+    check(not h.w.overlap, "never over a listen")
 
     print("\n== a call out whose conversation waits for her")
     conv = (speech("t.2", "called"), Speech("t.3", D * 3, "called", wait=True),

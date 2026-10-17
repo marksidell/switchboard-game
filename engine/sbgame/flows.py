@@ -802,6 +802,9 @@ async def to_operator(ctx: Ctx, trunk: int | None = None) -> Outcome:
 
         await ctx.slots.set_stage(ctx.call, Stage.OPERATOR,
                                   time.time() + ctx.cfg.speak_timeout)
+        if ctx.scene.conversation or sc.closing:
+            # tutor: this caller wants her, not a connection (§4.9, Rev 59).
+            await _tut(ctx, "for-you", abort_if=gone)
         try:
             for line in ctx.scene.conversation:
                 await _operator_speaks(ctx, caller, line, gone)

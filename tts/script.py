@@ -65,7 +65,7 @@ TUTOR = "tutor"
 TUTOR_KEYS: dict[str, str | None] = {
     "intro-jacks": None, "intro-cords": None, "intro-switches": None,
     "answer-station": None, "answer-trunk": None, "talk": None,
-    "say": "line", "greet": None, "respond": None,
+    "say": "line", "greet": None, "respond": None, "for-you": None,
     "ring-front": "jack", "ring-rear": "jack", "center-ringing": None,
     "trunk-front": None, "dial": "number", "dial-operator": None,
     "center-dialled": None, "center": None, "busy-heard": None,
