@@ -190,14 +190,14 @@ h2 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
 /* Lit, and only then, the cap throws light onto the panel around it. This is
    what carries across the room; the colour itself is what you read up close.
    Two layers: a tight halo at the bezel and a wide wash on the panel. */
-.tile.lit .cap {
+.lit .cap {
   box-shadow: 0 0 5px 1px color-mix(in srgb, var(--cap) 75%, transparent),
               0 0 18px 5px color-mix(in srgb, var(--cap) 50%, transparent),
               0 1px 2px rgba(0, 0, 0, 0.55);
 }
 /* A lit filament is hotter than the glass around it: the hot spot runs
    nearer white and wider than on an unlit cap, where it is only a sheen. */
-.tile.lit .cap::after {
+.lit .cap::after {
   background:
     radial-gradient(circle at 35% 27%, rgba(255,255,255,0.45), transparent 33%),
     radial-gradient(circle at 50% 66%,
@@ -207,7 +207,7 @@ h2 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
 }
 
 /* Dark amber glass: the resting state of most of the board. */
-.tile         { --cap: #4a3316; }
+.tile, .key   { --cap: #4a3316; }
 .s-busy       { --cap: #68717f; }   /* off-hook, nothing else: dull, not lit */
 /* Lit lamps have their own colours, brighter than the palette's, which the
    buttons share and which reads as a dim bulb behind glass. Same hues. */
@@ -299,3 +299,11 @@ button.cmd.on { background: var(--command); color: #fff; }
 #scene-list button { display: block; width: 100%; text-align: left; margin: 0 0 4px;
                      font-weight: 400; }
 #scene-list button.sel { background: var(--command); }
+/* The lamp key. The same caps as the tiles, set in the flow beside the words,
+   with room for the lit ones' glow. */
+#lamps .key { display: flex; align-items: flex-start; gap: 14px; padding: 7px 4px;
+              font-size: 13px; line-height: 1.35; }
+#lamps .key .cap { position: relative; bottom: auto; left: auto; transform: none;
+                   flex: none; margin: 1px 4px 0; }
+#lamps .key b { display: block; font-size: 14px; }
+#lamps .note { margin: 8px 0 0; font-size: 12px; color: var(--dim); }

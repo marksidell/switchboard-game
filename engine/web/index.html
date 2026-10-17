@@ -118,6 +118,28 @@
   </div>
 </div>
 
+<!-- A long press on Tools (game_control.md 7.1, Rev 53): what each lamp colour
+     means, most urgent first, with the board's own lamps. -->
+<div id="lamps" class="sheet" hidden>
+  <h3>Lamps</h3>
+  <div class="key s-fault lit"><span class="cap"></span><div><b>Fault</b>
+    The line cannot hear its own pilot, or hears more than one, for a second; a file missing; a trunk fault</div></div>
+  <div class="key s-ringing lit"><span class="cap"></span><div><b>Ringing</b>
+    Ring on, flashing</div></div>
+  <div class="key s-calling lit"><span class="cap"></span><div><b>Calling</b>
+    A station off-hook, the operator not on it and patched to nothing: nobody has answered</div></div>
+  <div class="key s-connected lit"><span class="cap"></span><div><b>Connected</b>
+    Patched to another circuit, named under the label</div></div>
+  <div class="key s-operator lit"><span class="cap"></span><div><b>Operator</b>
+    The operator on the line</div></div>
+  <div class="key s-busy lit"><span class="cap"></span><div><b>Busy</b>
+    A station off-hook or a trunk seized, and nothing above</div></div>
+  <div class="key s-idle"><span class="cap"></span><div><b>Idle</b>
+    None of these</div></div>
+  <p class="note">Where more than one applies, the higher wins. A dimmed board
+    means the controller or the audio program is not reporting.</p>
+</div>
+
 <!-- A long press on Next Call (game_control.md 4.8, Rev 25). -->
 <div id="scenes" class="sheet" hidden>
   <h3>Next scene</h3>

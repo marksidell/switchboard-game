@@ -306,11 +306,29 @@ document.getElementById('tools').addEventListener('click', (e) => {
   const b = e.target.closest('[data-diag]');
   if (b) toggleDiag(b.dataset.diag);
 });
-document.getElementById('tools-btn').onclick = (e) => {
+// A long press, as on Next Call, shows the lamp key instead (Rev 53).
+let toolsTimer = null, toolsLong = false;
+const toolsBtn = document.getElementById('tools-btn');
+toolsBtn.addEventListener('pointerdown', () => {
+  toolsLong = false;
+  toolsTimer = setTimeout(() => {
+    toolsLong = true;
+    document.getElementById('tools').hidden = true;
+    document.getElementById('scenes').hidden = true;
+    document.getElementById('lamps').hidden = false;
+    render();
+  }, 500);
+});
+for (const ev of ['pointerup', 'pointerleave', 'pointercancel'])
+  toolsBtn.addEventListener(ev, () => clearTimeout(toolsTimer));
+toolsBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+toolsBtn.onclick = (e) => {
   e.stopPropagation();
+  if (toolsLong) { toolsLong = false; return; }
   const t = document.getElementById('tools');
   t.hidden = !t.hidden;
   document.getElementById('scenes').hidden = true;
+  document.getElementById('lamps').hidden = true;
   render();
 };
 
@@ -332,6 +350,7 @@ function showScenes() {
     (queued ? `<button data-scene="">clear the choice (${esc(queued)})</button>` : '') +
     ids.map((id) => `<button data-scene="${esc(id)}"${id === queued ? ' class="sel"' : ''}>${esc(id)}</button>`).join('');
   document.getElementById('tools').hidden = true;
+  document.getElementById('lamps').hidden = true;
   document.getElementById('scenes').hidden = false;
 }
 document.getElementById('scene-list').addEventListener('click', (e) => {
@@ -393,6 +412,7 @@ document.addEventListener('click', (e) => {
   if (!e.target.closest('.sheet') && !e.target.closest('#tools-btn') && !e.target.closest('#next')) {
     document.getElementById('tools').hidden = true;
     document.getElementById('scenes').hidden = true;
+    document.getElementById('lamps').hidden = true;
   }
   if (!e.target.closest('.tile') && !e.target.closest('#panel')) closePanel();
 });

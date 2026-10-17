@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 52 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order, with the Tutor's Ring Lines Named for the Station, and a Scenario of Calls Arriving Together After the Tenth Call, with a Station Found Engaged, and a Scenario Chosen from the Page on a Clear Board, Starting by Itself, and Then Not Dealt Again, and a Sweep of the Trunks or the Stations from the Stream Deck, and Ringback on the Loudspeaker While the Operator Rings a Station, and a Line's Momentary Break Not Shown as a Fault*
+*Rev 53 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order, with the Tutor's Ring Lines Named for the Station, and a Scenario of Calls Arriving Together After the Tenth Call, with a Station Found Engaged, and a Scenario Chosen from the Page on a Clear Board, Starting by Itself, and Then Not Dealt Again, and a Sweep of the Trunks or the Stations from the Stream Deck, and Ringback on the Loudspeaker While the Operator Rings a Station, and a Line's Momentary Break Not Shown as a Fault, and a Key to the Lamps on a Long Press of Tools*
 
 # 1. Overview
 
@@ -175,6 +175,12 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 — The page's countdown says "waiting" while a game runs in automatic pacing and no next call is scheduled — `next_at` empty, because in auto the latest call is not yet connected or ended, and in listen the board is not yet empty (§4.2) — and "–" when no game runs (§7.1), Mark's request, 2026-09-28. It said "–" in both. The deck's Next key already said "waiting" in that case; §7.4 now says so too. It is on the countdown rather than on the Next Call button because the button is hidden with the controls and the countdown is not.
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
+
+## 1.53 Changes in Rev 53
+
+— A long press on Tools, about half a second as on Next Call (§4.8), shows a key to the lamps: each state of §7.1's table, most urgent first, with the lamp drawn as on the board, lit as it is there, and a line saying what it means (§7.1). Mark's request, 2026-10-17. A tap still opens Tools; a tap elsewhere closes the key. Tools is a control, so the key is hidden with the Controls switch too.
+
+— Code consequence for Claude Code, made the same day: `#lamps` in `web/index.html`, its long press in `web/app.js`, and `web/style.css`, where the lit lamp's glow now follows `lit` on any element and not only on a tile. No topic changes.
 
 ## 1.52 Changes in Rev 52
 
@@ -800,7 +806,7 @@ For an iPad in landscape, 1024 CSS pixels wide or more. Touch targets 44px or la
 - Start and Stop. Stop needs a second tap within 3s, because it ends a player's game.
 - Pacing: Manual | Automatic | Listen (Rev 16).
 - Next Call: large in manual pacing, small in automatic (auto or listen). A long press, held about half a second, opens a scrolling list of the scenes to choose the next one from (§4.8, Rev 25); a chosen scene shows under the button until it is dealt.
-- Tools (Rev 25): a panel of diagnostics not tied to a jack. Its one section at Rev 25 is the operator tap: `tone`, `voice` and `monitor` (§7.5).
+- Tools (Rev 25): a panel of diagnostics not tied to a jack. Its one section at Rev 25 is the operator tap: `tone`, `voice` and `monitor` (§7.5). A long press, about half a second, shows a key to the lamps instead: each state in the table below with its lamp as the board draws it (Rev 53).
 - `gap`, `ramp`, `floor`, `jitter`, each with − and + steppers (5s, 1s, 1s, 10% steps; `jitter` Rev 12). Shown only in auto pacing, with `gap_now` and the countdown to `next_at` beside them. In listen, one stepper, `pause` (1s steps), and the countdown take their place (Rev 17). The countdown reads "waiting" while a game runs and nothing is scheduled, and "–" when no game runs (Rev 18).
 - Tallies: started, handled, success, fail, success percentage.
 
