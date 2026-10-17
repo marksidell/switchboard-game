@@ -229,7 +229,7 @@ class Tutor:
 
     async def _repeat(self, sp: Speech, until) -> None:
         try:
-            for _ in range(REPEATS):
+            for i in range(REPEATS + 1):
                 try:
                     await self.b.wait_until(until, REPEAT)
                     break
@@ -237,7 +237,11 @@ class Tutor:
                     pass
                 if not self.active:
                     return
-                if await self._line(sp, until):
+                # Rev 60: after the last repeat, how to hear it again.
+                last = self.lines.get("stuck") if i == REPEATS else sp
+                if last is None:
+                    break
+                if await self._line(last, until):
                     break
             # Repeatable until the player does the thing (Rev 34).
             await self.b.wait_until(until, None)

@@ -10,6 +10,7 @@ the failure cases are operators who do the wrong thing, or nothing.
 """
 
 import asyncio
+import dataclasses
 import logging
 import sys
 
@@ -253,9 +254,89 @@ async def misdialling_operator(h: Harness, number: str) -> None:
     await h.b.update("trunk/3/seize", "off")
 
 
+def with_reactions(h: Harness) -> Harness:
+    """Every party has its reactions (Rev 60), named <kind>.<voice>; the caller
+    is "v1", the called party "v2", whoever is in a room "occ"."""
+    h.ctx.scene = dataclasses.replace(h.ctx.scene, caller_voice="v1", called_voice="v2")
+    h.ctx.reaction = lambda kind, voice: Speech(f"{kind}.{voice}", D * 3, "caller")
+    h.ctx.occupant = lambda n: "occ"
+    return h
+
+
+def mute_first_listens(h: Harness, n: int) -> None:
+    """The first n listens hear nothing and time out (Rev 60)."""
+    echo, left = h.link._echo, [n]
+
+    async def _echo(key: str, p: str) -> None:
+        base = key.removesuffix("/set")
+        if not base.endswith("/listen") or p == "0" or left[0] <= 0:
+            return await echo(key, p)
+        left[0] -= 1
+        await h.b.update(base, "listening")
+        await asyncio.sleep(float(p))
+        await h.b.update(base, "timeout")
+    h.link._echo = _echo
+
+
+def played(h: Harness, circuit: str) -> list[str]:
+    return [v for k, v in h.link.sent if k == f"{circuit}/play/set"]
+
+
+async def wrong_room_operator(h: Harness) -> None:
+    """Patches the caller to room 7 and rings it, hears the wrong party, then
+    re-patches to 2 and rings that."""
+    c = "station/12"
+    await answers(h, c)
+    await request_heard(h, c)
+    await h.b.update(f"{c}/peer", "station/7")
+    await h.b.update("station/7/peer", c)
+    await h.b.update("station/7/ring", "on")
+    await h.b.wait_until(lambda b: b.on("station/7/hook"), 5)
+    await h.b.update("station/7/ring", "off")
+    await h.b.wait_until(lambda b: not b.on("station/7/hook"), 5)   # it hangs up
+    await h.b.update("station/7/peer", "")
+    await h.b.update(f"{c}/peer", "station/2")
+    await h.b.update("station/2/peer", c)
+    await h.b.update("station/2/ring", "on")
+    await h.b.wait_until(lambda b: b.on("station/2/hook"), 5)
+    await h.b.update("station/2/ring", "off")
+
+
+async def unpatched_operator(h: Harness) -> None:
+    """Rings room 2 on a cord not patched to the caller; once it has hung
+    up, patches the pair and rings it again."""
+    c = "station/12"
+    await answers(h, c)
+    await request_heard(h, c)
+    await h.b.update("station/2/ring", "on")
+    await h.b.wait_until(lambda b: b.on("station/2/hook"), 5)
+    await h.b.update("station/2/ring", "off")
+    await h.b.wait_until(lambda b: not b.on("station/2/hook"), 5)
+    await h.b.update(f"{c}/peer", "station/2")
+    await h.b.update("station/2/peer", c)
+    await h.b.update("station/2/ring", "on")
+    await h.b.wait_until(lambda b: b.on("station/2/hook"), 5)
+    await h.b.update("station/2/ring", "off")
+
+
+async def never_dials(h: Harness) -> None:
+    c = "station/12"
+    await answers(h, c)
+    await request_heard(h, c)
+    await h.b.update("trunk/3/seize", "on")
+    await h.b.update("trunk/3/peer", c)
+    await h.b.update(f"{c}/peer", "trunk/3")
+    await h.b.wait_until(lambda b: b.get("trunk/3/tone") == "reorder", 5)
+    await asyncio.sleep(D * 2)
+    await h.b.update("trunk/3/seize", "off")
+
+
 async def main() -> int:
     # §5, Rev 56, at the tests' speed: digits come D/2 apart.
     flows.DIAL_SETTLE, flows.DIAL_PAUSE = D, D * 6
+    # Rev 60, the same.
+    flows.NUDGE_AFTER, flows.PATCH_WAIT, flows.WRONG_RING, flows.DIAL_FIRST = \
+        D * 4, D * 6, D, D * 10
 
     print("\n== station to station, a good operator")
     h = Harness(scene(Shape.STATION_TO_STATION))
@@ -389,6 +470,47 @@ async def main() -> int:
         check(tones[-2:] == ["reorder", "off"], f"stops when she releases: {tones}")
         check(any("too " + ("many" if len(number) > 7 else "few") in e for e in h.events),
               f"logged: {h.events[-1:]}")
+
+    print("\n== the operator does not speak: the caller nudges her (Rev 60)")
+    h = with_reactions(Harness(scene(Shape.STATION_TO_STATION)))
+    mute_first_listens(h, 1)
+    r = await h.run(station_to_station, good_station_operator)
+    check(r.ok, f"succeeds: {r.reason!r}")
+    check(played(h, "station/12")[:2] == ["nudge.v1", "t.1"],
+          f"'Hello? Operator?' in the caller's voice, then the request: {played(h, 'station/12')[:2]}")
+    check(sum(1 for k, _ in h.link.sent if k == "station/12/listen/set") >= 2,
+          "and listened again after it")
+
+    print("\n== the wrong room is rung: it answers, and hangs up (Rev 60)")
+    h = with_reactions(Harness(scene(Shape.STATION_TO_STATION)))
+    r = await h.run(station_to_station, wrong_room_operator)
+    check(r.ok, f"still succeeds once she rings the right one: {r.reason!r}")
+    check(played(h, "station/7") == ["hello.occ"], f"the wrong party: {played(h, 'station/7')}")
+    check("wrong.v1" in played(h, "station/12"), "and the caller says so")
+    check(("station/7/hook/set", "off") in h.link.sent, "then the room hangs up")
+
+    print("\n== the right room on a cord not patched to the caller (Rev 60)")
+    h = with_reactions(Harness(scene(Shape.STATION_TO_STATION)))
+    r = await h.run(station_to_station, unpatched_operator)
+    check(r.ok, f"succeeds once the pair is patched and it is rung again: {r.reason!r}")
+    check(played(h, "station/2")[:1] == ["hello.v2"], f"'Hello?' from the room: {played(h, 'station/2')}")
+    check(any("nobody on the line" in e for e in h.events), "it hung up, logged")
+
+    print("\n== a trunk left up from an earlier call is not this call's (Rev 60)")
+    h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
+                      dial="275-4101"))
+    await h.b.update("trunk/5/seize", "on")                    # a cord left in
+    r = await h.run(station_to_outside, lambda hh: outgoing_operator(hh, "2754101"))
+    check(r.ok, f"succeeds: {r.reason!r}")
+    check(("trunk/5/tone/set", "dial") not in h.link.sent, "no dial tone on the stale trunk")
+    check(h.call.trunk == "trunk/3", f"the trunk she took: {h.call.trunk}")
+
+    print("\n== a trunk taken and not dialled (Rev 60)")
+    h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
+                      dial="275-4101"))
+    r = await h.run(station_to_outside, never_dials)
+    check(not r.ok and r.reason == Reason.MISDIALLED, f"fails as misdialled: {r.reason!r}")
+    check(any("nothing dialled" in e for e in h.events), f"logged: {h.events[-1:]}")
 
     print("\n== a busy scene")
     h = Harness(scene(Shape.BUSY, to_line="pizza", to_station=None, dial="275-4101",

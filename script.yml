@@ -502,6 +502,18 @@ operator_lines:
 #                            as tutor.say-operator.1.
 # Every other entry is said as written, but lessons:, which is not a line.
 #
+# What a party says when the operator leaves them hanging (game_control.md 5,
+# Rev 60), each rendered in every cast member's voice but the operator's and
+# the tutor's, as <kind>.<speaker>. The game plays them; they are in no scene.
+reactions:
+    # She has not spoken where the game waits for her: said once, 6s in.
+    nudge: Hello? Operator? Are you there?
+    # They have answered, and nobody is on the line: she rang them on a cord
+    # that is not patched to the caller, or rang the wrong room.
+    hello: Hello? ... Hello? Is anybody there?
+    # She has put the caller through to the wrong party.
+    wrong: Operator, that's not who I asked for.
+
 tutor:
     # The introduction, in three parts (game_control.md 4.9, Rev 31). After
     # each but the last the game waits for More Help or Next Call on the
@@ -548,6 +560,11 @@ tutor:
     for-you: >
         This call is for you, not for another line. Answer the caller
         yourself.
+    # After a prompt's last repeat, when the player still has not done it
+    # (Rev 60): the board waits on her, and Repeat Help is the way back.
+    stuck: >
+        If you are not sure what to do, press Repeat Help, and I will tell
+        you again.
 
     # Putting a call through to a room.
     ring-front: >

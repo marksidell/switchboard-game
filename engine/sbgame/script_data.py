@@ -20,7 +20,9 @@ Three things are resolved here rather than in a scene:
 
 from __future__ import annotations
 
+import dataclasses
 import wave
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -71,6 +73,8 @@ class SceneDef:
     after_handled: int | None = None   # starts a scenario after n handled (§4.10)
     if_busy: tuple[Speech, ...] = ()   # if the called station is engaged (§4.11)
     closing: str = ""           # her closing line's name (§4.7); the caller waits for it (Rev 47)
+    caller_voice: str = ""      # cast member who speaks the caller's lines, for reactions (Rev 60)
+    called_voice: str = ""      # and the called party's, if any
 
     @property
     def lines(self) -> tuple[str, ...]:
@@ -106,6 +110,15 @@ class GameScript:
     tutor_missing: tuple[str, ...] = ()
     # The scenes a tutored game starts with, one from each group (§4.9, Rev 30).
     lessons: tuple[tuple[str, ...], ...] = ()
+    # What a party says when left hanging (§5, Rev 60), by kind, then cast
+    # member: only those whose wavs are here; the game does without the rest.
+    reactions: dict[str, dict[str, Speech]] = field(default_factory=dict)
+    # Station circuit -> who answers it when nobody is expected (Rev 60): the
+    # person the scenes most often have on that line.
+    occupants: dict[int, str] = field(default_factory=dict)
+
+    def reaction(self, kind: str, voice: str) -> Speech | None:
+        return self.reactions.get(kind, {}).get(voice)
 
     def jack_of(self, station: int) -> int | None:
         """The switchboard jack station circuit n is cabled to (§6.3)."""
@@ -219,6 +232,31 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
             closing=s.closings.get(sid, ""),
         )
         people[sid] = (calling.get("person", ""), (called or {}).get("person", ""))
+        called_us = [u for u in us[1:] if u.role == "called"]
+        scenes[sid] = dataclasses.replace(
+            scenes[sid], caller_voice=req.speaker,
+            called_voice=called_us[0].speaker if called_us else people[sid][1])
+
+    # Who answers each room (Rev 60): every scene's people, counted per line.
+    seen: dict[int, Counter] = {}
+    for sid, raw in s.scenes.items():
+        if not isinstance(raw, dict):
+            continue
+        for end in ("calling", "called"):
+            e = raw.get(end) or {}
+            n = (stations.get(e.get("line", "")) or {}).get("number")
+            if n is not None and e.get("person"):
+                seen.setdefault(n, Counter())[e["person"]] += 1
+    occupants = {n: c.most_common(1)[0][0] for n, c in seen.items()}
+
+    reactions: dict[str, dict[str, Speech]] = {}
+    for kind, by_voice in s.reactions.items():
+        for who, u in by_voice.items():
+            try:
+                reactions.setdefault(kind, {})[who] = Speech(
+                    u.name, _wav_seconds(wav, u.name), "caller")
+            except (OSError, EOFError, wave.Error):
+                pass                    # not rendered: the game does without
 
     tutor: dict[str, Speech] = {}
     missing: list[str] = []
@@ -233,7 +271,8 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
 
     return GameScript(script=s, scenes=scenes, people=people, jacks=_jacks(s),
                       tutor=tutor, tutor_missing=tuple(missing),
-                      lessons=tuple(tuple(g) for g in s.lessons))
+                      lessons=tuple(tuple(g) for g in s.lessons),
+                      reactions=reactions, occupants=occupants)
 
 
 N_STATIONS, N_TRUNKS = 22, 8
@@ -279,7 +318,8 @@ def fit(gs: GameScript, stations: int = N_STATIONS, trunks: int = N_TRUNKS,
                         # A lesson left out goes from its group; an emptied
                         # group goes altogether (§6.5).
                         lessons=tuple(g for g in (tuple(i for i in grp if i in keep)
-                                                  for grp in gs.lessons) if g))
+                                                  for grp in gs.lessons) if g),
+                        reactions=gs.reactions, occupants=gs.occupants)
     return fitted, [f"{i}: {w}" for i, w in why.items()]
 
 

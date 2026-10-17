@@ -65,12 +65,20 @@ TUTOR = "tutor"
 TUTOR_KEYS: dict[str, str | None] = {
     "intro-jacks": None, "intro-cords": None, "intro-switches": None,
     "answer-station": None, "answer-trunk": None, "talk": None,
-    "say": "line", "greet": None, "respond": None, "for-you": None,
+    "say": "line", "greet": None, "respond": None, "for-you": None, "stuck": None,
     "ring-front": "jack", "ring-rear": "jack", "center-ringing": None,
     "trunk-front": None, "dial": "number", "dial-operator": None,
     "center-dialled": None, "center": None, "busy-heard": None,
     "hangup-pair": None, "hangup-one": None, "ready-manual": None,
 }
+# What a party says when the operator leaves them hanging (game_control.md
+# 5, Rev 60), under a top-level reactions:, one text each, rendered in every
+# cast member's voice but the player's and the tutor's, as <kind>.<speaker>:
+#   nudge  - the operator has not spoken where they wait for her
+#   hello  - they have answered and nobody is on the line
+#   wrong  - the operator has put them through to the wrong party
+REACTIONS = ("nudge", "hello", "wrong")
+
 # The lines that may be given a short form under tutor: brief: (Rev 55), said
 # from the third call she tutors on: brief-<key> in Script.tutor, and named
 # brief.<key>, since tutor.brief-<key> runs past the 31 characters a name may
@@ -80,7 +88,7 @@ TUTOR_KEYS: dict[str, str | None] = {
 BRIEF = "brief"
 BRIEF_PREFIX = "brief-"
 BRIEF_KEYS = tuple(k for k in TUTOR_KEYS
-                   if not k.startswith("intro-") and k not in ("say", "greet", "respond"))
+                   if not k.startswith("intro-") and k not in ("say", "greet", "respond", "stuck"))
 # The 1958 exchanges, for saying a number as the operator's card prints it
 # (hardcopy/cards.py reads the same file). Not installed on the host, where
 # only the names of the tutor's lines matter; the digits are said alone then.
@@ -161,6 +169,9 @@ class Script:
     # tutor mode's lines, by key: "intro", "ring-front-lobby", "dial-pizza",
     # "say-operator.1" (game_control.md 4.9). Empty without a tutor: section.
     tutor: dict[str, Utterance] = field(default_factory=dict)
+    # reactions:, by kind and then speaker: reactions["nudge"]["martha"]
+    # (game_control.md 5, Rev 60). Empty without a reactions: section.
+    reactions: dict[str, dict[str, Utterance]] = field(default_factory=dict)
     # tutor: lessons:, the scenes a tutored game starts with, one picked from
     # each group (game_control.md 4.9, Rev 30). Empty without it.
     lessons: list[list[str]] = field(default_factory=list)
@@ -284,7 +295,7 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
         bad(f"{name}", "is both a station and an outside entry")
     if OPERATOR_SCENE in scenes:
         bad(f"scenes.{OPERATOR_SCENE}", "is reserved for the names of operator_lines:")
-    for reserved in (TUTOR, BRIEF):
+    for reserved in (TUTOR, BRIEF, *REACTIONS):
         if reserved in scenes:
             bad(f"scenes.{reserved}", "is reserved for the names of the tutor's lines")
     lines = set(stations) | set(outside)
@@ -670,6 +681,11 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
     tutor = _tutor_lines(data.get("tutor"), cast, board, stations, outside,
                          utterances, bad, scenes)
     utterances.extend(tutor.values())
+
+    # --- what a party says when left hanging (game_control.md 5, Rev 60) ----
+    reactions = _reactions(data.get("reactions"), cast, bad)
+    for by_speaker in reactions.values():
+        utterances.extend(by_speaker.values())
     lessons = _lessons((data.get("tutor") or {}).get("lessons")
                        if isinstance(data.get("tutor"), dict) else None,
                        scenes, stations, bad)
@@ -680,7 +696,7 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
     return Script(path=path, setting=data.get("setting") or {}, cast=cast,
                   outside=outside, stations=stations, scenes=scenes,
                   jacks=board, utterances=utterances, operator_lines=stock,
-                  closings=closings, tutor=tutor, lessons=lessons)
+                  closings=closings, tutor=tutor, reactions=reactions, lessons=lessons)
 
 
 def scene_kind(scene: dict, stations: dict) -> str:
@@ -881,6 +897,35 @@ def _tutor_lines(raw: object, cast: dict, board: list[dict], stations: dict,
                     if used.get(u.name) and used[u.name] <= scenario:
                         continue
                     add(f"{key}-{u.name}", text.format(line=u.text))
+    return out
+
+
+def _reactions(raw: object, cast: dict, bad) -> dict[str, dict[str, Utterance]]:
+    """reactions: expanded into one utterance per kind and cast member."""
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        bad("reactions", "not a mapping")
+        return {}
+    for key in sorted(set(map(str, raw)) - set(REACTIONS)):
+        bad(f"reactions.{key}", "is not one of " + ", ".join(REACTIONS))
+    out: dict[str, dict[str, Utterance]] = {}
+    for kind in REACTIONS:
+        text = raw.get(kind)
+        if not isinstance(text, str) or not text.strip():
+            bad(f"reactions.{kind}", "missing or empty")
+            continue
+        text = " ".join(text.split())
+        out[kind] = {}
+        for who in cast:
+            if who in (TUTOR, HOTEL_OPERATOR):
+                continue
+            u = Utterance(scene=kind, id=who, speaker=who, text=text, role="caller")
+            why = name_problem(u.name)
+            if why is not None:
+                bad(f"reactions.{kind}", f"file name {u.name!r} is not usable: {why}")
+                continue
+            out[kind][who] = u
     return out
 
 

@@ -355,6 +355,31 @@ async def main() -> int:
     await t.stop()
     watch.cancel()
 
+    print("\n== after the last repeat, how to hear it again (Rev 60)")
+    h = tutored(scene(Shape.STATION_TO_STATION))
+    await h.live()
+    t = h.ctx.tutor
+    t.lines["stuck"] = Speech("tutor.stuck", D * 3, "tutor")
+    heard: list[str] = []
+
+    async def heard_all() -> None:
+        async for ch in h.b.watch():
+            if ch.key == "audio/monitor/play" and ch.new.startswith("tutor."):
+                heard.append(ch.new.removeprefix("tutor."))
+    w = asyncio.create_task(heard_all())
+    was = tutor_mod.REPEAT
+    tutor_mod.REPEAT = D * 6
+    try:
+        await t.say("talk", until=lambda b: b.on("station/9/op"))
+        await asyncio.sleep(D * 40)
+    finally:
+        tutor_mod.REPEAT = was
+    check(heard == ["talk", "talk", "talk", "stuck"],
+          f"the prompt, twice more, then 'press Repeat Help': {heard}")
+    check(t.repeat_key == "talk", "and Repeat Help still has the prompt")
+    await t.stop()
+    w.cancel()
+
     print("\n== a prompt stops once the player has done it (Rev 58)")
     h = tutored(scene(Shape.STATION_TO_STATION))
     await h.live()

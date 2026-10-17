@@ -765,7 +765,9 @@ class Game:
                       self._say(t, n)),
                   mark_connected=lambda: self._connected(call),
                   set_monitor=self._monitor,
-                  tutor=self.tutor, jack_of=self.gs.jack_of)
+                  tutor=self.tutor, jack_of=self.gs.jack_of,
+                  reaction=self.gs.reaction,
+                  occupant=lambda n: self.gs.occupants.get(n, ""))
         outcome = Outcome(False, "cancelled")
         try:
             if scene.shape == Shape.OUTSIDE_TO_STATION:
