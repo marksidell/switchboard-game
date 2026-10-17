@@ -45,10 +45,10 @@
   </div>
 
   <div class="group control" id="pace-group">
-    <button id="pace-tutor" class="seg">Tutor</button>
-    <button id="pace-manual" class="seg">Manual</button>
-    <button id="pace-auto" class="seg">Automatic</button>
-    <button id="pace-listen" class="seg">Listen</button>
+    <button id="pace-tutor" class="seg" data-help="tutor">Tutor</button>
+    <button id="pace-manual" class="seg" data-help="manual">Manual</button>
+    <button id="pace-auto" class="seg" data-help="auto">Automatic</button>
+    <button id="pace-listen" class="seg" data-help="listen">Listen</button>
   </div>
 
   <div class="group control"><button id="next" class="big">Next Call</button></div>
@@ -56,15 +56,15 @@
   <div class="group control"><button id="tools-btn" class="toggle">Tools</button></div>
 
   <div class="group" id="steppers">
-    <div class="stepper listen-only"><span class="lbl">pause</span>
+    <div class="stepper listen-only" data-help="pause"><span class="lbl">pause</span>
       <button data-step="pause:-1">−</button><span id="v-pause">–</span><button data-step="pause:1">+</button></div>
-    <div class="stepper auto-only"><span class="lbl">gap</span>
+    <div class="stepper auto-only" data-help="gap"><span class="lbl">gap</span>
       <button data-step="gap:-5">−</button><span id="v-gap">–</span><button data-step="gap:5">+</button></div>
-    <div class="stepper auto-only"><span class="lbl">ramp</span>
+    <div class="stepper auto-only" data-help="ramp"><span class="lbl">ramp</span>
       <button data-step="ramp:-1">−</button><span id="v-ramp">–</span><button data-step="ramp:1">+</button></div>
-    <div class="stepper auto-only"><span class="lbl">floor</span>
+    <div class="stepper auto-only" data-help="floor"><span class="lbl">floor</span>
       <button data-step="floor:-1">−</button><span id="v-floor">–</span><button data-step="floor:1">+</button></div>
-    <div class="stepper auto-only"><span class="lbl">jitter</span>
+    <div class="stepper auto-only" data-help="jitter"><span class="lbl">jitter</span>
       <button data-step="jitter:-10">−</button><span id="v-jitter">–</span><button data-step="jitter:10">+</button></div>
     <div class="stepper auto-only"><span class="lbl">now</span><span id="v-gapnow">–</span></div>
     <div class="stepper"><span class="lbl">next in</span><span id="v-countdown">–</span></div>
@@ -139,6 +139,9 @@
   <p class="note">Where more than one applies, the higher wins. A dimmed board
     means the controller or the audio program is not reporting.</p>
 </div>
+
+<!-- A long press on a pacing button or a stepper (game_control.md 7.1, Rev 54). -->
+<div id="help" class="sheet" hidden></div>
 
 <!-- A long press on Next Call (game_control.md 4.8, Rev 25). -->
 <div id="scenes" class="sheet" hidden>

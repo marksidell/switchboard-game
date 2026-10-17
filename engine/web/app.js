@@ -315,6 +315,7 @@ toolsBtn.addEventListener('pointerdown', () => {
     toolsLong = true;
     document.getElementById('tools').hidden = true;
     document.getElementById('scenes').hidden = true;
+    document.getElementById('help').hidden = true;
     document.getElementById('lamps').hidden = false;
     render();
   }, 500);
@@ -329,6 +330,7 @@ toolsBtn.onclick = (e) => {
   t.hidden = !t.hidden;
   document.getElementById('scenes').hidden = true;
   document.getElementById('lamps').hidden = true;
+  document.getElementById('help').hidden = true;
   render();
 };
 
@@ -339,6 +341,68 @@ function renderTools() {
     b.classList.toggle('on', diagOn(target, test));
   }
 }
+
+// ---- help on a long press (§7.1, Rev 54) ---------------------------------------
+//
+// The pacing buttons and the steppers. A tap still does what it did; holding
+// about half a second explains instead, and the click that ends the hold is
+// swallowed so it does not also change anything.
+
+const HELP = {
+  tutor: ['Tutor', ['A senior operator on the loudspeaker talks the player through each call. Calls start on Next Call only, and nothing times out.',
+          'Chosen before Start, she introduces the board and the game opens with one call of each kind. Chosen mid-game, she tutors from the next call. Another pacing stops her at once.',
+          'The game returns to Tutor after five minutes stopped.']],
+  manual: ['Manual', ['Each call starts on Next Call. Nothing starts one on a schedule, apart from a scene that follows another.']],
+  auto: ['Automatic', ['The next call starts a wait after the last one is connected, or ends if sooner, so calls overlap but only one ever waits to be routed.',
+         'The wait starts at gap, shrinks by ramp each call connected, down to floor, and is spread by jitter. Now is the wait in use.']],
+  listen: ['Listen', ['The next call starts pause seconds after the board is empty, so calls never overlap and every conversation is heard through.',
+           'No ramp and no jitter; the automatic settings are left alone.']],
+  pause: ['pause', ['Listen: seconds between the board emptying and the next call.'], '0–60 s, steps of 1. Starts at 3.'],
+  gap: ['gap', ['Automatic: seconds from one call being connected to the next call, at the start of a game.'], '0–600 s, steps of 5. Starts at 20.'],
+  ramp: ['ramp', ['Automatic: seconds taken off the gap for each call connected. 0 keeps the rate constant.'], '0–60 s, steps of 1. Starts at 0.'],
+  floor: ['floor', ['Automatic: the shortest the ramp takes the gap. Never above gap.'], '0–600 s, steps of 1. Starts at 5.'],
+  jitter: ['jitter', ['Automatic: each wait drawn evenly within this percentage either side of the gap. At 20 s and 50%, every wait is 10–30 s. 0 is a fixed wait.'], '0–100 %, steps of 10. Starts at 0.'],
+};
+
+let helpTimer = null, helpSwallow = false;
+
+function showHelp(el) {
+  const [title, paras, range] = HELP[el.dataset.help];
+  const h = document.getElementById('help');
+  h.innerHTML = `<h3>${esc(title)}</h3>` + paras.map((t) => `<p>${esc(t)}</p>`).join('') +
+                (range ? `<p class="range">${esc(range)}</p>` : '');
+  for (const id of ['tools', 'scenes', 'lamps']) document.getElementById(id).hidden = true;
+  h.hidden = false;
+  // Under the button, clamped to the window, as a jack's panel is.
+  const r = el.getBoundingClientRect(), hr = h.getBoundingClientRect(), pad = 8;
+  const left = r.left + r.width / 2 - hr.width / 2;
+  h.style.left = `${Math.max(pad, Math.min(left, window.innerWidth - hr.width - pad))}px`;
+  h.style.top = `${Math.min(r.bottom + pad, window.innerHeight - hr.height - pad)}px`;
+  render();
+}
+
+document.addEventListener('pointerdown', (e) => {
+  const el = e.target.closest('[data-help]');
+  clearTimeout(helpTimer);
+  helpSwallow = false;      // a hold released off the button left no click to swallow
+  if (!el) return;
+  helpTimer = setTimeout(() => { helpSwallow = true; showHelp(el); }, 500);
+});
+for (const ev of ['pointerup', 'pointercancel'])
+  document.addEventListener(ev, () => clearTimeout(helpTimer));
+document.addEventListener('pointerout', (e) => {
+  if (e.target.closest('[data-help]')) clearTimeout(helpTimer);
+});
+// Capture, so this runs before the button's own handler and the board's.
+document.addEventListener('click', (e) => {
+  if (!helpSwallow) return;
+  helpSwallow = false;
+  e.stopPropagation();
+  e.preventDefault();
+}, true);
+document.addEventListener('contextmenu', (e) => {
+  if (e.target.closest('[data-help]')) e.preventDefault();
+});
 
 // ---- a chosen next scene (§4.8, Rev 25) ---------------------------------------
 
@@ -351,6 +415,7 @@ function showScenes() {
     ids.map((id) => `<button data-scene="${esc(id)}"${id === queued ? ' class="sel"' : ''}>${esc(id)}</button>`).join('');
   document.getElementById('tools').hidden = true;
   document.getElementById('lamps').hidden = true;
+  document.getElementById('help').hidden = true;
   document.getElementById('scenes').hidden = false;
 }
 document.getElementById('scene-list').addEventListener('click', (e) => {
@@ -414,6 +479,7 @@ document.addEventListener('click', (e) => {
     document.getElementById('scenes').hidden = true;
     document.getElementById('lamps').hidden = true;
   }
+  if (!e.target.closest('#help')) document.getElementById('help').hidden = true;
   if (!e.target.closest('.tile') && !e.target.closest('#panel')) closePanel();
 });
 // Escape, for the desktop browser Mark is using to look at this. There is no
@@ -421,7 +487,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (panelOpen) closePanel();
-  for (const id of ['tools', 'scenes', 'lamps']) document.getElementById(id).hidden = true;
+  for (const id of ['tools', 'scenes', 'lamps', 'help']) document.getElementById(id).hidden = true;
   render();
 });
 
@@ -495,7 +561,7 @@ function renderTop() {
   for (const p of ['tutor', 'manual', 'auto', 'listen']) {
     const b = document.getElementById('pace-' + p);
     b.classList.toggle('sel', pace === p);
-    b.disabled = disabled;
+    b.classList.toggle('dis', disabled);   // not `disabled`: its help (Rev 54) still opens
   }
 
   const next = document.getElementById('next');
@@ -620,10 +686,8 @@ document.getElementById('next').onclick = () => {
   setTimeout(render, 3100);
   render();
 };
-document.getElementById('pace-tutor').onclick = () => send('pace', 'tutor');   // §4.9, Rev 32
-document.getElementById('pace-manual').onclick = () => send('pace', 'manual');
-document.getElementById('pace-auto').onclick = () => send('pace', 'auto');
-document.getElementById('pace-listen').onclick = () => send('pace', 'listen');
+for (const p of ['tutor', 'manual', 'auto', 'listen'])          // tutor §4.9, Rev 32
+  document.getElementById('pace-' + p).onclick = () => { if (!gameStale()) send('pace', p); };
 document.getElementById('steppers').addEventListener('click', (e) => {
   const spec = e.target.dataset.step;
   if (!spec) return;

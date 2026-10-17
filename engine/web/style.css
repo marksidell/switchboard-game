@@ -307,3 +307,7 @@ button.cmd.on { background: var(--command); color: #fff; }
                    flex: none; margin: 1px 4px 0; }
 #lamps .key b { display: block; font-size: 14px; }
 #lamps .note { margin: 8px 0 0; font-size: 12px; color: var(--dim); }
+/* Placed under the button pressed, by app.js, not in the corner. */
+#help { right: auto; width: 300px; font-size: 13px; line-height: 1.4; }
+#help p { margin: 0 0 6px; }
+#help .range { color: var(--dim); font-size: 12px; margin: 0; }
