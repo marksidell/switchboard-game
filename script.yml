@@ -1227,7 +1227,7 @@ scenes:
     tc-albright:
         active: true
         after: portland-callback
-        delay: 60
+        delay: [10, 20]
         calling:
             line: operator
             person: operator
@@ -1857,7 +1857,7 @@ scenes:
     tc-dobbs:
         active: true
         after: dobbs-callback
-        delay: 60
+        delay: [10, 20]
         calling:
             line: operator
             person: operator
@@ -2343,7 +2343,7 @@ scenes:
     tc-hale:
         active: true
         after: hale-mother
-        delay: 60
+        delay: [10, 20]
         calling:
             line: operator
             person: operator
@@ -4146,7 +4146,7 @@ scenes:
     tc-beaumont:
         active: true
         after: beaumont-sister
-        delay: 60
+        delay: [10, 20]
         calling:
             line: operator
             person: operator
@@ -4385,7 +4385,7 @@ scenes:
     tc-finch:
         active: true
         after: finch-wife
-        delay: 60
+        delay: [10, 20]
         calling:
             line: operator
             person: operator
