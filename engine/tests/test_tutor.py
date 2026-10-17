@@ -355,6 +355,22 @@ async def main() -> int:
     await t.stop()
     watch.cancel()
 
+    print("\n== a prompt stops once the player has done it (Rev 58)")
+    h = tutored(scene(Shape.STATION_TO_STATION))
+    await h.live()
+    t = h.ctx.tutor
+    t.lines["talk"] = Speech("tutor.talk", 2.0, "tutor")      # a long line
+    task = asyncio.create_task(t.say("talk", until=lambda b: b.on("station/9/op")))
+    await h.b.wait_until(lambda b: b.get("audio/monitor/play") == "tutor.talk", 5)
+    t0 = asyncio.get_running_loop().time()
+    await h.b.update("station/9/op", "on")                    # she pushes the switch
+    await asyncio.wait_for(task, 1.0)
+    took = asyncio.get_running_loop().time() - t0
+    check(took < 0.5, f"the line ends at once, not after its 2s: {took:.2f}s")
+    check(("audio/monitor/play/set", "stop") in h.link.sent, "the file is stopped")
+    check(t.repeat_key == "" and t._again is None, "nothing left to repeat, and no repeats")
+    await t.stop()
+
     print("\n== a call in on a trunk, tutored")
     h = tutored(scene(Shape.OUTSIDE_TO_STATION, from_station=None, from_line="pizza"))
     out = await run(h, outside_to_station, tutored_trunk_operator, 3)

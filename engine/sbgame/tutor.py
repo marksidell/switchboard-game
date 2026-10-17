@@ -10,8 +10,9 @@ still repeating from the step before.
 Her lines are files on the monitor (`audio/monitor/play/set`, audio.md §10.4),
 named tutor.<key> as script.yml's tutor: renders them.
 
-A prompt given with `until` is said again after REPEAT seconds while the
-condition stays false, at most REPEATS times, in the background, so a player
+A prompt given with `until` stops mid-word once the condition comes true
+(Rev 58): the player has done it, and does not need to hear the rest. It is
+said again after REPEAT seconds while the condition stays false, at most REPEATS times, in the background, so a player
 who has not found the jack hears it again without the call waiting on her.
 
 Once she has said a prompt in full twice (Rev 55), it is said short where
@@ -24,7 +25,7 @@ import asyncio
 import logging
 from typing import Awaitable, Callable
 
-from .board import Board
+from .board import Abandoned, Board
 from .link import Hw
 from .scenes import _quietly, say
 from .script_data import Speech
@@ -95,6 +96,29 @@ class Tutor:
             return f"say-{sp.operator}"
         return "greet" if request else "respond"
 
+    async def _line(self, sp: Speech, until=None, abort_if=None) -> bool:
+        """Say one line; True if `until` came true and cut it short (Rev 58).
+        The flow's own `abort_if` still raises."""
+        if until is None:
+            await say(self.b, self.hw, MONITOR, sp.name, sp.seconds, abort_if=abort_if)
+            return False
+        done = False
+
+        def stop_if(b: Board):
+            nonlocal done
+            if abort_if is not None and (why := abort_if(b)):
+                return why
+            if until(b):
+                done = True
+                return "the player has done it"
+            return False
+        try:
+            await say(self.b, self.hw, MONITOR, sp.name, sp.seconds, abort_if=stop_if)
+        except Abandoned:
+            if not done:
+                raise
+        return done
+
     async def _set_repeat(self, key: str) -> None:
         if key == self.repeat_key:
             return
@@ -143,7 +167,8 @@ class Tutor:
             key, sp = BRIEF + key, short
         else:
             self.said[prompt] = self.said.get(prompt, 0) + 1
-        await say(self.b, self.hw, MONITOR, sp.name, sp.seconds, abort_if=abort_if)
+        if await self._line(sp, until, abort_if):
+            return                      # done before she finished: nothing to repeat
         if listening is not None:
             self.asked = asyncio.Event()
             self._speaking = listening
@@ -192,7 +217,9 @@ class Tutor:
 
     async def _replay(self, sp: Speech, until) -> None:
         try:
-            await say(self.b, self.hw, MONITOR, sp.name, sp.seconds)
+            if await self._line(sp, until):
+                await self._set_repeat("")
+                return
             if until is not None:
                 await self._repeat(sp, until)
         except asyncio.CancelledError:
@@ -210,7 +237,8 @@ class Tutor:
                     pass
                 if not self.active:
                     return
-                await say(self.b, self.hw, MONITOR, sp.name, sp.seconds)
+                if await self._line(sp, until):
+                    break
             # Repeatable until the player does the thing (Rev 34).
             await self.b.wait_until(until, None)
             await self._set_repeat("")

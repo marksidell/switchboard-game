@@ -461,9 +461,16 @@ async def _converse(ctx: Ctx, caller: str, called: str) -> None:
         if line.wait:
             await _operator_speaks(ctx, where, line, broken)
             if i == last:
-                await _tut(ctx, "center", abort_if=broken)              # tutor
+                await _tut(ctx, "center", until=_centred(caller, called),  # tutor
+                           abort_if=broken)
         await _lead_in(ctx, where, line, broken)
         await _play(ctx, where, line, broken)
+
+
+def _centred(*circuits: str):
+    """until: her talk switch is back in the centre - she is on none of the
+    pair's lines - so the prompt to centre it can stop (§4.9, Rev 58)."""
+    return lambda b: not any(b.on(f"{c}/op") for c in circuits)
 
 
 def _engaged(n: int):
@@ -616,7 +623,7 @@ async def station_to_outside(ctx: Ctx) -> Outcome:
         # tutor: before the far end answers, so she does not talk over its
         # first line; ringback runs on until she has finished (§4.9).
         if _last_wait(sc) is None:
-            await _tut(ctx, "center-dialled")
+            await _tut(ctx, "center-dialled", until=_centred(caller, called))
         await asyncio.sleep(2.0)                           # two bursts of ringback
         await ctx.hw.tone(trunk, "off")                    # the far end answers
         await ctx.mark_connected()
@@ -732,7 +739,7 @@ async def outside_to_station(ctx: Ctx, trunk: int) -> Outcome:
             # tutor: she rang with the far switch, and the near one still has
             # her on the line, so before the room answers (§4.9).
             if _last_wait(sc) is None:
-                await _tut(ctx, "center-ringing")
+                await _tut(ctx, "center-ringing", until=_centred(caller))
             await ctx.hw.hook(sc.to_station, True)
             await ctx.b.wait_until(
                 lambda b: b.get(f"{caller}/peer") == called, ctx.left(deadline))
