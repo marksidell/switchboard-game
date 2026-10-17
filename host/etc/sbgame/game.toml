@@ -57,7 +57,6 @@ trunks = 8
 # rung in on them. Each with why. Remove a line when the trunk is fixed.
 [out_of_service.trunks]
 6 = "switchboard trunk jack 6's ring relay does not latch (2026-10-10)"
-8 = "switchboard trunk jack 8's lamp does not light, probably burned out (2026-10-10)"
 
 # Station 1 (channel 1, board a strip 1) draws no loop current since a spark
 # on 2026-10-16: a 500 set lights its jack, the channel does not (TODO.md).
