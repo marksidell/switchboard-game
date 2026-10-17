@@ -419,7 +419,10 @@ document.addEventListener('click', (e) => {
 // Escape, for the desktop browser Mark is using to look at this. There is no
 // keyboard on the iPad, so it costs nothing there.
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && panelOpen) closePanel();
+  if (e.key !== 'Escape') return;
+  if (panelOpen) closePanel();
+  for (const id of ['tools', 'scenes', 'lamps']) document.getElementById(id).hidden = true;
+  render();
 });
 
 // ---- calls, health, log ----------------------------------------------------
