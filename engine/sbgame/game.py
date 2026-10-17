@@ -30,6 +30,7 @@ import asyncio
 import dataclasses
 import logging
 import random
+import re
 import time
 from dataclasses import dataclass
 
@@ -46,6 +47,11 @@ from .script_data import GameScript, SceneDef, Shape
 from .session import SessionLog
 from . import sweep
 from .tutor import INTRO, NO_LIMIT, Tutor
+
+# What the player does at the board (Rev 57): a cord in or out (peer, op, a
+# trunk's seize), a digit dialled, a station rung. Not `hook`, which the game
+# itself drives, nor anything of the game's own.
+PLAYER = re.compile(r"^(?:station|trunk)/\d+/(?:peer|op|seize|dialled|digit)$|^station/\d+/ring$")
 
 log = logging.getLogger("game")
 
@@ -102,6 +108,7 @@ class Game:
         self._waiting_for = ""          # game/tutor/waiting (Rev 33)
         self._lessons: list[str] = []   # the scenes a tutored game starts with
         self._to_tutor: asyncio.Task | None = None    # back to tutor when stopped (Rev 44)
+        self._active_at = time.time()                 # the player's last act (Rev 57)
         self._sweep: asyncio.Task | None = None       # a board sweep (§7.6, Rev 50)
         self._sweep_kind = ""
         # Station numbers to the script's line names, for holding a station
@@ -196,6 +203,7 @@ class Game:
 
     async def on_command(self, name: str, payload: str) -> None:
         """Quick by design: validate, echo, start or cancel, return."""
+        self._active_at = time.time()               # a key or a button (Rev 57)
         try:
             if name == "run":
                 if payload == "on":
@@ -437,6 +445,7 @@ class Game:
         assert self.link is not None and self.slots is not None and self.log is not None
         await self._end_sweep()                     # §7.6: a game takes the board
         self.running = True
+        self._active_at = time.time()
         self._disarm_idle()
         self.tallies.zero()
         self.next_number = 1
@@ -963,6 +972,11 @@ class Game:
         """Start a call when the automatic gap has elapsed."""
         while True:
             try:
+                if (self.running and self.cfg.idle_stop > 0
+                        and time.time() - self._active_at >= self.cfg.idle_stop):
+                    # Rev 57: nobody at the board; Start resumes.
+                    await self.stop(f"no activity for {self.cfg.idle_stop / 60:g} min")
+                    continue
                 if self.running and self.pacing.due():
                     await self._start_call()
                 elif self.running and self._chosen_scenario_ready():
@@ -977,8 +991,11 @@ class Game:
     # ---- losing a client (§3) -------------------------------------------
 
     async def watch_clients(self) -> None:
-        """Stop the game if the controller or the audio program goes away."""
+        """Stop the game if the controller or the audio program goes away;
+        and note the player's acts on the board, for idle_stop (Rev 57)."""
         async for ch in self.b.watch():
+            if PLAYER.match(ch.key):
+                self._active_at = time.time()
             if ch.key in (LIVE_CONTROL, LIVE_AUDIO) and ch.new == "off":
                 if self.running:
                     who = "controller" if ch.key == LIVE_CONTROL else "audio program"

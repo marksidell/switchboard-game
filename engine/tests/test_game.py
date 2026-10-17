@@ -755,6 +755,31 @@ async def main() -> int:
         watcher.cancel()
         await sess.close()
 
+        print("\n== no activity stops a running game (Rev 57)")
+        b, link, g, sess = await build_game(tmp, pace="manual", idle_stop=1.0)
+        watcher = asyncio.create_task(g.watch_clients())
+        sched = asyncio.create_task(g.run_scheduler())
+        await asyncio.sleep(0)
+        await g.start()
+        for _ in range(3):                           # a cord in and out, 0.6s apart
+            await asyncio.sleep(0.6)
+            await b.update("trunk/2/seize", "on" if _ % 2 == 0 else "off")
+        check(link.state_v.get("game/run") == "on", "the player's acts keep it running")
+        await asyncio.sleep(0.6)
+        await g.on_command("pace", "manual")         # a button counts too
+        await asyncio.sleep(0.6)
+        check(link.state_v.get("game/run") == "on", "and so does a button")
+        await b.update("station/3/hook", "on")       # the game's own doing: not activity
+        await asyncio.sleep(1.0)
+        check(link.state_v.get("game/run") == "off", "a second with nothing: stopped")
+        check("game stopped: no activity" in link.state_v.get("game/log", ""), "and said why")
+        await g.on_command("run", "on")
+        check(link.state_v.get("game/run") == "on", "Start resumes")
+        await g.stop("stop")
+        for t in (watcher, sched):
+            t.cancel()
+        await sess.close()
+
         print("\n== the session record")
         b, link, g, sess = await build_game(tmp, pace="manual")
         await g.start()
