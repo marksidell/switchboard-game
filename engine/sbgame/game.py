@@ -153,6 +153,7 @@ class Game:
         self._waiting_for = ""
         await link.state("game/tutor/waiting", "")
         await link.state("game/tutor/repeat", "")
+        await link.state("game/tutor/more", "")
         await link.state("game/stations", str(self.cfg.stations))
         await link.state("game/trunks", str(self.cfg.trunks))
         assert self.diag is not None
@@ -234,11 +235,13 @@ class Game:
 
             if name == "more":
                 # §4.9, Rev 31: the next part of her introduction. An event, as
-                # next is; a press with no further part is ignored.
-                if self._more is None:
-                    await self._error("more: the tutor is not introducing the board")
+                # next is; a press with no further part is ignored. Rev 55: in
+                # a call, the full form of the short line she last said.
+                if self._more is not None:
+                    self._more.set()
+                elif self.tutor is None or not await self.tutor.more():
+                    await self._error("more: no introduction, and no short line to say in full")
                     return
-                self._more.set()
                 await self._say("page: more help")
                 return
 
@@ -306,7 +309,13 @@ class Game:
 
     def _new_tutor(self) -> Tutor:
         assert self.hw is not None
-        return Tutor(self.b, self.hw, self.gs.tutor, on_repeat=self._repeat_state)
+        return Tutor(self.b, self.hw, self.gs.tutor, on_repeat=self._repeat_state,
+                     on_more=self._more_state)
+
+    async def _more_state(self, key: str) -> None:
+        """game/tutor/more (§4.9, Rev 55): the full line More Help would say."""
+        if self.link is not None:
+            await self.link.state("game/tutor/more", key)
 
     async def _repeat_state(self, key: str) -> None:
         """game/tutor/repeat (§4.9, Rev 34): the line Repeat Help would say."""
@@ -738,6 +747,7 @@ class Game:
         assert self.slots is not None and self.hw is not None
         cfg = self.cfg
         if self.tutor is not None:
+            self.tutor.next_call()                  # short from the third (Rev 55)
             # §4.9: nobody fails for being slow while she teaches.
             cfg = dataclasses.replace(cfg, answer_timeout=NO_LIMIT,
                                       connect_timeout=NO_LIMIT)

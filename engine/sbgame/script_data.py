@@ -24,7 +24,7 @@ import wave
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from tts.script import Script, Utterance, load
+from tts.script import BRIEF_PREFIX, Script, Utterance, load
 
 
 class Shape:
@@ -226,7 +226,10 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
         try:
             tutor[key] = Speech(u.name, _wav_seconds(wav, u.name), "tutor")
         except (OSError, EOFError, wave.Error):
-            missing.append(u.name)
+            # A short form not rendered yet (Rev 55) is no gap: she says
+            # the full line in its place.
+            if not key.startswith(BRIEF_PREFIX):
+                missing.append(u.name)
 
     return GameScript(script=s, scenes=scenes, people=people, jacks=_jacks(s),
                       tutor=tutor, tutor_missing=tuple(missing),

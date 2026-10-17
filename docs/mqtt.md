@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 33 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
+*Rev 34 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
 
 # 1. Overview
 
@@ -204,6 +204,10 @@ This document specifies the messages: the topic names, who publishes each, what 
 
 — `trunk/<n>/shortring/set` added (§6, §8.4), following control.md Rev 25, 2026-10-05: `"on"` rings the trunk once for 0.5s, `"off"` cancels the burst; the ESP32 echoes the relay on the existing `ring` topic, `"on"` then `"off"`. The game program uses it to signal a call in on a trunk (game_control.md Rev 28). It is the third command that is not absolute state, after `next/set` and the station's `dial/set`: a duplicate delivered after the first burst has ended rings once more. That is harmless — the switchboard's trunk signal latches, and a second burst on an unanswered trunk changes nothing the operator sees; a duplicate during the burst, or after the trunk is seized, is ignored by the controller. QoS 1 as for every command. The ESP32 subscribes to one more pattern. No existing topic or payload changes.
 
+## 1.34 Changes in Rev 34
+
+— `game/tutor/more` added (§6.1), following game_control.md Rev 55, 2026-10-17: the full line More Help would say for the short prompt the tutor last finished, or `""`. `game/more/set` is now accepted outside the introduction while it is set. `game/tutor/repeat` may name a short form, `brief-<key>`. All additions; no existing topic or payload changes.
+
 ## 1.33 Changes in Rev 33
 
 — `game/sweep/set` and its echo `game/sweep` (§6, §6.1), following game_control.md Rev 50, 2026-10-17: the Stream Deck starts or stops a sweep of the trunks or the stations. Covered by the existing `game/+/set` in the access list. All additions; no existing topic or payload changes.
@@ -369,7 +373,8 @@ Published by the game program for the status page and the log (Rev 10). All reta
 | `sbgame/game/sweep` | `"trunks"`, `"stations"` or `""` | yes | The board sweep running, `""` when none is. Echoes `sweep/set` (game_control.md §7.6; Rev 33). |
 | `sbgame/game/queue` | scene id, or `""` | yes | The chosen next scene, until it is dealt, cleared or the game stops. Echoes `queue/set` (Rev 23). |
 | `sbgame/game/tutor/intro` | `"<n>/<of>"`, or `""` | yes | The part of the tutor's introduction she is on, `"1/3"` to `"3/3"`; `""` when she is not introducing the board (game_control.md §4.9; Rev 28). |
-| `sbgame/game/tutor/repeat` | a key under script.yml's `tutor:`, or `""` | yes | The tutor's line Repeat Help would say: the last she finished while the game waits on the player, until the player acts or she says another; a "Say:" prompt included from game_control.md Rev 35 (game_control.md §4.9; Rev 31). |
+| `sbgame/game/tutor/repeat` | a key under script.yml's `tutor:`, `brief-<key>` for a short form (Rev 34), or `""` | yes | The tutor's line Repeat Help would say: the last she finished while the game waits on the player, until the player acts or she says another; a "Say:" prompt included from game_control.md Rev 35 (game_control.md §4.9; Rev 31). |
+| `sbgame/game/tutor/more` | a key under script.yml's `tutor:`, or `""` | yes | The full line More Help would say: set while the short form of that line, the last she finished, is repeatable (game_control.md §4.9, Rev 55; Rev 34). |
 | `sbgame/game/tutor/waiting` | `"more"`, `"next"` or `""` | yes | The tutor has finished speaking and waits for More Help or Next Call (`"more"`), or for Next Call alone (`"next"`); `""` otherwise. The deck flashes the key (game_control.md §4.9; Rev 30). |
 | `sbgame/game/stations`, `sbgame/game/trunks` | integer | yes | How many stations (0–22) and trunks (0–8) are fitted, from the configuration (game_control.md §6.5; Rev 23). Published at start. |
 | `sbgame/game/diag/<target>/<test>` | `"on"` or `"off"` | yes | A diagnostic's state: `<target>` is `station/<1-22>`, `trunk/<1-8>` or `tap`; `<test>` is `hook` (stations), `ring` (trunks), `tone`, `voice` or `monitor` (game_control.md §7.5; Rev 23). All `"off"` at start. |
@@ -392,7 +397,7 @@ The page's commands, consumed by the game program only (Rev 10). The Stream Deck
 | `sbgame/game/sweep/set` | `"trunks"`, `"stations"` or `"off"` | no | game | Start a board sweep, or stop one. Refused on `error` while a game runs (game_control.md §7.6; Rev 33). |
 | `sbgame/game/queue/set` | scene id, or `""` | no | game | Deal this scene next, or clear the choice. Refused on `error` if not in `game/scenes`. Echoed on `queue` (Rev 23). |
 | `sbgame/game/repeat/set` | ignored | no | game | Repeat Help: the tutor says her last line again. QoS 0, an event (§2). Refused on `error` when `tutor/repeat` is empty (Rev 31). |
-| `sbgame/game/more/set` | ignored | no | game | More Help: the next part of the tutor's introduction. QoS 0, an event (§2). Refused on `error` when she is not introducing the board. Its effect shows on `tutor/intro` (Rev 28). |
+| `sbgame/game/more/set` | ignored | no | game | More Help: the next part of the tutor's introduction, or, while `tutor/more` is set, the full form of her short prompt (Rev 34). QoS 0, an event (§2). Refused on `error` when she is not introducing the board and no short prompt waits. Its effect shows on `tutor/intro` (Rev 28), or `tutor/repeat` and `tutor/more` (Rev 34). |
 | `sbgame/game/diag/<target>/<test>/set` | `"on"` or `"off"` | no | game | Start or stop a diagnostic (game_control.md §7.5). Refused on `error` for a circuit in a call or not fitted. Echoed on `diag/<target>/<test>` (Rev 23). |
 | `sbgame/game/next/set` | ignored | no — and QoS 0, §2 | game | Start the next call now, if a game is running and a scene can be dealt; otherwise reported on `error`. Shows as `started` going up by one (Rev 11; a call number through Rev 10). |
 

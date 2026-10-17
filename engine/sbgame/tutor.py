@@ -13,6 +13,9 @@ named tutor.<key> as script.yml's tutor: renders them.
 A prompt given with `until` is said again after REPEAT seconds while the
 condition stays false, at most REPEATS times, in the background, so a player
 who has not found the jack hears it again without the call waiting on her.
+
+From the third call she tutors on (Rev 55), a line with a short form under
+tutor: brief: is said short, and More Help says it in full.
 """
 
 from __future__ import annotations
@@ -35,6 +38,8 @@ NO_LIMIT = 3600.0              # s, for the timeouts tutor mode lifts (§4.9)
 # Her introduction, in order: each part but the last waits for More Help
 # (§4.9, Rev 31).
 INTRO = ("intro-jacks", "intro-cords", "intro-switches")
+FULL_CALLS = 2                 # calls she tutors in full before the short forms (Rev 55)
+BRIEF = "brief-"               # a short form's key: brief-<key> (tts/script.py)
 
 
 class Tutor:
@@ -51,7 +56,8 @@ class Tutor:
     """
 
     def __init__(self, board: Board, hw: Hw, lines: dict[str, Speech],
-                 on_repeat: Callable[[str], Awaitable[None]] | None = None) -> None:
+                 on_repeat: Callable[[str], Awaitable[None]] | None = None,
+                 on_more: Callable[[str], Awaitable[None]] | None = None) -> None:
         self.b = board
         self.hw = hw
         self.lines = lines
@@ -59,6 +65,13 @@ class Tutor:
         self._again: asyncio.Task | None = None
         self._on_repeat = on_repeat
         self.repeat_key = ""
+        # Rev 55: calls she has tutored, which decides whether this one is
+        # said short; and the full line More Help would say for the short one
+        # in repeat_key, published through `on_more`.
+        self.calls = 0
+        self.brief = False
+        self._on_more = on_more
+        self.more_key = ""
         self._until: Callable[[Board], object] | None = None
         # A prompt before a listen (Rev 35): set while it is repeatable, and
         # what says the operator has started, when it is refused.
@@ -74,6 +87,11 @@ class Tutor:
             return f"say-{sp.operator}"
         return "greet" if request else "respond"
 
+    def next_call(self) -> None:
+        """A call is starting: short forms from the third (Rev 55)."""
+        self.brief = self.calls >= FULL_CALLS
+        self.calls += 1
+
     async def _set_repeat(self, key: str) -> None:
         if key == self.repeat_key:
             return
@@ -83,6 +101,15 @@ class Tutor:
                 await self._on_repeat(key)
             except Exception as e:
                 log.info("tutor repeat state: %s", e)
+        # More Help lives exactly as long as a short line is repeatable.
+        full = key.removeprefix(BRIEF) if key.startswith(BRIEF) else ""
+        if full != self.more_key:
+            self.more_key = full
+            if self._on_more is not None:
+                try:
+                    await self._on_more(full)
+                except Exception as e:
+                    log.info("tutor more state: %s", e)
 
     async def say(self, key: str, *, until: Callable[[Board], object] | None = None,
                   abort_if=None, hold: bool = False,
@@ -107,6 +134,8 @@ class Tutor:
             return
         if until is not None and until(self.b):
             return
+        if self.brief and (short := self.lines.get(BRIEF + key)) is not None:
+            key, sp = BRIEF + key, short
         await say(self.b, self.hw, MONITOR, sp.name, sp.seconds, abort_if=abort_if)
         if listening is not None:
             self.asked = asyncio.Event()
@@ -140,6 +169,18 @@ class Tutor:
             self._again.cancel()
         self._again = asyncio.create_task(self._replay(sp, self._until),
                                           name=f"tutor-repeat-{key}")
+        return True
+
+    async def more(self) -> bool:
+        """More Help on a short line (Rev 55): the full line, now, and it is
+        the one repeated from then on. False when no short line is waiting."""
+        sp = self.lines.get(self.more_key)
+        if not self.active or sp is None or self.asked is not None:
+            return False
+        await self.hush()               # her own repeat of the short one, if under way
+        await self._set_repeat(self.more_key)
+        self._again = asyncio.create_task(self._replay(sp, self._until),
+                                          name=f"tutor-more-{self.repeat_key}")
         return True
 
     async def _replay(self, sp: Speech, until) -> None:

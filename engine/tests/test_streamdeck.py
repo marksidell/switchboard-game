@@ -190,6 +190,19 @@ def main() -> int:
     p.on_message("game/tutor/intro", "3/3", 2)
     check(p.on_key(MORE, 2) == [], "3/3: nothing more")
 
+    print("\n== More Help on a short line (Rev 55)")
+    p = live(game__run="on", game__pace="tutor")
+    check(p.on_key(MORE, 0) == [], "no short line: key 8 publishes nothing")
+    p.on_message("game/tutor/more", "answer-station", 0)
+    check(p.more_shown() and p.on_key(MORE, 0) == [("game/more/set", "", 0)],
+          "a short line waiting: key 8 is More Help, and a press asks")
+    check(p.on_key(MORE, 0.5) == [], "dark after a press")
+    p.on_message("game/tutor/more", "", 0.6)
+    check(not p.more_shown(), "said in full: key 8 is Health again")
+    p.on_message("game/tutor/more", "talk", 1)
+    p.on_message("audio/monitor/play", "brief.talk", 1)
+    check(p.on_key(MORE, 1.1) == [], "dark while she speaks")
+
     print("\n== Repeat Help on key 7 (Rev 34)")
     REPEAT = 6
     p = live(game__run="on", game__pace="tutor")

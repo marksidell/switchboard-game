@@ -239,8 +239,16 @@ async def main() -> int:
           f"a number as the card prints it: {t['dial-pizza'].text[-40:]!r}")
     check(t["say-operator.1"].text == "Say: How may I connect your call?",
           "an operator line, as she is to say it")
-    check(all(u.speaker == "tutor" and u.name.startswith("tutor.") for u in t.values()),
-          "each said by the tutor, as tutor.<key>")
+    check(all(u.speaker == "tutor" and u.name == ("brief." + k.removeprefix("brief-")
+                                                   if k.startswith("brief-") else "tutor." + k)
+              for k, u in t.items()),
+          "each said by the tutor, as tutor.<key>, or brief.<key> for a short form (Rev 55)")
+    check(t["brief-ring-front-room403"].text.startswith("Front cord to room 403."),
+          "a short form expanded per jack like its full line")
+    check(all(f"brief-ring-rear-{st}" in t for st in cabled), "for every cabled station")
+    check(not any(k.startswith(("brief-greet", "brief-say", "brief-intro")) for k in t),
+          "none for the introduction or before the operator speaks")
+    check(max(len(u.name) for u in t.values()) <= 31, "every name within 31 characters")
     check(all(len(u.name) <= 31 for u in t.values()), "every name fits audio.md §7.1")
 
     print("\n== the lessons (§4.9, Rev 30)")
@@ -264,6 +272,15 @@ async def main() -> int:
                 check(False, f"refused: {what}")
             except ScriptError as e:
                 check(any("lessons" in x for x in e.failures), f"refused: {what}")
+        f = Path(td) / "bad.yml"
+        f.write_text(real.replace("    brief:\n", "    brief:\n        greet: Hello.\n", 1),
+                     encoding="utf-8")
+        try:
+            load(f)
+            check(False, "refused: a short form of a prompt before the operator speaks")
+        except ScriptError as e:
+            check(any("brief.greet" in x for x in e.failures),
+                  "refused: a short form of a prompt before the operator speaks")
 
     print("\n== a call between rooms, tutored")
     h = tutored(scene(Shape.STATION_TO_STATION))
@@ -290,6 +307,48 @@ async def main() -> int:
     t = Tutor(h.b, h.hw, lines())
     t.repeat_key, t.asked, t._speaking = "greet", asyncio.Event(), lambda: True
     check(not t.repeat() and not t.asked.is_set(), "refused once she has started speaking")
+
+    print("\n== short lines from the third call, More Help in full (Rev 55)")
+    h = tutored(scene(Shape.STATION_TO_STATION))
+    await h.live()
+    t = h.ctx.tutor
+    for k in ("answer-station", "hangup-pair"):
+        t.lines["brief-" + k] = Speech("brief." + k, D * 2, "tutor")
+    mores: list[str] = []
+
+    async def on_more(key: str) -> None:
+        mores.append(key)
+    t._on_more = on_more
+    plays: list[str] = []
+
+    async def played() -> None:
+        async for ch in h.b.watch():
+            if ch.key == "audio/monitor/play" and ch.new:
+                plays.append(ch.new)
+    watch = asyncio.create_task(played())
+    t.next_call(); t.next_call()
+    check(not t.brief, "the first two calls in full")
+    t.next_call()
+    check(t.brief, "the third short")
+    never = lambda b: b.on("station/9/hook")
+    await t.say("answer-station", until=never)
+    check(plays[-1:] == ["brief.answer-station"], f"the short form said: {plays}")
+    check(t.repeat_key == "brief-answer-station" and t.more_key == "answer-station"
+          and mores[-1:] == ["answer-station"], "More Help offered, naming the full line")
+    check(await t.more(), "More Help taken")
+    await asyncio.sleep(D * 4)
+    check(plays[-1:] == ["tutor.answer-station"], f"the full line said: {plays}")
+    check(t.repeat_key == "answer-station" and t.more_key == "" and mores[-1:] == [""],
+          "Repeat Help repeats the full line now, and More Help is done")
+    check(not await t.more(), "a second More Help refused")
+    await t.say("talk", hold=True)
+    check(plays[-1:] == ["tutor.talk"] and t.more_key == "",
+          "a line with no short form said in full, no More Help")
+    t.brief = False
+    await t.say("hangup-pair", hold=True)
+    check(plays[-1:] == ["tutor.hangup-pair"], "not brief: the full line")
+    await t.stop()
+    watch.cancel()
 
     print("\n== a call in on a trunk, tutored")
     h = tutored(scene(Shape.OUTSIDE_TO_STATION, from_station=None, from_line="pizza"))
@@ -398,8 +457,8 @@ async def main() -> int:
         check(g.tutor is None and ("audio/monitor/play/set", "stop") in link.sent,
               "Stop silences her")
         await g.on_command("more", "")
-        check("not introducing" in link.state_v.get("game/error", ""),
-              "More Help with no introduction is refused")
+        check("no short line" in link.state_v.get("game/error", ""),
+              "More Help with no introduction and no short line is refused")
         await g.on_command("repeat", "")
         check("nothing to repeat now" in link.state_v.get("game/error", ""),
               "Repeat Help with nothing to repeat is refused")

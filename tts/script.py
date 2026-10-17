@@ -71,6 +71,16 @@ TUTOR_KEYS: dict[str, str | None] = {
     "center-dialled": None, "center": None, "busy-heard": None,
     "hangup-pair": None, "hangup-one": None, "ready-manual": None,
 }
+# The lines that may be given a short form under tutor: brief: (Rev 55), said
+# from the third call she tutors on: brief-<key> in Script.tutor, and named
+# brief.<key>, since tutor.brief-<key> runs past the 31 characters a name may
+# have for the longest jack labels. So no scene may be called brief either. Not her introduction, and
+# not the prompts before the operator speaks: a listen follows those, and
+# More Help is not offered while the game listens.
+BRIEF = "brief"
+BRIEF_PREFIX = "brief-"
+BRIEF_KEYS = tuple(k for k in TUTOR_KEYS
+                   if not k.startswith("intro-") and k not in ("say", "greet", "respond"))
 # The 1958 exchanges, for saying a number as the operator's card prints it
 # (hardcopy/cards.py reads the same file). Not installed on the host, where
 # only the names of the tutor's lines matter; the digits are said alone then.
@@ -274,8 +284,9 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
         bad(f"{name}", "is both a station and an outside entry")
     if OPERATOR_SCENE in scenes:
         bad(f"scenes.{OPERATOR_SCENE}", "is reserved for the names of operator_lines:")
-    if TUTOR in scenes:
-        bad(f"scenes.{TUTOR}", "is reserved for the names of the tutor's lines")
+    for reserved in (TUTOR, BRIEF):
+        if reserved in scenes:
+            bad(f"scenes.{reserved}", "is reserved for the names of the tutor's lines")
     lines = set(stations) | set(outside)
 
     # --- station and outside numbering --------------------------------------
@@ -787,30 +798,49 @@ def _tutor_lines(raw: object, cast: dict, board: list[dict], stations: dict,
         return {}
     if TUTOR not in cast:
         bad("cast", f"no {TUTOR}, who speaks the lines under tutor:")
-    for key in sorted(set(map(str, raw)) - set(TUTOR_KEYS) - {"lessons"}):
+    for key in sorted(set(map(str, raw)) - set(TUTOR_KEYS) - {"lessons", BRIEF}):
         bad(f"tutor.{key}", "is not one of the tutor's lines (game_control.md 4.9)")
-    texts: dict[str, str] = {}
-    for key, field_ in TUTOR_KEYS.items():
-        text = raw.get(key)
+    brief = raw.get(BRIEF) or {}
+    if not isinstance(brief, dict):
+        bad(f"tutor.{BRIEF}", "not a mapping")
+        brief = {}
+    for key in sorted(set(map(str, brief)) - set(BRIEF_KEYS)):
+        bad(f"tutor.{BRIEF}.{key}", "has no short form: not one of "
+            + ", ".join(BRIEF_KEYS) + " (game_control.md 4.9, Rev 55)")
+
+    def checked(key: str, text: object, at: str) -> str | None:
+        field_ = TUTOR_KEYS[key]
         if not isinstance(text, str) or not text.strip():
-            bad(f"tutor.{key}", "missing or empty")
-            continue
+            bad(at, "missing or empty")
+            return None
         try:
             used = {f for _, f, _, _ in string.Formatter().parse(text) if f is not None}
         except ValueError as e:
-            bad(f"tutor.{key}", f"unreadable placeholder: {e}")
-            continue
+            bad(at, f"unreadable placeholder: {e}")
+            return None
         want = {field_} if field_ else set()
         if used != want:
-            bad(f"tutor.{key}", "takes " + (f"{{{field_}}}" if field_ else "no placeholder")
+            bad(at, "takes " + (f"{{{field_}}}" if field_ else "no placeholder")
                 + (f", not {', '.join('{' + u + '}' for u in sorted(used))}" if used - want else ""))
-            continue
-        texts[key] = " ".join(text.split())
+            return None
+        return " ".join(text.split())
+
+    # (key under tutor:, prefix of what it makes, its text): the full lines,
+    # then the short forms given (Rev 55), each expanded the same way.
+    texts: list[tuple[str, str, str]] = []
+    for key in TUTOR_KEYS:
+        if (t := checked(key, raw.get(key), f"tutor.{key}")) is not None:
+            texts.append((key, "", t))
+    for key in BRIEF_KEYS:
+        if key in brief and (t := checked(key, brief[key], f"tutor.{BRIEF}.{key}")) is not None:
+            texts.append((key, BRIEF_PREFIX, t))
 
     out: dict[str, Utterance] = {}
 
     def add(key: str, text: str) -> None:
-        u = Utterance(scene=TUTOR, id=key, speaker=TUTOR, text=text, role=TUTOR)
+        scene, id_ = ((BRIEF, key.removeprefix(BRIEF_PREFIX)) if key.startswith(BRIEF_PREFIX)
+                      else (TUTOR, key))
+        u = Utterance(scene=scene, id=id_, speaker=TUTOR, text=text, role=TUTOR)
         why = name_problem(u.name)
         if why is not None:
             bad(f"tutor.{key}", f"file name {u.name!r} is not usable: {why}")
@@ -820,22 +850,22 @@ def _tutor_lines(raw: object, cast: dict, board: list[dict], stations: dict,
             return
         out[key] = u
 
-    for key, text in texts.items():
+    for key, prefix, text in texts:
         field_ = TUTOR_KEYS[key]
         if field_ is None:
-            add(key, text)
+            add(prefix + key, text)
         elif field_ == "jack":
             # Named by station, not jack, so moving a label to another jack
             # leaves the file alone; what is said follows the label.
             for j in board:
                 if j["station"] and isinstance(j["jack"], int):
-                    add(f"{key}-{j['station']}", text.format(jack=jack_words(j["label"])))
+                    add(f"{prefix}{key}-{j['station']}", text.format(jack=jack_words(j["label"])))
         elif field_ == "number":
             ex = _exchanges()
             for line, entry in outside.items():
                 number = str((entry or {}).get("number", ""))
                 if number and number != "0":
-                    add(f"{key}-{line}", text.format(number=number_words(number, ex)))
+                    add(f"{prefix}{key}-{line}", text.format(number=number_words(number, ex)))
         elif field_ == "line":
             # A scenario is never played in tutor mode (game_control.md 4.10),
             # so she needs no Say for a line only a scenario uses.

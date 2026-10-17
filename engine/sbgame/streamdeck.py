@@ -169,10 +169,19 @@ class Panel:
             return None
         return n, of
 
+    def more_shown(self) -> bool:
+        """Key 8 is More Help: in her introduction (Rev 32), or while a short
+        line of hers waits on the player, to hear it in full (Rev 55)."""
+        return self.intro_part() is not None or bool(self.get("game/tutor/more"))
+
     def more_live(self, now: float) -> bool:
+        if self.game_stale(now) or now < self.more_guard_until:
+            return False
         part = self.intro_part()
-        return (not self.game_stale(now) and part is not None and part[0] < part[1]
-                and now >= self.more_guard_until)
+        if part is not None:
+            return part[0] < part[1]
+        # As Repeat Help is: dark while she speaks (Rev 55).
+        return bool(self.get("game/tutor/more")) and not self.tutor_speaking()
 
     def flash(self, now: float, *waiting: str) -> bool:
         """Whether a key that flashes while the tutor waits (§4.9, Rev 33)
@@ -222,8 +231,8 @@ class Panel:
         if key == "audio/monitor/play" and payload != old and not (
                 payload.startswith("cue.") or old.startswith("cue.")):
             self.repeat_guard_until = 0.0  # she began, or finished (Rev 34)
-        if key == "game/tutor/intro" and payload != old:
-            self.more_guard_until = 0.0  # her next part began (Rev 31)
+        if key in ("game/tutor/intro", "game/tutor/more") and payload != old:
+            self.more_guard_until = 0.0  # her next part began (Rev 31), or the line changed
         if key == "game/started" and payload != old:
             self.next_guard_until = 0.0  # the call started (§4.1)
         elif key == "game/error" and payload and payload != old:
@@ -251,10 +260,10 @@ class Panel:
                 return []
             self.repeat_guard_until = now + 1.0
             return [("game/repeat/set", "", 0)]
-        if key == 7 and self.intro_part() is not None:
+        if key == 7 and self.more_shown():
             # More Help while she introduces the board (Rev 31, key 8 from
-            # Rev 32), guarded as Next Call is: dark until her next part
-            # begins, or 3s.
+            # Rev 32), or on a short line (Rev 55), guarded as Next Call is:
+            # dark until her next part begins or the line changes, or 3s.
             if not self.more_live(now):
                 return []
             self.more_guard_until = now + NEXT_GUARD
@@ -459,8 +468,9 @@ class Panel:
         return _key(pct, "success", fill=BG, ink=ink, size=40)
 
     def _k_health(self, now: float) -> Image.Image:
-        # More Help while the tutor introduces the board (Rev 32).
-        if self.intro_part() is not None:
+        # More Help while the tutor introduces the board (Rev 32), or on a
+        # short line of hers (Rev 55).
+        if self.more_shown():
             live = self.more_live(now)
             if live and self.flash(now, "more"):
                 return _key("More", "Help", fill=PANEL, ink=INK)
