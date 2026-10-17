@@ -747,7 +747,6 @@ class Game:
         assert self.slots is not None and self.hw is not None
         cfg = self.cfg
         if self.tutor is not None:
-            self.tutor.next_call()                  # short from the third (Rev 55)
             # §4.9: nobody fails for being slow while she teaches.
             cfg = dataclasses.replace(cfg, answer_timeout=NO_LIMIT,
                                       connect_timeout=NO_LIMIT)

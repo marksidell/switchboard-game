@@ -587,7 +587,7 @@ tutor:
         the cord out, and check that the black switches are centered.
     ready-manual: Press Next Call when you are ready for another.
 
-    # The same steps said shortly, from the third call she tutors on
+    # The same steps said shortly, once she has said each in full twice
     # (game_control.md 4.9, Rev 55). More Help says the full line above. A
     # line not given here is said in full every time; the introduction and
     # the prompts before the operator speaks have no short form.

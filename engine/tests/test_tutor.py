@@ -308,7 +308,7 @@ async def main() -> int:
     t.repeat_key, t.asked, t._speaking = "greet", asyncio.Event(), lambda: True
     check(not t.repeat() and not t.asked.is_set(), "refused once she has started speaking")
 
-    print("\n== short lines from the third call, More Help in full (Rev 55)")
+    print("\n== a prompt short once said twice, More Help in full (Rev 55)")
     h = tutored(scene(Shape.STATION_TO_STATION))
     await h.live()
     t = h.ctx.tutor
@@ -323,16 +323,22 @@ async def main() -> int:
 
     async def played() -> None:
         async for ch in h.b.watch():
-            if ch.key == "audio/monitor/play" and ch.new:
+            if ch.key == "audio/monitor/play" and ch.new not in ("", "pending"):
                 plays.append(ch.new)
     watch = asyncio.create_task(played())
-    t.next_call(); t.next_call()
-    check(not t.brief, "the first two calls in full")
-    t.next_call()
-    check(t.brief, "the third short")
+    check(tutor_mod.prompt_of("ring-front-room403") == "ring-front"
+          and tutor_mod.prompt_of("dial-operator") == "dial-operator"
+          and tutor_mod.prompt_of("dial-pizza") == "dial"
+          and tutor_mod.prompt_of("center-ringing") == "center-ringing",
+          "every jack and number is the one prompt")
     never = lambda b: b.on("station/9/hook")
+    await t.say("hangup-pair", hold=True)
+    for _ in range(2):
+        await t.say("answer-station", hold=True)
+    check(plays[-3:] == ["tutor.hangup-pair", "tutor.answer-station", "tutor.answer-station"],
+          f"each prompt in full twice: {plays}")
     await t.say("answer-station", until=never)
-    check(plays[-1:] == ["brief.answer-station"], f"the short form said: {plays}")
+    check(plays[-1:] == ["brief.answer-station"], f"then the short form: {plays[-1:]}")
     check(t.repeat_key == "brief-answer-station" and t.more_key == "answer-station"
           and mores[-1:] == ["answer-station"], "More Help offered, naming the full line")
     check(await t.more(), "More Help taken")
@@ -344,9 +350,8 @@ async def main() -> int:
     await t.say("talk", hold=True)
     check(plays[-1:] == ["tutor.talk"] and t.more_key == "",
           "a line with no short form said in full, no More Help")
-    t.brief = False
     await t.say("hangup-pair", hold=True)
-    check(plays[-1:] == ["tutor.hangup-pair"], "not brief: the full line")
+    check(plays[-1:] == ["tutor.hangup-pair"], "a prompt said once so far: in full, its own count")
     await t.stop()
     watch.cancel()
 

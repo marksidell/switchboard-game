@@ -14,8 +14,8 @@ A prompt given with `until` is said again after REPEAT seconds while the
 condition stays false, at most REPEATS times, in the background, so a player
 who has not found the jack hears it again without the call waiting on her.
 
-From the third call she tutors on (Rev 55), a line with a short form under
-tutor: brief: is said short, and More Help says it in full.
+Once she has said a prompt in full twice (Rev 55), it is said short where
+tutor: brief: gives a short form, and More Help says it in full.
 """
 
 from __future__ import annotations
@@ -28,6 +28,7 @@ from .board import Board
 from .link import Hw
 from .scenes import _quietly, say
 from .script_data import Speech
+from tts.script import TUTOR_KEYS
 
 log = logging.getLogger("tutor")
 
@@ -38,8 +39,16 @@ NO_LIMIT = 3600.0              # s, for the timeouts tutor mode lifts (§4.9)
 # Her introduction, in order: each part but the last waits for More Help
 # (§4.9, Rev 31).
 INTRO = ("intro-jacks", "intro-cords", "intro-switches")
-FULL_CALLS = 2                 # calls she tutors in full before the short forms (Rev 55)
+FULL_TIMES = 2                 # times a prompt is said in full before its short form (Rev 55)
 BRIEF = "brief-"               # a short form's key: brief-<key> (tts/script.py)
+
+
+def prompt_of(key: str) -> str:
+    """The prompt a line is, under tutor: - "ring-front-room403" is ring-front,
+    "dial-operator" its own - so each jack and number counts as the one prompt."""
+    if key in TUTOR_KEYS:
+        return key
+    return max((k for k in TUTOR_KEYS if key.startswith(k + "-")), key=len, default=key)
 
 
 class Tutor:
@@ -65,11 +74,10 @@ class Tutor:
         self._again: asyncio.Task | None = None
         self._on_repeat = on_repeat
         self.repeat_key = ""
-        # Rev 55: calls she has tutored, which decides whether this one is
-        # said short; and the full line More Help would say for the short one
-        # in repeat_key, published through `on_more`.
-        self.calls = 0
-        self.brief = False
+        # Rev 55: how often she has said each prompt in full this game, which
+        # decides whether it is said short; and the full line More Help would
+        # say for the short one in repeat_key, published through `on_more`.
+        self.said: dict[str, int] = {}
         self._on_more = on_more
         self.more_key = ""
         self._until: Callable[[Board], object] | None = None
@@ -86,11 +94,6 @@ class Tutor:
         if sp.operator and f"say-{sp.operator}" in self.lines:
             return f"say-{sp.operator}"
         return "greet" if request else "respond"
-
-    def next_call(self) -> None:
-        """A call is starting: short forms from the third (Rev 55)."""
-        self.brief = self.calls >= FULL_CALLS
-        self.calls += 1
 
     async def _set_repeat(self, key: str) -> None:
         if key == self.repeat_key:
@@ -134,8 +137,12 @@ class Tutor:
             return
         if until is not None and until(self.b):
             return
-        if self.brief and (short := self.lines.get(BRIEF + key)) is not None:
+        prompt = prompt_of(key)
+        short = self.lines.get(BRIEF + key)
+        if short is not None and self.said.get(prompt, 0) >= FULL_TIMES:
             key, sp = BRIEF + key, short
+        else:
+            self.said[prompt] = self.said.get(prompt, 0) + 1
         await say(self.b, self.hw, MONITOR, sp.name, sp.seconds, abort_if=abort_if)
         if listening is not None:
             self.asked = asyncio.Event()
