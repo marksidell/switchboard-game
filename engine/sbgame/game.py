@@ -44,6 +44,7 @@ from .pacing import PACES
 from .link import Hw, Link
 from .script_data import GameScript, SceneDef, Shape
 from .session import SessionLog
+from . import sweep
 from .tutor import INTRO, NO_LIMIT, Tutor
 
 log = logging.getLogger("game")
@@ -101,6 +102,8 @@ class Game:
         self._waiting_for = ""          # game/tutor/waiting (Rev 33)
         self._lessons: list[str] = []   # the scenes a tutored game starts with
         self._to_tutor: asyncio.Task | None = None    # back to tutor when stopped (Rev 44)
+        self._sweep: asyncio.Task | None = None       # a board sweep (§7.6, Rev 50)
+        self._sweep_kind = ""
         # Station numbers to the script's line names, for holding a station
         # under test out of dealing (§7.5).
         self._station_lines: dict[int, frozenset[str]] = {}
@@ -155,6 +158,8 @@ class Game:
         assert self.diag is not None
         await self.diag.end_all()
         await self.diag.publish_all_off()
+        await self._end_sweep()
+        await link.state("game/sweep", "")
 
     async def _publish_pacing(self) -> None:
         assert self.link is not None
@@ -198,6 +203,10 @@ class Game:
                     await self.stop("stop")
                 else:
                     await self._error(f"run: {payload!r} is not on or off")
+                return
+
+            if name == "sweep":
+                await self._sweep_command(payload)
                 return
 
             if name.startswith("diag/"):
@@ -341,6 +350,62 @@ class Game:
         assert self.link is not None
         await self.link.state("game/error", "")
 
+    async def _sweep_command(self, payload: str) -> None:
+        """game/sweep/set: "trunks", "stations" or "off" (§7.6, Rev 50)."""
+        if payload not in (*sweep.KINDS, "off"):
+            await self._error(f"sweep: {payload!r} is not trunks, stations or off")
+            return
+        if payload != "off" and self.running:
+            await self._error("sweep: not while a game runs")
+            return
+        await self._end_sweep()
+        assert self.link is not None and self.hw is not None and self.diag is not None
+        if payload != "off":
+            self._sweep_kind = payload
+            self._sweep = asyncio.create_task(self._run_sweep(payload), name=f"sweep-{payload}")
+            await self.link.state("game/sweep", payload)
+        await self.link.state("game/error", "")
+
+    async def _run_sweep(self, kind: str) -> None:
+        assert self.hw is not None and self.diag is not None
+        out_st, working = self.cfg.stations_out(), self.cfg.working_trunks()
+
+        def out(circuit: str) -> bool:
+            k, n = circuit.split("/")
+            return int(n) in out_st if k == "station" else int(n) not in working
+
+        try:
+            await sweep.run(kind, self.hw, self.gs.jacks, self.cfg.stations, self.cfg.trunks,
+                            self.diag.circuits, self._say, out)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:                       # offline, above all
+            log.warning("sweep %s: %s", kind, e)
+            try:
+                await self._say(f"test {kind}: stopped, {e}")
+            except Exception:
+                pass
+        finally:
+            if self._sweep is asyncio.current_task():
+                self._sweep, self._sweep_kind = None, ""
+                if self.link is not None:
+                    try:
+                        await self.link.state("game/sweep", "")
+                    except Exception:
+                        pass
+
+    async def _end_sweep(self) -> None:
+        """Cancel a sweep in progress; its circuit is put back as it ends."""
+        t, kind = self._sweep, self._sweep_kind
+        self._sweep, self._sweep_kind = None, ""
+        if t is None:
+            return
+        t.cancel()
+        await asyncio.gather(t, return_exceptions=True)
+        await self._say(f"test {kind}: stopped")
+        if self.link is not None:
+            await self.link.state("game/sweep", "")
+
     def _circuits_in_calls(self) -> set[str]:
         """Every station and trunk a call in progress is using."""
         out: set[str] = set()
@@ -361,6 +426,7 @@ class Game:
         if self.running:
             return                                  # ignored while running (§3)
         assert self.link is not None and self.slots is not None and self.log is not None
+        await self._end_sweep()                     # §7.6: a game takes the board
         self.running = True
         self._disarm_idle()
         self.tallies.zero()
@@ -405,6 +471,7 @@ class Game:
         """Tear every call down at once. The tallies stay (§3)."""
         if self.diag is not None:
             await self.diag.end_all()               # every diagnostic (§7.5)
+        await self._end_sweep()                     # and a sweep (§7.6)
         if self.queued and self.link is not None:
             self.queued = ""                        # §4.8: Stop forgets it
             await self.link.state("game/queue", "")

@@ -447,6 +447,57 @@ async def main() -> int:
         check(("station/3/hook/set", "off") in link.sent and ("audio/tap/play/set", "stop") in link.sent,
               "and puts the hardware back")
 
+        print("\n== board sweeps (§7.6, Rev 50)")
+        from sbgame import sweep
+        sweep.BURST = sweep.OFF_HOOK = sweep.PAUSE = 0.01
+        check(link.state_v.get("game/sweep") == "", "no sweep at birth")
+        order = [st for st, _ in sweep.station_order(g.gs.jacks, g.cfg.stations)]
+        jacks = {int(j.circuit.split("/")[1]): j.number for j in g.gs.jacks
+                 if j.kind == "station" and j.circuit}
+        rank = lambda j: ({r: i for i, r in enumerate((3, 2, 1))}[(j - 1) // 10 + 1], j)
+        check(sorted(order) == list(range(1, g.cfg.stations + 1))
+              and [jacks[n] for n in order] == sorted((jacks[n] for n in order), key=rank),
+              "stations in jack order, top row first")
+        link.sent.clear()
+        await g.on_command("sweep", "trunks")
+        check(link.state_v.get("game/sweep") == "trunks", "trunks echoed")
+        await asyncio.sleep(0.5)
+        rung = [k for k, v in link.sent if k.endswith("/shortring/set")]
+        check(rung == [f"trunk/{n}/shortring/set" for n in range(1, g.cfg.trunks + 1)], f"each trunk fitted one short ring, in order: {rung}")
+        check(link.state_v.get("game/sweep") == "", "and the sweep ends by itself")
+        check("test trunks: done" in link.state_v.get("game/log", ""), "on the log")
+        link.sent.clear()
+        await g.on_command("sweep", "stations")
+        await asyncio.sleep(0.8)
+        hooks = [(k, v) for k, v in link.sent if k.endswith("/hook/set")]
+        want = [x for n in order for x in ((f"station/{n}/hook/set", "on"), (f"station/{n}/hook/set", "off"))]
+        check(hooks == want, "each station off-hook and back, in jack order")
+        sweep.PAUSE = 0.2
+        link.sent.clear()
+        await g.on_command("sweep", "stations")
+        await asyncio.sleep(0.05)
+        await g.on_command("sweep", "off")
+        hooks = [(k, v) for k, v in link.sent if k.endswith("/hook/set")]
+        check(link.state_v.get("game/sweep") == "" and hooks[-1][1] == "off"
+              and len(hooks) == 2, "off stops it, the station put back on-hook")
+        await g.on_command("sweep", "bogus")
+        check("not trunks, stations or off" in link.state_v.get("game/error", ""), "a bad payload is refused")
+        await g.start()
+        await g.on_command("sweep", "trunks")
+        check("not while a game runs" in link.state_v.get("game/error", "")
+              and link.state_v.get("game/sweep") == "", "refused while a game runs")
+        await g.stop("stop")
+        await g.on_command("sweep", "trunks")
+        await asyncio.sleep(0.05)
+        await g.start()
+        check(link.state_v.get("game/sweep") == "" and g._sweep is None, "Start ends a sweep")
+        await g.stop("stop")
+        await g.on_command("sweep", "trunks")
+        await asyncio.sleep(0.05)
+        await g.on_command("run", "off")
+        check(link.state_v.get("game/sweep") == "" and g._sweep is None, "Stop ends a sweep")
+        sweep.BURST, sweep.OFF_HOOK, sweep.PAUSE = 1.0, 1.0, 2.0
+
         print("\n== a chosen next scene (§4.8, Rev 25)")
         scenes = link.state_v.get("game/scenes", "").split("\n")
         check(scenes == g.gs.choosable() and scenes[0], "game/scenes lists the deck's scenes and each scenario's first")

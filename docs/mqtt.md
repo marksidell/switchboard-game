@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 32 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
+*Rev 33 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
 
 # 1. Overview
 
@@ -204,6 +204,10 @@ This document specifies the messages: the topic names, who publishes each, what 
 
 — `trunk/<n>/shortring/set` added (§6, §8.4), following control.md Rev 25, 2026-10-05: `"on"` rings the trunk once for 0.5s, `"off"` cancels the burst; the ESP32 echoes the relay on the existing `ring` topic, `"on"` then `"off"`. The game program uses it to signal a call in on a trunk (game_control.md Rev 28). It is the third command that is not absolute state, after `next/set` and the station's `dial/set`: a duplicate delivered after the first burst has ended rings once more. That is harmless — the switchboard's trunk signal latches, and a second burst on an unanswered trunk changes nothing the operator sees; a duplicate during the burst, or after the trunk is seized, is ignored by the controller. QoS 1 as for every command. The ESP32 subscribes to one more pattern. No existing topic or payload changes.
 
+## 1.33 Changes in Rev 33
+
+— `game/sweep/set` and its echo `game/sweep` (§6, §6.1), following game_control.md Rev 50, 2026-10-17: the Stream Deck starts or stops a sweep of the trunks or the stations. Covered by the existing `game/+/set` in the access list. All additions; no existing topic or payload changes.
+
 ## 1.32 Changes in Rev 32
 
 — `trunk/<n>/shortring/set` rings for 1s, not 0.5s (§6), following control.md Rev 30, 2026-10-10: one of the switchboard's trunk jacks did not latch on 0.5s. No topic or payload changes.
@@ -362,6 +366,7 @@ Published by the game program for the status page and the log (Rev 10). All reta
 | `sbgame/game/call/<1-8>/deadline` | host Unix time in seconds, or `""` | yes | When the stage times out; empty if it does not. |
 | `sbgame/game/call/<1-8>/digits` | digits, or `""` | yes | Digits dialled so far on an outgoing call. |
 | `sbgame/game/scenes` | scene ids, one per line | yes | The scenes that can be chosen as the next one: active, without `after:`, and within the circuits fitted (game_control.md §4.8; Rev 23). Published at start. |
+| `sbgame/game/sweep` | `"trunks"`, `"stations"` or `""` | yes | The board sweep running, `""` when none is. Echoes `sweep/set` (game_control.md §7.6; Rev 33). |
 | `sbgame/game/queue` | scene id, or `""` | yes | The chosen next scene, until it is dealt, cleared or the game stops. Echoes `queue/set` (Rev 23). |
 | `sbgame/game/tutor/intro` | `"<n>/<of>"`, or `""` | yes | The part of the tutor's introduction she is on, `"1/3"` to `"3/3"`; `""` when she is not introducing the board (game_control.md §4.9; Rev 28). |
 | `sbgame/game/tutor/repeat` | a key under script.yml's `tutor:`, or `""` | yes | The tutor's line Repeat Help would say: the last she finished while the game waits on the player, until the player acts or she says another; a "Say:" prompt included from game_control.md Rev 35 (game_control.md §4.9; Rev 31). |
@@ -384,6 +389,7 @@ The page's commands, consumed by the game program only (Rev 10). The Stream Deck
 | `sbgame/game/floor/set` | seconds | no | game | Least gap, 0–600 and not above `gap`. Echoed on `floor`. |
 | `sbgame/game/jitter/set` | percent | no | game | Spread of the automatic wait, 0–100. Echoed on `jitter` (Rev 19). |
 | `sbgame/game/pause/set` | seconds | no | game | Listen's wait after the board empties, 0–60. Echoed on `pause` (Rev 22). |
+| `sbgame/game/sweep/set` | `"trunks"`, `"stations"` or `"off"` | no | game | Start a board sweep, or stop one. Refused on `error` while a game runs (game_control.md §7.6; Rev 33). |
 | `sbgame/game/queue/set` | scene id, or `""` | no | game | Deal this scene next, or clear the choice. Refused on `error` if not in `game/scenes`. Echoed on `queue` (Rev 23). |
 | `sbgame/game/repeat/set` | ignored | no | game | Repeat Help: the tutor says her last line again. QoS 0, an event (§2). Refused on `error` when `tutor/repeat` is empty (Rev 31). |
 | `sbgame/game/more/set` | ignored | no | game | More Help: the next part of the tutor's introduction. QoS 0, an event (§2). Refused on `error` when she is not introducing the board. Its effect shows on `tutor/intro` (Rev 28). |

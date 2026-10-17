@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+"""Render the ring cue (game_control.md §6.6, Rev 51) to wav/cue.ringback.wav.
+
+The audience loudspeaker plays it while a station reports ring, so the room
+hears the operator ringing. It is the period ringback of audio.md §8.2 — a
+420Hz carrier multiplied by (1 + m sin 2π 40t), m = 1 — but steady, with no
+cadence: it follows the operator's ringing key, not an office's interrupter.
+A tone, not speech, so it is made here rather than by the TTS run, and
+tts/process leaves `cue.*` out of its check for files in no scene.
+
+48kHz mono 24-bit, as sbaudio wants (audio.md §7.2). Its RMS is set a few dB
+under the speech files' (about -21 to -26dBFS), so it sits under the calls
+and the tutor at the monitor's one file trim.
+
+    tts/cue                 # writes wav/cue.ringback.wav
+    tts/cue --rms -30       # quieter
+"""
+
+from __future__ import annotations
+
+import argparse
+import math
+import wave
+from pathlib import Path
+
+RATE = 48000
+CARRIER, MOD, DEPTH = 420.0, 40.0, 1.0    # audio.md §8.2's ringback
+EDGE = 0.010                              # s of raised-cosine fade each end
+
+
+def render(seconds: float, rms_db: float) -> bytes:
+    # RMS of sin(wc t)(1 + m sin(wm t)) is sqrt((1 + m²/2) / 2).
+    amp = 10 ** (rms_db / 20) / math.sqrt((1 + DEPTH ** 2 / 2) / 2)
+    n = int(seconds * RATE)
+    edge = int(EDGE * RATE)
+    out = bytearray()
+    for i in range(n):
+        t = i / RATE
+        x = amp * math.sin(2 * math.pi * CARRIER * t) * (1 + DEPTH * math.sin(2 * math.pi * MOD * t))
+        k = min(i, n - 1 - i)
+        if k < edge:
+            x *= 0.5 - 0.5 * math.cos(math.pi * k / edge)
+        out += int(round(x * (2 ** 23 - 1))).to_bytes(3, "little", signed=True)
+    return bytes(out)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("--rms", type=float, default=-28.0, help="dBFS RMS (default -28)")
+    ap.add_argument("--seconds", type=float, default=60.0,
+                    help="length; longer than any ring the operator holds (default 60)")
+    ap.add_argument("--out", type=Path,
+                    default=Path(__file__).resolve().parent.parent / "wav" / "cue.ringback.wav")
+    a = ap.parse_args()
+    with wave.open(str(a.out), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(3)
+        w.setframerate(RATE)
+        w.writeframes(render(a.seconds, a.rms))
+    print(f"{a.out}: {a.seconds:g}s, {a.rms:g}dBFS RMS, peak {a.rms + 20 * math.log10(2 / math.sqrt(1.5)):.1f}dBFS")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

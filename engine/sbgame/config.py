@@ -47,6 +47,8 @@ class Config:
     # Back to tutor after this long stopped in another pacing (Rev 44), so
     # the next visitor finds the game as a newcomer should; 0 never does.
     idle_tutor: float = 300.0
+    # The loudspeaker plays ringback while a station reports ring (Rev 51).
+    ring_cue: bool = True
 
     # ---- timeouts (§5), all play-testing values ------------------------
     answer_timeout: float = 60.0   # operator to answer a lamp
@@ -127,6 +129,8 @@ class Config:
         for name in ("answer_timeout", "connect_timeout", "speak_timeout", "max_speech"):
             if getattr(self, name) <= 0:
                 bad.append(f"{name} must be positive")
+        if not isinstance(self.ring_cue, bool):
+            bad.append(f"ring_cue {self.ring_cue!r} is not true or false")
         if not (isinstance(self.stations, int) and 0 <= self.stations <= 22):
             bad.append(f"stations {self.stations!r} is not a whole number 0-22")
         if not (isinstance(self.trunks, int) and 0 <= self.trunks <= 8):

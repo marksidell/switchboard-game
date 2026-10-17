@@ -288,7 +288,8 @@ def main(argv: list[str] | None = None) -> int:
               f"log a content warning for them on load. See the note in process.py.")
 
     if script is not None:
-        delivered = {p.stem for p in args.out.glob("*.wav")}
+        # cue.* are tones made by tts/cue, not utterances (game_control.md §6.6).
+        delivered = {p.stem for p in args.out.glob("*.wav") if not p.stem.startswith("cue.")}
         expected = {u.name for u in script.utterances}
         missing = sorted(expected - delivered)
         orphan = sorted(delivered - expected)

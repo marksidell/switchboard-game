@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 49 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order, with the Tutor's Ring Lines Named for the Station, and a Scenario of Calls Arriving Together After the Tenth Call, with a Station Found Engaged, and a Scenario Chosen from the Page on a Clear Board, Starting by Itself, and Then Not Dealt Again*
+*Rev 51 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order, with the Tutor's Ring Lines Named for the Station, and a Scenario of Calls Arriving Together After the Tenth Call, with a Station Found Engaged, and a Scenario Chosen from the Page on a Clear Board, Starting by Itself, and Then Not Dealt Again, and a Sweep of the Trunks or the Stations from the Stream Deck, and Ringback on the Loudspeaker While the Operator Rings a Station*
 
 # 1. Overview
 
@@ -175,6 +175,18 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 — The page's countdown says "waiting" while a game runs in automatic pacing and no next call is scheduled — `next_at` empty, because in auto the latest call is not yet connected or ended, and in listen the board is not yet empty (§4.2) — and "–" when no game runs (§7.1), Mark's request, 2026-09-28. It said "–" in both. The deck's Next key already said "waiting" in that case; §7.4 now says so too. It is on the countdown rather than on the Next Call button because the button is hidden with the controls and the countdown is not.
 
 — The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
+
+## 1.51 Changes in Rev 51
+
+— The loudspeaker plays ringback while a station reports ring (§6.6), Mark's request, 2026-10-17, so the player and the room hear the operator ringing, for as long as she holds the ringing key. Steady, not in the 2s-on cadence: it follows her key. A file on the monitor, `cue.ringback`, rendered by `tts/cue` — the period ringback of audio.md §8.2 — so the audio program is unchanged. The monitor plays one file at a time and that file is otherwise the tutor's voice; she comes first. A configuration switch, `ring_cue`, true by default. No topic changes.
+
+— Code consequence for Claude Code, made the same day: `cue.py`, started from `main.py`; `ring_cue` in `config.py`; the Stream Deck does not take the cue for her voice (§7.4's Repeat Help and the flashing key); `tts/process` leaves `cue.*` out of its check for files in no scene; `tests/test_cue.py`.
+
+## 1.50 Changes in Rev 50
+
+— A sweep of the board from the Stream Deck (§7.4, §7.6), Mark's request, 2026-10-17, for checking the cabling after a recabling. Key 5 pressed twice within 0.5s gives each trunk in turn one short ring, 2s apart, so its lamp latches; key 6 pressed twice takes each station in turn off-hook for 1s, 2s apart, in jack order — the board's rows from the top, each left to right — rather than circuit order, so the lamps light in the order the eye reads the board. Either key pressed twice during a sweep stops it. Only with no game running: the game program refuses one while a game runs, and Start, Stop and losing a client end one. Each step goes on the game log, so the page shows it, and the hardware's own echoes light the tiles. Keys 5 and 6 did nothing on a press before, and a single press still does nothing. One new command and its echo, `game/sweep/set` and `game/sweep` (mqtt.md Rev 33), covered by the access list's `game/+/set`.
+
+— Code consequence for Claude Code, made the same day: `sweep.py`, `_sweep_command()` in `game.py`, keys 5 and 6 in `streamdeck.py`, and the tests.
 
 ## 1.49 Changes in Rev 49
 
@@ -424,7 +436,7 @@ A game is one player's turn. It begins with `game/run/set` `"on"` and ends with 
 
 **Start.** Accepted only while `run` is `"off"`; while running it is ignored. The tallies are zeroed (§5), the call number restarts at 1, the gap returns to its configured value (§4.3), the deck is shuffled (§4.4), the loudspeaker's source is set to the tap (§6.4), and `run` reads `"on"`. In automatic pacing, auto or listen, the first call starts at once; in manual pacing nothing happens until the page asks for a call. A game is one session in the game program's SQLite log.
 
-**Stop.** Every call in progress is torn down at once: stations on-hook, trunk ring off, every file and tone stopped, every listen cancelled; every `after:` scene that was waiting is dropped; the call slots clear (§6.1); the loudspeaker's source goes back to the tap (§6.4). `run` reads `"off"`. Calls torn down this way are neither successes nor failures (§5). Every diagnostic running is ended too (§7.5, Rev 25), and a chosen next scene is forgotten (§4.8). The tallies stay as they were until the next start, so the player can see the score.
+**Stop.** Every call in progress is torn down at once: stations on-hook, trunk ring off, every file and tone stopped, every listen cancelled; every `after:` scene that was waiting is dropped; the call slots clear (§6.1); the loudspeaker's source goes back to the tap (§6.4). `run` reads `"off"`. Calls torn down this way are neither successes nor failures (§5). Every diagnostic running is ended too (§7.5, Rev 25), and a board sweep (§7.6, Rev 50), and a chosen next scene is forgotten (§4.8). The tallies stay as they were until the next start, so the player can see the score.
 
 **Losing a client.** If the controller or the audio program goes down during a game — `ctl/status` or `ctl/audio_status` offline, or two missed `esp_heartbeat`s (`mqtt.md` §8) — the game program does what Stop does and logs why, and `run` reads `"off"`. The player is not charged for the calls it abandons. It does not restart the game when the client returns; that is Mark's decision, from the page.
 
@@ -731,6 +743,16 @@ The loudspeaker carries one receive channel, chosen by the game program with `au
 
 The log records each move as `monitor: <calling line>` against the call's number, using script.yml's line name, as the other call events do.
 
+## 6.6 The Ring Cue
+
+Rev 51. While any station reports ring — `station/<n>/ring` `"on"`, ring voltage arriving from the switchboard (mqtt.md §4) — the audience loudspeaker plays ringback, so the player and the room hear the operator ringing. It starts at the first station's ring and stops when the last one's ends, so it follows her ringing key; it is steady, with no cadence. It sounds whether or not a game runs, and whichever station she rings, the right one or not.
+
+It is a file on the monitor (audio.md §10.4), `cue.ringback.wav` in the wav directory, rendered by `tts/cue`: the period ringback of audio.md §8.2, 420Hz modulated by 40Hz, 60s long, at −28dBFS RMS by default, a few dB under the speech files, since the monitor's one file trim sets both. A cue that runs to its end while ring continues starts again.
+
+**The tutor first.** The monitor plays one file at a time, and that file is otherwise the tutor's voice (§4.9). The cue does not start while she speaks; it starts as soon as the monitor is free, which is usually at once, because her prompt to ring is cut short by the ring it asks for. If she begins during the cue her line replaces it, and when ring ends the cue is stopped only if it is still what the monitor plays.
+
+**Off.** `ring_cue = false` in the configuration turns it off. The game program also leaves it off, with a warning in its log, if the file is not in its wav directory at start, and gives it up until restart if the audio program reports it `missing`.
+
 # 7. The Page
 
 ## 7.5 Diagnostics
@@ -750,6 +772,17 @@ Rev 25. Tests of one circuit at a time, from the page, for bring-up and fault-fi
 **With a game.** Tests run whether or not a game is running. A test on a circuit that is in a call, or that the call's slot has taken, is refused on `game/error`, and a circuit under test is busy for dealing (§4.4), so no scene is dealt onto it and no call takes that trunk. The tap belongs to no call, so its tests are always allowed; the operator hears them. Stop ends every test (§3), as does the game program losing a client or restarting.
 
 **Not fitted.** A test on a circuit beyond `stations` or `trunks` (§6.5) is refused on `game/error`, and the page does not offer it.
+
+## 7.6 Board Sweeps
+
+Rev 50. A check of the cabling, from the Stream Deck (§7.4), with no game running. `game/sweep/set` `"trunks"` or `"stations"` starts one, and `"off"` stops it; the game program echoes the sweep running on `game/sweep`, `""` when none is.
+
+- **Trunks.** Each fitted trunk in turn, 1 to `trunks`, gets one short ring (`shortring/set`, control.md §8.4), and the next follows 2s after the 1s burst ends. Each trunk lamp that works latches and stays lit until a cord goes in and out of its jack.
+- **Stations.** Each station cabled to a jack, in jack order — the rows from the top, 21–30, 11–20, 1–10, each left to right (§7.1) — goes off-hook (`hook/set`) for 1s, and the next follows 2s after it goes back on-hook.
+
+Out-of-service circuits (§6.5) are swept with the rest, since a sweep is how one is found to work again; the log line says it is out of service. A circuit under a diagnostic (§7.5) is passed over, so a sweep never releases a hook the page is holding. Each step goes on the game log (§6.2), `test stations: jack 23 (463), station 11 off-hook`, so the page shows where the sweep has got to, and the circuit's own echoes light its tile.
+
+A sweep is refused on `game/error` while a game runs. Start ends one before the game starts, and so do Stop and anything else that stops a game (§3); the circuit under way is put back — the station on-hook, the burst cancelled. A new sweep ends one already running.
 
 ## 7.1 Layout
 
@@ -833,8 +866,8 @@ It follows every rule of §7.2. It shows only what was echoed, and a press chang
 | 2 Stop | "Stop", lit while `run` is `"on"`; "Stop again" in red for 3s after a first press | Arms it. A second press within 3s publishes `run/set` `"off"`. |
 | 3 Pacing | "Tutor", "Manual", "Auto" and "Listen", one per line, the echoed `pace` lit (Rev 16; Tutor from Rev 32) | `pace/set` with the next of the four in that order, wrapping from Listen to Tutor. Absolute; counted from the last press while its echo is outstanding, and from the echo once it arrives or 1s after the press. |
 | 4 Next Call | "Next" over "Call", lit violet while a game runs (Rev 18), flashing once a second while `game/tutor/waiting` is `"more"` or `"next"` and she is not speaking (§4.9, Rev 33); in automatic pacing, auto or listen, the countdown to `next_at` in place of "Call", or "waiting" while none is scheduled | `next/set`, at QoS 0, guarded as §4.1: dark from the press until `started` changes, `game/error` is published, or 3s pass. |
-| 5 Calls | `started` and in progress | nothing |
-| 6 Score | success and fail | nothing |
+| 5 Calls | `started` and in progress; "Testing" over "trunks", lit amber, while that sweep runs (Rev 50) | nothing. Pressed twice within 0.5s with no game running, `sweep/set` `"trunks"`, or `"off"` while a sweep runs (§7.6, Rev 50) |
+| 6 Score | success and fail; "Testing" over "stations", lit amber, while that sweep runs (Rev 50) | nothing. Pressed twice within 0.5s with no game running, `sweep/set` `"stations"`, or `"off"` while a sweep runs (§7.6, Rev 50) |
 | 7 Percent | success percentage of handled. While the tutor has a line to repeat (§4.9, Rev 34), "Repeat" over "Help" instead, lit amber, and dark while she speaks | nothing. While she has a line to repeat, `repeat/set` at QoS 0, then dark for 1s or until her voice starts, so a double press does not say it twice. At Rev 31 only, More Help during the tutor's introduction |
 | 8 Health | a lamp each for the game program, the controller and the audio program, red when offline or its heartbeat is 2.5s late; the whole key red while `game/error` is set. While the tutor introduces the board (§4.9, Rev 32), "More" over "Help" instead, lit amber while a further part remains, and flashing once a second while `game/tutor/waiting` is `"more"` (Rev 33) | shows the last `game/error` on the strip again. While the tutor introduces the board, `more/set` at QoS 0, guarded as Next Call is: dark from the press until `game/tutor/intro` changes, or 3s pass. Rev 29 to Rev 31 key 8 was the tutor switch. |
 

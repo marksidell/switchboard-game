@@ -48,6 +48,7 @@ NEXT_GUARD = 3.0     # Next Call re-enables regardless (§4.1)
 ERROR_SHOW = 5.0     # an error across the strip (§7.4)
 DIAL_HOLD = 1.0      # a dial's target outlives its last detent by this
 RESCAN = 2.0         # look for a deck this often while there is none
+DOUBLE = 0.5         # a second press within this is a double press (§7.6)
 
 KEY_PX = 120
 STRIP_W, STRIP_H = 800, 100
@@ -89,6 +90,9 @@ PACES = (("tutor", "Tutor"), ("manual", "Manual"), ("auto", "Auto"), ("listen", 
 
 Command = tuple[str, str, int]           # topic under sbgame/, payload, QoS
 
+# Keys 5 and 6 (0-based 4 and 5), double-pressed: a board sweep (§7.6, Rev 50).
+SWEEP_KEYS = {4: "trunks", 5: "stations"}
+
 
 # ---- the panel: state and rules, no I/O ------------------------------------
 
@@ -114,6 +118,8 @@ class Panel:
         self.targets: list[list[float] | None] = [None] * len(DIALS)
         # The pacing key's target, as a dial's: [pace, time of the press].
         self.pace_target: tuple[str, float] | None = None
+        # The last press of a sweep key (§7.6, Rev 50): [key, time].
+        self.last_sweep_press: tuple[int, float] | None = None
 
     # -- reading --
 
@@ -177,7 +183,8 @@ class Panel:
 
     def tutor_speaking(self) -> bool:
         """Her voice is on the loudspeaker now (audio.md §10.4)."""
-        return self.get("audio/monitor/play") not in ("", "missing")
+        p = self.get("audio/monitor/play")
+        return p not in ("", "missing") and not p.startswith("cue.")   # not the ring cue (Rev 51)
 
     def repeat_shown(self) -> bool:
         """Key 7 is Repeat Help (§4.9, Rev 34)."""
@@ -212,7 +219,8 @@ class Panel:
         else:
             self.s.pop(key, None)
 
-        if key == "audio/monitor/play" and payload != old:
+        if key == "audio/monitor/play" and payload != old and not (
+                payload.startswith("cue.") or old.startswith("cue.")):
             self.repeat_guard_until = 0.0  # she began, or finished (Rev 34)
         if key == "game/tutor/intro" and payload != old:
             self.more_guard_until = 0.0  # her next part began (Rev 31)
@@ -255,6 +263,8 @@ class Panel:
             if self.get("game/error"):
                 self.error_until = now + ERROR_SHOW
             return []
+        if key in SWEEP_KEYS:
+            return self._sweep_key(key, now)
         if key >= 4 or self.game_stale(now):
             return []                    # a greyed key does nothing (§7.4)
         running = self.running()
@@ -285,6 +295,20 @@ class Panel:
             self.next_guard_until = now + NEXT_GUARD
             return [("game/next/set", "", 0)]
         return []
+
+    def _sweep_key(self, key: int, now: float) -> list[Command]:
+        """Keys 5 and 6 double-pressed start a board sweep with no game
+        running; either double-pressed during one stops it (§7.6, Rev 50).
+        A single press still does nothing."""
+        last, self.last_sweep_press = self.last_sweep_press, (key, now)
+        if last is None or last[0] != key or now - last[1] > DOUBLE:
+            return []
+        self.last_sweep_press = None
+        if self.game_stale(now) or self.running():
+            return []
+        if self.get("game/sweep"):
+            return [("game/sweep/set", "off", 1)]
+        return [("game/sweep/set", SWEEP_KEYS[key], 1)]
 
     def on_dial(self, dial: int, detents: int, now: float) -> list[Command]:
         """Dial 0-3 turned by `detents` (negative anticlockwise)."""
@@ -403,12 +427,23 @@ class Panel:
         v = self.num(k)
         return int(v) if v is not None else 0
 
+    def _k_sweep(self, key: int, now: float) -> Image.Image | None:
+        """A sweep key while its sweep runs (§7.6), else None."""
+        kind = SWEEP_KEYS[key]
+        if self.get("game/sweep") != kind or self.game_stale(now):
+            return None
+        return _key("Testing", kind, fill=AMBER, ink=BG, size=26)
+
     def _k_calls(self, now: float) -> Image.Image:
+        if (img := self._k_sweep(4, now)) is not None:
+            return img
         ink = GREY if self.game_stale(now) else INK
         return _pair(("started", str(self._tally("game/started"))),
                      ("on now", str(self.in_progress())), ink)
 
     def _k_score(self, now: float) -> Image.Image:
+        if (img := self._k_sweep(5, now)) is not None:
+            return img
         ink = GREY if self.game_stale(now) else INK
         return _pair(("ok", str(self._tally("game/success"))),
                      ("fail", str(self._tally("game/fail"))), ink)

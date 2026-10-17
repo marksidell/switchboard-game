@@ -24,7 +24,8 @@ from pathlib import Path
 from .board import Board
 from .config import Config
 from .game import Game
-from .link import Link
+from . import cue
+from .link import Hw, Link
 from .script_data import build, fit
 from .session import SessionLog
 from tts.script import ScriptError
@@ -95,6 +96,12 @@ async def run(cfg: Config) -> int:
         asyncio.create_task(game.run_scheduler(), name="scheduler"),
         asyncio.create_task(game.watch_clients(), name="clients"),
     ]
+    if cfg.ring_cue:                                # §6.6, Rev 51
+        if (cfg.resolved("wav_dir") / f"{cue.CUE}.wav").is_file():
+            tasks.append(asyncio.create_task(cue.RingCue(board, Hw(link)).run(), name="ring-cue"))
+        else:
+            log.warning("ring cue: no %s.wav in %s; off (tts/cue makes it)",
+                        cue.CUE, cfg.resolved("wav_dir"))
     log.info("running; broker %s:%d as %s",
              cfg.broker_host, cfg.broker_port, cfg.username)
     try:
