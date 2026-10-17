@@ -620,7 +620,7 @@ async def main() -> int:
         await asyncio.sleep(0.6)
         check(any(c.scene == "p0" for c in g.slots),
               "starts by itself on a clear board, without Next Call (Rev 41)")
-        check("p0" not in g._scenarios_dealt, "and its once-a-game play is not used up")
+        check("p0" in g._scenarios_dealt, "and it is its once-a-game play (Rev 49)")
         await g.stop("stop")
         sched.cancel()
         await sess.close()

@@ -590,6 +590,9 @@ class Game:
                     and self.deck.take(q, self._held())):
                 scene = q
                 self.queued = ""
+                if q.after_handled is not None:
+                    # §4.10, Rev 49: a chosen scenario is its play for the game.
+                    self._scenarios_dealt.add(q.id)
                 assert self.link is not None
                 await self.link.state("game/queue", "")
                 await self._say(f"chosen scene {q.id} dealt")
