@@ -58,24 +58,7 @@
           "width": 0.0
         }
       ],
-      "drc_exclusions": [
-        [
-          "padstack|363590000|317699600|92f980e7-c705-4475-af63-c0083294603b|00000000-0000-0000-0000-000000000000",
-          "mounting hole"
-        ],
-        [
-          "padstack|410630800|317699600|e40c19c8-8feb-48c1-bc42-f70dc0dd8808|00000000-0000-0000-0000-000000000000",
-          "mounting hole"
-        ],
-        [
-          "padstack|432640000|317699600|d1de2b45-244f-4c2c-b91b-c54341eeaaec|00000000-0000-0000-0000-000000000000",
-          "mounting hole"
-        ],
-        [
-          "padstack|479680800|317699600|0634ddf4-e97c-4fb3-8b4b-caae57156c9a|00000000-0000-0000-0000-000000000000",
-          "mounting hole"
-        ]
-      ],
+      "drc_exclusions": [],
       "meta": {
         "version": 2
       },
@@ -205,6 +188,7 @@
       ],
       "track_widths": [
         0.0,
+        0.4,
         0.6
       ],
       "tuning_pattern_settings": {
