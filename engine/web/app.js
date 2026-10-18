@@ -319,7 +319,13 @@ document.getElementById('tools').addEventListener('click', (e) => {
   // runs: a playback would be recorded, and recording one is not the point.
   if (id === 'rec-btn') {
     if (recording()) send('record', 'off');
-    else if (!playing()) send('record', 'on');
+    else if (!playing()) {
+      // Tools closes, as it does when a recording is chosen to play: the
+      // indicator beside Tools is the sign it runs, and the stop.
+      send('record', 'on');
+      document.getElementById('tools').hidden = true;
+      render();
+    }
   }
   if (id === 'play-btn') {
     if (playing()) send('playback', 'stop');
