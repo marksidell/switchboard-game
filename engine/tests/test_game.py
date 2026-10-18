@@ -524,6 +524,19 @@ async def main() -> int:
         await g.on_command("record", "on")
         check(("audio/record/set", "on") in link.sent, "a recording starts with a game running")
         await g.stop("stop")
+        await b.update("audio/record", "2026-10-18-14-32-05")
+        link.sent.clear()
+        await g.on_command("playback", "2026-10-18-09-16-06")
+        check(link.sent == [] and "not while recording" in link.state_v.get("game/error", ""),
+              "no playback while recording")
+        await b.update("audio/record", "off")
+        await b.update("audio/playback", "2026-10-18-09-16-06")
+        await g.on_command("record", "on")
+        check(link.sent == [] and "not while a recording plays back" in link.state_v.get("game/error", ""),
+              "no recording while one plays back")
+        await g.on_command("record", "off")
+        check(link.sent == [("audio/record/set", "off")], "but off is always passed on")
+        await b.update("audio/playback", "")
 
         print("\n== a chosen next scene (§4.8, Rev 25)")
         scenes = link.state_v.get("game/scenes", "").split("\n")

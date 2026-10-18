@@ -228,6 +228,9 @@ class Game:
                 if payload != "stop" and self.running:
                     await self._error("playback: not while a game runs")
                     return
+                if payload != "stop" and self.b.get("audio/record") not in ("", "off", "failed"):
+                    await self._error("playback: not while recording")
+                    return
                 if not self.b.audio_up:
                     await self._error("playback: the audio program is offline")
                     return
@@ -245,6 +248,9 @@ class Game:
                 # Start leave it alone.
                 if payload not in ("on", "off"):
                     await self._error(f"record: {payload!r} is not on or off")
+                    return
+                if payload == "on" and self.b.get("audio/playback") not in ("", "missing"):
+                    await self._error("record: not while a recording plays back")
                     return
                 if not self.b.audio_up:
                     await self._error("record: the audio program is offline")

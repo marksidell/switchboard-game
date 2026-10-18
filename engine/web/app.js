@@ -315,8 +315,16 @@ document.getElementById('tools').addEventListener('click', (e) => {
     send('sweep', get('game/sweep') === w.dataset.sweep ? 'off' : w.dataset.sweep);
   // Recording and playback (§7.7, Rev 61).
   const id = e.target.closest('button') && e.target.closest('button').id;
-  if (id === 'rec-btn' && !recording()) send('record', 'on');
-  if (id === 'play-btn' && get('game/run') !== 'on') showRecordings();
+  // Each button stops what it started, and neither starts while the other
+  // runs: a playback would be recorded, and recording one is not the point.
+  if (id === 'rec-btn') {
+    if (recording()) send('record', 'off');
+    else if (!playing()) send('record', 'on');
+  }
+  if (id === 'play-btn') {
+    if (playing()) send('playback', 'stop');
+    else if (!recording() && get('game/run') !== 'on') showRecordings();
+  }
 });
 // Their indicators, beside Tools, are the stops.
 document.getElementById('rec-ind').onclick = () => send('record', 'off');
@@ -326,6 +334,11 @@ document.getElementById('play-ind').onclick = () => send('playback', 'stop');
 function recording() {
   const r = get('audio/record');
   return r === 'off' || r === 'failed' ? '' : r;
+}
+/** Whether a recording is playing back (audio.md §10.7). */
+function playing() {
+  const p = get('audio/playback');
+  return p !== '' && p !== 'missing';
 }
 /** The local time a recording's name gives, in seconds since the epoch. */
 function nameTime(name) {
@@ -407,17 +420,16 @@ function renderTools() {
   const rec = recording();
   const recBtn = document.getElementById('rec-btn');
   recBtn.classList.toggle('on', !!rec);
-  recBtn.classList.toggle('dis', !!rec || audioDown);
+  recBtn.classList.toggle('dis', !rec && (playing() || audioDown));
   recBtn.textContent = rec ? 'recording' : get('audio/record') === 'failed' ? 'record (failed)' : 'record';
   document.getElementById('rec-ind').hidden = !rec;
 
   const play = get('audio/playback');
-  const playing = play !== '' && play !== 'missing';
   const playBtn = document.getElementById('play-btn');
-  playBtn.classList.toggle('on', playing);
-  playBtn.classList.toggle('dis', running || audioDown);
-  playBtn.textContent = play === 'missing' ? 'play… (missing)' : 'play…';
-  document.getElementById('play-ind').hidden = !playing;
+  playBtn.classList.toggle('on', playing());
+  playBtn.classList.toggle('dis', !playing() && (running || !!rec || audioDown));
+  playBtn.textContent = playing() ? 'playing' : play === 'missing' ? 'play… (missing)' : 'play…';
+  document.getElementById('play-ind').hidden = !playing();
   tickIndicators();
 }
 
@@ -431,10 +443,9 @@ function tickIndicators() {
     document.getElementById('rec-time').textContent = hms(t);
     document.querySelector('#rec-ind .dot').classList.toggle('off', t - Math.floor(t) >= 0.5);
   }
-  const play = get('audio/playback');
   // The time played alone: the bar has no room for the length too, which
   // the list shows.
-  if (play !== '' && play !== 'missing')
+  if (playing())
     document.getElementById('play-time').textContent = hms((Date.now() - playSince) / 1000);
 }
 setInterval(tickIndicators, 100);
