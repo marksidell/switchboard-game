@@ -27,6 +27,11 @@
 #include "../src/alsa.h"
 #include "../src/engine.h"
 #include "../src/options.h"
+#include "../src/rec.h"
+
+#include <sndfile.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 // Count of failed checks; main() returns non-zero if any failed.
 static int failures = 0;
@@ -1069,6 +1074,87 @@ static void test_monitor_limit()
     check(same, "speech peaking at -36dBFS passes untouched");
 }
 
+// test_recording()
+//   audio.md 10.6, Rev 22: the audio thread hands the monitor row over only
+//   while a recording runs; the Recorder writes it with the makeup gain that
+//   puts --monitor-limit at -1dBFS, to a WAV named for the local time.
+static void test_recording()
+{
+    std::printf("loudspeaker recording (audio.md 10.6, Rev 22)\n");
+    char dir[] = "/tmp/sbaudio_rec_XXXXXX";
+    if (!mkdtemp(dir)) { check(false, "a temporary directory"); return; }
+
+    auto sh = std::make_unique<Shared>();
+    sh->opt.record_dir = dir;
+    sh->opt.monitor_limit_db = -30.0;
+    AlsaStream st;
+    Engine eng(*sh, st);
+    Recorder rec(*sh);
+    rec.prepare();
+    if (!eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH)) { check(false, "engine"); return; }
+
+    std::vector<float> got(4096);
+    eng.capture_for_test();
+    check(sh->rec_ring.read(got.data(), got.size()) == 0, "not recording: nothing handed over");
+    sh->rec_on.store(true);
+    for (int i = 0; i < 4; ++i) eng.capture_for_test();
+    sh->rec_on.store(false);
+    check(sh->rec_ring.read(got.data(), got.size()) == 1024, "recording: every period handed over");
+
+    const std::string name = rec.start();
+    check(name.size() == 19 && name[4] == '-' && name[10] == '-' && name[13] == '-'
+          && name[16] == '-', "named YYYY-MM-DD-HH-MM-SS");
+    check(sh->rec_on.load(), "start sets rec_on");
+    const double amp = db_to_lin(-40.0);
+    std::vector<float> sig(256 * 188);
+    for (size_t i = 0; i < sig.size(); ++i)
+        sig[i] = (float)(amp * std::sin(2.0 * M_PI * 1000.0 * (double)i / chan::SAMPLE_RATE));
+    for (size_t i = 0; i < sig.size(); i += 256) sh->rec_ring.write(&sig[i], 256);
+    rec.service(monotonic_s());
+    rec.stop(false);
+    check(!sh->rec_on.load() && !rec.running(), "stop clears rec_on");
+
+    const std::string path = std::string(dir) + "/" + name + ".wav";
+    SF_INFO info; std::memset(&info, 0, sizeof info);
+    SNDFILE* f = sf_open(path.c_str(), SFM_READ, &info);
+    check(f != nullptr, "the WAV is there");
+    if (f) {
+        check(info.frames == 256 * 188 && info.samplerate == 48000 && info.channels == 1
+              && (info.format & SF_FORMAT_SUBMASK) == SF_FORMAT_PCM_16,
+              "every sample, 48kHz mono 16-bit");
+        std::vector<float> back((size_t)info.frames);
+        sf_read_float(f, back.data(), info.frames);
+        sf_close(f);
+        float pk = 0.0f;
+        for (float v : back) pk = std::max(pk, std::fabs(v));
+        check_near(lin_to_db(pk), -40.0 + 29.0, 0.1, "makeup: -40dBFS in, -11dBFS in the file");
+    }
+
+    const std::string again = rec.start();
+    rec.stop(false);
+    check(!again.empty() && again != name, "a second recording does not overwrite the first");
+
+    // audio.md 10.7: the list, newest first, and playback at the monitor's level.
+    check(rec.list() == again + " 0\n" + name + " 1", "the list: newest first, with seconds");
+    Player pl(*sh);
+    check(!pl.start("../etc/passwd") && !pl.start("2026-10-18-x"), "a name not a recording's is refused");
+    check(pl.start(name) && pl.name() == name && !sh->play_on.load(), "start: named, samples next pass");
+    pl.service();
+    check(sh->play_on.load() && sh->play_ring.available() > 0, "next pass: playing, ring filled");
+    float pk = 0.0f;
+    for (int i = 0; i < 40; ++i) {
+        eng.capture_for_test();
+        for (float v : eng.monitor_row()) pk = std::max(pk, std::fabs(v));
+    }
+    check_near(lin_to_db(pk), -40.0, 0.1, "played back at the level recorded: -40dBFS");
+    while (pl.service() == false && sh->play_ring.available() > 0)
+        eng.capture_for_test();
+    for (int i = 0; i < 300 && !pl.name().empty(); ++i) { eng.capture_for_test(); pl.service(); }
+    check(pl.name().empty() && !sh->play_on.load(), "the end of the file ends the playback");
+    std::string cmd = std::string("rm -rf ") + dir;
+    check(std::system(cmd.c_str()) == 0, "cleaned up");
+}
+
 int main()
 {
     log_start();
@@ -1086,6 +1172,7 @@ int main()
     test_tap_play();
     test_monitor_play();
     test_trunk_tones();
+    test_recording();
     std::printf("\n%s\n", failures ? "FAILURES" : "all checks passed");
     return failures ? 1 : 0;
 }
