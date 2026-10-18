@@ -1280,10 +1280,10 @@ scenes:
         request:
             id: 1
             operator: outside-greeting
-            text: Hotel Ballard? Long distance. Time and charges on room 302. Portland, Oregon. Four minutes. One dollar and ten cents.
+            text: Hotel Ballard? Long distance. Time and charges on room 302. Portland, Oregon. Three minutes. Eighty-five cents.
         closing:
             id: 2
-            text: Room 302, four minutes, one dollar and... Operator? Oh, dear.
+            text: Room 302, three minutes, eighty-five... Operator? Oh, dear.
 
     # From the lobby house phone, outgoing.
     pike-taxi:
@@ -4182,10 +4182,10 @@ scenes:
             -   id: 11
                 caller: I am Sixty-seven, Lucinda. Good night.
             -   id: 27
-                called: Seattle? Time and charges for room 205. Six minutes. Three dollars and forty cents.
+                called: Seattle? Time and charges for room 205. Three minutes. Two dollars and forty cents.
                 person: operator
             -   id: 28
-                caller: Three dollars and forty cents, and just to be told I am old. Carry on.
+                caller: Two dollars and forty cents, and just to be told I am old. Carry on.
 
     # The long-distance operator rings back with the time and charges, once,
     # and hangs up (game_control.md 4.6, Rev 24).
@@ -4199,10 +4199,10 @@ scenes:
         request:
             id: 1
             operator: outside-greeting
-            text: Hotel Ballard? Long distance. Time and charges on room 205. Savannah, Georgia. Six minutes. Three dollars and forty cents.
+            text: Hotel Ballard? Long distance. Time and charges on room 205. Savannah, Georgia. Three minutes. Two dollars and forty cents.
         closing:
             id: 2
-            text: Room 205, six minutes, three dollars and... Hello? Operator?
+            text: Room 205, three minutes, two dollars and... Hello? Operator?
 
     restaurant-beaumont:
         active: true

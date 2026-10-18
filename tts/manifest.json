@@ -703,14 +703,14 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "operator",
-    "text_sha": "d43bdb19e80c960a",
+    "text_sha": "4cb0f75c1ff9ac09",
     "voice_sha": "de0064007835d7a7"
   },
   "beaumont-sister.28": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "beaumont",
-    "text_sha": "fd55e7f3a5c1aa14",
+    "text_sha": "09cc02c2ed50852b",
     "voice_sha": "c2d92a0fe0febf55"
   },
   "beaumont-sister.3": {
@@ -7444,28 +7444,28 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "operator",
-    "text_sha": "9d8efec4beb3d50e",
+    "text_sha": "86c19842b109d38e",
     "voice_sha": "de0064007835d7a7"
   },
   "tc-albright.2": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "hotel_operator",
-    "text_sha": "b94c79e1fa63dd26",
+    "text_sha": "bb724d9f35669ddf",
     "voice_sha": "16619c235a8d72ff"
   },
   "tc-beaumont.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "operator",
-    "text_sha": "1d98d2085731d0bf",
+    "text_sha": "cf92d6702999e17a",
     "voice_sha": "de0064007835d7a7"
   },
   "tc-beaumont.2": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "hotel_operator",
-    "text_sha": "5972b046cd4d44ef",
+    "text_sha": "ebda453df050caa5",
     "voice_sha": "16619c235a8d72ff"
   },
   "tc-dobbs.1": {
@@ -8389,14 +8389,14 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "4f54f4fbeb4c0ca0",
+    "text_sha": "1497b4aeb766bb1e",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.say-tc-beaumont.2": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "fd5e9b4e4c10f122",
+    "text_sha": "1cd7da03b0eeea72",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.say-tc-dobbs.2": {
