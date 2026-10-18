@@ -194,3 +194,11 @@ class Hw:
 
     async def monitor_source(self, source: str) -> None:  # "tap" or a circuit id
         await self._p("audio/monitor/source/set", source)
+
+    async def record(self, on: bool) -> None:
+        """Record the loudspeaker feed (audio.md §10.6), or stop."""
+        await self._p("audio/record/set", "on" if on else "off")
+
+    async def playback(self, name: str) -> None:
+        """Play a recording on the loudspeaker (audio.md §10.7); "stop" stops."""
+        await self._p("audio/playback/set", name)

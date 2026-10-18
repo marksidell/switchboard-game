@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 21 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, All Commanded and Reported over MQTT*
+*Rev 22 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, a Recording of the Loudspeaker to WAV and MP3 and Its Playback, All Commanded and Reported over MQTT*
 
 # 1. Overview
 
@@ -175,6 +175,16 @@ Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout t
 
 — Code consequence, made the same day: `butter_lowpass6()` in `dsp.cpp`, the detector's three sections, and the tests. `sbaudio.service` gains `--vad-floor -70`.
 
+## 1.22 Changes in Rev 22
+
+— The loudspeaker feed can be recorded (§10.6), Mark's request, 2026-10-18: a WAV of what is sent to the audience loudspeaker, named for the local date and time it started, `2026-10-18-14-32-05.wav`, converted to an MP3 beside it when it stops; both are kept. `audio/record/set` `"on"` or `"off"`, echoed on `audio/record` with the file's name, `"off"` or `"failed"` (mqtt.md Rev 36). The game program sends it from the page's Tools (game_control.md Rev 61, §7.7).
+
+— And played back (§10.7): `audio/playback/set` with a recording's name plays it on the loudspeaker in place of the monitor, at the level it was recorded, streamed from the file through a second ring, MQTT thread → audio thread, since an hour's recording is 690MB as floats. `audio/recordings` lists the ten newest with their lengths, for the page to choose from.
+
+— The audio thread touches no file for it (§3): while a recording runs it appends each period's monitor row to a 2^20-sample ring, 21.8s, and the MQTT thread empties the ring into the file on every pass of its 20ms loop. A full ring loses the period and counts it in the log. The MQTT thread already does file I/O, loading files to play (§7.2), so it gains no new kind of work. A recording is not game state: it continues through game and broker loss (§13.2), and stops at `--record-max`, four hours, so a forgotten one does not fill the disk.
+
+— Code consequence, made the same day: `rec.h` and `rec.cpp`, the ring and the Recorder; `Shared::rec_ring` and `rec_on`; the hand-over at the end of `process_capture()`; `handle_record()` and `publish_record()` in `net.cpp`; the Player, `Shared::play_ring` and `play_on`, the playback in place of the monitor row, `handle_playback()`, `publish_playback()` and `publish_recordings()`; `--record-dir` and `--record-max`; `test_recording()`. `sbaudio.service` gains `--record-dir /srv/sbgame/recordings`, which `make -C host sbgame-data` makes, owned by `sidell`. The MP3 needs `lame` on the host (`apt install lame`); without it the WAV is kept and the log says why.
+
 ## 1.21 Changes in Rev 21
 
 — Ringback is the city ring of a real 803C tone alternator, measured from a recording, in place of a 420Hz carrier amplitude-modulated by 40Hz (§8.2). Mark's request, 2026-10-17, after comparing the two: ours had exactly three lines, 380, 420 and 460Hz, and none of the machine's character. The recording, of the Atlanta "755" step-by-step office (atlantatelephonehistory.org, `atlanta:ringing`, `1060-A-1333-755R.wav`; Mark's choice of the samples there), measured: every component a whole multiple of the ringing frequency, 19.744Hz — the machine ran 1.3% slow, and its cadence with it, 1.95s in 6.08s; almost no energy at the nominal 420Hz; the strongest lines at 420 ± 20, ± 60 and ± 100Hz, which is 420Hz multiplied by the 20Hz ringing current, and the 40Hz beat of that; a group near 1240Hz, three times 420, 18dB down; and a comb of low harmonics, 100–320Hz, 17–30dB down. The other two city rings measured, Tucker "938" and "577", have the same lines with the lower sideband strongest. A least-squares fit of the 755 recording to the harmonics of 19.744Hz, kept within 40dB of the strongest — 48 of them, all below 1.4kHz — is set on 20Hz exactly, so 420Hz nominal and the cadence 2s in 6s as before, and one period is 2400 samples. The hiss and the mercury interrupters' "shhh" of the recording, about 20dB under the ring in the silent interval, are not reproduced.
@@ -218,6 +228,8 @@ Three threads and two lock-free queues. Nothing else runs concurrently.
 **Analysis thread.** Receives 4096-sample blocks per capture channel from the audio thread at the 2048-sample hop (§6), runs the FFT and the detector, and hands results to the MQTT thread. It also runs the detector's logging (§11.2). Normal priority. It is separate from the audio thread so that thirty-two 4096-point FFTs every 43ms — a fraction of a millisecond of work, but bursty — never sit inside a period deadline. It waits by polling the snapshot mailbox with a 2ms sleep (§6.1) — chosen over a condition variable so that the audio thread has nothing to signal but an atomic store. Two milliseconds on a 43ms hop is nothing, and 500 empty wake-ups a second are nothing on this host.
 
 **MQTT thread.** Runs the libmosquitto network loop as a polled loop: `mosquitto_loop()` with a 20ms timeout, then drain both result queues and publish, then check the game heartbeat, then repeat. It sleeps in `select()` on the broker socket for up to 20ms or until traffic arrives, so a command is handled as it lands and a result posted by the other two threads waits at most 20ms — inside the detector hop and invisible to the game. When there is no connection `mosquitto_loop()` returns at once, and the loop must sleep the 20ms itself or it spins (Rev 3 code consequence 1). Translates each incoming command into a queue entry for the audio thread; for a file command it loads and validates the file first (§7.2), in the message callback, and passes the audio thread a pointer to a buffer it may not free until the audio thread has released it. Publishes the birth message, holds the LWT, and watches `game_heartbeat` (§13.2). It is the main thread: it becomes the MQTT thread once the other two are started.
+
+**The loudspeaker recording and its playback** (Rev 22, §10.6, §10.7) add two more hand-overs, each a ring of samples with one writer and one reader: audio thread → MQTT thread, written while `Shared::rec_on` is set and emptied into the file; and MQTT thread → audio thread, filled from a recording and played while `Shared::play_on` is set. Neither side waits for the other; a full recording ring drops the period, and an empty playback ring plays silence.
 
 **Command queue**, MQTT thread → audio thread, single-producer single-consumer. Entries are small fixed-size structs: channel, verb, a numeric argument, a buffer pointer for files.
 
@@ -435,6 +447,32 @@ Only the source is gated. A file on the monitor (§10.4) is summed in after the 
 
 Off unless `--monitor-gate` is given. The installation sets −70dBFS, from a recording of the switchboard, 2026-10-16: the gate at 50Hz and −70 brings the worst switch flip or ring at the output, at −12dB monitor gain, from −10.5dBFS to −44.5, below speech, as Rev 17's 100Hz and −60 did; and the loudest authored line reaches it at about −84dBFS on its own line, and the operator's live voice at −99.
 
+## 10.6 Recording the Loudspeaker
+
+Rev 22. `sbgame/audio/record/set` `"on"` starts a recording of the monitor's output — the samples written to channel 24, or the channels `--monitor-ch` names, after the gain and the limiter: what the audience hears, the source and a file on the monitor (§10.4) both, and silence while the monitor is muted. A 1kHz test tone on channel 24 (§11.1) is not in it. `"off"` stops it. Recording runs whether or not a game does.
+
+**The file.** `<--record-dir>/<YYYY-MM-DD-HH-MM-SS>.wav`, the local date and time of the start, every field joined by `-` so the names sort in time order; a second start within the same second adds `-2`. WAV, 48kHz, mono, 16-bit. The header is rewritten after every write, so a crash leaves a file that plays up to the last 20ms.
+
+**The level.** The monitor's own level is set for the amplifier, not for a file: the installation's limiter is at −30dBFS (§10.1). So a fixed makeup gain, −1dB less `--monitor-limit`, is applied on the way to the file — +29dB at −30 — which puts the limiter's ceiling at −1dBFS in the file. Nothing in the file can exceed that, and the monitor's gain still applies, so a recording sounds as loud, relative to full scale, as the loudspeaker does relative to its limiter.
+
+**The MP3.** When a recording stops, the program closes the WAV and starts `nice -n 10 lame --quiet -V 4` on it, writing `<name>.mp3` beside it, and does not wait: the MQTT thread collects the exit status on a later pass and logs the result. The WAV is kept either way. A recording ended by the program's own shutdown (§13.1) is closed and kept, and not converted, since stopping the service would kill the conversion; `lame` by hand does it.
+
+**The hand-over.** The audio thread does no file I/O (§3). While `Shared::rec_on` is set, it appends each period's monitor row to a ring of 2^20 samples, 21.8s, at the end of the capture step. The MQTT thread empties the ring into the file on every pass of its loop, every 20ms, in chunks of 8192 samples, applying the makeup gain. If the MQTT thread falls more than 21s behind, the audio thread drops whole periods rather than wait, and the log's counters line counts them, `recorded periods lost N`. The MQTT thread opens the file before setting `rec_on`, and clears it before closing the file; a period the audio thread appended between the two is discarded at the next start.
+
+**State.** `sbgame/audio/record`, retained: the base name of the file being written, `"off"`, or `"failed"` when the last `"on"` could not open a file — the directory missing or not writable — which persists until the next `record/set`. Echoed by the MQTT thread once the file is open or closed, since the file is that thread's (§12). An `"on"` while recording leaves the recording as it is and echoes its name. At `--record-max`, four hours by default, a recording stops itself, is converted, and the state goes `"off"`.
+
+## 10.7 Playing a Recording Back
+
+Rev 22. `sbgame/audio/playback/set` with a recording's base name, as `audio/recordings` gives it, plays `<--record-dir>/<name>.wav` on the loudspeaker; `"stop"` stops it. A name of anything but digits and dashes in the form §10.6 makes is refused, so the wire cannot reach outside the directory, and so is a file that is not 48kHz mono; either echoes `"missing"`.
+
+**In place of the monitor.** While a recording plays, its samples are the monitor's output: the chain still runs — its filters stay warm and its gate keeps counting — but what goes to channel 24 is the recording, divided by the makeup gain of §10.6, which brings it back to the level the loudspeaker carried when it was made. It is not passed through the monitor's gain or limiter again, which have already acted on it, and it plays whether the monitor is muted or not. A test tone on 24 (§11.1) still displaces it. A recording made while one plays back records the playback.
+
+**Streaming.** An hour's recording is 690MB as floats, so it is not loaded as a file to play is (§7.2). The MQTT thread opens it and keeps a second ring, of the same size as the recording's, two seconds ahead of the audio thread, reading 8192 samples at a time on every pass of its loop. The audio thread takes a period from the ring while `Shared::play_on` is set, and fills with silence anything the ring cannot give; a period short once samples have begun to arrive is counted in the log's counters line, `playback periods short N`. While `play_on` is clear it empties the ring every period, so a new playback started the pass after a stop never begins with the last one's tail. When the file is read to its end and the ring has run dry, the MQTT thread clears `play_on`, closes the file, and `audio/playback` goes `""`.
+
+**State.** `sbgame/audio/playback`, retained: the name playing, `""`, or `"missing"` until the next `playback/set`. Echoed by the MQTT thread, which carries the command out. `sbgame/audio/recordings`, retained: the ten newest recordings in `--record-dir`, newest first, one per line as `<name> <seconds>`, leaving out one being written; published with the initial state and again whenever a recording starts or stops.
+
+Losing the game or the broker does not stop a playback (§13.2); it runs to its end. Shutdown stops it.
+
 # 11. Diagnostics
 
 ## 11.1 Test Tone
@@ -471,14 +509,15 @@ sbgame/station/+/listen/set    sbgame/trunk/+/listen/set
 sbgame/audio/monitor/set
 sbgame/audio/monitor/source/set
 sbgame/audio/test/+/set
+sbgame/audio/record/set        sbgame/audio/playback/set
 sbgame/ctl/game_heartbeat
 ```
 
 Station n is validated 1–22 and trunk n 1–8; a topic outside those ranges, or a `tone/set` on a station, is logged and dropped. The same ranges apply to the circuit id in a `monitor/source/set` payload (§10.3). Nothing is acted on that the program cannot echo.
 
-Every command is acknowledged by its state topic changing, retained, from the audio thread after it has taken effect — the same convention as the ESP32's `hook` echoing `hook/set` (mqtt.md §3). A command that arrives while the program is running and produces no change in the state topic was not acted on, and the log says why.
+Every command is acknowledged by its state topic changing, retained, from the audio thread after it has taken effect — `record/set` and `playback/set` from the MQTT thread, which carries them out (§10.6, §10.7) — — the same convention as the ESP32's `hook` echoing `hook/set` (mqtt.md §3). A command that arrives while the program is running and produces no change in the state topic was not acted on, and the log says why.
 
-Published state at start, before the birth message, so that a subscriber that sees `audio_status` go `online` already has consistent values: `play`, `tone` and `listen` empty for every circuit, `monitor` and `monitor/source` as started, `test/<ch>` off for every channel, then `peer`, `op` and `optone` from the analysis thread's first pass — the MQTT thread raises a flag asking for a full publish and waits for the analysis thread to report that pass done. Only then `sbgame/ctl/audio_status` = `"online"`. The same sequence runs on every reconnect. The values republished are what the program is doing at that moment, not the last values that reached the broker, so a change made while disconnected is what reconnect announces (Rev 9). (Rev 2's program published `online` first and let the detector topics follow up to a hop later — Rev 3 code consequence 3.)
+Published state at start, before the birth message, so that a subscriber that sees `audio_status` go `online` already has consistent values: `play`, `tone` and `listen` empty for every circuit, `monitor` and `monitor/source` as started, `test/<ch>` off for every channel, `record`, `recordings` and `playback` as they are (Rev 22), then `peer`, `op` and `optone` from the analysis thread's first pass — the MQTT thread raises a flag asking for a full publish and waits for the analysis thread to report that pass done. Only then `sbgame/ctl/audio_status` = `"online"`. The same sequence runs on every reconnect. The values republished are what the program is doing at that moment, not the last values that reached the broker, so a change made while disconnected is what reconnect announces (Rev 9). (Rev 2's program published `online` first and let the detector topics follow up to a hop later — Rev 3 code consequence 3.)
 
 # 13. Startup, Shutdown and Failure
 
@@ -486,13 +525,13 @@ Published state at start, before the birth message, so that a subscriber that se
 
 Parse options → open and configure both ALSA handles, link, allocate every buffer, lock memory → compute filter coefficients and FFT plan → start the audio thread and the stream, pilots and operator tone on from the first period → start the analysis thread → connect to the broker with the LWT, subscribe, publish the initial state (§12), publish the birth message. Audio starts before MQTT deliberately: the pilots and the operator tone are part of the switchboard's electrical environment and nothing about them depends on the broker.
 
-SIGTERM or SIGINT: stop every program source and the test tones, clear their state topics, publish `audio_status` = `"offline"` cleanly so the broker does not fire the will, disconnect, stop the stream, exit. The pilots stop with the stream, and every `peer` on the broker goes stale at that moment — which is why `audio_status` exists (mqtt.md §8.1).
+SIGTERM or SIGINT: stop every program source and the test tones, clear their state topics, close a recording, unconverted (§10.6), with `record` `"off"`, stop a playback, publish `audio_status` = `"offline"` cleanly so the broker does not fire the will, disconnect, stop the stream, exit. The pilots stop with the stream, and every `peer` on the broker goes stale at that moment — which is why `audio_status` exists (mqtt.md §8.1).
 
 ## 13.2 Losing the Game or the Broker
 
 The program mirrors the ESP32's rule (mqtt.md §8.2) for the same reason. A game program that has crashed can leave a trunk sending ringback to the operator indefinitely, which presents as a hardware fault. So:
 
-- **Two consecutive missed `game_heartbeat`s** (no beat for 2s): stop every trunk tone and every file, clear their state topics, log it. Pilots, the operator tone and the monitor continue — they are not things the game started and are harmless without it. The monitor's source returns to the tap, under the §10.3 ramp, and `monitor/source` echoes `"tap"`: the calls a circuit source was following have been torn down, and the tap is the one source that is not about a call (Rev 8). Listens in progress are cancelled and cleared; their results would go nowhere. Test tones continue: they are a bench diagnostic, not game state, and stopping them under someone's meter is unhelpful.
+- **Two consecutive missed `game_heartbeat`s** (no beat for 2s): stop every trunk tone and every file, clear their state topics, log it. Pilots, the operator tone and the monitor continue — they are not things the game started and are harmless without it. The monitor's source returns to the tap, under the §10.3 ramp, and `monitor/source` echoes `"tap"`: the calls a circuit source was following have been torn down, and the tap is the one source that is not about a call (Rev 8). Listens in progress are cancelled and cleared; their results would go nowhere. Test tones continue: they are a bench diagnostic, not game state, and stopping them under someone's meter is unhelpful. So does a recording (§10.6, Rev 22): the moment the game is lost is one worth having on it, and `--record-max` ends a forgotten one. A playback (§10.7) runs to its end.
 - **Broker connection lost**: the same stops, applied locally, and reconnect with backoff — 1s, doubling to a 30s ceiling, reset on success; a refused connection (bad credentials, mqtt.md §9) backs off the same way rather than retrying at speed. The will is registered once on the client handle and survives every reconnect. On reconnect: republish all state as at start, then `online`. The will has already published `offline` on the program's behalf. Results the audio and analysis threads post while disconnected are discarded, not queued: the sources they describe were stopped at the disconnect, and the detector republishes in full on reconnect. State is not a result. The state republished on reconnect is read from the program as it stands, so the monitor's return to the tap, made locally while disconnected, is what reconnect announces on `monitor/source` (Rev 9).
 - **The stream fails** and cannot be recovered: exit non-zero. Under systemd, `Restart=on-failure` brings it back and the birth/LWT sequence tells the game what happened. There is no attempt to run without audio.
 
@@ -519,6 +558,8 @@ Command-line options, each with the default given here, and no configuration fil
                        three-bin sum, guards at +-4/+-5
 --wav-dir PATH         wav directory (wav)
 --max-file SECONDS     longest file accepted (120)
+--record-dir PATH      where loudspeaker recordings go (recordings) (§10.6)
+--record-max SECONDS   longest recording; it then stops itself (14400)
 --pilot-db DB          pilot level (-40)
 --op-db DB             operator tone level (-18)
 --tone-db DB           trunk tone peak level (-20)

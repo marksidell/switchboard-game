@@ -165,12 +165,16 @@ sbgame-install: sbgame-user sbgame-deck-user sbgame-data
 ##
 ## The daemon cannot traverse /home/sidell (0750), so it runs against copies.
 ## Re-run this after editing script.yml or regenerating wav/, then restart.
+## Also makes /srv/sbgame/recordings, where sbaudio records the loudspeaker.
 sbgame-data:
 	@$(SUDO) install -d -m 755 /srv/sbgame
 	@$(SUDO) install -m 644 $(REPO)/script.yml /srv/sbgame/script.yml
 	@$(SUDO) rsync -a --delete $(REPO)/wav/ /srv/sbgame/wav/
 	@$(SUDO) chmod -R a+rX /srv/sbgame/script.yml /srv/sbgame/wav
 	@echo "script.yml and `ls /srv/sbgame/wav | wc -l` wavs installed"
+	@# audio.md 10.6: sbaudio, which runs as sidell, writes the loudspeaker
+	@# recordings here. Made once and never emptied by this target.
+	@$(SUDO) install -d -m 755 -o sidell -g sidell /srv/sbgame/recordings
 
 ## sbgame-web - the status page into /srv/sbgame/web
 ##

@@ -26,6 +26,7 @@ let lastGameBeat = 0, lastEspBeat = 0;   // our clock, for staleness
 let stopArmed = 0;                  // Stop needs a second tap within 3 s
 let panelOpen = null;               // "station/7" while its panel is up
 let nextEnabledAt = 0;              // Next Call re-enables after 3 s regardless
+let playSince = 0;                  // our clock when audio/playback last changed
 // A circuit's `peer` going `deaf` or `ambiguous` is a fault only once it has
 // stayed so for a second (§7.1, Rev 52): a relay or the cord switch breaks the
 // line for about 0.2s, and the detector reports `deaf` for that long.
@@ -96,6 +97,9 @@ function connect() {
         delete peerFaultSince[c];
       }
     }
+
+    // When a playback began, by our clock, for its time (§7.7, Rev 61).
+    if (key === 'audio/playback' && text !== get(key)) playSince = Date.now();
 
     if (text === '') delete S[key]; else S[key] = text;
     render();
@@ -305,6 +309,58 @@ document.getElementById('panel-body').addEventListener('click', (e) => {
 document.getElementById('tools').addEventListener('click', (e) => {
   const b = e.target.closest('[data-diag]');
   if (b) toggleDiag(b.dataset.diag);
+  // The board sweeps (§7.6; on the deck's keys 5 and 6 until Rev 61).
+  const w = e.target.closest('[data-sweep]');
+  if (w && get('game/run') !== 'on')
+    send('sweep', get('game/sweep') === w.dataset.sweep ? 'off' : w.dataset.sweep);
+  // Recording and playback (§7.7, Rev 61).
+  const id = e.target.closest('button') && e.target.closest('button').id;
+  if (id === 'rec-btn' && !recording()) send('record', 'on');
+  if (id === 'play-btn' && get('game/run') !== 'on') showRecordings();
+});
+// Their indicators, beside Tools, are the stops.
+document.getElementById('rec-ind').onclick = () => send('record', 'off');
+document.getElementById('play-ind').onclick = () => send('playback', 'stop');
+
+/** The recording's name while one runs (audio.md §10.6), else "". */
+function recording() {
+  const r = get('audio/record');
+  return r === 'off' || r === 'failed' ? '' : r;
+}
+/** The local time a recording's name gives, in seconds since the epoch. */
+function nameTime(name) {
+  const m = /^(\d{4})-(\d\d)-(\d\d)-(\d\d)-(\d\d)-(\d\d)/.exec(name);
+  return m ? new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime() / 1000 : NaN;
+}
+function hms(v) {
+  if (!isFinite(v)) return '';
+  const n = Math.max(0, Math.floor(v));
+  const h = Math.floor(n / 3600), m = Math.floor(n / 60) % 60, s2 = String(n % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${s2}` : `${m}:${s2}`;
+}
+/** audio/recordings: [name, seconds], newest first. */
+function recordings() {
+  return get('audio/recordings').split('\n').filter(Boolean).map((l) => {
+    const [name, secs2] = l.split(' ');
+    return [name, +secs2];
+  });
+}
+
+function showRecordings() {
+  const list = recordings();
+  document.getElementById('rec-list').innerHTML = list.length
+    ? list.map(([n, d]) => `<button data-rec="${esc(n)}">` +
+        `${esc(n.slice(0, 10))} ${esc(n.slice(11, 19).replace(/-/g, ':'))}${esc(n.slice(19))}` +
+        `<span>${esc(hms(d))}</span></button>`).join('')
+    : '<div class="none">No recordings yet.</div>';
+  for (const id of ['tools', 'scenes', 'lamps', 'help']) document.getElementById(id).hidden = true;
+  document.getElementById('recordings').hidden = false;
+}
+document.getElementById('rec-list').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-rec]');
+  if (!b) return;
+  send('playback', b.dataset.rec);
+  document.getElementById('recordings').hidden = true;
 });
 // A long press, as on Next Call, shows the lamp key instead (Rev 53).
 let toolsTimer = null, toolsLong = false;
@@ -316,6 +372,7 @@ toolsBtn.addEventListener('pointerdown', () => {
     document.getElementById('tools').hidden = true;
     document.getElementById('scenes').hidden = true;
     document.getElementById('help').hidden = true;
+    document.getElementById('recordings').hidden = true;
     document.getElementById('lamps').hidden = false;
     render();
   }, 500);
@@ -328,6 +385,7 @@ toolsBtn.onclick = (e) => {
   if (toolsLong) { toolsLong = false; return; }
   const t = document.getElementById('tools');
   t.hidden = !t.hidden;
+  document.getElementById('recordings').hidden = true;
   document.getElementById('scenes').hidden = true;
   document.getElementById('lamps').hidden = true;
   document.getElementById('help').hidden = true;
@@ -340,7 +398,46 @@ function renderTools() {
     const [target, test] = b.dataset.diag.split('/');
     b.classList.toggle('on', diagOn(target, test));
   }
+  const running = get('game/run') === 'on';
+  for (const b of document.querySelectorAll('#tools [data-sweep]')) {
+    b.classList.toggle('on', get('game/sweep') === b.dataset.sweep);
+    b.classList.toggle('dis', running || gameStale());
+  }
+  const audioDown = gameStale() || audioStale();
+  const rec = recording();
+  const recBtn = document.getElementById('rec-btn');
+  recBtn.classList.toggle('on', !!rec);
+  recBtn.classList.toggle('dis', !!rec || audioDown);
+  recBtn.textContent = rec ? 'recording' : get('audio/record') === 'failed' ? 'record (failed)' : 'record';
+  document.getElementById('rec-ind').hidden = !rec;
+
+  const play = get('audio/playback');
+  const playing = play !== '' && play !== 'missing';
+  const playBtn = document.getElementById('play-btn');
+  playBtn.classList.toggle('on', playing);
+  playBtn.classList.toggle('dis', running || audioDown);
+  playBtn.textContent = play === 'missing' ? 'play… (missing)' : 'play…';
+  document.getElementById('play-ind').hidden = !playing;
+  tickIndicators();
 }
+
+// The indicators' times, and the record dot, from one clock, ten times a
+// second, so the dot lights on the very tick the count goes up: lit for the
+// first half of each second recorded, dark for the second half.
+function tickIndicators() {
+  const rec = recording();
+  if (rec) {
+    const t = Date.now() / 1000 + hostOffset - nameTime(rec);
+    document.getElementById('rec-time').textContent = hms(t);
+    document.querySelector('#rec-ind .dot').classList.toggle('off', t - Math.floor(t) >= 0.5);
+  }
+  const play = get('audio/playback');
+  // The time played alone: the bar has no room for the length too, which
+  // the list shows.
+  if (play !== '' && play !== 'missing')
+    document.getElementById('play-time').textContent = hms((Date.now() - playSince) / 1000);
+}
+setInterval(tickIndicators, 100);
 
 // ---- help on a long press (§7.1, Rev 54) ---------------------------------------
 //
@@ -371,7 +468,7 @@ function showHelp(el) {
   const h = document.getElementById('help');
   h.innerHTML = `<h3>${esc(title)}</h3>` + paras.map((t) => `<p>${esc(t)}</p>`).join('') +
                 (range ? `<p class="range">${esc(range)}</p>` : '');
-  for (const id of ['tools', 'scenes', 'lamps']) document.getElementById(id).hidden = true;
+  for (const id of ['tools', 'scenes', 'lamps', 'recordings']) document.getElementById(id).hidden = true;
   h.hidden = false;
   // Under the button, clamped to the window, as a jack's panel is.
   const r = el.getBoundingClientRect(), hr = h.getBoundingClientRect(), pad = 8;
@@ -416,6 +513,7 @@ function showScenes() {
   document.getElementById('tools').hidden = true;
   document.getElementById('lamps').hidden = true;
   document.getElementById('help').hidden = true;
+  document.getElementById('recordings').hidden = true;
   document.getElementById('scenes').hidden = false;
 }
 document.getElementById('scene-list').addEventListener('click', (e) => {
@@ -478,6 +576,7 @@ document.addEventListener('click', (e) => {
     document.getElementById('tools').hidden = true;
     document.getElementById('scenes').hidden = true;
     document.getElementById('lamps').hidden = true;
+    document.getElementById('recordings').hidden = true;
   }
   if (!e.target.closest('#help')) document.getElementById('help').hidden = true;
   if (!e.target.closest('.tile') && !e.target.closest('#panel')) closePanel();
@@ -487,7 +586,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (panelOpen) closePanel();
-  for (const id of ['tools', 'scenes', 'lamps', 'help']) document.getElementById(id).hidden = true;
+  for (const id of ['tools', 'scenes', 'lamps', 'help', 'recordings']) document.getElementById(id).hidden = true;
   render();
 });
 

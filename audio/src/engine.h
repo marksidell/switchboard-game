@@ -14,6 +14,10 @@
 //                      capf_ -> vad_[]         speech detection, per circuit:
 //                                              frames -> Listener (vad.h)
 //                      capf_ row 23 -> mon_row_  the loudspeaker feed
+//                                              play_ring -> mon_row_ while
+//                                              playing back (audio.md 10.7)
+//                                              mon_row_ -> rec_ring while
+//                                              recording (audio.md 10.6)
 //                      hop_if_due()            every 2048: ring_ -> Snapshot
 //   drain_commands()   cmdq -> prog_[], vad_[], test_on_[], monitor gain
 //   render()           pilots + prog_[] + test + mon_row_ -> obuf_
@@ -218,6 +222,9 @@ private:
     std::vector<float> mon_row_;            // this period's monitor samples
 
     unsigned clips_ = 0;                    // clipped samples since last report
+    unsigned rec_lost_ = 0;                 // recorded periods lost, ring full
+    unsigned play_short_ = 0;               // playback periods short, ring dry
+    bool     play_fed_ = false;             // this playback has had samples
 
     // ---- output self-check (audio.md 11.4), by playback channel 1-34.
     // render() sets out_ceil_ to the most each channel should carry this

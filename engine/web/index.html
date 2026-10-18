@@ -53,7 +53,13 @@
 
   <div class="group control"><button id="next" class="big">Next Call</button></div>
 
-  <div class="group control"><button id="tools-btn" class="toggle">Tools</button></div>
+  <!-- Recording and playback in progress (game_control.md 7.7, Rev 61): shown
+       only while one runs, beside Tools; a tap stops it. -->
+  <div class="group control">
+    <button id="tools-btn" class="toggle">Tools</button>
+    <button class="ind" id="rec-ind" hidden><span class="dot"></span><span id="rec-time"></span></button>
+    <button class="ind" id="play-ind" hidden><span class="tri"></span><span id="play-time"></span></button>
+  </div>
 
   <div class="group" id="steppers">
     <div class="stepper listen-only" data-help="pause"><span class="lbl">pause</span>
@@ -107,7 +113,9 @@
 
 <div id="panel" hidden><div id="panel-body"></div></div>
 
-<!-- Tools (game_control.md 7.1, 7.5, Rev 25): diagnostics not tied to a jack. -->
+<!-- Tools (game_control.md 7.1, 7.5, Rev 25): diagnostics not tied to a jack;
+     the board sweeps (7.6) and the loudspeaker's recording and playback (7.7,
+     Rev 61). -->
 <div id="tools" class="sheet" hidden>
   <h3>Tools</h3>
   <h4>Operator</h4>
@@ -116,6 +124,25 @@
     <button class="cmd" data-diag="tap/voice">voice</button>
     <button class="cmd" data-diag="tap/monitor">monitor</button>
   </div>
+  <h4>Diagnostics</h4>
+  <div class="cmd-row">
+    <button class="cmd" data-sweep="trunks">trunks</button>
+    <button class="cmd" data-sweep="stations">stations</button>
+  </div>
+  <h4>Record</h4>
+  <div class="cmd-row">
+    <button class="cmd" id="rec-btn">record</button>
+  </div>
+  <h4>Playback</h4>
+  <div class="cmd-row">
+    <button class="cmd" id="play-btn">play…</button>
+  </div>
+</div>
+
+<!-- Tools, play (game_control.md 7.7, Rev 61): the ten newest recordings. -->
+<div id="recordings" class="sheet" hidden>
+  <h3>Recordings</h3>
+  <div id="rec-list"></div>
 </div>
 
 <!-- A long press on Tools (game_control.md 7.1, Rev 53): what each lamp colour

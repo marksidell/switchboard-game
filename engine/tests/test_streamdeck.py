@@ -78,22 +78,10 @@ def main() -> int:
     c.on_message("audio/monitor/play", "tutor.answer-station", 0)
     check(c.tutor_speaking(), "her line is")
 
-    print("== board sweeps (§7.6, Rev 50)")
+    print("== keys 5 and 6 (Rev 61: the sweeps are on the page)")
     w = live()
-    w.game_stale = lambda now: False     # the heartbeat is not what is under test
-    check(w.on_key(4, 0) == [], "key 5 once does nothing")
-    check(w.on_key(4, 0.3) == [("game/sweep/set", "trunks", 1)], "key 5 twice: trunks")
-    check(w.on_key(4, 0.4) == [], "a third press is a first press again")
-    check(w.on_key(5, 1.0) == [] and w.on_key(5, 1.7) == [], "presses 0.7s apart are two singles")
-    check(w.on_key(4, 2.0) == [] and w.on_key(5, 2.2) == [], "one on each key is not a double")
-    check(w.on_key(5, 3.0) == [] and w.on_key(5, 3.4) == [("game/sweep/set", "stations", 1)],
-          "key 6 twice: stations")
-    w.on_message("game/sweep", "stations", 3.5)
-    check(w._k_score(3.5) is not None and w.on_key(4, 4.0) == []
-          and w.on_key(4, 4.2) == [("game/sweep/set", "off", 1)], "either twice during one stops it")
-    w.on_message("game/sweep", "", 4.3)
-    w.on_message("game/run", "on", 4.3)
-    check(w.on_key(4, 5.0) == [] and w.on_key(4, 5.2) == [], "nothing while a game runs")
+    check(w.on_key(4, 0) == [] and w.on_key(4, 0.3) == [], "key 5 twice does nothing")
+    check(w.on_key(5, 1.0) == [] and w.on_key(5, 1.3) == [], "key 6 twice does nothing")
 
     p.on_message("game/run", "on", 0)
     check(p.on_key(START, 0) == [], "Start ignored while running")

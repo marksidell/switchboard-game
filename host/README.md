@@ -51,7 +51,7 @@ it. What is missing, and where it lives instead:
 ```sh
 sudo apt install mosquitto mosquitto-clients nginx certbot \
                  python3-certbot-dns-route53 dnsutils openssl \
-                 libhidapi-libusb0 fonts-dejavu-core
+                 libhidapi-libusb0 fonts-dejavu-core lame
 
 # the secrets, by hand:
 #   /root/.aws/credentials        [default], 600, the certbot IAM user

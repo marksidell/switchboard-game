@@ -34,6 +34,7 @@
 
 #include "channels.h"
 #include "options.h"
+#include "rec.h"
 #include "spsc.h"
 
 // AudioBuffer - a loaded file. The MQTT thread allocates it, the audio thread
@@ -144,6 +145,19 @@ struct Shared {
     std::atomic<bool> snap_busy[2] { { false }, { false } };
     std::atomic<int>  snap_ready { -1 };   // index of a filled snapshot, or -1
 
+    // ---- the loudspeaker recording, audio -> MQTT (audio.md 10.6, Rev 22).
+    // The Recorder on the MQTT thread sets rec_on once its file is open and
+    // clears it before closing; while it is set the audio thread appends each
+    // period's monitor row to rec_ring.
+    SampleRing        rec_ring;
+    std::atomic<bool> rec_on { false };
+    // Playback of a recording, MQTT -> audio (audio.md 10.7): the Player
+    // fills play_ring and sets play_on; while play_on is set the audio thread
+    // plays play_ring in place of the monitor, and while it is clear empties
+    // it every period.
+    SampleRing        play_ring;
+    std::atomic<bool> play_on { false };
+
     // ---- lifetime and signalling
     std::atomic<bool> running        { true };   // thread lifetime
     std::atomic<bool> quit           { false };  // SIGTERM/SIGINT, or a lost stream
@@ -169,6 +183,8 @@ struct Shared {
     std::atomic<unsigned> limiter_hits { 0 };
     std::atomic<unsigned> gate_hits    { 0 };   // audio.md 10.5: times the gate shut
     std::atomic<unsigned> res_dropped  { 0 };
+    std::atomic<unsigned> rec_dropped  { 0 };   // periods the recording lost, ring full
+    std::atomic<unsigned> play_short   { 0 };   // periods playback ran dry mid-file
 
     // Output self-check (audio.md 11.4), per playback channel 1-34, element 0
     // unused: periods whose peak exceeded the channel's ceiling, and the

@@ -36,6 +36,7 @@ add_library(sbaudio_core STATIC
   src/engine.cpp
   src/detector.cpp
   src/vad.cpp
+  src/rec.cpp
 )
 target_link_libraries(sbaudio_core PUBLIC
   PkgConfig::ALSA PkgConfig::FFTW3F PkgConfig::SNDFILE Threads::Threads)

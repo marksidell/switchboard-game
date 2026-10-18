@@ -46,6 +46,8 @@ static void usage(const char* p)
 "  --client-id NAME       MQTT client id (sbgame-audio)\n"
 "  --wav-dir PATH         wav directory (wav)\n"
 "  --max-file SECONDS     longest file accepted (120)\n"
+"  --record-dir PATH      where loudspeaker recordings go (recordings)\n"
+"  --record-max SECONDS   longest recording; it then stops itself (14400)\n"
 "  --pilot-db DB          pilot level (-40)\n"
 "  --op-db DB             operator tone level (-18)\n"
 "  --tone-db DB           trunk tone peak level (-20)\n"
@@ -171,6 +173,8 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         else if (a == "--client-id")      { o.client_id = nx; ++i; }
         else if (a == "--wav-dir")        { o.wav_dir = nx; ++i; }
         else if (a == "--max-file")       { o.max_file = atof(nx); ++i; }
+        else if (a == "--record-dir")     { o.record_dir = nx; ++i; }
+        else if (a == "--record-max")     { o.record_max = atof(nx); ++i; }
         else if (a == "--pilot-db")       { o.pilot_db = atof(nx); ++i; }
         else if (a == "--op-db")          { o.op_db = atof(nx); ++i; }
         else if (a == "--tone-db")        { o.tone_db = atof(nx); ++i; }
@@ -259,6 +263,7 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
     }
     if (o.lp_stop <= o.lp_pass)           { std::fprintf(stderr, "--monitor-lp: stopband edge must exceed passband edge\n"); return false; }
     if (o.max_file <= 0.0)                { std::fprintf(stderr, "--max-file must be positive\n"); return false; }
+    if (o.record_max <= 0.0)              { std::fprintf(stderr, "--record-max must be positive\n"); return false; }
     // Both are counted in 10 ms frames, so anything under one frame would be
     // zero frames - speech that ends the instant it starts.
     if (o.vad_hangover < 0.01 || o.vad_hangover > 60.0) {

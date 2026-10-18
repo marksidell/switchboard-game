@@ -498,6 +498,33 @@ async def main() -> int:
         check(link.state_v.get("game/sweep") == "" and g._sweep is None, "Stop ends a sweep")
         sweep.BURST, sweep.OFF_HOOK, sweep.PAUSE = 1.0, 1.0, 2.0
 
+        print("\n== recording and playback (§7.7, Rev 61)")
+        check(b.audio_up, "the audio program is up for these")
+        link.sent.clear()
+        await g.on_command("record", "on")
+        await g.on_command("record", "off")
+        check(link.sent == [("audio/record/set", "on"), ("audio/record/set", "off")],
+              "record passed on to the audio program")
+        await g.on_command("record", "maybe")
+        check("not on or off" in link.state_v.get("game/error", ""), "a bad record payload is refused")
+        link.sent.clear()
+        await g.on_command("playback", "2026-10-18-14-32-05")
+        check(link.sent == [("audio/playback/set", "2026-10-18-14-32-05")], "playback passed on")
+        await b.update("audio/playback", "2026-10-18-14-32-05")
+        link.sent.clear()
+        await g.start()
+        check(("audio/playback/set", "stop") in link.sent, "Start stops a playback")
+        await b.update("audio/playback", "")
+        link.sent.clear()
+        await g.on_command("playback", "2026-10-18-14-32-05")
+        check(link.sent == [] and "not while a game runs" in link.state_v.get("game/error", ""),
+              "refused while a game runs")
+        await g.on_command("playback", "stop")
+        check(link.sent == [("audio/playback/set", "stop")], "but stop is not")
+        await g.on_command("record", "on")
+        check(("audio/record/set", "on") in link.sent, "a recording starts with a game running")
+        await g.stop("stop")
+
         print("\n== a chosen next scene (§4.8, Rev 25)")
         scenes = link.state_v.get("game/scenes", "").split("\n")
         check(scenes == g.gs.choosable() and scenes[0], "game/scenes lists the deck's scenes and each scenario's first")

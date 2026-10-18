@@ -296,6 +296,23 @@ button.cmd.on { background: var(--command); color: #fff; }
 .sheet h3 { margin: 0 0 8px; font-size: 14px; }
 .sheet h4 { margin: 8px 0 6px; font-size: 12px; color: var(--dim); text-transform: uppercase; }
 .cmd-row { display: flex; gap: 8px; flex-wrap: wrap; }
+/* Recording and playback (game_control.md 7.7, Rev 61). The indicator beside
+   Tools in the top bar, shown only while one runs, is itself the stop: a red dot that flashes with the count while recording, a
+   play triangle while playing back, each with its time. */
+button.ind { display: inline-flex; align-items: center; gap: 6px; padding: 0 6px;
+             background: transparent; border-color: transparent; font-size: 15px;
+             font-variant-numeric: tabular-nums; }
+/* `display` above would otherwise override the hidden attribute, and the
+   indicators would show with nothing running. */
+button.ind[hidden] { display: none; }
+button.ind .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--danger); }
+button.ind .dot.off { opacity: 0.15; }    /* app.js, in step with the count */
+button.ind .tri { width: 0; height: 0; border-style: solid; border-width: 7px 0 7px 12px;
+                  border-color: transparent transparent transparent var(--ok); }
+#rec-list button { display: flex; justify-content: space-between; align-items: center; width: 100%;
+                   margin: 0 0 4px; font-weight: 400; font-variant-numeric: tabular-nums; }
+#rec-list button span { color: var(--dim); }
+#rec-list .none { color: var(--dim); font-size: 13px; }
 #scene-list button { display: block; width: 100%; text-align: left; margin: 0 0 4px;
                      font-weight: 400; }
 #scene-list button.sel { background: var(--command); }

@@ -218,6 +218,44 @@ class Game:
                 await self._sweep_command(payload)
                 return
 
+            if name == "playback":
+                # §7.7, Rev 61: a recording on the loudspeaker, passed to the
+                # audio program, which echoes audio/playback. Not during a
+                # game: it would play over the calls.
+                if not payload:
+                    await self._error("playback: no recording named")
+                    return
+                if payload != "stop" and self.running:
+                    await self._error("playback: not while a game runs")
+                    return
+                if not self.b.audio_up:
+                    await self._error("playback: the audio program is offline")
+                    return
+                assert self.hw is not None
+                await self.hw.playback(payload)
+                await self._say(f"page: playback {payload}")
+                assert self.link is not None
+                await self.link.state("game/error", "")
+                return
+
+            if name == "record":
+                # §7.7, Rev 61: the loudspeaker recording, passed to the audio
+                # program, which owns the file and echoes audio/record. Not
+                # game state: it runs with or without a game, and Stop and
+                # Start leave it alone.
+                if payload not in ("on", "off"):
+                    await self._error(f"record: {payload!r} is not on or off")
+                    return
+                if not self.b.audio_up:
+                    await self._error("record: the audio program is offline")
+                    return
+                assert self.hw is not None
+                await self.hw.record(payload == "on")
+                await self._say(f"page: recording {payload}")
+                assert self.link is not None
+                await self.link.state("game/error", "")
+                return
+
             if name.startswith("diag/"):
                 await self._diag_command(name.removeprefix("diag/"), payload)
                 return
@@ -444,6 +482,8 @@ class Game:
             return                                  # ignored while running (§3)
         assert self.link is not None and self.slots is not None and self.log is not None
         await self._end_sweep()                     # §7.6: a game takes the board
+        if self.b.get("audio/playback") not in ("", "missing") and self.hw is not None:
+            await self.hw.playback("stop")          # §7.7: and the loudspeaker
         self.running = True
         self._active_at = time.time()
         self._disarm_idle()

@@ -77,6 +77,27 @@ def main() -> int:
                    "app.js", "style.css"):
         check(needed in idx, f"index.html references {needed}")
 
+    # An element the page shows and hides with the hidden attribute must not
+    # be given a display by a rule of its own, or the rule wins and it never
+    # hides - the recording indicators, Rev 61 - unless a [hidden] rule
+    # puts it back.
+    import re
+    css = re.sub(r"/\*.*?\*/", "", (WEB / "style.css").read_text(), flags=re.S)
+    rules = re.findall(r"([^{}]+)\{([^}]*)\}", css)
+    for tag in re.findall(r"<[a-z]+\b[^>]*\bhidden\b[^>]*>", idx):
+        names = ["#" + m for m in re.findall(r'\bid="([^"]+)"', tag)]
+        for c in re.findall(r'\bclass="([^"]+)"', tag):
+            names += ["." + x for x in c.split()]
+        for sel, body in rules:
+            if not re.search(r"\bdisplay\s*:\s*(?!none)", body):
+                continue
+            for one in sel.split(","):
+                last = one.split()[-1] if one.split() else ""
+                hit = [n for n in names if re.fullmatch(r"[a-z]*" + re.escape(n), last)]
+                if hit:
+                    check(f"{last}[hidden]" in css,
+                          f"{last} sets display and has a [hidden] rule")
+
     print("\n" + ("FAILURES" if failures else "the page passed"))
     return 1 if failures else 0
 

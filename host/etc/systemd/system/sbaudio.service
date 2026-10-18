@@ -26,6 +26,7 @@ ExecStart=/usr/local/bin/sbaudio \
     --broker localhost:1883 \
     --mqtt-user sbgame-audio --mqtt-pass-file /etc/sbgame/mqtt-audio.pass \
     --wav-dir /home/sidell/s/sbgame/wav \
+    --record-dir /srv/sbgame/recordings \
     --monitor -12 \
     --monitor-file-trim -18 \
     --monitor-limit -30 \

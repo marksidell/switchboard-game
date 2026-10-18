@@ -26,11 +26,12 @@
 #include <string>
 
 #include "ipc.h"
+#include "rec.h"
 
 class Net {
 public:
     // Net()                                                          [startup]
-    explicit Net(Shared& sh) : sh_(sh) {}
+    explicit Net(Shared& sh) : sh_(sh), rec_(sh), player_(sh) {}
 
     // ~Net()                                                         [startup]
     //   Destroys the libmosquitto client.
@@ -70,6 +71,11 @@ private:
     void handle_monitor(const char* payload);
     void handle_monitor_source(const char* payload);
     void handle_test(int ch, const char* payload);
+    void handle_record(const char* payload);
+    void handle_playback(const char* payload);
+    void publish_record();
+    void publish_recordings();
+    void publish_playback();
 
     void send(const Command& c);
     void publish(const char* topic, const char* value, bool retain = true);
@@ -81,6 +87,10 @@ private:
     void report_counters(double now);
 
     Shared&           sh_;
+    Recorder          rec_;                  // the loudspeaker recording (audio.md 10.6)
+    bool              rec_failed_ = false;   // the last record/set "on" could not open a file
+    Player            player_;               // playing a recording back (audio.md 10.7)
+    bool              play_missing_ = false; // the last playback/set could not be played
     struct mosquitto* m_         = nullptr;  // the libmosquitto client
     bool              connected_ = false;    // CONNACK received, not since lost
     bool              beat_seen_ = false;    // a game heartbeat has ever arrived

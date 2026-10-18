@@ -76,6 +76,7 @@ Net::~Net()
 //   so the first publish_initial() reports it correctly.
 bool Net::prepare()
 {
+    rec_.prepare();
     g_net = this;
     mosquitto_lib_init();
 
@@ -162,6 +163,7 @@ void Net::on_connect(int rc)
         "sbgame/station/+/listen/set", "sbgame/trunk/+/listen/set",
         "sbgame/audio/monitor/set",    "sbgame/audio/monitor/source/set",
         "sbgame/audio/test/+/set",
+        "sbgame/audio/record/set",     "sbgame/audio/playback/set",
         "sbgame/ctl/game_heartbeat"
     };
     for (const char* s : subs) mosquitto_subscribe(m_, nullptr, s, 1);
@@ -412,6 +414,9 @@ void Net::on_message(const char* topic, const char* payload)
         handle_monitor_source(payload); return;
     }
 
+    if (std::strcmp(topic, "sbgame/audio/record/set") == 0) { handle_record(payload); return; }
+    if (std::strcmp(topic, "sbgame/audio/playback/set") == 0) { handle_playback(payload); return; }
+
     if (std::sscanf(topic, "sbgame/audio/test/%d/set", &n) == 1) {
         if (n < 1 || n > chan::N_PLAY_CH) {
             log_line("mqtt: %s - channel out of range 1-%d, dropped", topic, chan::N_PLAY_CH);
@@ -422,6 +427,70 @@ void Net::on_message(const char* topic, const char* payload)
     }
 
     log_line("mqtt: unexpected topic %s", topic);
+}
+
+// handle_record()                                                       [mqtt]
+//   record/set: "on" or "off" (audio.md 10.6, Rev 22). Unlike every other
+//   command this one is carried out on this thread - the file is this
+//   thread's, and the audio thread only reads Shared::rec_on - so it is
+//   echoed from here once the file is open or closed.
+void Net::handle_record(const char* payload)
+{
+    if (std::strcmp(payload, "on") == 0) {
+        log_line("mqtt: record/set on");
+        rec_failed_ = rec_.start().empty();
+    } else if (std::strcmp(payload, "off") == 0) {
+        log_line("mqtt: record/set off");
+        rec_.stop(true);
+        rec_failed_ = false;
+    } else {
+        log_line("mqtt: record/set %s - not on or off, dropped", payload);
+        return;
+    }
+    publish_record();
+    publish_recordings();
+}
+
+// handle_playback()                                                     [mqtt]
+//   playback/set: a recording's name, or "stop" (audio.md 10.7, Rev 22).
+//   Carried out on this thread, as record/set is, and echoed from here.
+void Net::handle_playback(const char* payload)
+{
+    log_line("mqtt: playback/set %s", payload);
+    if (std::strcmp(payload, "stop") == 0) {
+        player_.stop();
+        play_missing_ = false;
+    } else {
+        play_missing_ = !player_.start(payload);
+    }
+    publish_playback();
+}
+
+// publish_recordings()                                                  [mqtt]
+//   audio/recordings: the ten newest, newest first, "<name> <seconds>" a line.
+void Net::publish_recordings()
+{
+    char topic[64];
+    std::snprintf(topic, sizeof topic, "%saudio/recordings", PREFIX);
+    publish(topic, rec_.list().c_str());
+}
+
+// publish_playback()                                                    [mqtt]
+//   audio/playback: the recording playing, "missing", or "" for none.
+void Net::publish_playback()
+{
+    char topic[64];
+    std::snprintf(topic, sizeof topic, "%saudio/playback", PREFIX);
+    publish(topic, !player_.name().empty() ? player_.name().c_str() : play_missing_ ? "missing" : "");
+}
+
+// publish_record()                                                      [mqtt]
+//   audio/record: the base name being written, "off", or "failed".
+void Net::publish_record()
+{
+    char topic[64];
+    std::snprintf(topic, sizeof topic, "%saudio/record", PREFIX);
+    publish(topic, rec_.running() ? rec_.name().c_str() : rec_failed_ ? "failed" : "off");
 }
 
 // ---------------------------------------------------------------- outbound
@@ -504,6 +573,9 @@ void Net::publish_initial()
         topic_for(Topic::Test, ch, topic, sizeof topic);
         publish(topic, test_state_[ch] ? "on" : "off");
     }
+    publish_record();
+    publish_recordings();
+    publish_playback();
 
     // peer, op and optone come from the analysis thread's next hop, and only
     // when that pass is done does run() publish "online" (audio.md 12).
@@ -598,9 +670,12 @@ void Net::report_counters(double now)
     const unsigned l = sh_.limiter_hits.exchange(0);
     const unsigned d = sh_.res_dropped.exchange(0);
     const unsigned g = sh_.gate_hits.exchange(0);
-    if (x || h || c || l || d || g)
+    const unsigned r = sh_.rec_dropped.exchange(0);
+    const unsigned p = sh_.play_short.exchange(0);
+    if (x || h || c || l || d || g || r || p)
         log_line("counters: xruns %u, hops dropped %u, clipped samples %u, "
-                 "limiter %u, gate %u, results dropped %u", x, h, c, l, g, d);
+                 "limiter %u, gate %u, results dropped %u, recorded periods lost %u, "
+                 "playback periods short %u", x, h, c, l, g, d, r, p);
 
     // The output self-check (audio.md 11.4): one line naming every channel
     // that carried more than it should, with its count of periods and its
@@ -671,6 +746,8 @@ void Net::run()
         publish_birth_when_ready(now);
         check_heartbeat(now);
         report_counters(now);
+        if (rec_.service(now)) { publish_record(); publish_recordings(); }
+        if (player_.service()) publish_playback();
 
         if (sh_.audio_failed.load()) {
             log_line("audio: stream lost and not recoverable - exiting");
@@ -717,6 +794,12 @@ void Net::shutdown()
         topic_for(Topic::Test, ch, topic, sizeof topic);
         publish(topic, "off");
     }
+    // audio.md 10.6: a recording ends with the program. Its WAV is closed
+    // and kept; lame is not started, since the service's stop would kill it.
+    rec_.stop(false);
+    publish_record();
+    player_.stop();
+    publish_playback();
     std::snprintf(topic, sizeof topic, "%sctl/audio_status", PREFIX);
     publish(topic, "offline");
 

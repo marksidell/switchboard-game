@@ -607,6 +607,26 @@ void Engine::process_capture()
         if (mf.pos >= mf.buf->samples.size()) stop_source(chan::MONITOR_CH, "");
     }
 
+    // Playback of a recording (audio.md 10.7, Rev 22): in place of the
+    // monitor, already at its level. A ring that runs dry once samples have
+    // started arriving is counted; before the first ones, it is the start.
+    if (sh_.play_on.load(std::memory_order_acquire)) {
+        const size_t n = sh_.play_ring.read(mon_row_.data(), period_);
+        if (n) play_fed_ = true;
+        else if (play_fed_ && n < period_) ++play_short_;
+        std::fill(mon_row_.begin() + (long)n, mon_row_.end(), 0.0f);
+    } else {
+        sh_.play_ring.discard();
+        play_fed_ = false;
+    }
+
+    // The recording (audio.md 10.6, Rev 22): this period's loudspeaker feed,
+    // as sent, to the MQTT thread's file. A full ring loses the period
+    // rather than wait.
+    if (sh_.rec_on.load(std::memory_order_acquire) &&
+        !sh_.rec_ring.write(mon_row_.data(), period_))
+        ++rec_lost_;
+
     ring_w_ = (ring_w_ + period_) & (FFT_N - 1);
     since_hop_ += period_;
     hop_if_due();
@@ -885,6 +905,8 @@ void Engine::run()
         if (now - last_report >= 1.0) {
             if (clips_) { sh_.clips.fetch_add(clips_, std::memory_order_relaxed); clips_ = 0; }
             if (gate_hits_) { sh_.gate_hits.fetch_add(gate_hits_, std::memory_order_relaxed); gate_hits_ = 0; }
+            if (rec_lost_) { sh_.rec_dropped.fetch_add(rec_lost_, std::memory_order_relaxed); rec_lost_ = 0; }
+            if (play_short_) { sh_.play_short.fetch_add(play_short_, std::memory_order_relaxed); play_short_ = 0; }
             const unsigned l = lim_.take_active();
             if (l) sh_.limiter_hits.fetch_add(l, std::memory_order_relaxed);
             for (int ch = 1; ch <= chan::N_PLAY_CH; ++ch) {

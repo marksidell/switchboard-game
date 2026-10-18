@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 35 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
+*Rev 36 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test, Recording), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
 
 # 1. Overview
 
@@ -204,6 +204,10 @@ This document specifies the messages: the topic names, who publishes each, what 
 
 — `trunk/<n>/shortring/set` added (§6, §8.4), following control.md Rev 25, 2026-10-05: `"on"` rings the trunk once for 0.5s, `"off"` cancels the burst; the ESP32 echoes the relay on the existing `ring` topic, `"on"` then `"off"`. The game program uses it to signal a call in on a trunk (game_control.md Rev 28). It is the third command that is not absolute state, after `next/set` and the station's `dial/set`: a duplicate delivered after the first burst has ended rings once more. That is harmless — the switchboard's trunk signal latches, and a second burst on an unanswered trunk changes nothing the operator sees; a duplicate during the burst, or after the trunk is seized, is ignored by the controller. QoS 1 as for every command. The ESP32 subscribes to one more pattern. No existing topic or payload changes.
 
+## 1.36 Changes in Rev 36
+
+— Recording the loudspeaker and playing a recording back, following audio.md Rev 22 and game_control.md Rev 61, 2026-10-18. From the audio program (§5): `audio/record`, the file being written, `"off"` or `"failed"`; `audio/recordings`, the ten newest; `audio/playback`, the recording playing. To it, from the game program (§6): `audio/record/set` and `audio/playback/set`. From the page (§6.2): `game/record/set` and `game/playback/set`, which the game program passes on, so the game program stays the only client that commands audio (§1).
+
 ## 1.35 Changes in Rev 35
 
 — `"reorder"` added to the `tone/set` and `tone` payloads (§5, §6), following audio.md Rev 20 and game_control.md Rev 56, 2026-10-17: the fast busy, for a number dialled with too many digits or too few. One more value on an existing topic; no new topic.
@@ -312,6 +316,9 @@ The audio program publishes what its pilot detector finds, per circuit; the stat
 | `sbgame/audio/monitor` | `"off"` or gain in dB | yes | The loudspeaker feed: muted, or the gain applied, as a signed decimal string. Echoes `monitor/set` after clamping to range (audio.md §10.2). |
 | `sbgame/audio/monitor/source` | `"tap"` or circuit id | yes | The receive channel the loudspeaker is fed from: the operator tap, or that station's or trunk's. Echoes `monitor/source/set` once the switch is made; `"tap"` after the program loses the game or the broker (audio.md §10.3, §13.2; Rev 13). |
 | `sbgame/audio/test/<1-34>` | `"on"` or `"off"` | yes | A 1kHz test tone is on this output channel, displacing everything else on it (audio.md §11.1). |
+| `sbgame/audio/record` | base name, `"off"` or `"failed"` | yes | The loudspeaker recording: the file being written, `<YYYY-MM-DD-HH-MM-SS>` without `.wav`; `"off"` when none; `"failed"` when the last `record/set` `"on"` could not open a file, until the next (audio.md §10.6, Rev 22; Rev 36). |
+| `sbgame/audio/recordings` | lines of `<name> <seconds>`, or `""` | yes | The ten newest recordings, newest first, each with its length in whole seconds; not the one being written. Republished when a recording stops (audio.md §10.7; Rev 36). |
+| `sbgame/audio/playback` | base name, `""` or `"missing"` | yes | The recording playing on the loudspeaker in place of the monitor; empty when none, which is how its end is reported. `"missing"`: the last `playback/set` named one that could not be played, until the next (audio.md §10.7; Rev 36). |
 | `sbgame/audio/optone` | `"ok"` or `"deaf"` | yes | The tap's own operator tone is returning on its own receive channel (station §8.4). `"deaf"` means no circuit can hear the operator either. |
 | `sbgame/ctl/audio_status` | `"online"` or `"offline"` | yes | Birth message and last will (§8). |
 
@@ -339,6 +346,8 @@ The game program is the only client that commands the ESP32 and the audio progra
 | `sbgame/audio/monitor/set` | `"off"` or gain in dB | no | audio | Feed the monitor's source to the loudspeaker at this gain, 0 being unity into A32 output 24, range −60 to +20; or mute. Echoed on `monitor`. |
 | `sbgame/audio/monitor/source/set` | `"tap"` or circuit id | no | audio | Feed the loudspeaker from this receive channel: the operator tap, or a station 1–22 or trunk 1–8. The game program sends the calling line when the operator answers a call, and `"tap"` when a game starts or stops (game_control.md §6.4). Echoed on `monitor/source` (Rev 13). |
 | `sbgame/audio/test/<1-34>/set` | `"on"` or `"off"` | no | audio | 1kHz test tone on this output channel. Echoed on `test/<ch>`. |
+| `sbgame/audio/record/set` | `"on"` or `"off"` | no | audio | Start or stop recording the loudspeaker feed; on stop the program makes an MP3 beside the WAV. Echoed on `audio/record`. Sent by the game program on `game/record/set` (audio.md §10.6; Rev 36). |
+| `sbgame/audio/playback/set` | a recording's base name, or `"stop"` | no | audio | Play that recording on the loudspeaker in place of the monitor, replacing one already playing; `"stop"` stops it. Echoed on `audio/playback`. Sent by the game program on `game/playback/set` (audio.md §10.7; Rev 36). |
 | `sbgame/ctl/game_heartbeat` | host Unix time in seconds | no | ESP32, audio and the page | Every 1s from the game loop (§8). The ESP32 and the audio program use its arrival only; the page also takes the host's clock from it (Rev 10; empty through Rev 9). |
 | `sbgame/ctl/sync` | — | no | ESP32 | Ask the ESP32 to republish every state topic (§8). |
 
@@ -398,6 +407,8 @@ The page's commands, consumed by the game program only (Rev 10). The Stream Deck
 | `sbgame/game/floor/set` | seconds | no | game | Least gap, 0–600 and not above `gap`. Echoed on `floor`. |
 | `sbgame/game/jitter/set` | percent | no | game | Spread of the automatic wait, 0–100. Echoed on `jitter` (Rev 19). |
 | `sbgame/game/pause/set` | seconds | no | game | Listen's wait after the board empties, 0–60. Echoed on `pause` (Rev 22). |
+| `sbgame/game/record/set` | `"on"` or `"off"` | no | game | Start or stop recording the loudspeaker. The game program passes it on as `audio/record/set`; refused on `error` while the audio program is offline. Allowed with or without a game. Its effect shows on `audio/record` (game_control.md §7.7; Rev 36). |
+| `sbgame/game/playback/set` | a name from `audio/recordings`, or `"stop"` | no | game | Play a recording on the loudspeaker, or stop. Passed on as `audio/playback/set`; refused on `error` while a game runs (but `"stop"`) or the audio program is offline. Its effect shows on `audio/playback` (game_control.md §7.7; Rev 36). |
 | `sbgame/game/sweep/set` | `"trunks"`, `"stations"` or `"off"` | no | game | Start a board sweep, or stop one. Refused on `error` while a game runs (game_control.md §7.6; Rev 33). |
 | `sbgame/game/queue/set` | scene id, or `""` | no | game | Deal this scene next, or clear the choice. Refused on `error` if not in `game/scenes`. Echoed on `queue` (Rev 23). |
 | `sbgame/game/repeat/set` | ignored | no | game | Repeat Help: the tutor says her last line again. QoS 0, an event (§2). Refused on `error` when `tutor/repeat` is empty (Rev 31). |
