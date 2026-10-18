@@ -78,10 +78,30 @@ def main() -> int:
     c.on_message("audio/monitor/play", "tutor.answer-station", 0)
     check(c.tutor_speaking(), "her line is")
 
-    print("== keys 5 and 6 (Rev 61: the sweeps are on the page)")
+    print("== board sweeps (§7.6, Rev 62)")
     w = live()
-    check(w.on_key(4, 0) == [] and w.on_key(4, 0.3) == [], "key 5 twice does nothing")
-    check(w.on_key(5, 1.0) == [] and w.on_key(5, 1.3) == [], "key 6 twice does nothing")
+    w.game_stale = lambda now: False     # the heartbeat is not what is under test
+    check(w.on_key(4, 0) == [], "key 5 once does nothing")
+    check(w.on_key(4, 0.3) == [("game/sweep/set", "trunks", 1)], "key 5 twice: trunks")
+    check(w.on_key(4, 0.4) == [], "a third press is a first press again")
+    check(w.on_key(5, 1.0) == [] and w.on_key(5, 1.7) == [], "presses 0.7s apart are two singles")
+    check(w.on_key(4, 2.0) == [] and w.on_key(5, 2.2) == [], "one on each key is not a double")
+    check(w.on_key(5, 3.0) == [] and w.on_key(5, 3.4) == [("game/sweep/set", "stations", 1)],
+          "key 6 twice: stations")
+    check(w._k_sweep(5, 3.4) is None, "nothing shown until the game echoes it")
+    w.on_message("game/sweep", "stations", 3.5)
+    check(w._k_sweep(5, 3.5) is not None and w._k_sweep(4, 3.5) is None,
+          "key 6 shows the station sweep, however it was started")
+    check(w.on_key(4, 4.0) == [] and w.on_key(4, 4.2) == [("game/sweep/set", "off", 1)],
+          "the other key twice stops it")
+    check(w.on_key(5, 4.21) == [("game/sweep/set", "off", 1)], "its own key once stops it")
+    w.on_message("game/sweep", "trunks", 4.25)
+    check(w._k_sweep(4, 4.25) is not None and w._k_sweep(5, 4.25) is None, "key 5 the trunk sweep")
+    check(w.on_key(4, 4.27) == [("game/sweep/set", "off", 1)], "key 5 once stops the trunk sweep")
+    w.on_message("game/sweep", "", 4.3)
+    check(w._k_sweep(4, 4.3) is None, "gone when it ends")
+    w.on_message("game/run", "on", 4.3)
+    check(w.on_key(4, 5.0) == [] and w.on_key(4, 5.2) == [], "nothing while a game runs")
 
     p.on_message("game/run", "on", 0)
     check(p.on_key(START, 0) == [], "Start ignored while running")
