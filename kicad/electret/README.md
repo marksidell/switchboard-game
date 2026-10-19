@@ -21,6 +21,31 @@ induction coil. With R1 = 10 Ω the board takes ≈ 133 mA at ≈ 5.4 V, ≈ 0.7
 
 Recorded by Mark, 2026-10-12.
 
+## Capsule
+
+Same Sky CMC-97452-L100 (Mark, 2026-10-19), replacing the Soberton EM-6027N: wire leads,
+where the EM-6027N's solder pads are hard to wire. 9.7 mm, which a traditional operator's
+headset takes. From distributor listings — Same Sky's datasheet not yet checked, and some
+sellers list a near-identical CMC-9745-L100:
+
+| | CMC-97452-L100 | EM-6027N |
+|---|---|---|
+| Directivity | unidirectional | noise-cancelling |
+| Sensitivity | −37 dB ±3 dB | −42 dB ±3 dB |
+| Supply | 1.5–9 V, 400 µA, 2.2 kΩ | 2 V std, 10 V max, 500 µA max, 2.2 kΩ |
+| Response | 100 Hz–12 kHz | 200 Hz–10 kHz |
+
+No circuit change: through R6 at 400 µA, MIC sits near 2.4 V. About 5 dB hotter than the
+EM-6027N; if the tap level is high, R11 4k7 takes off 6.4 dB. Front toward the mouth,
+rear port left open — directivity depends on it. The lead with continuity to the can is
+−, to J2 pin 2.
+
+## Breadboard, on the switchboard — 2026-10-19
+
+EM-6027N, R1 10 Ω, Mark's meter: 1.25 V across R1 (125 mA), 5.26 V across J1, COLL
+2.3 V, BASE 1.3 V, V1 3.56 V, V2 3.3 V, 2.9 V across the capsule (≈ 0.2 mA). A capsule
+wired backwards reads about 0.56 V there — one diode drop.
+
 ## Receiver low-pass
 
 A passive filter on the receiver pair, J3 (from the switchboard) to J4 (to the
