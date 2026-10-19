@@ -46,6 +46,31 @@ EM-6027N, R1 10 Ω, Mark's meter: 1.25 V across R1 (125 mA), 5.26 V across J1, C
 2.3 V, BASE 1.3 V, V1 3.56 V, V2 3.3 V, 2.9 V across the capsule (≈ 0.2 mA). A capsule
 wired backwards reads about 0.56 V there — one diode drop.
 
+AD3 on OUT and across J1, R11 2k2: a normal count is 268 mV RMS on OUT and clips at
+both rails (0.04 / 3.4 V; 0.68 % of samples), loud 2.7 %. J1 = −0.43 × OUT (R2/R12
+predicts −0.47). Idle: 120 Hz 1.3 mV on OUT (the switchboard battery's ripple), 0.56 mV
+in 300–3400 Hz; the 9 kHz operator tone 0.34 mV across J1.
+
+**R11 2k2 → 4k7, R2 560 → 1k2.** R11 for headroom on OUT. R2 because the line level is
+set by OUT's swing times R2/R12, and OUT was already at its rails: R2 1k2 doubles the gain
+to the line (+6.6 dB) and raises COLL to ≈ 3.5 V, so Q1 has room to swing down and V1,
+and with it OUT's swing, rises (V1 measured 4.5 V).
+
+On station 22's channel, operator on the talk key, counting one to ten; 300–3400 Hz,
+100 ms frames, dBFS. The speech detector's bound is −70:
+
+| | Normal: median / p90 | Frames > −70 | Loud: median / p90 | Idle |
+|---|---|---|---|---|
+| Electret, R2 560, R11 4k7 | −69.3 / −61.7 | 22 of 41 | −58.2 / −46.9 | −93.2 |
+| Electret, R2 1k2, R11 4k7 | −62.8 / −52.1 | 39 of 56 | −59.9 / −44.8 | −89.6 |
+| Carbon, same day | −69.8 / −61.0 | 24 of 47 | −69.1 / −43.2 | −94.6 |
+
+The electret is about 7 dB above the carbon at a normal voice and about 2 dB better above
+its noise; the carbon catches up only on loud peaks. The capsule was in the open, not
+mounted in the headset — repeat with the built board, the CMC-97452-L100 and the capsule
+in the mouthpiece. With the operator on an off-hook station the tap channel (23) reads
+about 16 dB lower than with the station on-hook.
+
 ## Receiver low-pass
 
 A passive filter on the receiver pair, J3 (from the switchboard) to J4 (to the
