@@ -27,9 +27,10 @@ ExecStart=/usr/local/bin/sbaudio \
     --mqtt-user sbgame-audio --mqtt-pass-file /etc/sbgame/mqtt-audio.pass \
     --wav-dir /home/sidell/s/sbgame/wav \
     --record-dir /srv/sbgame/recordings \
-    --monitor -12 \
+    --monitor 0 \
+    --monitor-ch 33 \
     --monitor-file-trim -18 \
-    --monitor-limit -30 \
+    --monitor-limit -18 \
     --monitor-gate -70 \
     --vad-floor -70
 
