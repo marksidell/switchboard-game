@@ -68,7 +68,10 @@ On station 22's channel, operator on the talk key, counting one to ten; 300–34
 The electret is about 7 dB above the carbon at a normal voice and about 2 dB better above
 its noise; the carbon catches up only on loud peaks. The capsule was in the open, not
 mounted in the headset — repeat with the built board, the CMC-97452-L100 and the capsule
-in the mouthpiece. With the operator on an off-hook station the tap channel (23) reads
+in the mouthpiece. With R11 at 4k7 and C8 still 470n, U1A's low corner is 72 Hz, not
+150; when built, record OUT on a loud count with C8 470n and again with 220n (154 Hz) and
+keep 220n if it clips noticeably less — a mouth-close directional capsule's bass takes
+OUT's headroom, and nothing downstream uses it below 150 Hz. With the operator on an off-hook station the tap channel (23) reads
 about 16 dB lower than with the station on-hook.
 
 ## Receiver low-pass
