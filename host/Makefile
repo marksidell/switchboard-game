@@ -36,6 +36,7 @@ FILES := \
   etc/systemd/system/sbgame.service:root:root:644 \
   etc/systemd/system/sbgame-streamdeck.service:root:root:644 \
   etc/systemd/system/sbaudio.service:root:root:644 \
+  etc/systemd/system/sbgame-mqttlog.service:root:root:644 \
   etc/udev/rules.d/70-sbgame-streamdeck.rules:root:root:644 \
   etc/sbgame/game.toml:root:root:644
 
@@ -221,7 +222,7 @@ sim:
 
 ## status - what is running and what is served
 status:
-	@for s in mosquitto nginx certbot.timer sbaudio sbgame sbgame-streamdeck; do \
+	@for s in mosquitto nginx certbot.timer sbaudio sbgame sbgame-streamdeck sbgame-mqttlog; do \
 	  printf '%-16s %s\n' "$$s" "$$(systemctl is-active $$s)"; \
 	done
 	@echo "listeners:"

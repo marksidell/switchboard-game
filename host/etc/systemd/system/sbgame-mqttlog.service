@@ -1,0 +1,38 @@
+# sbgame-mqttlog - every message on the broker's sbgame/ tree, into the journal.
+#
+# A record of play to check problems against afterwards: seizures, peers, the
+# operator's key, dialled digits, tones, plays and the game log, each with the
+# journal's timestamp. Read it with
+#
+#   journalctl -u sbgame-mqttlog -o short-precise --since 15:00
+#
+# The two heartbeats are left out: they are four lines a second and say only
+# that both programs are alive, which their own journals say too. Retained
+# messages replayed on connecting are left out as well (-R), so a restart of
+# this service or of the broker does not repeat the whole state as if it had
+# just happened.
+#
+# User sbgame-web, read-only on sbgame/# (mqtt.md 9). The password goes to
+# mosquitto_sub through its options file rather than -P, so it is not in every
+# `ps` listing.
+
+[Unit]
+Description=551 switchboard simulator MQTT log
+After=mosquitto.service
+Wants=mosquitto.service
+
+[Service]
+Type=exec
+User=sidell
+RuntimeDirectory=sbgame-mqttlog
+RuntimeDirectoryMode=0700
+Environment=XDG_CONFIG_HOME=/run/sbgame-mqttlog
+ExecStartPre=/bin/sh -c 'umask 077; printf -- "-P %%s\\n" "$(cat /etc/sbgame/mqtt-web.pass)" > /run/sbgame-mqttlog/mosquitto_sub'
+ExecStart=/usr/bin/mosquitto_sub -h localhost -u sbgame-web -t sbgame/# \
+    -T sbgame/ctl/game_heartbeat -T sbgame/ctl/esp_heartbeat -R -v
+# The broker restarts on every `make install`; follow it back.
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
