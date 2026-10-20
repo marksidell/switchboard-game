@@ -2,7 +2,7 @@
 
 **Ring Generator Circuit Design**
 
-*Rev 74 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C14 at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J3, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7*
+*Rev 75 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C14 at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J3, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7, Switchboard Power Cut Relay on GPIO15 (Off-Board)*
 
 # 1. Overview
 
@@ -358,6 +358,8 @@ Rev 15 exists because the gate-drive logic threshold in Rev 14 was checked again
 
 — Rev 74: no design change. §9.7 gains T101's winding plan on the core Mark has bought, a TDK E 25/13/7 (EF 25) — 20 primary turns of 0.5mm, about 0.11T peak at 50kHz from ±24V, and about 100 turns of 0.25mm per secondary for a 115V bus — replacing the TY-311P placeholder as the description of T101 (the drawing's symbol is unchanged). The second secondary for the trunks, being considered at Rev 73, fits the window. Material, gap and coil former are assumed (ungapped N87, B66208) until confirmed.
 
+— Rev 75: GPIO15 changes from the waveform sync to the switchboard power cut (§3.2, §7.8), Mark's request, 2026-10-19. A trunk rung in locks its lamp and buzzer on the switchboard's own battery until a cord goes in; cutting the switchboard's leg of the 24V star for 1s clears it. The relay and its driver are off this board, wired to J1 pins 4 and 3 (GPIO15 and GND) and into the switchboard's Powerpole run. Active high, with a 470Ω base pull-down strong enough to hold the transistor off against the Olimex's 10kΩ pull-up on GPIO15 through a reset. Nothing on this board changes. Firmware consequence: control.md Rev 31.
+
 # 2. Signal Path
 
 ## 2.1 Ring Generator
@@ -423,7 +425,7 @@ Verify all four assignments against the Olimex schematic for the board revision 
   GPIO16  I²C SCL    I²C clock (2.2kΩ pull-up to 3.3V on this board)
 ```
 
-GPIO15 Output  Waveform sync, for scope and logic analyser triggering — §12.5. Assigned at Rev 42; brought out on J9 pin 3 at Rev 43, and on J1 pin 4 as built (Rev 68).
+GPIO15 Output  Switchboard power cut, active HIGH, idles LOW — §7.8, Rev 75. J1 pin 4, GND on pins 2 and 3. The Olimex pulls it up with 10kΩ (§7.8). The waveform sync for scope and logic analyser triggering until Rev 75 (§12.5): assigned at Rev 42, brought out on J9 pin 3 at Rev 43, and on J1 pin 4 as built (Rev 68).
 
 GPIO36 Input   Reserved for the Next Call button, active LOW — optoisolator output to ground, R37's 10k pull-up on the Olimex (Rev K). Olimex EXT2 pin 2. Assigned at Rev 65. Not fitted on this board (Rev 71): unconnected as built.
 
@@ -684,6 +686,29 @@ The TSR 1 input capacitor is already fitted. Traco requires it above 32VDC input
 The addition is bulk on the 12V output. C7 is 100nF, which decouples but stores nothing. The IR2104s draw gate-drive current in pulses at 40kHz, and while C8 and C11 handle the fast edge locally and the bootstrap capacitors supply the high-side charge, there is nothing on that rail to hold it up between pulses. Fit a 10µF electrolytic at U3's output alongside the existing 100nF.
 
 No 24V audio-band bulk is needed here. C2 at 100µF exists for a different problem — H-bridge switching current, not audio-band crosstalk — and this board carries no audio on its 24V rail. Station §10.7 and trunk §12.4 do not apply.
+
+## 7.8 Switchboard Power Cut (Off-Board)
+
+Rev 75. A relay in the switchboard's leg of the supply star (§7.1), normally closed, opened for 1s by the firmware (control.md §5.4) to drop every relay and lamp on the switchboard. The 551 holds a trunk's ring-in signal, lamp and buzzer both, on its own battery until a cord goes into the jack; this is the only other way to clear it. Measured load on that leg, 2026-10-19: 800mA with seven trunk lamps lit and the buzzer on.
+
+It is not on this board. It sits in the Powerpole run, and takes two wires from J1:
+
+```text
+  J1 pin 4 (GPIO15) ── R1 1kΩ ── Q1 base;  R2 470Ω Q1 base to J1 pin 3 (GND)
+  +24V ── K1 coil ── Q1 collector;  Q1 emitter to GND;  D1 across the coil, cathode to +24V
+  PSU +24V ── K1 COM ;  K1 NC ── switchboard +24V
+  D2 across the switchboard's input, switchboard side of K1, cathode to +24V
+```
+
+Q1 2N2222A. K1 CIT J1071CS24VDC.36: SPDT, sealed, 7A at 30VDC, coil 1600Ω, 15mA at 24V, pick-up 18V, release 2.4V. D1 1N4148. D2 1N5408.
+
+- **Sense.** GPIO15 low: Q1 off, K1 released, the switchboard powered through NC. GPIO15 high: Q1 saturates, K1 operates and opens NC. No PoE leaves GPIO15 unpowered and low; a removed cable or a failed driver leaves K1 released. Either way the switchboard stays on.
+- **Through a reset.** The Olimex pulls GPIO15 up with 10kΩ (Olimex's ESP32-POE pinout, Mark, 2026-10-19), and the pin is an input until `setup()`. R1 and R2 against the pull-up put the pin at 3.3 × 1.47/11.47 ≈ 0.42V and Q1's base at about 0.13V: off. The ESP32's internal pull-up, about 45kΩ, is in parallel and makes no difference. A 4.7kΩ pull-down, the first value tried, would put the base near 1V and Q1 on, about 10mA into a coil that picks up at 11mA. Were the pull-up 2.2kΩ, the base would reach about 0.42V, still off but with less margin.
+- **Q1's drive.** Driven high, (3.3 − 0.65)/1k ≈ 2.65mA leaves the pin, R2 takes 0.65/470 ≈ 1.4mA, and about 1.3mA reaches the base: a forced gain of 12 at 15mA of coil current, well saturated.
+- **D2.** The switchboard is several dozen relay coils behind K1's contact. Without D2, opening K1 under load arcs it with their stored energy. D2 holds the switchboard's rail at a diode drop below ground while that energy decays, which also slows the switchboard's relays' release by milliseconds, against a 1s cut.
+- **K1's rating.** 0.8A steady against 7A; lamp inrush, filaments cold, is several times the steady current, and the 1s cut is long enough for them to cool most of the way.
+
+The board is Mark's to build. It is not in §10's list, which is this board's parts.
 
 # 8. H-Bridge Circuit
 

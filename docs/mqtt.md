@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 36 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test, Recording), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels*
+*Rev 37 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test, Recording), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels, the Switchboard Power Cut*
 
 # 1. Overview
 
@@ -204,6 +204,12 @@ This document specifies the messages: the topic names, who publishes each, what 
 
 — `trunk/<n>/shortring/set` added (§6, §8.4), following control.md Rev 25, 2026-10-05: `"on"` rings the trunk once for 0.5s, `"off"` cancels the burst; the ESP32 echoes the relay on the existing `ring` topic, `"on"` then `"off"`. The game program uses it to signal a call in on a trunk (game_control.md Rev 28). It is the third command that is not absolute state, after `next/set` and the station's `dial/set`: a duplicate delivered after the first burst has ended rings once more. That is harmless — the switchboard's trunk signal latches, and a second burst on an unanswered trunk changes nothing the operator sees; a duplicate during the burst, or after the trunk is seized, is ignored by the controller. QoS 1 as for every command. The ESP32 subscribes to one more pattern. No existing topic or payload changes.
 
+## 1.37 Changes in Rev 37
+
+— The switchboard power cut, following control.md Rev 31 and game_control.md Rev 63, 2026-10-19. To the ESP32, from the game program (§6): `ctl/power_cut/set`, `"on"` to drop the switchboard's 24V for 1s, `"off"` to end the cut early. From the ESP32 (§4): its echo, `ctl/power_cut`, retained. From the page and the Stream Deck (§6.2): `game/power_cut/set`, which the game program passes on, refusing it while a game runs, so the game program stays the only client that commands the ESP32 (§1). The access list already covers both: the deck and the page write `sbgame/game/+/set`, and the game program reads and writes `sbgame/#`. The ESP32 subscribes to one more pattern.
+
+— It is under `ctl/` rather than a new top-level segment: it is not about a circuit, and the switchboard as a whole has no other topic. Like `shortring/set` it is a pulse, not absolute state: a late duplicate cuts the power once more, which on a stopped board is harmless, and a duplicate during the cut is ignored.
+
 ## 1.36 Changes in Rev 36
 
 — Recording the loudspeaker and playing a recording back, following audio.md Rev 22 and game_control.md Rev 61, 2026-10-18. From the audio program (§5): `audio/record`, the file being written, `"off"` or `"failed"`; `audio/recordings`, the ten newest; `audio/playback`, the recording playing. To it, from the game program (§6): `audio/record/set` and `audio/playback/set`. From the page (§6.2): `game/record/set` and `game/playback/set`, which the game program passes on, so the game program stays the only client that commands audio (§1).
@@ -291,6 +297,7 @@ The ESP32 publishes hardware state as it debounces it (`control.md` §7 and §8)
 | `sbgame/trunk/<1-8>/ring` | `"on"` or `"off"` | yes | This trunk's ring relay is energised — the board is applying ring toward the switchboard. Actual relay state, echoed back, so a monitoring UI can show a ringing trunk. A `shortring/set` shows as one `"on"` and `"off"` half a second apart (Rev 26). |
 | `sbgame/trunk/<1-8>/digit` | `"0"` to `"9"` | no — and QoS 0, §2 | The operator has just dialled this digit on the seized trunk. One message per completed digit, in order; ten pulses is `"0"`. Decoded by the firmware from the seizure input, control.md §8.2. Never published outside seizure, never for a partial digit. |
 | `sbgame/trunk/<1-8>/fault` | `""`, `"ring_on_trunk"` or `"bad_dial"` | yes | `"ring_on_trunk"`: the operator has applied ring to this trunk by mistake (trunk §5.2). `"bad_dial"`: a pulse train outside the dial timing windows, or more than ten pulses (control.md §8.2). Empty clears either. |
+| `sbgame/ctl/power_cut` | `"on"` or `"off"` | yes | The switchboard's 24V is cut: `"on"` from the moment GPIO15 goes high to the moment it goes low again, 1s later unless ended early (control.md §5.4; Rev 37). Published with the birth message and on change. |
 | `sbgame/ctl/status` | `"online"` or `"offline"` | yes | Birth message and last will (§8). |
 | `sbgame/ctl/esp_heartbeat` | uptime in seconds | no | Every 1s from the main loop, after the I²C poll (§8). |
 | `sbgame/ctl/i2c` | `"ok"` or `"missing: "` + absent addresses in hex, e.g. `"missing: 0x22 0x23"` | yes | Result of the boot-time expander scan, republished after any rescan (control.md §4.2, §6.2). While it reads missing, the bridge is not armed and commands for circuits on the absent board are dropped. |
@@ -350,6 +357,7 @@ The game program is the only client that commands the ESP32 and the audio progra
 | `sbgame/audio/playback/set` | a recording's base name, or `"stop"` | no | audio | Play that recording on the loudspeaker in place of the monitor, replacing one already playing; `"stop"` stops it. Echoed on `audio/playback`. Sent by the game program on `game/playback/set` (audio.md §10.7; Rev 36). |
 | `sbgame/ctl/game_heartbeat` | host Unix time in seconds | no | ESP32, audio and the page | Every 1s from the game loop (§8). The ESP32 and the audio program use its arrival only; the page also takes the host's clock from it (Rev 10; empty through Rev 9). |
 | `sbgame/ctl/sync` | — | no | ESP32 | Ask the ESP32 to republish every state topic (§8). |
+| `sbgame/ctl/power_cut/set` | `"on"` or `"off"` | no | ESP32 | Cut the switchboard's 24V for 1s, which drops every relay and lamp on it, a trunk's locked signal among them; `"off"` ends the cut early. Echoed on `ctl/power_cut`. Sent when a game stops, and on `game/power_cut/set` (game_control.md §3, §7.4; Rev 37). Not absolute state: a duplicate during the cut is ignored, a late one cuts once more. |
 
 There is no `peer/set`, `op/set` or `optone/set` and never will be: topology is detected, not commanded. There is no `sync` for the audio program: its state topics are all either detector results, which it republishes on change and on start, or echoes of commands it holds, which it republishes on reconnect (§8.4).
 
@@ -414,6 +422,7 @@ The page's commands, consumed by the game program only (Rev 10). The Stream Deck
 | `sbgame/game/repeat/set` | ignored | no | game | Repeat Help: the tutor says her last line again. QoS 0, an event (§2). Refused on `error` when `tutor/repeat` is empty (Rev 31). |
 | `sbgame/game/more/set` | ignored | no | game | More Help: the next part of the tutor's introduction, or, while `tutor/more` is set, the full form of her short prompt (Rev 34). QoS 0, an event (§2). Refused on `error` when she is not introducing the board and no short prompt waits. Its effect shows on `tutor/intro` (Rev 28), or `tutor/repeat` and `tutor/more` (Rev 34). |
 | `sbgame/game/diag/<target>/<test>/set` | `"on"` or `"off"` | no | game | Start or stop a diagnostic (game_control.md §7.5). Refused on `error` for a circuit in a call or not fitted. Echoed on `diag/<target>/<test>` (Rev 23). |
+| `sbgame/game/power_cut/set` | `"on"` | no | game | Cut the switchboard's power for 1s, to clear lamps and buzzers left on. Passed on as `ctl/power_cut/set`; refused on `error` while a game runs or the controller is offline. Its effect shows on `ctl/power_cut` (game_control.md §7.4; Rev 37). |
 | `sbgame/game/next/set` | ignored | no — and QoS 0, §2 | game | Start the next call now, if a game is running and a scene can be dealt; otherwise reported on `error`. Shows as `started` going up by one (Rev 11; a call number through Rev 10). |
 
 # 7. Payload Conventions
@@ -495,7 +504,7 @@ The page has neither a will nor a heartbeat. Nothing depends on it being there: 
 
 ## 8.4 Recovery Sequence
 
-On ESP32 connect: LWT registered, `status` = `online`, subscribe to `hook/set`, `dial/set`, `ring/set` and `shortring/set` (Rev 26) for every circuit, `game_heartbeat` and `sync` — those six patterns and not a wildcard over every `set`, since the audio program's commands share the circuit topics — then publish every state topic once. Relays are all released at that point regardless, since the ESP32 releases them on any loss of contact and boots with them released.
+On ESP32 connect: LWT registered, `status` = `online`, subscribe to `hook/set`, `dial/set`, `ring/set` and `shortring/set` (Rev 26) for every circuit, `ctl/power_cut/set` (Rev 37), `game_heartbeat` and `sync` — those seven patterns and not a wildcard over every `set`, since the audio program's commands share the circuit topics — then publish every state topic once. Relays are all released at that point regardless, since the ESP32 releases them on any loss of contact and boots with them released.
 
 On game program start: connect with its will of `"offline"` on `game_status`; publish its game state — `run` `"off"`, pacing values from its configuration, tallies zero, every call slot cleared, `next_at` and `error` cleared, the log with one start line, every `board/` label and circuit — then `game_status` = `"online"`, state before birth as the audio program does. Then subscribe to everything, read the retained state, publish `sync` to be sure, start the heartbeat. If `status` reads `offline`, wait — commands sent now go nowhere and are not queued (clean session). If `audio_status` reads `offline`, the same for audio commands. A game program that restarts never resumes a game; the page starts a new one.
 

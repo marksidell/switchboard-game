@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 30 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks*
+*Rev 31 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks, Switchboard Power Cut on GPIO15*
 
 # 1. Overview
 
@@ -113,6 +113,18 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 — Firmware updates over the network (§2.1), so that the installed board can be reflashed without a USB cable. A cable left attached would join portland's ground to the system's 24V ground, which PoE's isolation keeps apart, and anything that opened the port would reset the board; Mark weighed powering the Olimex from USB and chose to stay on PoE (with a TL-SG105PE PoE switch in place of a separate injector) and update over the network instead. The generator §3.4 recommendation to prefer OTA in the installed system is now something the firmware can do.
 
 — Firmware consequence, for Claude Code, made in the same commit: ArduinoOTA started once Ethernet has an address, with the hostname `sbgame-esp32` and a SHA-256 password hash from `secrets.h` (`OTA_PASSWORD_SHA256`; without it the firmware builds with OTA off). The start callback stops the waveform and releases every relay before anything is written to flash; an error after that point restarts the board. §10 gains the row.
+
+## 1.31 Changes in Rev 31
+
+— GPIO15 cuts the switchboard's 24V for 1s on command (§3, §5.4, §9.4), Mark's request, 2026-10-19, and the waveform sync it carried is withdrawn. A trunk rung in locks its lamp and buzzer on the switchboard until a cord goes into the jack: the 551 holds the signal on its own battery, so releasing our ring relay does not clear it, and nothing else did. A relay in the switchboard's leg of the supply star, normally closed, opens while GPIO15 is high (generator §7.8, Rev 75), and every relay and lamp on the switchboard drops. The game program sends it when a game stops (game_control.md Rev 63), and the Stream Deck can send it by hand.
+
+— Active high. GPIO15 idles low and is driven high to cut. The Olimex pulls GPIO15 up with 10kΩ (Olimex's ESP32-POE pinout, from Mark, 2026-10-19), so through a reset, before `setup()` claims the pin, it would sit high; the driver's 470Ω base pull-down against the 1kΩ base resistor holds it to about 0.4V there, and the transistor's base to about 0.13V, so the relay stays released (generator §7.8). An active-low drive through an optoisolator was drafted first, on the guess that the pull-up might be 2.2kΩ, and needs +3.3V, which J1 does not carry; the pinout made it unnecessary.
+
+— `ctl/power_cut/set` `"on"` starts the cut and `"off"` ends it early; `ctl/power_cut` echoes `"on"` and `"off"` (mqtt.md Rev 37). The cut ends by itself after `POWER_CUT_MS`; a second `"on"` during it is ignored. Every failsafe of §10 ends it too: power restored is the safe state.
+
+— **Wire the relay only after this firmware is running.** Rev 30 and earlier drive GPIO15 as a 20Hz square wave while the generator runs, which would chatter the switchboard's supply.
+
+— Firmware consequence, for Claude Code: `PIN_SYNC` and its writes in the step ISR, in §4.3 and in the banner come out; `PIN_POWER_CUT` 15, claimed low in `setup()`; `POWER_CUT_MS` 1000 in `sb_config.h`; subscribe to `ctl/power_cut/set`; publish `ctl/power_cut` with the birth message and on change; end the cut in every §10 release. FIRMWARE_SPEC_REV 31.
 
 ## 1.30 Changes in Rev 30
 
@@ -253,7 +265,7 @@ The GPIO assignments and the reasons for them are generator §3.1 and §3.2, whi
   GPIO5   output     Expander /RESET, active LOW, idles HIGH. Strapping pin — must be high at boot.
   GPIO13  I²C SDA    Wire.begin(13, 16) — note the argument order.
   GPIO16  I²C SCL    100kHz.
-  GPIO15  output     Waveform sync for the bench (§5.4). Strapping pin — leave as input until setup().
+  GPIO15  output     Switchboard power cut (§5.4), active HIGH, idles LOW. J1 pin 4. Strapping pin — leave as input until setup().
   GPIO36  input      Reserved for the Next Call button, active LOW; not fitted (generator Rev 71). Pull-up is R37 on the Olimex.
 ```
 
@@ -274,7 +286,7 @@ On the expander side, the MCP23017 comes out of reset with IODIR = 0xFF, every p
 In this order, and the order matters:
 
 1. Power-on. Bridge off by hardware (§4.1). GPIO15 left as an input.
-2. Claim GPIO5 high (its idle) and GPIO15 as an output, low.
+2. Claim GPIO5 high (its idle) and GPIO15 as an output, low (its idle: the switchboard powered).
 3. Ethernet: `ETH.begin()`.
 4. Expander reset: drive GPIO5 low for at least 1ms, release, wait for the expanders to settle (§6.2).
 5. I²C: `Wire.begin(13, 16)` at 100kHz. Scan the configured device list — 0x20, 0x21, 0x22 and 0x23 with the three station boards and the trunk board all built. The list is driven from the configured station board count, not hard-coded, so that a board pulled for repair is a configuration change rather than a phantom missing device logged on every boot, which trains whoever reads the log to ignore the one message that matters. Log any device that does not respond and remember the result; it is published on `sbgame/ctl/i2c` at step 7, once there is a connection to publish on.
@@ -291,7 +303,6 @@ Steps 3 to 7 are new relative to generator §6.1, which listed the ring generato
 
 1. GPIO14 driven LOW — both IR2104s disabled immediately.
 2. LEDC duty parked at 0 on both channels. Both IN pins low; bridge fully off.
-3. GPIO15 low.
 
 Release of the GPIO4 enable is the operator's shutdown; the firmware runs this sequence when it sees GPIO4 go high and re-runs §4.2 steps 8 to 11 when it returns low. Remanence after a stop is accepted rather than addressed (§5.3).
 
@@ -326,19 +337,23 @@ The sine starts at its positive peak, duty-table index SINE_STEPS/4, not at the 
 
 What it does not solve is remanence: after a stop, the core keeps some flux from whichever half-cycle it stopped in, and a restart carries it. The generator runs continuously from power-up with ring cadence switched on the secondary by the trunk board, so restarts are rare and this is accepted.
 
-In the firmware, the active leg goes from parked to about 90% duty on the first PWM period after SD, which is a single edge and not a transient. Its bootstrap capacitor is uncharged at that instant and fills through the low-side windows over the first few carrier cycles, during which UVLO holds HO off — harmless, the parked leg holds the primary at zero meanwhile. The §5.4 sync output's first real edge is the rising one at index 0, three quarters of a cycle after SD. The fallback, if the peak start ever proves awkward downstream of sync, is a zero-crossing start with g_amplitude ramped over the first two cycles.
+In the firmware, the active leg goes from parked to about 90% duty on the first PWM period after SD, which is a single edge and not a transient. Its bootstrap capacitor is uncharged at that instant and fills through the low-side windows over the first few carrier cycles, during which UVLO holds HO off — harmless, the parked leg holds the primary at zero meanwhile. The sync output's first real edge (§5.4, through Rev 30) is the rising one at index 0, three quarters of a cycle after SD. The fallback, if the peak start ever proves awkward downstream of sync, is a zero-crossing start with g_amplitude ramped over the first two cycles.
 
 Verification, as specified: capture from SD rising on GPIO14, 10ms/div, primary through the J3 monitor on one channel and the rail at the bridge on the other. Pass is a first half-cycle of the same amplitude as those that follow and no dip on the rail. The change was in the firmware before the Antek's first power-up (generator Rev 52), so the transient it prevents has never been seen on that transformer.
 
 Verified 2026-09-25, Analog Discovery 3 (Mark's capture `ring11.png`, not in the repository): 10ms/div, triggered on the first rising edge of the §5.4 sync on DIO 0 with the start 37.6ms before it in the pre-trigger record, channel 1 on J10, channel 2 on J8 (J3 and J6 in the board's numbering, generator Rev 68) through the 11:1 divider, no load, C_OUT fitted, firmware at control.md Rev 11. The start is at −38ms. J8 steps from 0 to 112V peak and the first half-cycle is the same amplitude and shape as every one after it; J10's first peak reads 19.5V against 21.5V steady, which is the §8.7 filter settling (0.94ms) while the sine is already 3.5ms past its peak — 21.5 × cos 25° = 19.5V — and from the second half-cycle it is ±21V. The rail was not captured, as the procedure asked; J8 stands in for it, since the output is duty × rail × ratio and a rail dip of the 2026-09-04 kind would show as a sag in the first output half-cycle, and there is none. Inrush current in the first 10ms was not measured and is not practical on this bench; steady-state supply current is 30mA, as at Rev 52. Channel 1 was connected reversed, so both traces read inverted: the start shows as a negative peak and the sync edge as a negative-going zero crossing. With the probe the right way round the start is the positive peak and sync rises into the positive half-cycle, as written. Pass.
 
-## 5.4 Waveform Sync Output
+## 5.4 Switchboard Power Cut
 
-GPIO15 carries one square wave per output cycle: high at step 0, low at step 125 — 20Hz at 50% duty with the rising edge marking phase zero. It is for bench work: triggering a scope or the Analog Discovery at a known point so the switching node, the gate drive and the secondary can be viewed against one reference. It is on J1 pin 4 with GND on pin 3.
+GPIO15 drives the relay in the switchboard's 24V leg (generator §7.8, Rev 75), on J1 pin 4: low, the relay is released and its normally closed contact feeds the switchboard; high, the relay operates and the switchboard is dark. It idles low from `setup()` on.
 
-Levels are written rather than toggled. A toggle that misses a tick stays inverted for as long as the generator runs; writing the level re-asserts it twice per cycle, so a lost tick costs one edge, not the polarity. The pin idles low whenever the generator is not running, so the absence of a trigger means the bridge is genuinely idle.
+`ctl/power_cut/set` `"on"` drives it high for `POWER_CUT_MS`, 1000, then low again; `"off"` drives it low at once. The 551's relays drop and its locked trunk signals with them in well under that. A second `"on"` while the cut is under way is ignored and logged: the cut is a pulse, not a level, and a duplicate is not a reason to stretch it. `ctl/power_cut` reads `"on"` from the moment the pin goes high to the moment it goes low, published retained as for every state topic. The timing runs in the main loop against `millis()`; a stall of the loop lengthens the cut by the stall and nothing worse.
 
-GPIO15 is a strapping pin (MTDO) and must be high when the ROM bootloader samples it; driven low at reset it also silences the boot log. The firmware leaves it as an input until `setup()` and only then claims it. This is a debug output and nothing depends on it; if GPIO15 is ever wanted for something the system needs, the sync goes.
+Every failsafe of §10 — the connection lost, the game heartbeat missed, a bus fault, an update starting — drives GPIO15 low with everything else it releases. The switchboard is our load, not a relay of the game's, but powered is its safe state and the rule is simpler kept whole.
+
+GPIO15 is a strapping pin (MTDO). The firmware leaves it as an input until `setup()`. Meanwhile the Olimex's 10kΩ pull-up and the driver's 1kΩ and 470Ω to ground hold it near 0.4V, which the strap reads as low: the ROM's boot log is silenced and nothing else this board uses changes. The driver's base sits near 0.13V, so the relay stays released through a reset (generator §7.8).
+
+Through Rev 30 GPIO15 was the waveform sync for the bench: high at step 0, low at step 125, for triggering a scope against phase zero. §5.3's verification used it. A bench session that needs it again can take it back temporarily, with the relay's driver unplugged from J1.
 
 ## 5.5 Amplitude
 
@@ -511,7 +526,7 @@ The topics, payloads and retention are `mqtt.md`; this section is what the firmw
 
 ## 9.1 Connection
 
-The client library is MQTT 2.5.3 by Joël Gähwiler (256dpi/arduino-mqtt), chosen because it supports QoS 1 and because its keepalive ping is sent from `loop()` rather than from a background task — so a wedged main loop stops the ping, the broker fires the last will, and the client-dependent gap mqtt.md §8.2 describes closes on the safe side. Connect over the wired interface with a clean session, keepalive 5s, and a last will of `"offline"` on `sbgame/ctl/status`, retained. On connect: publish `"online"` to `ctl/status`, retained; subscribe to `sbgame/station/+/hook/set`, `sbgame/trunk/+/ring/set`, `sbgame/ctl/game_heartbeat` and `sbgame/ctl/sync` — those four patterns and no wildcard over `set`, since the audio program's `play/set`, `listen/set` and `tone/set` share the circuit roots (mqtt.md Rev 5 §8.4); publish every state topic once (`ring` and `hook` for every station, `seize`, `ring` and `fault` for every trunk). Reconnect with backoff on loss — 500ms doubling to 8s — and every reconnect repeats this sequence, since a clean session forgets the subscriptions. A connect attempt is blocking: the TCP connect timeout plus the wait for CONNACK, which against a host that is down can be seconds, during which the 200Hz loop does not run (Rev 7). That is tolerable only because the loss of the connection has already released every relay (§10) before the first retry is due, so nothing is being driven while the loop is stalled. The loss release must stay immediate for that reason. Ring detection and dialling are not sampled during a stall; with no host to report to, nothing is lost that could have been used.
+The client library is MQTT 2.5.3 by Joël Gähwiler (256dpi/arduino-mqtt), chosen because it supports QoS 1 and because its keepalive ping is sent from `loop()` rather than from a background task — so a wedged main loop stops the ping, the broker fires the last will, and the client-dependent gap mqtt.md §8.2 describes closes on the safe side. Connect over the wired interface with a clean session, keepalive 5s, and a last will of `"offline"` on `sbgame/ctl/status`, retained. On connect: publish `"online"` to `ctl/status`, retained; subscribe to `sbgame/station/+/hook/set`, `sbgame/trunk/+/ring/set`, `sbgame/ctl/power_cut/set` (Rev 31), `sbgame/ctl/game_heartbeat` and `sbgame/ctl/sync` — those patterns and no wildcard over `set`, since the audio program's `play/set`, `listen/set` and `tone/set` share the circuit roots (mqtt.md Rev 5 §8.4); publish every state topic once (`ring` and `hook` for every station, `seize`, `ring` and `fault` for every trunk). Reconnect with backoff on loss — 500ms doubling to 8s — and every reconnect repeats this sequence, since a clean session forgets the subscriptions. A connect attempt is blocking: the TCP connect timeout plus the wait for CONNACK, which against a host that is down can be seconds, during which the 200Hz loop does not run (Rev 7). That is tolerable only because the loss of the connection has already released every relay (§10) before the first retry is due, so nothing is being driven while the loop is stalled. The loss release must stay immediate for that reason. Ring detection and dialling are not sampled during a stall; with no host to report to, nothing is lost that could have been used.
 
 Use a username and password; the broker is not anonymous (`mqtt.md` §9). Set TCP_NODELAY on the socket (Rev 20): with Nagle on, each QoS 1 publish waits about 40ms for the broker's delayed ACK, and the loop with it.
 
@@ -531,7 +546,7 @@ Watch `sbgame/ctl/game_heartbeat`. If two consecutive beats are missed — no me
 
 ## 9.4 Commands
 
-`hook/set`, `ring/set`, `shortring/set` (Rev 25) and `dial/set` (Rev 17) are acted on immediately and echoed on the state topic — immediately meaning as soon as the MQTT client's loop has returned, in the same pass, and never from inside the client's message callback (Rev 22): an echo published there nests a QoS 1 exchange inside the client's own read, which the library cannot survive. The payload must be exactly `"on"` or `"off"`; anything else is logged and dropped, not read as `"off"` (Rev 7 — the first firmware released the relay on any payload that was not `"on"`, so a malformed command was a silent release). A command received while the game heartbeat is missing is still acted on — the heartbeat's return is the recovery signal, and the command is evidence of it. A command for a circuit whose expander was absent at the scan is logged, with the address it was dropped for, and dropped. This holds whether or not the game program has read ctl/i2c: a game program that consults it and does not send is cleaner, but the firmware does not depend on it.
+`hook/set`, `ring/set`, `shortring/set` (Rev 25), `dial/set` (Rev 17) and `ctl/power_cut/set` (Rev 31, §5.4) are acted on immediately and echoed on the state topic — immediately meaning as soon as the MQTT client's loop has returned, in the same pass, and never from inside the client's message callback (Rev 22): an echo published there nests a QoS 1 exchange inside the client's own read, which the library cannot survive. The payload must be exactly `"on"` or `"off"`; anything else is logged and dropped, not read as `"off"` (Rev 7 — the first firmware released the relay on any payload that was not `"on"`, so a malformed command was a silent release). A command received while the game heartbeat is missing is still acted on — the heartbeat's return is the recovery signal, and the command is evidence of it. A command for a circuit whose expander was absent at the scan is logged, with the address it was dropped for, and dropped. This holds whether or not the game program has read ctl/i2c: a game program that consults it and does not send is cleaner, but the firmware does not depend on it.
 
 # 10. Failsafe Summary
 
@@ -547,6 +562,8 @@ Every relay on every board is released — OFFHOOK_n all zero, RING_EN_n all zer
 | Required expander absent at boot | I²C scan | Report over MQTT; its relays stay released (§4.1); the generator is not stopped (§1.11) |
 | I²C bus fault in service | Three consecutive errors on one device (NAK or read-back mismatch); single errors logged only | Inhibit ring, assert /RESET, rescan, reconfigure, republish ctl/i2c |
 | Network firmware update starting | ArduinoOTA start callback (§2.1) | Stop the waveform, release every relay, then write; restart when done or on error |
+
+Each release also ends a switchboard power cut in progress: GPIO15 low (§5.4, Rev 31).
 
 What the firmware cannot do is make the ring bus safe: the generator runs whenever GPIO4 is low, and the only things that stop it are that switch and SD. Nothing on the station or trunk boards can (trunk §15).
 
