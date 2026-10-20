@@ -782,6 +782,27 @@ async def main() -> int:
         await g.stop("stop")
         await sess.close()
 
+        print("\n== auto: a call's end keeps the start its connection scheduled (§4.2)")
+        b, link, g, sess = await build_game(tmp, pace="manual")
+        await g.start()
+        await g.on_command("pace", "auto")
+        lone = next(sc for sc in g.gs.scenes.values()
+                    if not g.gs.followers(sc.id) and sc.id != "nbn-trace")
+        call = C(slot=1, number=1, scene=lone.id, from_line=lone.from_line,
+                 to_line=lone.to_line)
+        await g.slots.open(call)
+        g.pacing.waiting_to_connect()
+        await g._connected(call)
+        at = link.state_v.get("game/next_at")
+        check(at != "", "connecting schedules the next")
+        g.pacing.next_at -= 5                       # five seconds of the gap gone
+        at = f"{g.pacing.next_at:.0f}"
+        await g._finish_call(call, lone, Outcome(True))
+        check(link.state_v.get("game/next_at") == at,
+              f"and the call's end leaves it at {at}: {link.state_v.get('game/next_at')}")
+        await g.stop("stop")
+        await sess.close()
+
         print("\n== losing the controller stops the game (§3)")
         b, link, g, sess = await build_game(tmp, pace="manual")
         watcher = asyncio.create_task(g.watch_clients())

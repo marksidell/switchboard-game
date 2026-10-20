@@ -663,10 +663,15 @@ class Game:
         # §4.10: a scenario on the board holds the schedule until it is over.
         return not self._waiting_to_connect() and not self._scenario_on_board()
 
-    async def _reschedule(self) -> None:
-        """Schedule the next call if the board is idle for the pace, else clear it."""
+    async def _reschedule(self, keep: bool = False) -> None:
+        """Schedule the next call if the board is idle for the pace, else clear it.
+
+        keep: a start already scheduled stands. A call that ends after it was
+        connected must not restart the gap its connection began (§4.2).
+        """
         if self._idle():
-            self.pacing.schedule()
+            if not (keep and self.pacing.next_at is not None):
+                self.pacing.schedule()
         else:
             self.pacing.next_at = None
         await self._publish_pacing()
@@ -876,7 +881,7 @@ class Game:
                 await self._say(
                     f"dropped {follower.id}: {scene.id} was never connected")
 
-        await self._reschedule()
+        await self._reschedule(keep=True)
 
     # ---- tutor mode (§4.9) ------------------------------------------------
 
