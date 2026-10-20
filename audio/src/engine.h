@@ -81,6 +81,9 @@ public:
     double monitor_ripple_db() const { return mon_ripple_db_; }
     const std::vector<Biquad>& monitor_lowpass() const { return mon_lp_; }
     double gate_gain() const { return gate_g_; }
+    // Times the gate has shut. run() hands the count to Shared each second;
+    // a detached engine keeps it, for monitor_check.
+    unsigned gate_hits_for_test() const { return gate_hits_; }
 
 private:
     // Prog - what one circuit is playing on top of its pilot: nothing, a file

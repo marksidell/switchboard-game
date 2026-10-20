@@ -49,4 +49,9 @@ add_executable(sbaudio_test test/test_sbaudio.cpp)
 target_link_libraries(sbaudio_test PRIVATE sbaudio_core)
 add_test(NAME sbaudio_test COMMAND sbaudio_test)
 
+# Every prompt through the loudspeaker's chain, looking for the gate shutting
+# on speech (audio.md 10.5). A tool, not a ctest: it reads the wav directory.
+add_executable(monitor_check test/monitor_check.cpp)
+target_link_libraries(monitor_check PRIVATE sbaudio_core)
+
 install(TARGETS sbaudio RUNTIME DESTINATION bin)
