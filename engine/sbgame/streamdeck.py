@@ -315,9 +315,9 @@ class Panel:
         return []
 
     def _reset_allowed(self, now: float) -> bool:
-        """A hold on key 5 counts only with no game, no sweep, and a game
-        program to send it to (§7.4, Rev 63), as the double press does."""
-        return not (self.game_stale(now) or self.running() or self.get("game/sweep"))
+        """A hold on key 5 counts only with no sweep and a game program to
+        send it to (§7.4, Rev 63); during a game too, from Rev 66."""
+        return not (self.game_stale(now) or self.get("game/sweep"))
 
     def on_key_up(self, key: int, now: float) -> None:
         if key == RESET_KEY:
@@ -489,6 +489,8 @@ class Panel:
     def _k_calls(self, now: float) -> Image.Image:
         if self.get("ctl/power_cut") == "on":            # Rev 63, whoever sent it
             return _key("Switchboard", "reset", fill=DANGER, ink=INK, size=22)
+        if self.get("ctl/power_cut") == "hold":          # Rev 65: off from the page
+            return _key("Switchboard", "off", fill=DANGER, ink=INK, size=22)
         if (img := self._k_sweep(4, now)) is not None:
             return img
         if (h := self.holding_reset(now)) is not None:

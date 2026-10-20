@@ -71,7 +71,7 @@ static void runCommands() {
       case CMD_DIAL: stationDial(c.n, c.digits);   break;
       case CMD_RING: trunkSetRing(c.n, c.on);      break;
       case CMD_SHORTRING: trunkShortRing(c.n, c.on); break;
-      case CMD_POWER_CUT: powerCutSet(c.on);         break;
+      case CMD_POWER_CUT: powerCutSet((PowerCmd)c.n); break;
     }
   }
 }
@@ -218,9 +218,12 @@ static void onMessage(String& topic, String& payload) {
     return;
   }
   if (strcmp(t, "sbgame/ctl/power_cut/set") == 0) {
+    /* "on", "off", or "hold" (control.md 5.4, Rev 32): n carries which. */
     Command* c;
-    if (parseOnOff(t, p, on) && (c = cmdPush(t))) {
-      c->kind = CMD_POWER_CUT; c->on = on;
+    const bool hold = strcmp(p, "hold") == 0;
+    if ((hold || parseOnOff(t, p, on)) && (c = cmdPush(t))) {
+      c->kind = CMD_POWER_CUT;
+      c->n = hold ? POWER_HOLD : on ? POWER_PULSE : POWER_OFF;
     }
     return;
   }

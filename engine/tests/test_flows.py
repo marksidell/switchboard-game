@@ -166,6 +166,21 @@ async def switch_glitch(h: Harness) -> None:
     await h.b.update("station/2/peer", "station/12")
 
 
+async def power_reset(h: Harness) -> None:
+    """The switchboard reset mid-conversation (§3, Rev 66): every line drops
+    for longer than HOLD, and comes back. The call rides through."""
+    await good_station_operator(h)
+    await asyncio.sleep(D * 4)
+    await h.b.update("ctl/power_cut", "on")
+    for c in ("station/12", "station/2"):
+        await h.b.update(f"{c}/peer", "")
+        await h.b.update(f"{c}/op", "off")
+    await asyncio.sleep(HOLD * 3)
+    await h.b.update("station/12/peer", "station/2")
+    await h.b.update("station/2/peer", "station/12")
+    await h.b.update("ctl/power_cut", "off")
+
+
 async def pulls_the_cord_before_routing(h: Harness) -> None:
     """She answers, hears the request, and pulls the answering cord before
     taking a trunk (§5, Rev 46): the caller is lost, and the call abandoned."""
@@ -381,6 +396,25 @@ async def main() -> int:
     h = Harness(scene(Shape.STATION_TO_STATION))
     r = await h.run(station_to_station, switch_glitch)
     check(r.ok, f"the call rides through: {r.reason!r}")
+
+    print("\n== the switchboard reset during the conversation (§3, Rev 66)")
+    h = Harness(scene(Shape.STATION_TO_STATION))
+    r = await h.run(station_to_station, power_reset)
+    check(r.ok, f"the call rides through: {r.reason!r}")
+    check(h.b.get("station/12/peer") == "station/2", "and the lines read as before")
+
+    print("\n== a pull during the reset is seen once it settles")
+    h = Harness(scene(Shape.STATION_TO_STATION))
+
+    async def pulled_in_reset(h: Harness) -> None:
+        await good_station_operator(h)
+        await asyncio.sleep(D * 4)
+        await h.b.update("ctl/power_cut", "on")
+        await h.b.update("station/12/peer", "")
+        await h.b.update("station/2/peer", "")
+        await h.b.update("ctl/power_cut", "off")
+    r = await h.run(station_to_station, pulled_in_reset)
+    check(not r.ok and r.reason == Reason.CUT_OFF, f"fails as 'cut off': {r.reason!r}")
 
     print("\n== the caller left alone before connecting hangs up (§5, Rev 46, 48)")
     was = flows.ABANDON, flows.ABANDON_MISDIALLED

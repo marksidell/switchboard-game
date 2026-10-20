@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from dataclasses import dataclass
 from typing import Any, AsyncIterator, Callable
@@ -35,6 +36,9 @@ LIVE_CONTROL = "live/control"
 LIVE_AUDIO = "live/audio"
 
 CONTROL_BEAT_LIMIT = 2.5  # seconds: two missed 1 s beats, plus slack (mqtt.md §8.2)
+
+# What a switchboard power cut can disturb on a line (game_control.md §3, Rev 66).
+CUT_KEYS = re.compile(r"^(?:station|trunk)/\d+/(?:peer|op)$|^trunk/\d+/seize$")
 
 
 class Offline(Exception):
@@ -62,13 +66,25 @@ class Board:
     # lines for about 0.2s, as do dial pulses; the detector reports that as
     # `deaf` and then idle, and the call must ride through it.
     HOLD = 1.0
+    # The switchboard's power cut, ctl/power_cut "on" (§3, Rev 66), drops every
+    # line on the board for its 1s. Lines are frozen from the cut until SETTLE
+    # after the power is back, and then take their latest values, through the
+    # HOLD above, so the calls on the board carry on. CUT_MAX ends a freeze
+    # whose "off" never comes.
+    SETTLE = 1.0
+    CUT_MAX = 3.0
 
     def __init__(self, hold: float | None = None) -> None:
         self._v: dict[str, str] = {}
         self.cond = asyncio.Condition()
         self.hold = self.HOLD if hold is None else hold
+        # A test's shorter hold shortens the cut's timings with it.
+        self.settle = self.SETTLE * self.hold / self.HOLD
+        self.cut_max = self.CUT_MAX * self.hold / self.HOLD
         self._held: dict[str, asyncio.TimerHandle] = {}   # key -> its pending fall
         self._watchers: set[asyncio.Queue[Change]] = set()
+        self._frozen: dict[str, str] | None = None        # key -> latest, during a cut
+        self._thaw: asyncio.TimerHandle | None = None
 
         self.broker_up = False
         self._control_status = ""  # retained sbgame/ctl/status
@@ -143,6 +159,10 @@ class Board:
             n = key.split("/")[1]
             return self._set(f"trunk/{n}/dialled", self.dialled(int(n)) + payload)
 
+        if self._frozen is not None and CUT_KEYS.match(key):
+            self._frozen[key] = payload
+            return False
+
         held = self._hold(key, payload)
         if held is not None:
             return held
@@ -157,6 +177,8 @@ class Board:
         elif key == "ctl/audio_status":
             self._audio_status = payload
             self._relive()
+        elif key == "ctl/power_cut":
+            self._power_cut(payload)
         elif key.startswith("trunk/") and key.endswith("/seize"):
             # New seizure or release: start a fresh number.
             n = key.split("/")[1]
@@ -187,6 +209,28 @@ class Board:
                 self.hold, lambda: asyncio.ensure_future(self._settle(key, payload)))
             return False
         return self._set(key, payload)
+
+    def _power_cut(self, payload: str) -> None:
+        """Freeze the lines for the 1s reset, and thaw them SETTLE after it."""
+        if payload == "on":
+            if self._frozen is None:
+                self._frozen = {}
+            delay = self.cut_max
+        elif self._frozen is not None:
+            delay = self.settle
+        else:
+            return
+        if self._thaw is not None:
+            self._thaw.cancel()
+        self._thaw = asyncio.get_running_loop().call_later(
+            delay, lambda: asyncio.ensure_future(self._unfreeze()))
+
+    async def _unfreeze(self) -> None:
+        async with self.cond:
+            frozen, self._frozen, self._thaw = self._frozen or {}, None, None
+            changed = [self._apply(k, v) for k, v in frozen.items()]
+            if any(changed):
+                self.cond.notify_all()
 
     async def _settle(self, key: str, payload: str) -> None:
         async with self.cond:
@@ -247,6 +291,9 @@ class Board:
             for h in self._held.values():
                 h.cancel()
             self._held.clear()
+            if self._thaw is not None:
+                self._thaw.cancel()
+            self._frozen = self._thaw = None
             self._v.clear()
             self._control_status = self._audio_status = ""
             self._relive()

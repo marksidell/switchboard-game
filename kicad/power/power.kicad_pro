@@ -189,7 +189,8 @@
       "track_widths": [
         0.0,
         0.4,
-        0.6
+        0.6,
+        2.0
       ],
       "tuning_pattern_settings": {
         "diff_pair_defaults": {
@@ -770,7 +771,7 @@
   },
   "sheets": [
     [
-      "378653c9-43ca-47c2-9985-3a36bb46887f",
+      "236c5127-79e3-444e-bdfb-083160cd4da4",
       "Root"
     ]
   ],

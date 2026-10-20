@@ -331,6 +331,12 @@ document.getElementById('tools').addEventListener('click', (e) => {
     if (playing()) send('playback', 'stop');
     else if (!recording() && get('game/run') !== 'on') showRecordings();
   }
+  // The switchboard's power (§7.8, Rev 65): a toggle, held off until tapped
+  // again; not switched off while a game runs.
+  if (id === 'power-btn' && !espStale()) {
+    if (get('ctl/power_cut') !== 'off') send('power_cut', 'off');
+    else if (get('game/run') !== 'on') send('power_cut', 'hold');
+  }
 });
 // Their indicators, beside Tools, are the stops.
 document.getElementById('rec-ind').onclick = () => send('record', 'off');
@@ -436,6 +442,12 @@ function renderTools() {
   playBtn.classList.toggle('dis', !playing() && (running || !!rec || audioDown));
   playBtn.textContent = playing() ? 'playing' : play === 'missing' ? 'play… (missing)' : 'play…';
   document.getElementById('play-ind').hidden = !playing();
+
+  // Lit while the switchboard is powered; dark through a 1s cut too (§7.8).
+  const powered = get('ctl/power_cut') === 'off';
+  const powerBtn = document.getElementById('power-btn');
+  powerBtn.classList.toggle('on', powered);
+  powerBtn.classList.toggle('dis', gameStale() || espStale() || (powered && running));
   tickIndicators();
 }
 

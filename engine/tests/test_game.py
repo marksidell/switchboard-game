@@ -805,26 +805,45 @@ async def main() -> int:
         await g.stop("stop")
         await sess.close()
 
-        print("\n== the switchboard power cut (§3, §7.4, Rev 63)")
+        print("\n== the switchboard power cut (§3, §7.4, Rev 63; held, Rev 65)")
         b, link, g, sess = await build_game(tmp, pace="manual")
         cut = ("ctl/power_cut/set", "on")
         await g.on_command("power_cut", "on")
         check(link.sent.count(cut) == 1, "power_cut/set with no game: passed on")
         await g.start()
         await g.on_command("power_cut", "on")
-        check(link.sent.count(cut) == 1 and "not while a game runs" in link.state_v.get("game/error", ""),
-              "refused while a game runs")
+        check(link.sent.count(cut) == 2, "and while a game runs (Rev 66)")
         await g.stop("stop")
-        check(link.sent.count(cut) == 2, "Stop cuts the switchboard's power")
+        check(link.sent.count(cut) == 3, "Stop cuts the switchboard's power")
+        await g.on_command("power_cut", "bogus")
+        check(link.sent.count(cut) == 3 and "is not on" in link.state_v.get("game/error", ""),
+              "a payload other than on, hold or off is refused")
+        # Rev 65: off from the page until switched on again.
+        hold, off = ("ctl/power_cut/set", "hold"), ("ctl/power_cut/set", "off")
+        await g.on_command("power_cut", "hold")
+        check(link.sent.count(hold) == 1, "hold with no game: passed on")
+        await b.update("ctl/power_cut", "hold")
         await g.on_command("power_cut", "off")
-        check(link.sent.count(cut) == 2 and "is not on" in link.state_v.get("game/error", ""),
-              "a payload other than on is refused")
+        check(link.sent.count(off) == 1, "off: passed on")
+        await b.update("ctl/power_cut", "off")
+        await g.start()
+        check(link.sent.count(off) == 1, "Start with the switchboard powered sends nothing")
+        await g.on_command("power_cut", "hold")
+        check(link.sent.count(hold) == 1 and "not while a game runs" in link.state_v.get("game/error", ""),
+              "hold refused while a game runs")
+        await g.on_command("power_cut", "off")
+        check(link.sent.count(off) == 2, "off allowed while a game runs")
+        await g.stop("stop")
+        await b.update("ctl/power_cut", "hold")
+        await g.start()
+        check(link.sent.count(off) == 3, "Start powers a switchboard switched off")
+        await b.update("ctl/power_cut", "off")
         await g.start()
         await b.update("ctl/status", "offline")
         await g.stop("controller went offline")
-        check(link.sent.count(cut) == 2, "a stop with the controller offline does not try")
+        check(link.sent.count(cut) == 4, "a stop with the controller offline does not try")
         await g.on_command("power_cut", "on")
-        check(link.sent.count(cut) == 2 and "offline" in link.state_v.get("game/error", ""),
+        check(link.sent.count(cut) == 4 and "offline" in link.state_v.get("game/error", ""),
               "nor does the command")
         await sess.close()
 

@@ -62,6 +62,12 @@ class FakeLink:
                 await asyncio.sleep(D * 5)
                 if self.b.get(ring) == "on":
                     await u(ring, "off")
+        elif base == "ctl/power_cut":       # a 1s cut, then "off" (control.md §5.4)
+            await u(base, p)
+            if p == "on":
+                await asyncio.sleep(D * 5)
+                if self.b.get(base) == "on":
+                    await u(base, "off")
         else:  # hook, ring
             await u(base, p)
 

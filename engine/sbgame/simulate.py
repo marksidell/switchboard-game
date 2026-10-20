@@ -152,8 +152,10 @@ class Sim:
             return
 
         if base == "ctl/power_cut":              # control.md §5.4, Rev 31: one 1s cut
-            if payload == "on" and self.get(base) == "on":
+            if payload == "on" and self.get(base) in ("on", "hold"):
                 return                           # ignored during a cut
+            if payload == "hold" and self.get(base) == "hold":
+                return                           # Rev 32: until "off"
             await self.pub(base, payload)
             if payload == "on":
                 asyncio.create_task(self._end_burst(base))

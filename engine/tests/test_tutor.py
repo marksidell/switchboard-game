@@ -524,6 +524,9 @@ async def main() -> int:
         g._tutor_task.cancel()                    # as Next Call would, without a call
         await asyncio.gather(g._tutor_task, return_exceptions=True)
         g._tutor_task, g._intro = None, False
+        # The last Stop's switchboard reset freezes the lines (Rev 66): let it end.
+        await b.wait_until(lambda b: b.get("ctl/power_cut") != "on", 5)
+        await asyncio.sleep(HOLD * 2)
         sc = next(x for x in g.gs.scenes.values() if x.shape == Shape.STATION_TO_STATION)
         await b.update(f"station/{sc.from_station}/peer", f"station/{sc.to_station}")
         await b.update(f"station/{sc.to_station}/peer", f"station/{sc.from_station}")

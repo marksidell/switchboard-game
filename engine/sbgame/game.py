@@ -219,20 +219,23 @@ class Game:
                 return
 
             if name == "power_cut":
-                # §7.4, Rev 63: the switchboard reset by hand. Not during a
-                # game: it would drop the calls on the switchboard under it.
-                if payload != "on":
-                    await self._error(f"power_cut: {payload!r} is not on")
+                # §7.4, Rev 63: the switchboard reset by hand, "on"; §7.8,
+                # Rev 65: switched off from the page, "hold", and on again,
+                # "off". Not held off during a game: it could not be played on
+                # a dark board. The reset is allowed in one (Rev 66): the
+                # board freezes the lines through it. On again always is.
+                if payload not in ("on", "hold", "off"):
+                    await self._error(f"power_cut: {payload!r} is not on, hold or off")
                     return
-                if self.running:
+                if self.running and payload == "hold":
                     await self._error("power_cut: not while a game runs")
                     return
                 if not self.b.control_up:
                     await self._error("power_cut: the controller is offline")
                     return
                 assert self.hw is not None and self.link is not None
-                await self.hw.power_cut()
-                await self._say("page: power_cut on")
+                await self.hw.power_cut(payload)
+                await self._say(f"page: power_cut {payload}")
                 await self.link.state("game/error", "")
                 return
 
@@ -506,6 +509,9 @@ class Game:
             return                                  # ignored while running (§3)
         assert self.link is not None and self.slots is not None and self.log is not None
         await self._end_sweep()                     # §7.6: a game takes the board
+        if self.b.get("ctl/power_cut") == "hold" and self.b.control_up and self.hw is not None:
+            await self.hw.power_cut("off")          # §3, Rev 65: and its power
+            await self._say("switchboard powered for the game")
         if self.b.get("audio/playback") not in ("", "missing") and self.hw is not None:
             await self.hw.playback("stop")          # §7.7: and the loudspeaker
         self.running = True

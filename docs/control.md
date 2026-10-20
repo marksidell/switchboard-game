@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 31 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks, Switchboard Power Cut on GPIO15*
+*Rev 32 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks, Switchboard Power Cut on GPIO15, Pulsed or Held*
 
 # 1. Overview
 
@@ -113,6 +113,14 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 — Firmware updates over the network (§2.1), so that the installed board can be reflashed without a USB cable. A cable left attached would join portland's ground to the system's 24V ground, which PoE's isolation keeps apart, and anything that opened the port would reset the board; Mark weighed powering the Olimex from USB and chose to stay on PoE (with a TL-SG105PE PoE switch in place of a separate injector) and update over the network instead. The generator §3.4 recommendation to prefer OTA in the installed system is now something the firmware can do.
 
 — Firmware consequence, for Claude Code, made in the same commit: ArduinoOTA started once Ethernet has an address, with the hostname `sbgame-esp32` and a SHA-256 password hash from `secrets.h` (`OTA_PASSWORD_SHA256`; without it the firmware builds with OTA off). The start callback stops the waveform and releases every relay before anything is written to flash; an error after that point restarts the board. §10 gains the row.
+
+## 1.32 Changes in Rev 32
+
+— A held cut (§5.4), for game_control.md Rev 65, 2026-10-20: the page switches the switchboard off and on. `ctl/power_cut/set` `"hold"` drives GPIO15 high with no time limit, until `"off"` or a failsafe of §10; `ctl/power_cut` echoes `"hold"` (mqtt.md Rev 38). A hold during a 1s cut turns it into a hold; `"on"` during a hold is ignored, as during a cut. Powered is still the safe state: every failsafe ends a hold as it ends a cut.
+
+— The driver is now behind an optoisolator (generator §7.8, Rev 76), so the ESP32's ground is not joined to the 24V ground through it: GPIO15 drives the opto's LED through 220Ω, with 1kΩ across the LED. Still active high. Through a reset the Olimex's 10kΩ pull-up against those holds the pin near 0.36V, which the strap reads as low, and the LED dark.
+
+— Firmware consequence, for Claude Code: `powerCutSet()` takes `"on"`, `"hold"` or `"off"`; `ctl/power_cut` publishes `"hold"` while held; the pulse's timer leaves a hold alone. FIRMWARE_SPEC_REV 32.
 
 ## 1.31 Changes in Rev 31
 
@@ -347,11 +355,11 @@ Verified 2026-09-25, Analog Discovery 3 (Mark's capture `ring11.png`, not in the
 
 GPIO15 drives the relay in the switchboard's 24V leg (generator §7.8, Rev 75), on J1 pin 4: low, the relay is released and its normally closed contact feeds the switchboard; high, the relay operates and the switchboard is dark. It idles low from `setup()` on.
 
-`ctl/power_cut/set` `"on"` drives it high for `POWER_CUT_MS`, 1000, then low again; `"off"` drives it low at once. The 551's relays drop and its locked trunk signals with them in well under that. A second `"on"` while the cut is under way is ignored and logged: the cut is a pulse, not a level, and a duplicate is not a reason to stretch it. `ctl/power_cut` reads `"on"` from the moment the pin goes high to the moment it goes low, published retained as for every state topic. The timing runs in the main loop against `millis()`; a stall of the loop lengthens the cut by the stall and nothing worse.
+`ctl/power_cut/set` `"on"` drives it high for `POWER_CUT_MS`, 1000, then low again; `"off"` drives it low at once. The 551's relays drop and its locked trunk signals with them in well under that. A second `"on"` while the cut is under way is ignored and logged: the cut is a pulse, not a level, and a duplicate is not a reason to stretch it. `"hold"` (Rev 32) drives it high with no time limit, until `"off"` or a failsafe; a hold during a 1s cut becomes a hold, and `"on"` during a hold is ignored. `ctl/power_cut` reads `"on"` from the moment the pin goes high to the moment it goes low, `"hold"` while it is held, published retained as for every state topic. The timing runs in the main loop against `millis()`; a stall of the loop lengthens the cut by the stall and nothing worse.
 
 Every failsafe of §10 — the connection lost, the game heartbeat missed, a bus fault, an update starting — drives GPIO15 low with everything else it releases. The switchboard is our load, not a relay of the game's, but powered is its safe state and the rule is simpler kept whole.
 
-GPIO15 is a strapping pin (MTDO). The firmware leaves it as an input until `setup()`. Meanwhile the Olimex's 10kΩ pull-up and the driver's 1kΩ and 470Ω to ground hold it near 0.4V, which the strap reads as low: the ROM's boot log is silenced and nothing else this board uses changes. The driver's base sits near 0.13V, so the relay stays released through a reset (generator §7.8).
+GPIO15 is a strapping pin (MTDO). The firmware leaves it as an input until `setup()`. Meanwhile the Olimex's 10kΩ pull-up against the driver's 220Ω and the 1kΩ across its optoisolator's LED holds it near 0.36V, which the strap reads as low: the ROM's boot log is silenced and nothing else this board uses changes. The LED sits near 0.29V, dark, so the relay stays released through a reset (generator §7.8, Rev 76; a 1kΩ base resistor and 470Ω pull-down until then).
 
 Through Rev 30 GPIO15 was the waveform sync for the bench: high at step 0, low at step 125, for triggering a scope against phase zero. §5.3's verification used it. A bench session that needs it again can take it back temporarily, with the relay's driver unplugged from J1.
 

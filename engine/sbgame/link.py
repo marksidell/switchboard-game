@@ -175,10 +175,11 @@ class Hw:
         """Cadenced ring until stopped; "off" also cancels a short ring."""
         await self._p(f"trunk/{trunk}/ring/set", "on" if on else "off")
 
-    async def power_cut(self) -> None:
-        """Cut the switchboard's 24V for 1s (control.md §5.4, Rev 31): every
-        relay and lamp on it drops, a trunk's locked signal among them."""
-        await self._p("ctl/power_cut/set", "on")
+    async def power_cut(self, how: str = "on") -> None:
+        """Cut the switchboard's 24V (control.md §5.4): "on" for 1s (Rev 31),
+        every relay and lamp on it dropping, a trunk's locked signal among
+        them; "hold" until "off" (Rev 32); "off" to power it again."""
+        await self._p("ctl/power_cut/set", how)
 
     async def short_ring(self, trunk: int) -> None:
         """One 1s burst, then the trunk can see a seizure (control.md §8.4,

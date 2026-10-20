@@ -2,7 +2,7 @@
 
 **Ring Generator Circuit Design**
 
-*Rev 75 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C14 at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J3, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7, Switchboard Power Cut Relay on GPIO15 (Off-Board)*
+*Rev 76 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C14 at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J3, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7, Switchboard Power Cut Relay on GPIO15 (Off-Board), Optoisolated*
 
 # 1. Overview
 
@@ -360,6 +360,8 @@ Rev 15 exists because the gate-drive logic threshold in Rev 14 was checked again
 
 — Rev 75: GPIO15 changes from the waveform sync to the switchboard power cut (§3.2, §7.8), Mark's request, 2026-10-19. A trunk rung in locks its lamp and buzzer on the switchboard's own battery until a cord goes in; cutting the switchboard's leg of the 24V star for 1s clears it. The relay and its driver are off this board, wired to J1 pins 4 and 3 (GPIO15 and GND) and into the switchboard's Powerpole run. Active high, with a 470Ω base pull-down strong enough to hold the transistor off against the Olimex's 10kΩ pull-up on GPIO15 through a reset. Nothing on this board changes. Firmware consequence: control.md Rev 31.
 
+— Rev 76: the power cut's driver goes behind an optoisolator (§7.8), Mark's decision, 2026-10-20, drawn by him in `kicad/power`. Rev 75's transistor tied the ESP32's ground to the 24V ground at its emitter: base current returns to the one and coil current to the other. Until now the only path between them was the I²C cable, so the relay board would have made a second and a loop. An ISP521-1X now carries GPIO15 across, and the board's two grounds have no connection. Still active high, so nothing in the firmware's sense changes; an active-low drive was considered again and rejected, because it leaves the switchboard dark whenever the ESP32 is down and needs a stronger pull-up than J1 can reach. The firmware gains a held cut at the same time (control.md Rev 32), for switching the switchboard off from the page; nothing on the relay board depends on it.
+
 # 2. Signal Path
 
 ## 2.1 Ring Generator
@@ -425,7 +427,7 @@ Verify all four assignments against the Olimex schematic for the board revision 
   GPIO16  I²C SCL    I²C clock (2.2kΩ pull-up to 3.3V on this board)
 ```
 
-GPIO15 Output  Switchboard power cut, active HIGH, idles LOW — §7.8, Rev 75. J1 pin 4, GND on pins 2 and 3. The Olimex pulls it up with 10kΩ (§7.8). The waveform sync for scope and logic analyser triggering until Rev 75 (§12.5): assigned at Rev 42, brought out on J9 pin 3 at Rev 43, and on J1 pin 4 as built (Rev 68).
+GPIO15 Output  Switchboard power cut, active HIGH, idles LOW — §7.8, Rev 75, through an optoisolator from Rev 76. J1 pin 4, GND on pins 2 and 3. The Olimex pulls it up with 10kΩ (§7.8). The waveform sync for scope and logic analyser triggering until Rev 75 (§12.5): assigned at Rev 42, brought out on J9 pin 3 at Rev 43, and on J1 pin 4 as built (Rev 68).
 
 GPIO36 Input   Reserved for the Next Call button, active LOW — optoisolator output to ground, R37's 10k pull-up on the Olimex (Rev K). Olimex EXT2 pin 2. Assigned at Rev 65. Not fitted on this board (Rev 71): unconnected as built.
 
@@ -691,22 +693,32 @@ No 24V audio-band bulk is needed here. C2 at 100µF exists for a different probl
 
 Rev 75. A relay in the switchboard's leg of the supply star (§7.1), normally closed, opened for 1s by the firmware (control.md §5.4) to drop every relay and lamp on the switchboard. The 551 holds a trunk's ring-in signal, lamp and buzzer both, on its own battery until a cord goes into the jack; this is the only other way to clear it. Measured load on that leg, 2026-10-19: 800mA with seven trunk lamps lit and the buzzer on.
 
-It is not on this board. It sits in the Powerpole run, and takes two wires from J1:
+It is not on this board. It sits in the Powerpole run, on a board of its own, `kicad/power`, and takes two wires from J1 (Rev 76; Rev 75 drove the transistor straight from GPIO15). Its designators are that board's:
 
 ```text
-  J1 pin 4 (GPIO15) ── R1 1kΩ ── Q1 base;  R2 470Ω Q1 base to J1 pin 3 (GND)
-  +24V ── K1 coil ── Q1 collector;  Q1 emitter to GND;  D1 across the coil, cathode to +24V
-  PSU +24V ── K1 COM ;  K1 NC ── switchboard +24V
-  D2 across the switchboard's input, switchboard side of K1, cathode to +24V
+  ESP32 side, GND1 — joined to nothing on the 24V side
+    power J1 pin 1 (GPIO15, generator J1 pin 4) ── R1 220Ω ── U1 pin 1 (LED anode)
+    power J1 pin 2 (GND, generator J1 pin 3) ── U1 pin 2 (LED cathode)
+    R2 1kΩ across the LED, U1 pin 1 to pin 2
+
+  24V side, GND
+    +24V ── R3 10kΩ ── U1 pin 4 (collector);  U1 pin 3 (emitter) ── Q1 base
+    R4 10kΩ Q1 base to GND;  Q1 emitter to GND
+    +24V ── K1 coil ── Q1 collector;  D1 across the coil, cathode to +24V
+    J3 (24V in) +24V ── K1 COM;  K1 NC ── J2 (Switchboard) +;  K1 NO unused
+    D2 across J2, cathode to +
 ```
 
-Q1 2N2222A. K1 CIT J1071CS24VDC.36: SPDT, sealed, 7A at 30VDC, coil 1600Ω, 15mA at 24V, pick-up 18V, release 2.4V. D1 1N4148. D2 1N5408.
+U1 ISP521-1X: phototransistor output, CTR 50% minimum, BVceo 55V, 5.3kV. Q1 2N2222A. K1 CIT J1071CS24VDC.36: SPDT, sealed, 7A at 30VDC, coil 1600Ω, 15mA at 24V, pick-up 18V, release 2.4V. D1 1N4148. D2 1N5408.
 
-- **Sense.** GPIO15 low: Q1 off, K1 released, the switchboard powered through NC. GPIO15 high: Q1 saturates, K1 operates and opens NC. No PoE leaves GPIO15 unpowered and low; a removed cable or a failed driver leaves K1 released. Either way the switchboard stays on.
-- **Through a reset.** The Olimex pulls GPIO15 up with 10kΩ (Olimex's ESP32-POE pinout, Mark, 2026-10-19), and the pin is an input until `setup()`. R1 and R2 against the pull-up put the pin at 3.3 × 1.47/11.47 ≈ 0.42V and Q1's base at about 0.13V: off. The ESP32's internal pull-up, about 45kΩ, is in parallel and makes no difference. A 4.7kΩ pull-down, the first value tried, would put the base near 1V and Q1 on, about 10mA into a coil that picks up at 11mA. Were the pull-up 2.2kΩ, the base would reach about 0.42V, still off but with less margin.
-- **Q1's drive.** Driven high, (3.3 − 0.65)/1k ≈ 2.65mA leaves the pin, R2 takes 0.65/470 ≈ 1.4mA, and about 1.3mA reaches the base: a forced gain of 12 at 15mA of coil current, well saturated.
+- **Sense.** GPIO15 low: U1 dark, Q1 off, K1 released, the switchboard powered through NC. GPIO15 high: U1 conducts, Q1 saturates, K1 operates and opens NC. No PoE leaves GPIO15 unpowered and low; a removed cable or a failed driver leaves K1 released. Either way the switchboard stays on.
+- **Grounds.** Rev 75's transistor joined the ESP32's ground to the 24V ground at its emitter, a second path beside the I²C cable and so a loop. U1 carries the signal across; GND1 and GND have no connection on this board.
+- **Through a reset.** The Olimex pulls GPIO15 up with 10kΩ (Olimex's ESP32-POE pinout, Mark, 2026-10-19), and the pin is an input until `setup()`. Against R1 and R2 the pull-up puts about 0.29V across the LED, well short of the 1V or so it needs to conduct: U1 dark, the relay released. The pin sits near 0.36V, which the strap reads as low (control.md §5.4). In series instead of across, R2 would let the pull-up's 0.2mA through the LED, and U1 pass 0.1mA or more into Q1's base: not enough to pull K1 in for certain, nor certainly not.
+- **Drive.** Driven high, (3.3 − 1.2)/220 ≈ 9.5mA leaves the pin, R2 takes 1.2mA, and the LED 8mA. U1 is asked for (24 − 0.7)/10k ≈ 2.3mA, 29% of that, inside its 50% minimum; Q1 gets the 2.3mA, a forced gain of 6.5 at 15mA of coil current, well saturated. R3 dissipates 53mW while it conducts. U1 sees the full 24V while off, against its 55V.
 - **D2.** The switchboard is several dozen relay coils behind K1's contact. Without D2, opening K1 under load arcs it with their stored energy. D2 holds the switchboard's rail at a diode drop below ground while that energy decays, which also slows the switchboard's relays' release by milliseconds, against a 1s cut.
 - **K1's rating.** 0.8A steady against 7A; lamp inrush, filaments cold, is several times the steady current, and the 1s cut is long enough for them to cool most of the way.
+- **Pin order.** This board's J1 has GPIO15 on pin 1 and GND on pin 2; the generator's J1 has them on pins 4 and 3. The cable crosses accordingly.
+- **Held.** From control.md Rev 32 the cut may also be held, for switching the switchboard off from the page, until commanded on or a failsafe. K1's coil then stays energised, 0.36W, which it is rated for continuously.
 
 The board is Mark's to build. It is not in §10's list, which is this board's parts.
 
