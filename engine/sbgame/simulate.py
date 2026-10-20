@@ -117,6 +117,7 @@ class Sim:
             for f in ("seize", "ring", "peer", "op", "play", "listen", "tone", "fault"):
                 await self.pub(f"trunk/{n}/{f}", "")
         await self.pub("ctl/i2c", "ok")
+        await self.pub("ctl/power_cut", "off")
         await self.pub("audio/optone", "off")
         await self.pub("audio/monitor", "off")
         await self.pub("audio/monitor/source", "tap")
@@ -148,6 +149,14 @@ class Sim:
             await self.pub(ring, payload)
             if payload == "on":
                 asyncio.create_task(self._end_burst(ring))
+            return
+
+        if base == "ctl/power_cut":              # control.md §5.4, Rev 31: one 1s cut
+            if payload == "on" and self.get(base) == "on":
+                return                           # ignored during a cut
+            await self.pub(base, payload)
+            if payload == "on":
+                asyncio.create_task(self._end_burst(base))
             return
 
         if leaf in ("hook", "ring", "seize"):

@@ -6,6 +6,7 @@
 #include <MQTT.h>
 
 #include "sb_net.h"
+#include "sb_power.h"
 #include "sb_station.h"
 #include "sb_trunk.h"
 #include "secrets.h"
@@ -37,7 +38,7 @@ static bool     eth_up_logged   = false;
  * the outer read then waits out its 1s timeout and closes the connection - a
  * stalled loop and every relay released. So onMessage only records the
  * command, and netService acts on it once loop() has returned. */
-enum : uint8_t { CMD_HOOK, CMD_DIAL, CMD_RING, CMD_SHORTRING };
+enum : uint8_t { CMD_HOOK, CMD_DIAL, CMD_RING, CMD_SHORTRING, CMD_POWER_CUT };
 struct Command {
   uint8_t kind;
   uint8_t n;
@@ -70,6 +71,7 @@ static void runCommands() {
       case CMD_DIAL: stationDial(c.n, c.digits);   break;
       case CMD_RING: trunkSetRing(c.n, c.on);      break;
       case CMD_SHORTRING: trunkShortRing(c.n, c.on); break;
+      case CMD_POWER_CUT: powerCutSet(c.on);         break;
     }
   }
 }
@@ -160,7 +162,8 @@ static bool parseOnOff(const char* topic, const char* p, bool& on) {
 
 /* mqtt.md 6 is the whole of the inbound surface: four per-circuit commands -
  * hook/set and dial/set (control.md 7.3, Rev 17) on a station, ring/set and
- * shortring/set (control.md 8.4, Rev 25) on a trunk - and two ctl topics. Parsed rather than dispatched through a table
+ * shortring/set (control.md 8.4, Rev 25) on a trunk - and three ctl topics, power_cut/set
+ * (control.md 5.4, Rev 31) the third. Parsed rather than dispatched through a table
  * because the circuit number has to come out of the middle. */
 static void onMessage(String& topic, String& payload) {
   const char* t = topic.c_str();
@@ -212,6 +215,13 @@ static void onMessage(String& topic, String& payload) {
   }
   if (strcmp(t, "sbgame/ctl/sync") == 0) {
     sync_requested = true;
+    return;
+  }
+  if (strcmp(t, "sbgame/ctl/power_cut/set") == 0) {
+    Command* c;
+    if (parseOnOff(t, p, on) && (c = cmdPush(t))) {
+      c->kind = CMD_POWER_CUT; c->on = on;
+    }
     return;
   }
   Serial.printf("mqtt: unexpected topic %s\n", t);
@@ -268,6 +278,7 @@ static void onConnected() {
   mqtt.subscribe(topic, 1);
   ctlTopic("game_heartbeat", topic, sizeof topic); mqtt.subscribe(topic, 1);
   ctlTopic("sync",           topic, sizeof topic); mqtt.subscribe(topic, 1);
+  ctlTopic("power_cut/set",  topic, sizeof topic); mqtt.subscribe(topic, 1);
 
   backoff_ms     = MQTT_RECONNECT_MIN_MS;
   just_connected = true;

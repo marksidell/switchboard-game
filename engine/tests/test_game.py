@@ -803,6 +803,29 @@ async def main() -> int:
         await g.stop("stop")
         await sess.close()
 
+        print("\n== the switchboard power cut (§3, §7.4, Rev 63)")
+        b, link, g, sess = await build_game(tmp, pace="manual")
+        cut = ("ctl/power_cut/set", "on")
+        await g.on_command("power_cut", "on")
+        check(link.sent.count(cut) == 1, "power_cut/set with no game: passed on")
+        await g.start()
+        await g.on_command("power_cut", "on")
+        check(link.sent.count(cut) == 1 and "not while a game runs" in link.state_v.get("game/error", ""),
+              "refused while a game runs")
+        await g.stop("stop")
+        check(link.sent.count(cut) == 2, "Stop cuts the switchboard's power")
+        await g.on_command("power_cut", "off")
+        check(link.sent.count(cut) == 2 and "is not on" in link.state_v.get("game/error", ""),
+              "a payload other than on is refused")
+        await g.start()
+        await b.update("ctl/status", "offline")
+        await g.stop("controller went offline")
+        check(link.sent.count(cut) == 2, "a stop with the controller offline does not try")
+        await g.on_command("power_cut", "on")
+        check(link.sent.count(cut) == 2 and "offline" in link.state_v.get("game/error", ""),
+              "nor does the command")
+        await sess.close()
+
         print("\n== losing the controller stops the game (§3)")
         b, link, g, sess = await build_game(tmp, pace="manual")
         watcher = asyncio.create_task(g.watch_clients())

@@ -93,6 +93,11 @@ Command = tuple[str, str, int]           # topic under sbgame/, payload, QoS
 # Keys 5 and 6 (0-based 4 and 5), double-pressed: a board sweep (§7.6, Rev 62).
 SWEEP_KEYS = {4: "trunks", 5: "stations"}
 
+# Key 5 held this long with no game and no sweep: the switchboard reset,
+# game/power_cut/set (§7.4, Rev 63).
+RESET_KEY = 4
+RESET_HOLD = 2.0
+
 
 # ---- the panel: state and rules, no I/O ------------------------------------
 
@@ -120,6 +125,8 @@ class Panel:
         self.pace_target: tuple[str, float] | None = None
         # The last press of a sweep key (§7.6, Rev 62): [key, time].
         self.last_sweep_press: tuple[int, float] | None = None
+        # When key 5 went down for a switchboard reset (Rev 63), or None.
+        self.reset_down: float | None = None
 
     # -- reading --
 
@@ -272,6 +279,8 @@ class Panel:
             if self.get("game/error"):
                 self.error_until = now + ERROR_SHOW
             return []
+        if key == RESET_KEY:
+            self.reset_down = now if self._reset_allowed(now) else None
         if key in SWEEP_KEYS:
             return self._sweep_key(key, now)
         if key >= 4 or self.game_stale(now):
@@ -304,6 +313,34 @@ class Panel:
             self.next_guard_until = now + NEXT_GUARD
             return [("game/next/set", "", 0)]
         return []
+
+    def _reset_allowed(self, now: float) -> bool:
+        """A hold on key 5 counts only with no game, no sweep, and a game
+        program to send it to (§7.4, Rev 63), as the double press does."""
+        return not (self.game_stale(now) or self.running() or self.get("game/sweep"))
+
+    def on_key_up(self, key: int, now: float) -> None:
+        if key == RESET_KEY:
+            self.reset_down = None       # let go sooner: nothing is sent
+
+    def holding_reset(self, now: float) -> float | None:
+        """How far through the hold, 0 to 1, or None when not holding."""
+        if self.reset_down is None:
+            return None
+        if not self._reset_allowed(now):
+            self.reset_down = None
+            return None
+        return min(1.0, (now - self.reset_down) / RESET_HOLD)
+
+    def reset_due(self, now: float) -> list[Command]:
+        """The hold reached RESET_HOLD: send it, once per hold, while the key
+        is still down, so the operator knows when to let go."""
+        h = self.holding_reset(now)
+        if h is None or h < 1.0:
+            return []
+        self.reset_down = None
+        self.last_sweep_press = None     # the hold was not half a double press
+        return [("game/power_cut/set", "on", 1)]
 
     def _sweep_key(self, key: int, now: float) -> list[Command]:
         """Keys 5 and 6 double-pressed start a board sweep with no game
@@ -450,7 +487,13 @@ class Panel:
         return _key("Sweep", kind, fill=TEAL, ink=INK, size=30)
 
     def _k_calls(self, now: float) -> Image.Image:
+        if self.get("ctl/power_cut") == "on":            # Rev 63, whoever sent it
+            return _key("Switchboard", "reset", fill=DANGER, ink=INK, size=22)
         if (img := self._k_sweep(4, now)) is not None:
+            return img
+        if (h := self.holding_reset(now)) is not None:
+            img = _key("Hold to", "reset", fill=PANEL, ink=INK)
+            ImageDraw.Draw(img).rectangle((0, KEY_PX - 8, round(KEY_PX * h), KEY_PX), fill=DANGER)
             return img
         ink = GREY if self.game_stale(now) else INK
         return _pair(("started", str(self._tally("game/started"))),
@@ -651,7 +694,7 @@ class DeckSurface:
                 log.warning("cannot open %s: %s", d.deck_type(), e)
                 continue
             put = self._put
-            d.set_key_callback(lambda _d, k, down: down and put(("key", k)))
+            d.set_key_callback(lambda _d, k, down: put(("key" if down else "keyup", k)))
             d.set_dial_callback(lambda _d, k, ev, v: put(("dial", k, ev.name, v)))
             d.set_touchscreen_callback(lambda _d, ev, v: put(("touch",)))
             self.deck = d
@@ -784,6 +827,8 @@ async def run(args: argparse.Namespace) -> int:
             now = time.monotonic()
             if ev[0] == "key":
                 await publish(panel.on_key(ev[1], now))
+            elif ev[0] == "keyup":
+                panel.on_key_up(ev[1], now)
             elif ev[0] == "dial" and ev[2] == "TURN":
                 await publish(panel.on_dial(ev[1], ev[3], now))
             elif ev[0] == "touch":
@@ -795,13 +840,17 @@ async def run(args: argparse.Namespace) -> int:
         # and the timeouts above tick on their own.
         have = False
         while True:
+            # Faster while key 5 is held, for its bar and its 2s mark (Rev 63).
+            wait = 0.1 if panel.reset_down is not None else 0.5
             try:
-                await asyncio.wait_for(dirty.wait(), 0.5)
+                await asyncio.wait_for(dirty.wait(), wait)
             except asyncio.TimeoutError:
                 pass
             dirty.clear()
             now = time.monotonic()
             panel.tick(now)
+            if cmds := panel.reset_due(now):
+                await publish(cmds)
             if deck is not None and not deck.present():
                 have = False
                 if not await asyncio.to_thread(deck.rescan):

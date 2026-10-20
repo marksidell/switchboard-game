@@ -16,7 +16,7 @@
  * document whenever a revision has a firmware consequence. The commit and the
  * build time come from sb_version.h, which control/compile writes before it
  * compiles; a build without it says "unknown". Published on ctl/firmware. */
-static constexpr unsigned FIRMWARE_SPEC_REV = 30;
+static constexpr unsigned FIRMWARE_SPEC_REV = 31;
 
 /* Milliseconds from `since` to `now`, never wrapping (control.md 6.3, Rev 21).
  * The loop reads millis() once a pass, and a command handled in that pass
@@ -55,15 +55,18 @@ static constexpr uint8_t N_STATIONS = 22;
 static constexpr uint8_t N_TRUNKS   = 8;
 
 /* ---- Pins (control.md 3; generator 3.1/3.2 is the authority) ---------------
- * PIN_PWM_A/B, PIN_SD, PIN_ENBL and PIN_SYNC are declared in control.ino, which
- * owns the waveform. The I2C pins and /RESET are here because the expander
- * driver is a separate translation unit and needs them.
+ * PIN_PWM_A/B, PIN_SD and PIN_ENBL are declared in control.ino, which owns the
+ * waveform. The I2C pins, /RESET and the power cut are here because their
+ * drivers are separate translation units.
  * ------------------------------------------------------------------------- */
 static constexpr int PIN_EXP_RESET = 5;     // expander /RESET, active LOW, idles HIGH.
                                             // Strapping pin - must be high at boot.
 static constexpr int PIN_I2C_SDA = 13;      // Wire.begin(13, 16) - argument order
 static constexpr int PIN_I2C_SCL = 16;
 static constexpr uint32_t I2C_CLOCK_HZ = 100000;
+static constexpr int PIN_POWER_CUT = 15;    // switchboard power cut, 5.4 (Rev 31): active
+                                            // HIGH, idles LOW. J1 pin 4. Strapping pin -
+                                            // an input until setup() claims it.
 
 /* ---- Poll rate (control.md 6.3) -------------------------------------------
  * 200Hz. Five samples per half-cycle of the 40Hz station ring pulse train, and
@@ -108,6 +111,9 @@ static constexpr uint32_t CADENCE_ON_MS        =  2000;
 static constexpr uint32_t CADENCE_OFF_MS       =  4000;
 static constexpr uint32_t RING_HARD_TIMEOUT_MS = 30000;  // 8.5, independent of the host
 static constexpr uint32_t SHORT_RING_MS        =  1000;  // 8.4, shortring/set: one burst
+
+/* ---- Switchboard power cut (control.md 5.4, Rev 31) ----------------------- */
+static constexpr uint32_t POWER_CUT_MS         =  1000;  // the 551's relays drop well inside it
 static constexpr uint8_t  MAX_TRUNKS_RINGING   =     4;  // 8.5 starting value, pending
                                                          // the trunk 7.6 measurements.
                                                          // Leaves headroom for one

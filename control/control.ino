@@ -88,6 +88,7 @@
 #include "sb_station.h"
 #include "sb_trunk.h"
 #include "sb_net.h"
+#include "sb_power.h"
 #include "secrets.h"
 
 #ifdef OTA_PASSWORD_SHA256
@@ -130,20 +131,9 @@ static constexpr int PIN_PWM_A     = 32;  // LEDC CH0 -> gates 2+5 -> IN2 (U5, r
 static constexpr int PIN_PWM_B     = 33;  // LEDC CH1 -> gates 1+6 -> IN1 (U4, left leg)
 static constexpr int PIN_SD        = 14;  // -> gates 3+4 -> SD. HIGH = enabled
 static constexpr int PIN_ENBL      =  4;  // master enable, active LOW, pull-up
-static constexpr int PIN_SYNC      = 15;  // waveform sync out to J1 pin 4, doc 12.5.
-                                          // STRAPPING PIN - must be high when the ROM
-                                          // bootloader samples it, and low at reset
-                                          // also silences the boot log, so it is left
-                                          // an input until setup() claims it.
-                                          //
-                                          // Because the run starts at START_STEP, the
-                                          // first sync write after SD is the LOW at
-                                          // k == SINE_STEPS/2, and that is a no-op -
-                                          // parkOutputs() already idles it low. The
-                                          // first real edge is the rising one at k == 0,
-                                          // three quarters of a cycle later, so the
-                                          // first 37.5 ms of output carries sync low.
-                                          // Expected, not a bug.
+// GPIO15, the waveform sync on J1 pin 4 through control.md Rev 30, is the
+                                          // switchboard power cut from Rev 31: PIN_POWER_CUT,
+                                          // sb_config.h, driven by sb_power.cpp.
 
 static constexpr uint8_t LEDC_CH_A = 0;   // passed to ledcAttachChannel()
 static constexpr uint8_t LEDC_CH_B = 1;
@@ -255,12 +245,6 @@ static void stepCallback(void*) {
   pwmWrite(PIN_PWM_A, duty_a[k]);
   pwmWrite(PIN_PWM_B, duty_b[k]);
 
-  // Sync out on J1 pin 4: rising edge at the start of the positive half-cycle,
-  // falling at the start of the negative. One 20Hz square wave, 50% duty.
-  // Levels are written, not toggled - a toggle that misses a tick stays
-  // inverted for the whole run, where this re-asserts twice per cycle.
-  if (k == 0)                    digitalWrite(PIN_SYNC, HIGH);
-  else if (k == SINE_STEPS / 2)  digitalWrite(PIN_SYNC, LOW);
   step_index = (k + 1 == SINE_STEPS) ? 0 : (k + 1);
   tick_count = tick_count + 1;   // not tick_count++ : C++20 deprecates ++ on volatile
 }
@@ -268,7 +252,6 @@ static void stepCallback(void*) {
 static void parkOutputs() {
   pwmWrite(PIN_PWM_A, 0);          // both pins LOW, both IR2104 IN pins LOW:
   pwmWrite(PIN_PWM_B, 0);          // both low sides, primary at ground (control.md 3)
-  digitalWrite(PIN_SYNC, LOW);     // sync idles low whenever the generator is stopped
 }
 
 /* ---- The scan result (control.md 4.2 step 5) -------------------------------
@@ -552,7 +535,8 @@ static void printBanner() {
                 (unsigned long)START_STEP, (unsigned long)SINE_STEPS,
                 360.0 * ((double)START_STEP + 0.5) / (double)SINE_STEPS);
   Serial.println("  GPIO4 LOW to run (J1 pins 1-2)");
-  Serial.printf ("  sync on GPIO%d (J1 pin 4): rising = positive half-cycle\n", PIN_SYNC);
+  Serial.printf ("  power cut on GPIO%d (J1 pin 4), %lums, now %s\n", PIN_POWER_CUT,
+                 (unsigned long)POWER_CUT_MS, digitalRead(PIN_POWER_CUT) ? "cutting" : "idle");
   // tick_count advancing at 5000/s is the only visibility into whether the
   // esp_timer is really dispatching: a stalled timer with the bridge armed
   // looks exactly like a working one until a scope goes on GPIO32. enbl is the
@@ -654,11 +638,9 @@ void setup() {
   pinMode(PIN_EXP_RESET, OUTPUT);
   digitalWrite(PIN_EXP_RESET, HIGH);
 
-  // Sync output. Claimed here rather than at file scope because GPIO15 is a
-  // strapping pin: driving it before the ROM bootloader samples it changes boot
-  // behaviour and silences the boot log.
-  pinMode(PIN_SYNC, OUTPUT);
-  digitalWrite(PIN_SYNC, LOW);
+  // The switchboard power cut, low: the switchboard powered (control.md 5.4).
+  // Claimed here rather than at file scope because GPIO15 is a strapping pin.
+  powerCutInit();
 
   pinMode(PIN_ENBL, INPUT_PULLUP);     // grounding GPIO4 enables the generator
 
@@ -707,6 +689,7 @@ void setup() {
   if (netConnected()) {
     requestRepublish();                // spread over the first 31 poll ticks
     netPublishI2cScan(expanders_all_present);
+    powerCutPublish();
     (void)netTakeJustConnected();      // the birth sequence has just been run
   } else {
     Serial.println("mqtt: not connected at boot; will connect from loop()");
@@ -774,6 +757,7 @@ static void releaseAllRelays(const char* why) {
   trunkReleaseAll();
   expanderReleaseAllRelays();     // unconditional, not the dirty-flag path:
                                   // this runs when things are already wrong
+  powerCutRelease(why);           // 5.4, Rev 31: powered is its safe state
 
   /* Echo it if there is anyone to echo to. On the MQTT-loss path there is not,
    * and the retained values stay stale until the reconnect republishes them -
@@ -896,6 +880,7 @@ static void serviceFailsafes(uint32_t now) {
        * a lie. Only on this path: the probe below drops nothing. */
       stationReleaseAll();
       trunkReleaseAll();
+      powerCutRelease("I2C bus fault");   // 10: every release ends a cut
     } else {
       ok = expanderRescanAbsent();
     }
@@ -935,6 +920,7 @@ void loop() {
     last_republish_ms = now;
     requestRepublish();              // spread, one circuit per poll tick (9.2)
     if (reconnected) TIMED(T_SCAN, netPublishI2cScan(expanders_all_present));
+    if (reconnected) powerCutPublish();
   }
 
   /* ---- the 200Hz sample stream (6.3) --------------------------------
@@ -968,6 +954,8 @@ void loop() {
   }
 
   TIMED(T_ENABLE, serviceEnable());
+
+  powerCutService(now);
 
   TIMED(T_OTA, serviceOta());
 

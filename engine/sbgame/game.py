@@ -218,6 +218,24 @@ class Game:
                 await self._sweep_command(payload)
                 return
 
+            if name == "power_cut":
+                # §7.4, Rev 63: the switchboard reset by hand. Not during a
+                # game: it would drop the calls on the switchboard under it.
+                if payload != "on":
+                    await self._error(f"power_cut: {payload!r} is not on")
+                    return
+                if self.running:
+                    await self._error("power_cut: not while a game runs")
+                    return
+                if not self.b.control_up:
+                    await self._error("power_cut: the controller is offline")
+                    return
+                assert self.hw is not None and self.link is not None
+                await self.hw.power_cut()
+                await self._say("page: power_cut on")
+                await self.link.state("game/error", "")
+                return
+
             if name == "playback":
                 # §7.7, Rev 61: a recording on the loudspeaker, passed to the
                 # audio program, which echoes audio/playback. Not during a
@@ -558,6 +576,12 @@ class Game:
         self.pacing.next_at = None
         await self._monitor("tap")                  # §6.4
         await self._say(f"game stopped: {why}" if why != "stop" else "game stopped")
+        if self.b.control_up and self.hw is not None:
+            # §3, Rev 63: a trunk rung in holds its lamp and buzzer on the
+            # switchboard's own battery until a cord goes in; only the cut
+            # clears it. Not waited for.
+            await self.hw.power_cut()
+            await self._say("switchboard power cut")
         await self.session.end_game(why, self.tallies.started,
                                     self.tallies.success, self.tallies.fail)
         await self.link.state("game/run", "off")
