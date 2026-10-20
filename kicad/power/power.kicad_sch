@@ -2251,7 +2251,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "Power symbol creates a global label with name "GND" , ground"
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
 			(at 63.5 85.09 0)
 			(effects
 				(font
@@ -2316,7 +2316,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "Power symbol creates a global label with name "GND" , ground"
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
 			(at 48.26 85.09 0)
 			(effects
 				(font
@@ -2381,7 +2381,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "Power symbol creates a global label with name "GND" , ground"
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
 			(at 73.66 85.09 0)
 			(effects
 				(font
@@ -2446,7 +2446,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "Power symbol creates a global label with name "+24V""
+		(property "Description" "Power symbol creates a global label with name \"+24V\""
 			(at 83.82 50.8 0)
 			(effects
 				(font
@@ -2511,7 +2511,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "Power symbol creates a global label with name "+24V""
+		(property "Description" "Power symbol creates a global label with name \"+24V\""
 			(at 101.6 76.2 0)
 			(effects
 				(font
@@ -2641,7 +2641,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "Power symbol creates a global label with name "GND" , ground"
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
 			(at 119.38 81.28 0)
 			(effects
 				(font
@@ -2771,7 +2771,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "Power symbol creates a global label with name "GND" , ground"
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
 			(at 111.76 53.34 0)
 			(effects
 				(font
@@ -2836,7 +2836,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "Power symbol creates a global label with name "GND" , ground"
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
 			(at 116.84 53.34 0)
 			(effects
 				(font
