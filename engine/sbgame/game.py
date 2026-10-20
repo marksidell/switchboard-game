@@ -657,14 +657,6 @@ class Game:
         return (any(self.gs.in_scenario(c.scene) for c in self.slots)
                 or any(self.gs.in_scenario(i) for i in self._pending_after))
 
-    def _chosen_scenario_ready(self) -> bool:
-        """A chosen scenario, outside tutor mode, and the board clear: it
-        starts at once, without Next Call or the schedule (§4.10, Rev 41)."""
-        q = self.gs.scenes.get(self.queued) if self.queued else None
-        return (q is not None and q.after_handled is not None and self.tutor is None
-                and self.slots is not None and not any(True for _ in self.slots)
-                and not self._pending_after)
-
     def _scenario_allowed(self) -> bool:
         """A scenario is never dealt in tutor mode or listen (§4.10)."""
         return self.tutor is None and self.pacing.pace in ("manual", "auto")
@@ -1056,8 +1048,6 @@ class Game:
                     continue
                 if self.running and self.pacing.due():
                     await self._start_call()
-                elif self.running and self._chosen_scenario_ready():
-                    await self._start_call()        # §4.10, Rev 41: by itself
                 await asyncio.sleep(0.25)
             except asyncio.CancelledError:
                 raise

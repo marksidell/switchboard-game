@@ -709,8 +709,10 @@ async def main() -> int:
         await g.start()
         await g.on_command("queue", "p0")
         await asyncio.sleep(0.6)
-        check(any(c.scene == "p0" for c in g.slots),
-              "starts by itself on a clear board, without Next Call (Rev 41)")
+        check(not any(True for _ in g.slots),
+              "not started by itself on a clear board (Rev 64)")
+        await g._start_call(asked=True)
+        check(any(c.scene == "p0" for c in g.slots), "Next Call starts it")
         check("p0" in g._scenarios_dealt, "and it is its once-a-game play (Rev 49)")
         await g.stop("stop")
         sched.cancel()
