@@ -2103,7 +2103,7 @@
 			(embedded_fonts no)
 		)
 	)
-	(text "J1 to the switchboard transmitter feed, either polarity.  J2 to the capsule in the mouthpiece (Soberton EM-6027N, noise-cancelling, back port open), + to pin 1."
+	(text "J1 to the switchboard transmitter feed, either polarity.  J2 to the capsule in the mouthpiece (Same Sky CMC-97452-L100, unidirectional, rear port open), + to pin 1, the lead with continuity to the can to pin 2."
 		(exclude_from_sim no)
 		(at 20.32 27.94 0)
 		(effects
@@ -2114,7 +2114,7 @@
 		)
 		(uuid "17710bc0-7c88-4ea8-95b2-b090d702029c")
 	)
-	(text "U1A gain 1 + R10/R11, 150 Hz – 3.4 kHz.  R11 selected on the bench, 1k5–4k7, to match the carbon level on the tap channel."
+	(text "U1A gain 1 + R10/R11, 72 Hz (R11 C8) – 3.4 kHz (R10 C7).  R11 selected on the bench, 4k7–6k8, for headroom on OUT.  Tested with R11 4k7, C8 470n; C8 220n would restore the 150 Hz corner, untested."
 		(exclude_from_sim no)
 		(at 20.32 33.528 0)
 		(effects
@@ -2147,7 +2147,7 @@
 		)
 		(uuid "85fe5768-c85f-48e0-b7f6-aa56ea865d89")
 	)
-	(text "Q1 (TIP120 Darlington) R2 R3: Vbe multiplier, COLL-GND ≈ 2.5 V.  Feed is 24 V through the 140 Ω retard coil: ≈ 133 mA, ≈ 5.4 V across J1, ≈ 0.7 W in the box.  Speech enters at BASE through R12: ΔV = −(R2/R12)·v(OUT).  R1 10–22 Ω, by sidetone."
+	(text "Q1 (TIP120 Darlington) R2 R3: Vbe multiplier, COLL-GND ≈ 3.5 V.  Feed is 24 V through the 140 Ω retard coil: ≈ 120 mA, ≈ 6.3 V across J1, ≈ 0.75 W in the box.  Speech enters at BASE through R12: ΔV = −(R2/R12)·v(OUT).  R1 10–22 Ω, by sidetone."
 		(exclude_from_sim no)
 		(at 20.066 40.132 0)
 		(effects
@@ -4278,7 +4278,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "2k2 SEL"
+		(property "Value" "4k7"
 			(at 191.77 114.2999 0)
 			(effects
 				(font
@@ -4413,7 +4413,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "560"
+		(property "Value" "1k2"
 			(at 247.65 106.68 0)
 			(effects
 				(font
