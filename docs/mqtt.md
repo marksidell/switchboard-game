@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 38 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test, Recording), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels, the Switchboard Power Cut, Pulsed or Held*
+*Rev 39 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test, Recording), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels, the Switchboard Power Cut, Pulsed or Held, the Host's Public Address*
 
 # 1. Overview
 
@@ -204,6 +204,14 @@ This document specifies the messages: the topic names, who publishes each, what 
 
 — `trunk/<n>/shortring/set` added (§6, §8.4), following control.md Rev 25, 2026-10-05: `"on"` rings the trunk once for 0.5s, `"off"` cancels the burst; the ESP32 echoes the relay on the existing `ring` topic, `"on"` then `"off"`. The game program uses it to signal a call in on a trunk (game_control.md Rev 28). It is the third command that is not absolute state, after `next/set` and the station's `dial/set`: a duplicate delivered after the first burst has ended rings once more. That is harmless — the switchboard's trunk signal latches, and a second burst on an unanswered trunk changes nothing the operator sees; a duplicate during the burst, or after the trunk is seized, is ignored by the controller. QoS 1 as for every command. The ESP32 subscribes to one more pattern. No existing topic or payload changes.
 
+## 1.39 Changes in Rev 39
+
+— The host's public address on the page, following game_control.md Rev 68, Mark's request, 2026-10-22. A fourth host program, `sbgame-publicip`, asks `checkip.amazonaws.com` for portland's public address every 5 minutes and publishes it under a new top-level segment, `host/` (§3): `host/public_ip`, `host/public_ip/checked` and `host/public_ip/error`, retained (§6.3). The page asks for a lookup now with `host/public_ip/check/set`, QoS 0, an event like `game/next/set`. It is a program of its own, and not part of the game program, because a lookup is a call out of the house, and the game makes no network calls during a session (CLAUDE.md); the certificate renewal's calls to Let's Encrypt and Route 53 on their own timer are the precedent. A failed lookup reaches the page and nothing else.
+
+— The access list (§9) gains a user, `sbgame-host`, with `sbgame/host/#` and nothing else, and one write line for the page, `sbgame/host/public_ip/check/set`: the first page command that does not go to the game program. It commands a lookup and nothing on the board. The deck does not get it. §6.3 sits under §6 so that §7 onwards keep their numbers. Topics added; nothing removed or changed.
+
+— Code consequence, for Claude Code: `engine/sbgame/publicip.py` and its test, the page's two health rows, the unit, the user and the ACL in `host/`.
+
 ## 1.38 Changes in Rev 38
 
 — The switchboard held off, following control.md Rev 32 and game_control.md Rev 65, 2026-10-20: `ctl/power_cut/set` and `game/power_cut/set` gain `"hold"`, the switchboard's 24V cut until `"off"`, and `ctl/power_cut` reads `"hold"` while it is. `game/power_cut/set` gains `"off"` too. For the page's Switchboard power button. A value added to three topics; nothing removed.
@@ -283,6 +291,7 @@ Below the prefix:
 - `game/…` — the game program's own state, and the page's commands to it: the run state, pacing, tallies, call slots and log (Rev 10). Call slot numbers under `game/call/` are 1–8 and are not circuits.
 - `board/station/<n>/…`, n = 1–30, and `board/trunk/<n>/…`, n = 1–10 — the switchboard's own jacks, numbered as on the board (Rev 12). They are not circuits. A jack carries at most one circuit, named in its `circuit` topic.
 - `ctl/…` — system-level control and liveness.
+- `host/…` — facts about the host itself that the page shows, from programs that are not one of the three clients: its public address (Rev 39, §6.3).
 
 A **circuit id**, wherever a payload carries one, is the string `station/<n>` or `trunk/<n>` — the same two segments as the topic, so prefixing a circuit id with `sbgame/` gives that circuit's topic root. A slot number never appears on the wire.
 
@@ -428,6 +437,22 @@ The page's commands, consumed by the game program only (Rev 10). The Stream Deck
 | `sbgame/game/diag/<target>/<test>/set` | `"on"` or `"off"` | no | game | Start or stop a diagnostic (game_control.md §7.5). Refused on `error` for a circuit in a call or not fitted. Echoed on `diag/<target>/<test>` (Rev 23). |
 | `sbgame/game/power_cut/set` | `"on"`, `"hold"` or `"off"` | no | game | `"on"`: cut the switchboard's power for 1s, to clear lamps and buzzers left on (Rev 37). `"hold"`: switch it off until `"off"` switches it on (Rev 38). Passed on as `ctl/power_cut/set`; refused on `error` while the controller is offline, and `"on"` and `"hold"` while a game runs. Its effect shows on `ctl/power_cut` (game_control.md §7.4, §7.8). |
 | `sbgame/game/next/set` | ignored | no — and QoS 0, §2 | game | Start the next call now, if a game is running and a scene can be dealt; otherwise reported on `error`. Shows as `started` going up by one (Rev 11; a call number through Rev 10). |
+
+## 6.3 Messages Published by the Public-Address Service
+
+Rev 39. Not the game program: `sbgame-publicip`, a program of its own on the host, user `sbgame-host` (§9). It looks the host's public address up from `https://checkip.amazonaws.com/` when it connects, every 5 minutes after, and when the page asks, but no sooner than 5s after the last. Each lookup publishes all three state topics, in this order. It has no birth message or will: a `checked` time that has stopped moving is how the page sees it gone.
+
+| **Topic** | **Payload** | **Retained** | **Meaning** |
+| --- | --- | --- | --- |
+| `sbgame/host/public_ip` | an IPv4 or IPv6 address, or `""` | yes | The address the last good lookup found. `""` until one has succeeded. A failed lookup leaves it as it was. |
+| `sbgame/host/public_ip/checked` | host Unix time, whole seconds | yes | When the last lookup was made, good or not. |
+| `sbgame/host/public_ip/error` | `""`, or a few words | yes | `""` if the last lookup succeeded; else why not: `"timed out"`, `"HTTP 503"`, `"not an address"`, or the network's reason. |
+
+The page's command, consumed by `sbgame-publicip` only:
+
+| **Topic** | **Payload** | **Retained** | **Consumer** | **Meaning** |
+| --- | --- | --- | --- | --- |
+| `sbgame/host/public_ip/check/set` | ignored | no — and QoS 0, §2 | publicip | Look the address up now. Shows as `checked` changing. Within 5s of the last lookup, ignored. |
 
 # 7. Payload Conventions
 
@@ -590,8 +615,12 @@ topic readwrite sbgame/#
 user sbgame-web
 topic read sbgame/#
 topic write sbgame/game/+/set
+topic write sbgame/host/public_ip/check/set
 topic write sbgame/game/diag/+/+/+/set
 topic write sbgame/game/diag/tap/+/set
+
+user sbgame-host
+topic readwrite sbgame/host/#
 
 user sbgame-deck
 topic read sbgame/#
@@ -601,6 +630,8 @@ topic write sbgame/game/diag/tap/+/set
 ```
 
 The two `diag` lines are the diagnostics (Rev 23): a station's or trunk's, `game/diag/station/3/tone/set`, and the tap's, `game/diag/tap/tone/set`. They are two and one levels deeper than `game/+/set` covers. They still reach the game program only; the page cannot command the hardware.
+
+`sbgame-host` is the public-address service (Rev 39, §6.3): it writes its own segment and reads only its own command. The page's `host/public_ip/check/set` line lets it ask for a lookup, which changes nothing on the board; the deck does not have it.
 
 The page keeps its write line: its controls can be hidden on an iPad but not removed (game_control.md §7.1). The deck's password is in `/etc/sbgame/mqtt-deck.pass`, 640, group `sbgame-deck`, like the others.
 

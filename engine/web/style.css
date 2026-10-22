@@ -241,6 +241,8 @@ h2 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
               font-size: 13px; }
 #health span { color: var(--dim); }
 #health b { font-weight: 600; font-variant-numeric: tabular-nums; }
+#health .tap { cursor: pointer; }
+#health .tap b { text-decoration: underline dotted; text-underline-offset: 3px; }
 
 #error { background: #40201f; border: 1px solid #6b2b2a; border-radius: 8px;
          padding: 8px 10px; margin-bottom: 10px; font-size: 13px; }

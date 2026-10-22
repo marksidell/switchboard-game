@@ -13,7 +13,7 @@
 #
 #   /etc/mosquitto/passwd     hashed passwords. Rebuilt by `make passwd` from
 #                             the files below; never committed, hash or not.
-#   /etc/sbgame/mqtt-*.pass   the plaintext passwords (audio, game, web, deck), 640 root:<group of the
+#   /etc/sbgame/mqtt-*.pass   the plaintext passwords (audio, game, web, deck, host), 640 root:<group of the
 #                             program that reads it>. On the host only.
 #   control/secrets.h         the controller's password, gitignored, and the
 #                             source of sbgame-control's entry in passwd.
@@ -37,10 +37,11 @@ FILES := \
   etc/systemd/system/sbgame-streamdeck.service:root:root:644 \
   etc/systemd/system/sbaudio.service:root:root:644 \
   etc/systemd/system/sbgame-mqttlog.service:root:root:644 \
+  etc/systemd/system/sbgame-publicip.service:root:root:644 \
   etc/udev/rules.d/70-sbgame-streamdeck.rules:root:root:644 \
   etc/sbgame/game.toml:root:root:644
 
-.PHONY: diff install passwd status check-clean sbgame-user sbgame-deck-user sbgame-data sbgame-install sbgame-web sim
+.PHONY: diff install passwd status check-clean sbgame-user sbgame-deck-user sbgame-host-user sbgame-data sbgame-install sbgame-web sim
 
 ## diff - what differs between this tree and the host
 diff:
@@ -94,7 +95,7 @@ passwd:
 	@set -e; umask 077; \
 	ctl=$$(sed -n 's/.*MQTT_PASSWORD  *"\([^"]*\)".*/\1/p' ../control/secrets.h); \
 	[ -n "$$ctl" ] || { echo "no password in ../control/secrets.h" >&2; exit 1; }; \
-	for u in audio game web deck; do \
+	for u in audio game web deck host; do \
 	  $(SUDO) test -s /etc/sbgame/mqtt-$$u.pass || { \
 	    echo "no /etc/sbgame/mqtt-$$u.pass; make one with" >&2; \
 	    echo "  sudo sh -c 'umask 027; openssl rand -base64 18 > /etc/sbgame/mqtt-$$u.pass'" >&2; \
@@ -102,7 +103,7 @@ passwd:
 	done; \
 	t=$$($(SUDO) mktemp /etc/mosquitto/.passwd.XXXXXX); \
 	{ printf 'sbgame-control:%s\n' "$$ctl"; \
-	  for u in audio game web deck; do \
+	  for u in audio game web deck host; do \
 	    printf 'sbgame-%s:%s\n' "$$u" "$$($(SUDO) cat /etc/sbgame/mqtt-$$u.pass)"; \
 	  done; } | $(SUDO) tee "$$t" >/dev/null; \
 	$(SUDO) mosquitto_passwd -U "$$t"; \
@@ -144,6 +145,20 @@ sbgame-deck-user:
 	  $(SUDO) ls -l /etc/sbgame/mqtt-deck.pass | sed 's/^/  /' || \
 	  echo "  /etc/sbgame/mqtt-deck.pass is not there yet"
 
+## sbgame-host-user - the account the public-address service runs as
+##
+## Its own, as the deck's is: it writes sbgame/host/# and nothing else
+## (mqtt.md 9), and should not be able to read any other client's password.
+sbgame-host-user:
+	@id -u sbgame-host >/dev/null 2>&1 || { \
+	  $(SUDO) useradd --system --no-create-home --shell /usr/sbin/nologin sbgame-host && \
+	  echo "created the sbgame-host user"; }
+	@id sbgame-host | sed 's/^/  /'
+	@$(SUDO) chgrp sbgame-host /etc/sbgame/mqtt-host.pass 2>/dev/null && \
+	  $(SUDO) chmod 640 /etc/sbgame/mqtt-host.pass && \
+	  $(SUDO) ls -l /etc/sbgame/mqtt-host.pass | sed 's/^/  /' || \
+	  echo "  /etc/sbgame/mqtt-host.pass is not there yet"
+
 ## sbgame-install - the game program into /opt/sbgame, as the unit expects
 ##
 ## Its own venv, not the developer's: the daemon runs as sbgame and must not
@@ -151,7 +166,7 @@ sbgame-deck-user:
 ## engine and the shared script loader are installed from the checkout, so an
 ## install is a `git pull` and this target.
 REPO := $(shell cd .. && pwd)
-sbgame-install: sbgame-user sbgame-deck-user sbgame-data
+sbgame-install: sbgame-user sbgame-deck-user sbgame-host-user sbgame-data
 	@$(SUDO) install -d -m 755 -o root -g root /opt/sbgame
 	@test -x /opt/sbgame/venv/bin/python || $(SUDO) python3 -m venv /opt/sbgame/venv
 	@$(SUDO) /opt/sbgame/venv/bin/pip -q install --upgrade pip
@@ -222,7 +237,7 @@ sim:
 
 ## status - what is running and what is served
 status:
-	@for s in mosquitto nginx certbot.timer sbaudio sbgame sbgame-streamdeck sbgame-mqttlog; do \
+	@for s in mosquitto nginx certbot.timer sbaudio sbgame sbgame-streamdeck sbgame-mqttlog sbgame-publicip; do \
 	  printf '%-16s %s\n' "$$s" "$$(systemctl is-active $$s)"; \
 	done
 	@echo "listeners:"

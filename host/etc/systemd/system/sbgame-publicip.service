@@ -1,0 +1,30 @@
+[Unit]
+Description=551 Switchboard Simulator public address for the page (mqtt.md 6.3)
+Documentation=file:///home/sidell/s/sbgame/engine/README.md
+# Only the broker; it retries forever if the broker is not up yet. A lookup
+# that fails is reported on the page and tried again in 5 min.
+After=network-online.target mosquitto.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sbgame-host
+Group=sbgame-host
+ExecStart=/opt/sbgame/venv/bin/sbgame-publicip --password-file /etc/sbgame/mqtt-host.pass
+Restart=always
+RestartSec=5
+
+# It needs the broker, its password file and one HTTPS request out.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

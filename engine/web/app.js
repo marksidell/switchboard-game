@@ -114,7 +114,8 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-// ---- commands: the page publishes only sbgame/game/+/set -------------------
+// ---- commands: the page publishes only sbgame/game/+/set, and the -----------
+// ---- public-address service's look-now (mqtt.md 6.3) ----------------------
 
 function send(name, value, qos) {
   if (!client || !client.connected) return;
@@ -133,6 +134,16 @@ const espStale = () =>
   !brokerUp || get('ctl/status') !== 'online' ||
   (lastEspBeat && Date.now() - lastEspBeat > STALE_MS);
 const audioStale = () => !brokerUp || get('ctl/audio_status') !== 'online';
+// The public address (§7.1, Rev 68): looked up every 5 min, so stale once
+// the last lookup is over 11 min old — the service is down — or failed.
+const IP_STALE_S = 660;
+const ipStale = () => {
+  const at = num('host/public_ip/checked');
+  return !brokerUp || at === null || hostNow() - at > IP_STALE_S ||
+    get('host/public_ip/error') !== '';
+};
+let ipAsked = null;                  // `checked` when the line was tapped
+let ipAskedAt = 0;
 
 // ---- the board (§7.1) ------------------------------------------------------
 
@@ -664,11 +675,32 @@ function renderHealth() {
     ['source', src === 'tap' ? 'tap' : (src ? labelOf(src) : '—'), audioStale()],
     ['game', get('ctl/game_status') || '—', gameStale()],
     ['game beat', age(lastGameBeat), gameStale()],
+    // §7.1, Rev 68: tap either row to look again now.
+    ['public IP', get('host/public_ip') || '—', ipStale(), 'ip'],
+    ['checked', ipChecked(), ipStale(), 'ip'],
   ];
   document.getElementById('health').innerHTML = rows.map(
-    ([k, v, stale]) => `<div class="${stale ? 'stale' : ''}"><span>${esc(k)}</span>` +
-                       `<b>${esc(v)}</b></div>`).join('');
+    ([k, v, stale, act]) => `<div class="${stale ? 'stale' : ''}${act ? ' tap' : ''}"` +
+                            `${act ? ` data-act="${act}"` : ''}><span>${esc(k)}</span>` +
+                            `<b>${esc(v)}</b></div>`).join('');
 }
+
+function ipChecked() {
+  const at = get('host/public_ip/checked');
+  if (ipAsked !== null && at === ipAsked && Date.now() - ipAskedAt < 15000) return 'checking…';
+  const t = num('host/public_ip/checked');
+  if (t === null) return '—';
+  const ago = `${secs(hostNow() - t)} ago`;
+  return get('host/public_ip/error') ? `failed ${ago}` : ago;
+}
+
+document.getElementById('health').addEventListener('click', (e) => {
+  if (!e.target.closest('[data-act="ip"]') || !client || !client.connected) return;
+  ipAsked = get('host/public_ip/checked');
+  ipAskedAt = Date.now();
+  client.publish(`${PREFIX}host/public_ip/check/set`, '', { qos: 0 });
+  render();
+});
 
 function renderTop() {
   document.getElementById('lamp-broker').className = 'lamp ' + (brokerUp ? 'up' : 'down');

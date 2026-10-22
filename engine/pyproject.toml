@@ -28,6 +28,8 @@ sbgame-sim = "sbgame.simulate:main"
 sbgame-streamdeck = "sbgame.streamdeck:main"
 # Trunk and station boards wired straight together, tested pair by pair.
 sbgame-boardtest = "sbgame.boardtest:main"
+# The host's public address for the page (mqtt.md 6.3).
+sbgame-publicip = "sbgame.publicip:main"
 
 [tool.setuptools]
 packages = ["sbgame"]

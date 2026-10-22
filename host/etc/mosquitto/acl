@@ -11,9 +11,15 @@ topic readwrite sbgame/#
 user sbgame-web
 topic read sbgame/#
 topic write sbgame/game/+/set
+# The public address looked up now (mqtt.md 9, Rev 39).
+topic write sbgame/host/public_ip/check/set
 # Diagnostics (mqtt.md 9, Rev 23): a station's or trunk's, and the tap's.
 topic write sbgame/game/diag/+/+/+/set
 topic write sbgame/game/diag/tap/+/set
+
+# The public-address service (mqtt.md 6.3, Rev 39): its own topics only.
+user sbgame-host
+topic readwrite sbgame/host/#
 
 # The Stream Deck program (mqtt.md 9, Rev 20): the page's rights.
 user sbgame-deck

@@ -28,6 +28,7 @@ etc/letsencrypt/renewal-hooks/deploy/nginx    reload nginx after a renewal
 etc/systemd/system/sbgame.service             the game program
 etc/systemd/system/sbgame-streamdeck.service  the Stream Deck program
 etc/systemd/system/sbaudio.service            the audio program
+etc/systemd/system/sbgame-publicip.service    the public address, for the page
 etc/udev/rules.d/70-sbgame-streamdeck.rules   the deck, for the sbgame-deck user
 etc/sbgame/game.toml                          the game program's configuration
 iam/certbot-route53.json                      the certbot user's policy
@@ -55,7 +56,7 @@ sudo apt install mosquitto mosquitto-clients nginx certbot \
 
 # the secrets, by hand:
 #   /root/.aws/credentials        [default], 600, the certbot IAM user
-#   /etc/sbgame/mqtt-{audio,game,web,deck}.pass   640, root:<group>
+#   /etc/sbgame/mqtt-{audio,game,web,deck,host}.pass   640, root:<group>
 #   control/secrets.h             from control/secrets.h.example
 sudo install -d -m 755 /etc/sbgame /srv/sbgame/web
 
@@ -87,6 +88,25 @@ journalctl -u sbgame-streamdeck -f
 It runs with no deck plugged in and picks one up within 2s of it appearing.
 If it never does: `lsusb -d 0fd9:` should show `0fd9:0084`, and
 `ls -l /dev/bus/usb/*/*` should show that device in group `sbgame-deck`.
+
+## The public address
+
+`sbgame-publicip` (`mqtt.md` §6.3) asks `checkip.amazonaws.com` for the host's
+public address every 5 minutes, and when the page's line is tapped, and
+publishes it retained on `sbgame/host/public_ip`. It is not part of the game
+program, which makes no network calls during a session; a lookup that fails
+shows on the page and nowhere else. It runs as `sbgame-host`, which may write
+`sbgame/host/#` only. Once:
+
+```sh
+sudo sh -c 'umask 027; openssl rand -base64 18 > /etc/sbgame/mqtt-host.pass'
+make passwd                  # adds sbgame-host to the broker
+make install                 # the ACL and the unit
+make sbgame-install          # the user, and the program into /opt/sbgame/venv
+sudo systemctl enable --now sbgame-publicip
+```
+
+`/opt/sbgame/venv/bin/sbgame-publicip --once` looks once and prints it.
 
 ## Two things this host taught us
 
