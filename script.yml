@@ -540,12 +540,14 @@ tutor:
     # both steps are one line; from a trunk it can, and they are two.
     answer-station: >
         Someone in the hotel is calling. Take the rear cord of any free pair,
-        and plug it into the jack with the lighted lamp. Then, to talk to the
-        caller, find the black switch nearest you, in front of that pair, and
-        push it away from you.
+        and plug it into the jack with the lighted lamp. Always answer the
+        hotel with a rear cord, so the front cord is free if the caller wants
+        an outside line. Then, to talk to the caller, find the black switch
+        nearest you, in front of that pair, and push it away from you.
     answer-trunk: >
         A call is coming in from outside. Take the front cord of any free
-        pair, and plug it into the trunk jack with the lighted lamp.
+        pair, and plug it into the trunk jack with the lighted lamp. Outside
+        lines always take a front cord.
     talk: >
         To talk to the caller, find the black switch nearest you, in front of
         that pair, and push it away from you.
@@ -584,7 +586,7 @@ tutor:
     # Placing a call to the city.
     trunk-front: >
         Now take the front cord of the same pair, and plug it into any free
-        trunk jack, in the bottom row.
+        trunk jack, in the bottom row. Always use front cords for trunks.
     dial: >
         Keep the black switch pushed away from you. When you hear dial tone,
         dial {number}.

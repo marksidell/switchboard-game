@@ -7605,14 +7605,14 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "9214c47fc97f3beb",
+    "text_sha": "e1ae4b63cda25997",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.answer-trunk": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "b9354121ca145269",
+    "text_sha": "bf34b5c822e78125",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.busy-heard": {
@@ -8466,7 +8466,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "279b726347813915",
+    "text_sha": "6784ed7b92fd7051",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "valet-beaumont.1": {
