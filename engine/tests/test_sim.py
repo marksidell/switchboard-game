@@ -175,6 +175,18 @@ async def main() -> None:
     except FileNotFoundError as e:
         print("missing file raised FileNotFoundError:", e)
 
+    print("\n== 5b. a stop's late echo does not end the next play (2026-10-22)")
+    b = Board(hold=HOLD); link = FakeLink(b); hw = Hw(link); link.file_len = D * 6
+    await bring_up(b)
+    await b.update("station/3/play", "before")
+    await hw.stop(st(3))                       # its "" echo lands after say()'s expect,
+    await asyncio.sleep(D / 2)                 # and before the new play's own echo
+    t0 = asyncio.get_running_loop().time()
+    await say(b, hw, st(3), "after", D * 6)
+    took = asyncio.get_running_loop().time() - t0
+    print(f"say() took {took:.3f}s for a {D * 6:.3f}s file")
+    assert took >= D * 6, "say() returned on the stop's echo"
+
     print("\n== 6. outgoing: operator seizes trunk 4 and dials 275-4101")
     b = Board(hold=HOLD); link = FakeLink(b); hw = Hw(link)
     await bring_up(b)

@@ -16,8 +16,7 @@ Three shapes of task run under it:
                  concurrent` from its start, which is how a scenario puts
                  its calls on the board almost together (§4.10).
   a tutor task   in tutor mode (§4.9), the introduction after Start, or the
-                 end of a call: her line, then the wait for the cords out,
-                 or for Next Call when no trunk shows them (Rev 67).
+                 end of a call: her line, then Next Call (Rev 70).
                  While it runs no call is dealt.
 
 The command handler is deliberately quick (handover rule 9): it runs inside the
@@ -105,7 +104,7 @@ class Game:
         self.tutor: Tutor | None = None
         self._tutor_task: asyncio.Task | None = None
         self._intro = False             # the tutor task is the introduction
-        self._unseen = False            # or the end of a call with no trunk (Rev 67)
+        self._unseen = False            # or the end of a call (Rev 67, Rev 70)
         self._more: asyncio.Event | None = None   # More Help, during it (Rev 31)
         self._waiting_for = ""          # game/tutor/waiting (Rev 33)
         self._lessons: list[str] = []   # the scenes a tutored game starts with
@@ -326,7 +325,7 @@ class Game:
                     return
                 if self._tutor_task is not None and (self._intro or self._unseen):
                     # §4.9: Next during the introduction cuts it short, and
-                    # during the end of a call whose cords cannot be seen.
+                    # during her line at the end of a call (Rev 70).
                     self._tutor_task.cancel()
                     await asyncio.gather(self._tutor_task, return_exceptions=True)
                     self._tutor_task = None
@@ -722,7 +721,7 @@ class Game:
         if self.tutor is not None and (any(True for _ in self.slots)
                                        or self._tutor_task is not None):
             why = ("one call at a time in tutor mode" if self._tutor_task is None
-                   else "the tutor is waiting for the cords to come out")
+                   else "the tutor is finishing")
             await self._say(f"no call: {why}")
             if asked:
                 await self._error(why)
@@ -970,35 +969,21 @@ class Game:
                 pass
 
     async def _tutor_hangup(self, call: Call, scene: SceneDef) -> None:
-        """Her line at the end of a call, then every cord out and every
-        switch back before the next is dealt.
+        """Her line at the end of a call, then Next Call before the next.
 
-        Rev 67: only a trunk shows its cord once the call is down. A station
+        Rev 70: the board cannot see the cords once a call is down. A station
         on-hook draws no loop current, so its pilot, and with it `peer`, is
-        gone whether the cord is in or out. A call with no trunk gets her
-        line in full and then Next Call, the player's word for the cords.
+        gone whether the cord is in or out (Rev 67); and a trunk's loop runs
+        through the station's line, so its seizure drops when the station
+        hangs up, cord in or not. Her line is said in full, and the player's
+        Next Call is the word that the cords are out.
         """
         t = self.tutor
         assert t is not None
-        circuits = [c for c in (
-            f"station/{scene.from_station}" if scene.from_station is not None else "",
-            f"station/{scene.to_station}" if scene.to_station is not None else "",
-            call.trunk) if c]
-        trunks = [c for c in circuits if c.startswith("trunk/")]
-
-        def clear(b: Board) -> bool:
-            return (all(not b.on(f"{c}/op") and not b.get(f"{c}/peer") for c in circuits)
-                    and all(not b.on(f"{c}/seize") for c in trunks))
-
         key = "hangup-one" if scene.shape == Shape.TO_OPERATOR else "hangup-pair"
         try:
-            if trunks:
-                await t.say(key, until=clear)
-                await self.b.wait_until(clear, NO_LIMIT)
-                await t.hush()
-            else:
-                self._unseen = True
-                await t.say(key, hold=True)
+            self._unseen = True
+            await t.say(key, hold=True)
             if not self.pacing.automatic:
                 await t.say("ready-manual", hold=True)
                 await self._waiting("next")     # until a call is dealt (Rev 33)

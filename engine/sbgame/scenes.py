@@ -49,9 +49,12 @@ async def say(b: Board, hw: Hw, circuit: str, name: str, length: float,
     await hw.play(circuit, name)
     try:
         # Finished ("") or failed ("missing"). The "pending" set above means
-        # the "" from before the command can't pass.
+        # the "" from before the command can't pass, and "" counts only once
+        # this file's own name has been echoed, so the late "" of a stop sent
+        # just before cannot either.
         r = await b.wait_until(
-            lambda b: b.get(key) in ("", "missing") and (b.get(key) or "done"),
+            lambda b: (b.get(key) == "missing" and "missing")
+                      or (b.get(key) == "" and b.saw(key, name) and "done"),
             length + MARGIN, abort_if=abort_if)
     except BaseException:
         await _quietly(hw.stop(circuit))

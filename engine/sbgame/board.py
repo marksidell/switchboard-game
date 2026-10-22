@@ -85,6 +85,7 @@ class Board:
         self._watchers: set[asyncio.Queue[Change]] = set()
         self._frozen: dict[str, str] | None = None        # key -> latest, during a cut
         self._thaw: asyncio.TimerHandle | None = None
+        self._seen: dict[str, set[str]] = {}               # key -> values since expect()
 
         self.broker_up = False
         self._control_status = ""  # retained sbgame/ctl/status
@@ -133,10 +134,21 @@ class Board:
 
         Call this before sending the command: the echo can arrive while the
         send is still awaiting the broker's acknowledgement.
+
+        An earlier command's echo can still arrive after it, though: a stop's
+        "" sent just before a new play (2026-10-22: the tutor's line taken as
+        finished as it began). saw() says whether the key has held a value
+        since, so a waiter can ask for its own command's echo first, even one
+        that came and went before it woke.
         """
         async with self.cond:
+            self._seen[key] = set()
             if self._set(key, value):
                 self.cond.notify_all()
+
+    def saw(self, key: str, value: str) -> bool:
+        """Whether `key` has held `value` since the last expect() on it."""
+        return value in self._seen.get(key, ())
 
     def _apply(self, key: str, payload: str) -> bool:
         # Keep this a plain def that only updates values. Anything that needs
@@ -246,6 +258,8 @@ class Board:
             self._v[key] = value
         else:
             self._v.pop(key, None)
+        if key in self._seen:
+            self._seen[key].add(value)
         self._emit(key, old, value)
         return True
 

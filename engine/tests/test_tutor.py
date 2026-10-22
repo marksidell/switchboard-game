@@ -235,8 +235,10 @@ async def main() -> int:
     check(all(f"ring-front-{st}" in t and f"ring-rear-{st}" in t for st in cabled),
           f"a ring line each way for each of {len(cabled)} cabled stations, by name")
     check("room 403" in t["ring-front-room403"].text, "a numbered jack is said as a room")
-    check(t["dial-pizza"].text.endswith("dial Sunset four, four one oh one."),
-          f"a number as the card prints it: {t['dial-pizza'].text[-40:]!r}")
+    check("dial Sunset four, four one oh one." in t["dial-pizza"].text,
+          f"a number as the card prints it: {t['dial-pizza'].text[-80:]!r}")
+    check(t["dial-pizza"].text.endswith("seven, eight, four, four, one, zero, one."),
+          "and its digits one at a time, the exchange dialled as digits (Rev 69)")
     check(t["say-operator.1"].text == "Say: How may I connect your call?",
           "an operator line, as she is to say it")
     check(all(u.speaker == "tutor" and u.name == ("brief." + k.removeprefix("brief-")
@@ -518,7 +520,7 @@ async def main() -> int:
         check("nothing to repeat now" in link.state_v.get("game/error", ""),
               "Repeat Help with nothing to repeat is refused")
 
-        print("\n== the end of a call: the cords out before another")
+        print("\n== the end of a call with a trunk: her line, then Next Call (Rev 70)")
         await g.on_command("run", "on")
         await b.wait_until(lambda b: w.said.count("intro-jacks") == 2, 5)
         g._tutor_task.cancel()                    # as Next Call would, without a call
@@ -535,13 +537,9 @@ async def main() -> int:
                     trunk="trunk/3")
         g._tutor_task = asyncio.create_task(g._tutor_hangup(call, sc))
         await b.wait_until(lambda b: "hangup-pair" in w.said, 5)
-        await g.on_command("next", "")
-        check(g.tallies.started == 0 and "cords" in link.state_v.get("game/error", ""),
-              "Next is refused while a trunk's cord is up")
-        await b.update(f"station/{sc.from_station}/peer", "")
-        await b.update("trunk/3/peer", "")
-        await b.update("trunk/3/seize", "off")
         await b.wait_until(lambda b: w.said[-1:] == ["ready-manual"], 5)
+        check(b.on("trunk/3/seize"),
+              "with the trunk still seized she goes on: its seizure says nothing of the cord")
         for _ in range(50):
             if g._tutor_task is None:
                 break
@@ -552,7 +550,7 @@ async def main() -> int:
         check(g.tallies.started == 1 and link.state_v.get("game/tutor/waiting") == "",
               "and Next deals, and she is no longer waiting")
 
-        print("\n== the end of a call with no trunk: her line, then Next Call (Rev 67)")
+        print("\n== the end of a call with no trunk: the same (Rev 67)")
         await g.on_command("run", "off")
         await g.on_command("run", "on")
         await b.wait_until(lambda b: w.said.count("intro-jacks") == 3, 5)
