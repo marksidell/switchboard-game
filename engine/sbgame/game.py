@@ -16,7 +16,8 @@ Three shapes of task run under it:
                  concurrent` from its start, which is how a scenario puts
                  its calls on the board almost together (§4.10).
   a tutor task   in tutor mode (§4.9), the introduction after Start, or the
-                 end of a call: her line, then the wait for the cords out.
+                 end of a call: her line, then the wait for the cords out,
+                 or for Next Call when no trunk shows them (Rev 67).
                  While it runs no call is dealt.
 
 The command handler is deliberately quick (handover rule 9): it runs inside the
@@ -104,6 +105,7 @@ class Game:
         self.tutor: Tutor | None = None
         self._tutor_task: asyncio.Task | None = None
         self._intro = False             # the tutor task is the introduction
+        self._unseen = False            # or the end of a call with no trunk (Rev 67)
         self._more: asyncio.Event | None = None   # More Help, during it (Rev 31)
         self._waiting_for = ""          # game/tutor/waiting (Rev 33)
         self._lessons: list[str] = []   # the scenes a tutored game starts with
@@ -322,12 +324,15 @@ class Game:
                 if not self.running:
                     await self._error("next: no game is running")
                     return
-                if self._tutor_task is not None and self._intro:
-                    # §4.9: Next during the introduction cuts it short.
+                if self._tutor_task is not None and (self._intro or self._unseen):
+                    # §4.9: Next during the introduction cuts it short, and
+                    # during the end of a call whose cords cannot be seen.
                     self._tutor_task.cancel()
                     await asyncio.gather(self._tutor_task, return_exceptions=True)
                     self._tutor_task = None
-                    self._intro = False
+                    self._intro = self._unseen = False
+                    if self.tutor is not None:
+                        await self.tutor.hush()
                 await self._start_call(asked=True)
                 return
 
@@ -401,7 +406,7 @@ class Game:
         if t is not None:
             t.cancel()
             await asyncio.gather(t, return_exceptions=True)
-        self._intro = False
+        self._intro = self._unseen = False
         self._lessons = []
         await self._waiting("")
         if self.tutor is not None:
@@ -888,7 +893,7 @@ class Game:
 
         if self.tutor is not None and self.running:
             # §4.9: she sees the call down; nothing is dealt meanwhile.
-            self._intro = False
+            self._intro = self._unseen = False
             self._tutor_task = asyncio.create_task(
                 self._tutor_hangup(call, scene), name=f"tutor-hangup-{call.number}")
 
@@ -966,7 +971,13 @@ class Game:
 
     async def _tutor_hangup(self, call: Call, scene: SceneDef) -> None:
         """Her line at the end of a call, then every cord out and every
-        switch back before the next is dealt."""
+        switch back before the next is dealt.
+
+        Rev 67: only a trunk shows its cord once the call is down. A station
+        on-hook draws no loop current, so its pilot, and with it `peer`, is
+        gone whether the cord is in or out. A call with no trunk gets her
+        line in full and then Next Call, the player's word for the cords.
+        """
         t = self.tutor
         assert t is not None
         circuits = [c for c in (
@@ -981,9 +992,13 @@ class Game:
 
         key = "hangup-one" if scene.shape == Shape.TO_OPERATOR else "hangup-pair"
         try:
-            await t.say(key, until=clear)
-            await self.b.wait_until(clear, NO_LIMIT)
-            await t.hush()
+            if trunks:
+                await t.say(key, until=clear)
+                await self.b.wait_until(clear, NO_LIMIT)
+                await t.hush()
+            else:
+                self._unseen = True
+                await t.say(key, hold=True)
             if not self.pacing.automatic:
                 await t.say("ready-manual", hold=True)
                 await self._waiting("next")     # until a call is dealt (Rev 33)
@@ -992,6 +1007,7 @@ class Game:
         finally:
             if self._tutor_task is asyncio.current_task():
                 self._tutor_task = None
+                self._unseen = False
         if self.running:
             await self._reschedule()
 

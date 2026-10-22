@@ -527,17 +527,20 @@ async def main() -> int:
         # The last Stop's switchboard reset freezes the lines (Rev 66): let it end.
         await b.wait_until(lambda b: b.get("ctl/power_cut") != "on", 5)
         await asyncio.sleep(HOLD * 2)
-        sc = next(x for x in g.gs.scenes.values() if x.shape == Shape.STATION_TO_STATION)
-        await b.update(f"station/{sc.from_station}/peer", f"station/{sc.to_station}")
-        await b.update(f"station/{sc.to_station}/peer", f"station/{sc.from_station}")
-        call = Call(slot=1, number=9, scene=sc.id, from_line=sc.from_line, to_line=sc.to_line)
+        sc = next(x for x in g.gs.scenes.values() if x.shape == Shape.STATION_TO_OUTSIDE)
+        await b.update(f"station/{sc.from_station}/peer", "trunk/3")
+        await b.update("trunk/3/peer", f"station/{sc.from_station}")
+        await b.update("trunk/3/seize", "on")
+        call = Call(slot=1, number=9, scene=sc.id, from_line=sc.from_line, to_line=sc.to_line,
+                    trunk="trunk/3")
         g._tutor_task = asyncio.create_task(g._tutor_hangup(call, sc))
         await b.wait_until(lambda b: "hangup-pair" in w.said, 5)
         await g.on_command("next", "")
         check(g.tallies.started == 0 and "cords" in link.state_v.get("game/error", ""),
-              "Next is refused while a cord is up")
+              "Next is refused while a trunk's cord is up")
         await b.update(f"station/{sc.from_station}/peer", "")
-        await b.update(f"station/{sc.to_station}/peer", "")
+        await b.update("trunk/3/peer", "")
+        await b.update("trunk/3/seize", "off")
         await b.wait_until(lambda b: w.said[-1:] == ["ready-manual"], 5)
         for _ in range(50):
             if g._tutor_task is None:
@@ -548,6 +551,47 @@ async def main() -> int:
         await g.on_command("next", "")
         check(g.tallies.started == 1 and link.state_v.get("game/tutor/waiting") == "",
               "and Next deals, and she is no longer waiting")
+
+        print("\n== the end of a call with no trunk: her line, then Next Call (Rev 67)")
+        await g.on_command("run", "off")
+        await g.on_command("run", "on")
+        await b.wait_until(lambda b: w.said.count("intro-jacks") == 3, 5)
+        g._tutor_task.cancel()
+        await asyncio.gather(g._tutor_task, return_exceptions=True)
+        g._tutor_task, g._intro = None, False
+        await b.wait_until(lambda b: b.get("ctl/power_cut") != "on", 5)
+        await asyncio.sleep(HOLD * 2)
+        sc = next(x for x in g.gs.scenes.values() if x.shape == Shape.STATION_TO_STATION)
+        await b.update(f"station/{sc.from_station}/peer", f"station/{sc.to_station}")
+        await b.update(f"station/{sc.to_station}/peer", f"station/{sc.from_station}")
+        call = Call(slot=1, number=10, scene=sc.id, from_line=sc.from_line, to_line=sc.to_line)
+        n = w.said.count("hangup-pair")
+        g._tutor_task = asyncio.create_task(g._tutor_hangup(call, sc))
+        await b.wait_until(lambda b: w.said.count("hangup-pair") == n + 1, 5)
+        await b.wait_until(lambda b: w.said[-1:] == ["ready-manual"], 5)
+        check(b.get(f"station/{sc.from_station}/peer"),
+              "with the peers still up, she goes on to Next Call: on-hook, no cord shows")
+        for _ in range(50):
+            if link.state_v.get("game/tutor/waiting") == "next":
+                break
+            await asyncio.sleep(D)
+        await g.on_command("next", "")
+        check(g.tallies.started == 1, "and Next deals")
+        await g.on_command("run", "off")
+        await g.on_command("run", "on")
+        await b.wait_until(lambda b: w.said.count("intro-jacks") == 4, 5)
+        g._tutor_task.cancel()
+        await asyncio.gather(g._tutor_task, return_exceptions=True)
+        g._tutor_task, g._intro = None, False
+        await b.wait_until(lambda b: b.get("ctl/power_cut") != "on", 5)
+        await asyncio.sleep(HOLD * 2)
+        n = w.said.count("hangup-pair")
+        g._tutor_task = asyncio.create_task(g._tutor_hangup(call, sc))
+        await b.wait_until(lambda b: w.said.count("hangup-pair") == n + 1, 5)
+        k = len(link.sent)
+        await g.on_command("next", "")
+        check(g.tallies.started == 1 and ("audio/monitor/play/set", "stop") in link.sent[k:],
+              "Next during her line cuts it short and deals")
         await g.on_command("pace", "manual")
         check(g.tutor is None and link.state_v.get("game/pace") == "manual",
               "another pace mid-game: she stops at once")
