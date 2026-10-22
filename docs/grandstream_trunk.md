@@ -1,45 +1,52 @@
 # 551 Switchboard Simulator — A Grandstream ATA on a Trunk Jack (Bench Notes)
 
-Rev 1 — 2026-10-22. Bench notes, Mark's measurements. Nothing here is a design
+Rev 2 — 2026-10-22. Bench notes, Mark's measurements. Nothing here is a design
 decision. The ATA is a Grandstream HT80x V2; its administration guide is in
 `reference/HT80x-V2-–-Administration-Guide.pdf`.
+
+## Changes in Rev 2
+
+— Loop current measured with a meter in series, in place of Rev 1's figure worked out
+from the voltages. It is 30 mA, not 10 mA, with the cord in and with the operator
+keyed alike: the ATA feeds a regulated current, not a soft 48 V source, and Rev 1's
+inferences from a 4 kΩ source are withdrawn. The ATA sees the seizure as soon as the
+cord goes in, not when the operator keys: Rev 1 had it otherwise because no dial tone
+was heard on the loudspeaker then, and none could be, since the loudspeaker follows
+the operator, who was not yet on the line.
 
 ## 1. Measured
 
 The ATA's FXS port connected to one of the switchboard's trunk jacks, in place of the
-trunk board. Tip to ring, Mark, 2026-10-22:
+trunk board. Mark, 2026-10-22. Tip to ring, and the loop current with a meter in
+series:
 
-| State | Tip to ring |
-| --- | --- |
-| Trunk not seized | −48 V |
-| Cord plugged in; the ATA does not see it seized (no dial tone) | −28 V |
-| Seized, operator connected; the ATA plays dial tone | −6 V |
+| State | Tip to ring | Loop current | The ATA |
+| --- | --- | --- | --- |
+| No cord in the jack | −48 V | 0 mA | idle |
+| Cord plugged in | −28 V | 30 mA | sees the seizure, plays dial tone |
+| Cord in, operator keyed | −6 V | 30 mA | the same |
 
-"Seized", here and below, is the ATA's off-hook detection: it plays dial tone.
+The switchboard trunk's DC resistance, measured on its own: 575 Ω.
 
-The switchboard trunk's DC resistance: 575 Ω.
+## 2. What the numbers say
 
-## 2. Loop current when seized
-
-Mark's figure: 10 mA. Ohm's law agrees, if the 575 Ω is the whole loop the ATA sees
-when seized: 6 V / 575 Ω = 10.4 mA.
-
-What the three voltages imply, not measured:
-
-- **The ATA's feed is soft.** Its voltage falls from 48 V to 6 V at 10.4 mA, an
-  effective source resistance of about (48 − 6) / 10.4 mA ≈ 4.0 kΩ. An FXS port
-  usually feeds a regulated loop current of about 20–25 mA. Either the port limits the
-  current lower than that, or something besides the 575 Ω is in the loop.
-- **With the cord plugged in but not seized, the jack still draws current.** At −28 V
-  the 575 Ω would draw 49 mA, more than the ATA can supply. So the trunk's 575 Ω is not
-  across the line in that state, and a higher resistance is. If the source is about
-  4.0 kΩ, the line draws about (48 − 28) / 4.0 kΩ ≈ 5 mA, through about 5.6 kΩ:
-  probably the cord's supervisory path.
+- **The feed is a regulated current, about 30 mA.** The current does not change between
+  the two loaded states while the voltage falls from 28 V to 6 V, which is what an FXS
+  port's current-limited feed does. The 48 V is its open-circuit voltage.
+- **The loop is not 575 Ω in either state.** At 30 mA, the cord alone is
+  28 V / 30 mA ≈ 930 Ω, and keying the operator brings it down to 6 V / 30 mA ≈ 200 Ω,
+  her set and the cord circuit now in parallel with it. The 575 Ω was measured in some
+  other condition: an ohmmeter on a loop with relays, a lamp and diodes in it does not
+  read what the loop does at 30 mA.
+- **The seizure is the cord, not the key**, as on a real trunk: the cord closes the
+  loop. The operator then joins a line that already has dial tone.
+- **30 mA is about what the switchboard sees in play.** The trunk board's own
+  constant-current feed is 26–28 mA (trunk_circuit.md §3.3), so its trunk relay and
+  lamp are not asked for anything new.
 
 ## 3. Open
 
-- The loop current, measured with a meter in series, seized and plugged-not-seized,
-  rather than inferred from the voltages.
-- The ATA's off-hook detection threshold. It gives dial tone at about 10 mA and not at
-  about 5 mA, so it lies between; how far 10 mA is above it. Its loop
-  current setting, if it has one (administration guide, FXS port settings).
+- Where the 575 Ω was measured, and why it differs from the 930 Ω the cord presents at
+  30 mA.
+- The ATA's loop current setting, if it has one (administration guide, FXS port
+  settings).
