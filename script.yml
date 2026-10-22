@@ -542,15 +542,16 @@ tutor:
         Someone in the hotel is calling. Take the rear cord of any free pair,
         and plug it into the jack with the lighted lamp. Always answer the
         hotel with a rear cord, so the front cord is free if the caller wants
-        an outside line. Then, to talk to the caller, find the black switch
-        nearest you, in front of that pair, and push it away from you.
+        an outside line. Then, to talk to the caller: you always talk with
+        the black switch nearest you. Find it, in front of that pair, and
+        push it away from you.
     answer-trunk: >
-        A call is coming in from outside. Take the front cord of any free
-        pair, and plug it into the trunk jack with the lighted lamp. Outside
-        lines always take a front cord.
+        A call is coming in from outside. Outside lines always take a front
+        cord. Take the front cord of any free pair, and plug it into the
+        trunk jack with the lighted lamp.
     talk: >
-        To talk to the caller, find the black switch nearest you, in front of
-        that pair, and push it away from you.
+        To talk to the caller: you always talk with the black switch nearest
+        you. Find it, in front of that pair, and push it away from you.
 
     # Wherever the game waits for her to speak: the operator line the scene
     # gives, or, where it gives none, one of the two after it.
@@ -571,12 +572,14 @@ tutor:
     # Putting a call through to a room.
     ring-front: >
         Now take the front cord of the same pair, and plug it into the jack
-        for {jack}. To ring the telephone, pull the same black switch toward
-        you for a moment, and let it go.
+        for {jack}. The near switch rings the front cord. To ring the
+        telephone, pull that same black switch toward you for a moment, and
+        let it go.
     ring-rear: >
         Now take the rear cord of the same pair, and plug it into the jack for
-        {jack}. To ring the telephone, pull the black switch farthest from you
-        toward you for a moment, and let it go.
+        {jack}. The far switch rings the rear cord. To ring the telephone,
+        pull the black switch farthest from you toward you for a moment, and
+        let it go.
     # A call in from a trunk: she rang with the far switch, so the near one
     # still has her on the line.
     center-ringing: >
@@ -585,11 +588,11 @@ tutor:
 
     # Placing a call to the city.
     trunk-front: >
-        Now take the front cord of the same pair, and plug it into any free
-        trunk jack, in the bottom row. Always use front cords for trunks.
+        Now take the front cord of the same pair: front cords always go to
+        the trunks. Plug it into any free trunk jack, in the bottom row.
     dial: >
         Keep the black switch pushed away from you. When you hear dial tone,
-        dial {number}.
+        dial {number}. That's {number-digits}.
     dial-operator: >
         Keep the black switch pushed away from you. When you hear dial tone,
         dial zero, for the operator.
@@ -934,7 +937,7 @@ scenes:
             -   id: 7
                 caller: >
                     Of course not. You answer is telephone, and you live in his hotel room,
-                    and yet you are not Mr. Kaplan. Nevertheless, we are pleased to find you, in.
+                    and yet you are not Mr. Kaplan. Nevertheless, we are pleased -- to find you in.
             -   id: 8
                 called: Hello? Hello?
 
