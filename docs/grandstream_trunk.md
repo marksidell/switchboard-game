@@ -1,8 +1,13 @@
 # 551 Switchboard Simulator — A Grandstream ATA on a Trunk Jack (Bench Notes)
 
-Rev 3 — 2026-10-22. Bench notes, Mark's measurements. The design that puts the
+Rev 4 — 2026-10-22. Bench notes, Mark's measurements. The design that puts the
 ATA on trunk 8 is in trunk_circuit.md §4.5 (Rev 5.51). The ATA is a Grandstream HT80x V2; its administration guide is in
 `reference/HT80x-V2-–-Administration-Guide.pdf`.
+
+## Changes in Rev 4
+
+— Ring voltage: the switchboard's trunk ring relay trips at 55 Vrms, not at 45 Vrms
+(§1). trunk_circuit.md Rev 5.53 sets the ATA to 55 Vrms.
 
 ## Changes in Rev 3
 
@@ -34,6 +39,9 @@ series:
 | Cord in, operator keyed | −6 V | 30 mA | the same |
 
 The switchboard trunk's DC resistance, measured on its own: 575 Ω.
+
+Ring from the ATA into the trunk jack: at 45 Vrms the switchboard's trunk ring relay
+does not trip, and at 55 Vrms, the ATA's maximum, it does (Mark, 2026-10-22).
 
 ## 2. What the numbers say
 
