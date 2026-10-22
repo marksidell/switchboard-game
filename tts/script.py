@@ -798,6 +798,19 @@ def number_words(number: str, exchanges: dict[str, str]) -> str:
     return f"{ex}, " + _line_words(digits[3:])
 
 
+DIGITS_FIELD = "number-digits"
+DIAL_WORDS = ("zero",) + DIGIT_WORDS[1:]
+
+
+def dial_digits(number: str, exchanges: dict[str, str]) -> str:
+    """What the player dials, a digit at a time: 783-2250, Sunset three, as
+    "seven, eight, three, two, two, five, zero" (game_control.md 4.9, Rev 69).
+    The exchange's letters are dialled as their digits, and the commas give
+    the voice a beat between them. Zero, not "oh": she is naming a hole in
+    the dial, not reading a number from a card."""
+    return ", ".join(DIAL_WORDS[int(c)] for c in number if c.isdigit())
+
+
 def _tutor_lines(raw: object, cast: dict, board: list[dict], stations: dict,
                  outside: dict, utterances: list[Utterance], bad,
                  scenes: dict | None = None) -> dict[str, Utterance]:
@@ -835,9 +848,13 @@ def _tutor_lines(raw: object, cast: dict, board: list[dict], stations: dict,
             bad(at, f"unreadable placeholder: {e}")
             return None
         want = {field_} if field_ else set()
-        if used != want:
+        # {number-digits} beside {number}: what to dial, digit by digit (Rev 69).
+        may = want | ({DIGITS_FIELD} if field_ == "number" else set())
+        if not want <= used or used - may:
             bad(at, "takes " + (f"{{{field_}}}" if field_ else "no placeholder")
-                + (f", not {', '.join('{' + u + '}' for u in sorted(used))}" if used - want else ""))
+                + (" and may take {" + DIGITS_FIELD + "}" if may - want else "")
+                + (f", not {', '.join('{' + u + '}' for u in sorted(used - may))}"
+                   if used - may else ""))
             return None
         return " ".join(text.split())
 
@@ -881,7 +898,9 @@ def _tutor_lines(raw: object, cast: dict, board: list[dict], stations: dict,
             for line, entry in outside.items():
                 number = str((entry or {}).get("number", ""))
                 if number and number != "0":
-                    add(f"{prefix}{key}-{line}", text.format(number=number_words(number, ex)))
+                    add(f"{prefix}{key}-{line}", text.format(**{
+                        "number": number_words(number, ex),
+                        DIGITS_FIELD: dial_digits(number, ex)}))
         elif field_ == "line":
             # A scenario is never played in tutor mode (game_control.md 4.10),
             # so she needs no Say for a line only a scenario uses.
