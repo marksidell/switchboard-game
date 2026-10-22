@@ -2,7 +2,7 @@
 
 **Trunk Interface Circuit Design**
 
-*Rev 5.51 — 8 Trunks, Constant-Current Loop Feed, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Trunk Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, External Ring Generator*
+*Rev 5.52 — 8 Trunks, Constant-Current Loop Feed, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Trunk Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, External Ring Generator*
 
 # **1. Overview**
 
@@ -156,6 +156,7 @@ Only two amendments to the station document are needed, and both are flagged whe
 - Rev 5.49: §7.5.1's exchange-style ring trip is worked out, with a sketch, `docs/ring_over_battery_sketch.svg`. It is not ruled out after all: one isolating transformer for the board, not one per trunk, keeps the bus floating, since each trunk detects in its own current-source path; a switched capacitor carries the ring around the current source; and §4.4's LED is the detector, independent of the ringer load. Capacitive coupling of the bus to TIP and RING without it is recorded as not working. R_series also removes §5.3's hazard. Still a future revision, not adopted (Mark, 2026-10-07). No change to the board.
 - Rev 5.50: §7.5.1 names a candidate T_ring, the Triad Magnetics VPT230-220 (50VA toroid, 2 × 115V primaries and secondaries, used 230V:230V), at 87% of rated flux at 20Hz, the Antek's margin; Rev 5.49's 360V winding is withdrawn as impractical, with the answered trunk's DC bias left as a bench check. Still a future revision, not adopted (Mark, 2026-10-07). No change to the board.
 - Rev 5.51: new §4.5 — trunk 8 modified to be fed by a Grandstream HT80x V2 ATA (grandstream_trunk.md), for callers from outside. D903 is removed. R906 is lifted off ground to the ATA's ring and goes from 220Ω to 330Ω. U901 moves to its AC input, pins 1 and 4, with pins 2 and 3 lifted, so the loop floats and the ATA's feed polarity does not matter (Mark, 2026-10-22). At 220Ω the AC input's 5.50 V worst-case threshold is not reached at the ATA's 30 mA. At 330Ω every part turns on above 21.2 mA. Bench checks: the ATA's compliance with 330Ω added, whether U901 sees the ATA's ring, and the `op`/`peer` levels with the ATA terminating the line. The game must not ring, tone or play on trunk 8, and game_control.md has yet to say so. Trunks 1–7 unchanged.
+- Rev 5.52: §4.5 pulls K901 on trunk 8 (Mark, 2026-10-22). It is not needed, since trunk 8 is never rung from the board. With it out, the ring bus cannot reach the ATA. Pole 1 COM is jumpered to NC and pole 2 COM to NC, so TIP and RING still reach node A and node B, and Tx01 and U901 stay on the line. The ATA's tip goes into the pole 1 NC hole. Its ring still goes to R906's lifted leg. The ATA connects at the board because trunk 8 reaches the switchboard through the board's RJ45 cable.
 
 | **Former name** | **Designator** | **Former name** | **Designator** |
 | --- | --- | --- | --- |
@@ -600,16 +601,18 @@ Two other ways were weighed the same day and not preferred. A PNP in parallel wi
 
 ## **4.5 Trunk 8 as Modified: Fed by a Grandstream ATA**
 
-Rev 5.51, 2026-10-22. A change to trunk 8 of the rev 2 board as built, for one purpose: conference attendees call the switchboard from their phones, through a Grandstream HT80x V2 ATA whose FXS port takes the place of trunk 8's current source. The ATA is the central office for that trunk. It feeds the loop, sees the seizure and rings the switchboard; the board keeps Kx01, Tx01 and Ux01, so the audio path, the pilot and the seizure input stay as they are. The ATA's measurements are in `grandstream_trunk.md`: −48 V open circuit and a regulated 30 mA into the loop, seized as soon as the cord goes in. Trunks 1–7 are unchanged.
+Rev 5.51, 2026-10-22; Rev 5.52 pulls K901. A change to trunk 8 of the rev 2 board as built, for one purpose: conference attendees call the switchboard from their phones, through a Grandstream HT80x V2 ATA whose FXS port takes the place of trunk 8's current source. The ATA is the central office for that trunk. It feeds the loop, sees the seizure and rings the switchboard. The ATA connects at the board rather than at the jack because trunk 8 reaches the switchboard through the board's RJ45 and 4-pair cable (§8.5). K901 is pulled, since trunk 8 is never rung from the board. The board keeps Tx01 and U901, so the audio path, the pilot and the seizure input stay as they are. The ATA's measurements are in `grandstream_trunk.md`: −48 V open circuit and a regulated 30 mA into the loop, seized as soon as the cord goes in. Trunks 1–7 are unchanged.
 
 ```text
-  ATA tip  ------------------------------- D903's pad on the Kx01 side (node A's feed)
+  K901     ---- pulled. Jumper pole 1 COM to pole 1 NC (TIP to node A),
+                and pole 2 COM to pole 2 NC (RING to node B).
+  ATA tip  ---- pole 1 NC hole (node A)
   D903     ---- removed                    (the board's current source is off the line)
   R906     ---- GND leg lifted, to ATA ring; 330R replaces 220R
   U901     ---- AC input: pin 1 from R907, pin 4 to R906's lifted leg (ATA ring);
                 pins 2 and 3 open (lifted). Pins 5, 6, 8 unchanged.
 
-  loop:  ATA tip -- K901 pole 1 NC -- TIP -- switchboard -- RING -- K901 pole 2 NC
+  loop:  ATA tip -- node A -- jumper -- TIP -- switchboard -- RING -- jumper
                  -- node B -- R906 -- ATA ring
 ```
 
@@ -631,11 +634,11 @@ At 220Ω the worst part would sit in its hysteresis band at 30 mA, the Rev 5.41 
 
 **The ATA's compliance.** R906 adds about 10 V to the loop. With the cord alone in the jack the ATA measured 28 V at 30 mA, so it now has to supply about 38 V of its 48 V. Whether its feed still regulates there is not known. Bench check: put a meter in series after the change and plug the cord in. It should still read 30 mA. Anything above about 22 mA still detects. The other check is that 24 V is enough to light trunk 8's lamp and pull its relay, as it did on the bare jack.
 
-**Ring.** The board never rings trunk 8: the game must not command `trunk/8/ring/set`. If it did, K901 would move TIP to the ring bus and RING to RING_LO. That lifts the ATA off the line, both legs, and its port then sees only Cx04 and Tx01, which pass no DC. So the slip would cost the ATA nothing. The ATA rings the switchboard itself, and trunk 8's lamp latches as on any trunk. Its ring current flows through R906, and U901 may or may not see it, depending on the current the 551's trunk ringer draws. Bench check. If U901 does see it, the full-wave input gives a 40 Hz train, which the firmware reports as `fault` ring-on-trunk (control.md §8.3). That would tell the game a call is ringing in. If it does not see it, the game first learns of the call when the operator answers. Ring keys the operator presses on trunk 8 by mistake put the switchboard's ring, about 90 Vrms from the shared generator (§7.1.1), into the ATA's FXS port. Whether the port survives that is not known; see the ATA's administration guide.
+**Ring.** The board never rings trunk 8. With K901 pulled it cannot: K901's NO contacts were the only path from the ring bus to trunk 8, so a `trunk/8/ring/set` energises nothing. The game still must not send one. The ATA rings the switchboard itself, and trunk 8's lamp latches as on any trunk. Its ring current flows through R906, and U901 may or may not see it, depending on the current the 551's trunk ringer draws. Bench check. If U901 does see it, the full-wave input gives a 40 Hz train, which the firmware reports as `fault` ring-on-trunk (control.md §8.3). That would tell the game a call is ringing in. If it does not see it, the game first learns of the call when the operator answers. Ring keys the operator presses on trunk 8 by mistake put the switchboard's ring, about 90 Vrms from the shared generator (§7.1.1), into the ATA's FXS port. Whether the port survives that is not known; see the ATA's administration guide.
 
 **ATA settings.** Polarity reversal off, so the feed does not reverse on answer (not that the detector cares now). Ring voltage at most 45 Vrms: on top of the feed that peaks at about 112 V, under Dx01's 128 V standoff. G.711 only: a compressed codec mangles the line, and none of the codecs carries the pilots above 8.9 kHz to the caller, nor should it. Loop-current disconnect on, at 1.5 s or longer, so the ATA hangs up its call when the operator pulls the cord.
 
-**Audio.** Tx01 still bridges the line through Cx04, so the A32 hears trunk 8 and its pilot goes on the line. The ATA's port now terminates the line as well, where the current source left it nearly open at audio frequencies (§8.1). Expect the trunk's own pilot and the operator's 9 kHz to arrive several dB down at the detector. Bench check: `op` and `peer` on trunk 8 with the ATA connected and a call up.
+**Audio.** Tx01 still bridges the line through Cx04, so the A32 hears trunk 8 and its pilot goes on the line. The two jumpers keep it there. The ATA's port now terminates the line as well, where the current source left it nearly open at audio frequencies (§8.1). Expect the trunk's own pilot and the operator's 9 kHz to arrive several dB down at the detector. Bench check: `op` and `peer` on trunk 8 with the ATA connected and a call up.
 
 **Program consequences, not yet made.** game_control.md has to define trunk 8 as the outside line: no call is dealt on it, and nothing is ever rung, played or toned on it — no dial tone, no ringback, no files. A seizure there is the operator answering a caller, not an operator going out on a trunk, and the operator does not dial on it. game.toml says which trunk it is.
 
