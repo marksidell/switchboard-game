@@ -12,8 +12,10 @@ trunk board. Tip to ring, Mark, 2026-10-22:
 | State | Tip to ring |
 | --- | --- |
 | Trunk not seized | −48 V |
-| Cord plugged in, not seized (in Mark's words: "but streamdeck does not detect seized") | −28 V |
-| Seized, operator connected | −6 V |
+| Cord plugged in; the ATA does not see it seized (no dial tone) | −28 V |
+| Seized, operator connected; the ATA plays dial tone | −6 V |
+
+"Seized", here and below, is the ATA's off-hook detection: it plays dial tone.
 
 The switchboard trunk's DC resistance: 575 Ω.
 
@@ -38,7 +40,6 @@ What the three voltages imply, not measured:
 
 - The loop current, measured with a meter in series, seized and plugged-not-seized,
   rather than inferred from the voltages.
-- The ATA's off-hook detection threshold, and whether 10 mA is above it. Its loop
+- The ATA's off-hook detection threshold. It gives dial tone at about 10 mA and not at
+  about 5 mA, so it lies between; how far 10 mA is above it. Its loop
   current setting, if it has one (administration guide, FXS port settings).
-- Which program "does not detect seized" in the plugged-not-seized state: the ATA, the
-  Stream Deck program or the game.
