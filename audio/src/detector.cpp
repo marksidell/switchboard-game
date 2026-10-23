@@ -97,7 +97,7 @@ bool Detector::prepare()
     if (!sh_.opt.dump_circuit.empty()) {
         int n = 0;
         if (std::sscanf(sh_.opt.dump_circuit.c_str(), "station/%d", &n) == 1 &&
-            n >= 1 && n <= chan::N_STATIONS) {
+            chan::is_station(n)) {
             dump_slot_ = chan::station_slot(n);
         } else if (std::sscanf(sh_.opt.dump_circuit.c_str(), "trunk/%d", &n) == 1 &&
                    n >= 1 && n <= chan::N_TRUNKS) {
@@ -188,7 +188,7 @@ void Detector::confirm(Confirm& c, Topic t, int idx, const char* value, bool fir
 // analyse()                                                         [analysis]
 //   Runs identify_peer() (station 8.7) on one capture channel, whose power
 //   spectrum is already in pw_, and feeds the results to confirm(). The tap's
-//   channel gets only the optone check; slots 23 and 24 are otherwise skipped.
+//   channel gets only the optone check; slot 23 is otherwise skipped.
 void Detector::analyse(int cap_index)
 {
     const int slot = cap_index + 1;
@@ -231,8 +231,8 @@ void Detector::analyse(int cap_index)
         std::snprintf(value, sizeof value, "deaf");
         amb_prev_[slot] = false;        // so a return to ambiguous logs at once
     } else {
-        // Every comb slot is searched, including 23 and 24, which nothing
-        // generates (audio.md 2). A pilot there cannot be a topology, so it
+        // Every comb slot is searched, including 23, which nothing generates
+        // (audio.md 2). A pilot there cannot be a topology, so it
         // is reported as ambiguous rather than hidden: it means crosstalk,
         // a mis-wired strip, or a margin low enough to be reading noise.
         int heard[chan::N_SLOTS], n = 0;
@@ -325,9 +325,8 @@ void Detector::process_snapshot(int w)
     const int    ncap = std::min(sh_.ncap, (int)chan::N_CAP_CH);
 
     for (int c = 0; c < ncap; ++c) {
-        // audio.md 2, Rev 7: thirty circuits and the tap are transformed;
-        // capture channel 24 has no receive path fitted and is read by
-        // nothing, so the audio thread does not even snapshot it.
+        // audio.md 2: the 31 circuits and the tap are transformed - every
+        // capture channel since Rev 24 made 24 a station.
         if (!chan::is_read_channel(c + 1)) continue;
 
         const float* src = base + (size_t)c * FFT_N;

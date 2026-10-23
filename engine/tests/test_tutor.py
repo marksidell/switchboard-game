@@ -231,9 +231,12 @@ async def main() -> int:
     s = load("../script.yml")
     t = s.tutor
     check(all(k in t for k in ("intro-jacks", "answer-station", "hangup-pair")), "the plain lines are there")
-    cabled = [j["station"] for j in s.jacks if j["station"]]
+    # Not for the real telephone, which no scene rings (game_control.md Rev 73).
+    cabled = [j["station"] for j in s.jacks
+              if j["station"] and s.stations[j["station"]]["number"] != 24]
     check(all(f"ring-front-{st}" in t and f"ring-rear-{st}" in t for st in cabled),
           f"a ring line each way for each of {len(cabled)} cabled stations, by name")
+    check(not any(k.endswith("-phone") for k in t), "and none for the real telephone")
     check("room 403" in t["ring-front-room403"].text, "a numbered jack is said as a room")
     check("dial Sunset four, four one oh one." in t["dial-pizza"].text,
           f"a number as the card prints it: {t['dial-pizza'].text[-80:]!r}")

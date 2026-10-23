@@ -21,7 +21,7 @@ from sbgame.board import Board
 from sbgame.config import Config
 from sbgame.game import Game
 from sbgame.pacing import Pacing
-from sbgame.script_data import build, fit, needs_trunk
+from sbgame.script_data import build, fit, fitted_stations, needs_trunk
 from sbgame.session import SessionLog
 from tts.script import ScriptError, load
 
@@ -88,21 +88,21 @@ async def main() -> int:
 
         print("\n== jacks: a labelled jack with nothing cabled (§6.3)")
         real = Path("../script.yml").read_text(encoding="utf-8")
-        # Jack 10 is taken out and put back first, labelled and uncabled.
-        spare = re.sub(r"\n    -   jack: 10\n(        \w+:.*\n)*", "\n", real, count=1)
-        spare = spare.replace("\njacks:\n", '\njacks:\n    -   jack: 10\n        label: "Garage"\n', 1)
+        # Jack 7 is taken out and put back first, labelled and uncabled.
+        spare = re.sub(r"\n    -   jack: 7\n(        \w+:.*\n)*", "\n", real, count=1)
+        spare = spare.replace("\njacks:\n", '\njacks:\n    -   jack: 7\n        label: "Garage"\n', 1)
         (tmp / "spare.yml").write_text(spare, encoding="utf-8")
         gs = build(tmp / "spare.yml", "../wav")
-        j10 = next(j for j in gs.jacks if j.kind == "station" and j.number == 10)
-        check(j10.label == "Garage" and j10.circuit == "",
-              f"jack 10 is labelled and uncabled: {j10.label!r} {j10.circuit!r}")
+        j7 = next(j for j in gs.jacks if j.kind == "station" and j.number == 7)
+        check(j7.label == "Garage" and j7.circuit == "",
+              f"jack 7 is labelled and uncabled: {j7.label!r} {j7.circuit!r}")
         for what, text in (
             ("a station on no jack",
              real.replace("        station: room404\n", "", 1)),
             ("a station on two jacks",
              spare.replace('label: "Garage"\n', 'label: "Garage"\n        station: lobby\n', 1)),
             ("a jack listed twice",
-             spare.replace("jack: 10", "jack: 21", 1)),
+             spare.replace("jack: 7\n", "jack: 21\n", 1)),
             ("a jack with no label",
              spare.replace('        label: "Garage"\n', "", 1)),
             ("a jack with an empty guest:",
@@ -356,6 +356,12 @@ async def main() -> int:
         await b2.update("trunk/7/seize", "off")
         check(g2._free_trunk() == 7, "and a working one is offered when it comes free")
         await sess2.close()
+
+        print("\n== station 24, the real telephone (§6.5, Rev 73)")
+        check(fitted_stations(22) == list(range(1, 23)) + [24], "fitted with board 3, at 22 stations")
+        check(fitted_stations(21) == list(range(1, 22)), "and not below it")
+        j10 = next(j for j in full.jacks if j.kind == "station" and j.number == 10)
+        check(j10.circuit == "station/24", f"cabled to jack 10: {j10.circuit!r}")
 
         print("\n== stations out of service (§6.5, Rev 43)")
         so = {"stations": {"1": "top row dead", "9": "top row dead"}}

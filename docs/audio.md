@@ -2,11 +2,11 @@
 
 **Audio Program Specification**
 
-*Rev 23 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on A32 Output 24 from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, a Recording of the Loudspeaker to WAV and MP3 and Its Playback, a Shorter Wait After the Operator Speaks, All Commanded and Reported over MQTT*
+*Rev 24 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on the Digiface's Analog Output from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, a Recording of the Loudspeaker to WAV and MP3 and Its Playback, a Shorter Wait After the Operator Speaks, All Commanded and Reported over MQTT, Station 24 a Real Telephone*
 
 # 1. Overview
 
-The audio program is one of the two host programs (mqtt.md §1). It is C++, it runs on the Linux host, and it owns every audio channel in the system: the 32 balanced channels of the Ferrofish A32 in both directions, reached through the RME Digiface USB over ADAT — one of which, A32 output 24, feeds the audience loudspeaker (station §8.8) — and the Digiface's own analog output pair, idle in normal running and kept as the fallback monitor output. It does six things:
+The audio program is one of the two host programs (mqtt.md §1). It is C++, it runs on the Linux host, and it owns every audio channel in the system: the 32 balanced channels of the Ferrofish A32 in both directions, reached through the RME Digiface USB over ADAT, and the Digiface's own analog output pair, which feeds the audience loudspeaker (Rev 24). It does six things:
 
 1. Plays the pilot comb on every circuit channel and the operator tone on the tap channel, continuously, and runs the FFT pilot detector of station §8.7 on every circuit input to find which circuits the switchboard has patched together and which the operator is bridged to. This is the job the program has had since station Rev 3.1; everything below is new at this revision.
 2. Plays a 48kHz `.wav` file on a station or trunk channel on command, and reports when it has finished.
@@ -21,7 +21,7 @@ Ownership. This document is the specification. The source is written to it by Cl
 
 Build state as of Rev 9. The program exists — `sbaudio`, written by Claude Code against Rev 2 and reviewed in chat on 2026-09-18. §1.3 records the decisions the implementation made where the specification was silent, now adopted, and the three corrections the review sent back, which Claude Code fixed the same day. Claude Code reported on 2026-09-24 that `sbaudio` is at Rev 8, which takes in the code consequences of Rev 6, Rev 7 and Rev 8 (§1.6 to §1.8). Rev 9 settles three questions that report raised (§1.9); two of them carry small code consequences. Nothing has yet run against the A32 and the switchboard; §15 is still to be done.
 
-Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout the project documents: station n is A32 channel n, trunk n is channel 24 + n, the tap is channel 23, the monitor is A32 output 24. ALSA frame indices are 0-based, so the program's internal index for a channel is the document number less one — the tap is index 22 and the monitor index 23. Rev 1 to Rev 6 had the tap on channel 24 and the monitor on Digiface playback 33 and 34; the rough specification Rev 1 was written from gave those as 23 and 33, which were ALSA indices. §2 records the mapping.
+Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout the project documents: station n is A32 channel n, trunk n is channel 24 + n, the tap is channel 23, station 24 is A32 channel 24 (Rev 24), and the monitor is on the Digiface's channels 33 and 34. ALSA frame indices are 0-based, so the program's internal index for a channel is the document number less one — the tap is index 22. Rev 1 to Rev 6 had the tap on channel 24 and the monitor on Digiface playback 33 and 34; the rough specification Rev 1 was written from gave those as 23 and 33, which were ALSA indices. §2 records the mapping.
 
 ## 1.1 Changes in Rev 1
 
@@ -175,6 +175,14 @@ Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout t
 
 — Code consequence, made the same day: `butter_lowpass6()` in `dsp.cpp`, the detector's three sections, and the tests. `sbaudio.service` gains `--vad-floor -70`.
 
+## 1.24 Changes in Rev 24
+
+— Slot 24 is a circuit again: station 24, a real telephone on station board 3 strip 8 (§2), following real_phone.md Rev 2 (adopted 2026-10-23), control.md Rev 33 and mqtt.md Rev 44. Strip 8 now has its relay, Cx01 and Tx01 fitted, so A32 channel 24 is a line interface in both directions like stations 1–22: its pilot, bin 696, is generated, its capture is a detector input, and it takes `play`, `listen`, `peer`, `op`, the monitor source and the test tone as any station does. Measured on the bench the same day, with the phone corded to station 22: 1kHz crossing in 9.3dB each way, reciprocal.
+
+— The monitor leaves A32 output 24 for the Digiface's own analog output, channels 33 and 34, the fallback of Rev 7 (§10.1). The default `--monitor-ch` is now `33,34`, and only 33 and 34 are accepted; 24 is a circuit and is refused like any other. The service already ran with `--monitor-ch 33`. The level is the Digiface's fixed +9.5dBu full scale; real_phone.md §4 has the cable.
+
+— Code consequence, for Claude Code: `channels.h` (slot 24 a station; `can_carry_monitor()` 33 and 34 only); the monitor's file kept in `prog_[0]`, the element no slot uses, where it was in `prog_[24]`; station numbers 1–22 and 24 wherever a station topic is validated; the tests.
+
 ## 1.23 Changes in Rev 23
 
 — The installation's speech hangover is 0.5s, not the default 1.5s (§9.2), Mark's request, 2026-10-19: the pause between the operator's last word and the caller's line was too long, long enough to wonder whether the game had heard her. The caller's line starts on `"silence"`, which comes about 0.3s after her last loud frame, for the 30-frame window to clear, plus the hangover: about 1.8s at 1.5s, about 0.8s at 0.5s. The cost is that a pause of more than 0.5s inside what she says ends it there, and the caller speaks over the rest; Mark judges that the lesser fault.
@@ -217,13 +225,13 @@ One ALSA card, the Digiface USB, opened in both directions at 48kHz, S32_LE. Pla
 | --- | --- | --- | --- |
 | 1–22 | 0–21 | Station 1–22: pilot at comb slot n + program source | Station receive: detector input; speech detection on command; monitor source on command (§10.3) |
 | 23 | 22 | Operator tap: 9000Hz operator tone, and a file on command (Rev 10, §7) | Tap receive: the default monitor source (§10.3) and the tap's own-tone health check (§6.3) |
-| 24 | 23 | Audience monitor (§10), with a file summed in on command (Rev 11, §10.4) | Unused — station board 3 strip 8 has no receive path |
+| 24 | 23 | Station 24, the real telephone (Rev 24): pilot at comb slot 24 + program source | Station 24 receive, as stations 1–22 |
 | 25–32 | 24–31 | Trunk 1–8: pilot at comb slot 24 + n + program source | Trunk receive: detector input; speech detection on command; monitor source on command (§10.3) |
-| 33, 34 | 32, 33 | Silence; the fallback monitor output under `--monitor-ch` (§10.1) | — |
+| 33, 34 | 32, 33 | The audience monitor (§10), with a file summed in on command (§10.4) | — |
 
-The program source on a circuit channel is one of: nothing, a file (§7), a trunk tone (§8, trunks only) or the test tone (§11.1). Exactly one is active on a channel at a time; a new one replaces the current one (§5.2). The pilot is always present on channels 1–22 and 25–32 and is not a program source; the operator tone is always present on channel 23 and is not one either. The test tone is the one source that may be placed on channels 23, 24, 33 and 34 as well, where it replaces the operator tone, the monitor or silence for as long as it runs.
+The program source on a circuit channel is one of: nothing, a file (§7), a trunk tone (§8, trunks only) or the test tone (§11.1). Exactly one is active on a channel at a time; a new one replaces the current one (§5.2). The pilot is always present on channels 1–22 and 24–32 and is not a program source; the operator tone is always present on channel 23 and is not one either. The test tone is the one source that may be placed on channels 23, 33 and 34 as well, where it replaces the operator tone or the monitor for as long as it runs.
 
-Slots 23 and 24 of the comb (bins 688 and 696) are not generated while station board 3's strips 7 and 8 are the tap and the monitor, per station §7.9.6. The mapping from circuit to comb bin, `512 + 8 × (slot − 1)`, is station §8.2 and is not restated here.
+Slot 23 of the comb (bin 688) is not generated while station board 3's strip 7 is the tap, per station §7.9.6. Slot 24 (bin 696) was not generated from Rev 7 to Rev 23, while strip 8 fed the loudspeaker; it is station 24's pilot from Rev 24. The mapping from circuit to comb bin, `512 + 8 × (slot − 1)`, is station §8.2 and is not restated here.
 
 # 3. Program Structure
 
@@ -260,13 +268,13 @@ Clocking. The pilots sit exactly on FFT bins only while generation and analysis 
 
 Every playback channel is rendered per period as the sum of its fixed source and its program source, in float, then hard-clipped at ±1.0 with a clip count in the log.
 
-**Pilot** (channels 1–22, 25–32). Level −40dBFS per station §8.4, an option. Generated from one shared 4096-entry sine table: for comb bin b, sample n of the 4096-sample cycle is `table[(b × n) mod 4096]`. Because every pilot completes an integer number of cycles per 4096 samples, a per-channel sample counter that wraps at 4096 is the whole oscillator — no phase accumulator, no rounding, no drift, and the pilot is on its bin by construction. The counter is shared across channels; only b differs.
+**Pilot** (channels 1–22, 24–32). Level −40dBFS per station §8.4, an option. Generated from one shared 4096-entry sine table: for comb bin b, sample n of the 4096-sample cycle is `table[(b × n) mod 4096]`. Because every pilot completes an integer number of cycles per 4096 samples, a per-channel sample counter that wraps at 4096 is the whole oscillator — no phase accumulator, no rounding, no drift, and the pilot is on its bin by construction. The counter is shared across channels; only b differs.
 
 **Operator tone** (channel 23). Bin 768, the same table at `table[(768 × n) mod 4096]`, which is 16 samples per cycle. Level per station §7.9.3: with that channel's A32 reference at +20dBu, about −18dBFS puts 12mV on the operator's line. An option, set from the bench measurement §7.9.5 asks for.
 
-**Program source** (channels 1–22, 25–32): a file, a trunk tone, or the test tone. Unity gain for a file; the tone levels are §8.3 and §11.1.
+**Program source** (channels 1–22, 24–32): a file, a trunk tone, or the test tone. Unity gain for a file; the tone levels are §8.3 and §11.1.
 
-**Monitor** (channel 24, or the channels `--monitor-ch` names): §10.
+**Monitor** (channels 33 and 34, or those of them `--monitor-ch` names): §10.
 
 ## 5.2 One Program Source per Channel
 
@@ -399,9 +407,9 @@ What is not excluded is the far end. If the game plays a file on station 5 while
 
 ## 10.1 Chain
 
-The source's capture channel — 23, the tap, unless `monitor/source/set` has named a circuit (§10.3) → high-pass, second order, 150Hz → low-pass per station §8.8: elliptic, 8th order as four second-order sections, passband edge 3.6kHz, stopband edge 5.6kHz, stopband 70dB → gain, plus `--monitor-tap-trim` while the source is the tap → limiter → playback channel 24, or the channels `--monitor-ch` names, the same samples on each. All in the audio thread, per sample, with no buffering beyond the period, because the loop through the room is the constraint §8.8 records.
+The source's capture channel — 23, the tap, unless `monitor/source/set` has named a circuit (§10.3) → high-pass, second order, 150Hz → low-pass per station §8.8: elliptic, 8th order as four second-order sections, passband edge 3.6kHz, stopband edge 5.6kHz, stopband 70dB → gain, plus `--monitor-tap-trim` while the source is the tap → limiter → the channels `--monitor-ch` names, 33 and 34 by default, the same samples on each. All in the audio thread, per sample, with no buffering beyond the period, because the loop through the room is the constraint §8.8 records.
 
-Channel 24 is the A32 output wired to the loudspeaker amplifier (station §7.9.8). `--monitor-ch 33,34` sends the monitor to the Digiface's own analog output instead — the route of Rev 1 to Rev 6, kept as the fallback (station §8.8) — and channel 24 then carries silence. Only 24, 33 and 34 are accepted; a circuit or tap channel is refused at startup.
+Channels 33 and 34 are the Digiface's own analog output, a 6.3mm TRS jack, 33 on the tip and 34 on the ring, full scale +9.5dBu, fixed (real_phone.md §4). The amplifier takes 33 through a TS-to-XLR cable. From Rev 7 to Rev 23 the monitor was on A32 output 24, which is station 24 from Rev 24. Only 33 and 34 are accepted; a circuit or tap channel is refused at startup.
 
 The filter coefficients are computed at startup from the passband edge, stopband edge and attenuation, which are options, so that a different passband edge (§1.1) is a command-line change and not a code change. The coefficients are computed with a standard elliptic design; a unit test compares the realised stopband at 6000Hz against the requirement, because the lowest pilot sits exactly there and 70dB is what keeps it out of the loudspeaker.
 
@@ -409,7 +417,7 @@ Limiter: peak, threshold −3dBFS unless `--monitor-limit` sets it lower (Rev 16
 
 ## 10.2 Command
 
-`sbgame/audio/monitor/set` with `"off"` or a gain in dB as a signed decimal string — `"0"`, `"-12"`, `"6"`. 0dB is unity from the source's capture to A32 output 24, with `--monitor-tap-trim` added while the source is the tap (§10.3). The analog level that corresponds to is set by that channel's A32 reference and trim (station §7.9.8), which is where the amplifier's input sensitivity is matched; this gain is the running level, the A32 setting is the installation's. Accepted range −60 to +20dB; a value outside it is clamped and the clamped value is what the state topic echoes. Gain changes are applied with a 20ms ramp so a level step does not click. `"off"` is a mute, ramped the same way; the filter keeps running so that turning the monitor on is instant and has no transient from a cold filter state. The state topic `sbgame/audio/monitor`, retained, echoes `"off"` or the gain.
+`sbgame/audio/monitor/set` with `"off"` or a gain in dB as a signed decimal string — `"0"`, `"-12"`, `"6"`. 0dB is unity from the source's capture to the monitor's output channels, with `--monitor-tap-trim` added while the source is the tap (§10.3). The analog level that corresponds to is the Digiface's fixed +9.5dBu full scale; the amplifier's input gain is where its sensitivity is matched. This gain is the running level. Accepted range −60 to +20dB; a value outside it is clamped and the clamped value is what the state topic echoes. Gain changes are applied with a 20ms ramp so a level step does not click. `"off"` is a mute, ramped the same way; the filter keeps running so that turning the monitor on is instant and has no transient from a cold filter state. The state topic `sbgame/audio/monitor`, retained, echoes `"off"` or the gain.
 
 The monitor is on at startup only if the `--monitor` option gives a level; the default is off, because the loudspeaker is in the operator's room and a program restart should not surprise anyone.
 
@@ -435,7 +443,7 @@ The file is not a source in §10.3's sense and does not displace one. Per sample
 
 ```text
 source capture -> high-pass -> low-pass -----------+
-                                                    +-> x gain -> limiter -> channel 24
+                                                    +-> x gain -> limiter -> channels 33, 34
 file -> low-pass (own state) -> x file trim -------+
 ```
 
@@ -455,7 +463,7 @@ Off unless `--monitor-gate` is given. The installation sets −70dBFS, from a re
 
 ## 10.6 Recording the Loudspeaker
 
-Rev 22. `sbgame/audio/record/set` `"on"` starts a recording of the monitor's output — the samples written to channel 24, or the channels `--monitor-ch` names, after the gain and the limiter: what the audience hears, the source and a file on the monitor (§10.4) both, and silence while the monitor is muted. A 1kHz test tone on channel 24 (§11.1) is not in it. `"off"` stops it. Recording runs whether or not a game does.
+Rev 22. `sbgame/audio/record/set` `"on"` starts a recording of the monitor's output — the samples written to the channels `--monitor-ch` names, after the gain and the limiter: what the audience hears, the source and a file on the monitor (§10.4) both, and silence while the monitor is muted. A 1kHz test tone on a monitor channel (§11.1) is not in it. `"off"` stops it. Recording runs whether or not a game does.
 
 **The file.** `<--record-dir>/<YYYY-MM-DD-HH-MM-SS>.wav`, the local date and time of the start, every field joined by `-` so the names sort in time order; a second start within the same second adds `-2`. WAV, 48kHz, mono, 16-bit. The header is rewritten after every write, so a crash leaves a file that plays up to the last 20ms.
 
@@ -471,7 +479,7 @@ Rev 22. `sbgame/audio/record/set` `"on"` starts a recording of the monitor's out
 
 Rev 22. `sbgame/audio/playback/set` with a recording's base name, as `audio/recordings` gives it, plays `<--record-dir>/<name>.wav` on the loudspeaker; `"stop"` stops it. A name of anything but digits and dashes in the form §10.6 makes is refused, so the wire cannot reach outside the directory, and so is a file that is not 48kHz mono; either echoes `"missing"`.
 
-**In place of the monitor.** While a recording plays, its samples are the monitor's output: the chain still runs — its filters stay warm and its gate keeps counting — but what goes to channel 24 is the recording, divided by the makeup gain of §10.6, which brings it back to the level the loudspeaker carried when it was made. It is not passed through the monitor's gain or limiter again, which have already acted on it, and it plays whether the monitor is muted or not. A test tone on 24 (§11.1) still displaces it. A recording made while one plays back records the playback.
+**In place of the monitor.** While a recording plays, its samples are the monitor's output: the chain still runs — its filters stay warm and its gate keeps counting — but what goes to the monitor's channels is the recording, divided by the makeup gain of §10.6, which brings it back to the level the loudspeaker carried when it was made. It is not passed through the monitor's gain or limiter again, which have already acted on it, and it plays whether the monitor is muted or not. A test tone on a monitor channel (§11.1) still displaces it. A recording made while one plays back records the playback.
 
 **Streaming.** An hour's recording is 690MB as floats, so it is not loaded as a file to play is (§7.2). The MQTT thread opens it and keeps a second ring, of the same size as the recording's, two seconds ahead of the audio thread, reading 8192 samples at a time on every pass of its loop. The audio thread takes a period from the ring while `Shared::play_on` is set, and fills with silence anything the ring cannot give; a period short once samples have begun to arrive is counted in the log's counters line, `playback periods short N`. While `play_on` is clear it empties the ring every period, so a new playback started the pass after a stop never begins with the last one's tail. When the file is read to its end and the ring has run dry, the MQTT thread clears `play_on`, closes the file, and `audio/playback` goes `""`.
 
@@ -519,7 +527,7 @@ sbgame/audio/record/set        sbgame/audio/playback/set
 sbgame/ctl/game_heartbeat
 ```
 
-Station n is validated 1–22 and trunk n 1–8; a topic outside those ranges, or a `tone/set` on a station, is logged and dropped. The same ranges apply to the circuit id in a `monitor/source/set` payload (§10.3). Nothing is acted on that the program cannot echo.
+Station n is validated 1–22 or 24 (Rev 24) and trunk n 1–8; a topic outside those ranges, or a `tone/set` on a station, is logged and dropped. The same ranges apply to the circuit id in a `monitor/source/set` payload (§10.3). Nothing is acted on that the program cannot echo.
 
 Every command is acknowledged by its state topic changing, retained, from the audio thread after it has taken effect — `record/set` and `playback/set` from the MQTT thread, which carries them out (§10.6, §10.7) — — the same convention as the ESP32's `hook` echoing `hook/set` (mqtt.md §3). A command that arrives while the program is running and produces no change in the state topic was not acted on, and the log says why.
 
@@ -578,7 +586,7 @@ Command-line options, each with the default given here, and no configuration fil
                        this below the circuit's own pilot is not heard (20)
 --monitor DB           start with the monitor on at this gain (off)
 --monitor-ch LIST      playback channels for the monitor, comma-separated,
-                       from 24, 33, 34 (24); 33,34 is the Digiface fallback
+                       from 33, 34 (33,34), the Digiface's analog output
 --monitor-src SRC      monitor source at startup: tap, station/<n> or
                        trunk/<n> (tap); refused if the device does not
                        capture that channel
@@ -612,12 +620,12 @@ In order, with the switchboard connected:
 4. Set the trunk tone level by measuring at the switchboard's trunk jack with dial tone on.
 5. Set the operator tone level per station §7.9.5, and confirm the operator cannot hear it.
 6. Set `MARGIN_DB`, `PEER_WINDOW_DB` and `OP_WINDOW_DB` per station §8.7, against a real cord-pair connection, and confirm no `ambiguous` with every cord patched. For the windows, run the program by hand for a few seconds with `--peer-window-db 200 --op-window-db 200`, so that everything above the floor is heard and every circuit hearing more than one pilot logs `ambiguous` with each level against the own pilot in brackets — the figure the window reads (`--dump` gives levels above each bin's floor, which is not it; station §1.27). Do it with the weakest connections patched — station to station and station to trunk, each with the operator bridged on and off. Each window must take the weakest connection with room to spare and stay short of the crosstalk: on the switchboard as cabled, 44dB or more under the own pilot (station §1.27).
-7. Set A32 channel 24's reference and trim for the amplifier's input sensitivity with the test tone on it, then set the monitor gain by ear with the operator on the headset and the limiter's activity in the log — it should be silent on ordinary speech. Then set `--monitor-tap-trim`: on a real call with the operator bridged to the calling line, switch `monitor/source/set` between `tap` and that circuit and trim until her voice is the same level on both. On the same call, once it is connected and talking, listen to the balance between the caller and the called party on the circuit source (§16).
+7. Set the amplifier's input gain with the test tone on channel 33, then set the monitor gain by ear with the operator on the headset and the limiter's activity in the log — it should be silent on ordinary speech. Then set `--monitor-tap-trim`: on a real call with the operator bridged to the calling line, switch `monitor/source/set` between `tap` and that circuit and trim until her voice is the same level on both. On the same call, once it is connected and talking, listen to the balance between the caller and the called party on the circuit source (§16).
 8. Set the speech detector's margin and floor with the operator speaking through a real connection, and confirm it does not trigger on a ring-trip or a relay.
 
 # 16. Open Items
 
-- **Monitor level.** The monitor is on A32 output 24 as of Rev 7 (station §7.9.8); channel 24's A32 reference and trim against the amplifier's input sensitivity are bench settings (§15 step 7). This replaces the Rev 1 to Rev 6 item asking which Digiface jack the amplifier was on.
+- **Monitor level.** The monitor is on the Digiface's channels 33 and 34 again as of Rev 24, at its fixed +9.5dBu full scale; the amplifier's input gain is the bench setting (§15 step 7).
 - **Capture channel count.** Expected 32 at 48kHz; confirm from the driver as the playback count was at station Rev 3.37.
 - **Tone modulation depth and level.** §8.2 and §8.3; bench settings, by ear.
 - **Detector `MARGIN_DB`, `PEER_WINDOW_DB` and `OP_WINDOW_DB`, tone, operator tone and monitor levels**: all bench settings, §15, none yet made.

@@ -276,6 +276,13 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
 
 
 N_STATIONS, N_TRUNKS = 22, 8
+PHONE_STATION = 24          # the real telephone, on board 3 (game_control.md Rev 73)
+
+
+def fitted_stations(stations: int = N_STATIONS) -> list[int]:
+    """The stations fitted (§6.5): the first `stations` of 1-22, and station
+    24 when `stations` is 22, since it is on board 3 with 17-22 (Rev 73)."""
+    return list(range(1, stations + 1)) + ([PHONE_STATION] if stations == N_STATIONS else [])
 
 
 def needs_trunk(sc: SceneDef) -> bool:
@@ -287,16 +294,17 @@ def fit(gs: GameScript, stations: int = N_STATIONS, trunks: int = N_TRUNKS,
         out: frozenset[int] = frozenset()) -> tuple[GameScript, list[str]]:
     """The game fitted to the circuits built (game_control.md §6.5, Rev 25).
 
-    Leaves out a scene whose calling or called station is numbered above
-    `stations` or is out of service (`out`, Rev 43), or that needs a trunk
+    Leaves out a scene whose calling or called station is not fitted
+    (fitted_stations()) or is out of service (`out`, Rev 43), or that needs a trunk
     when `trunks` is 0, and every `after:` scene down the chain from one left
     out. Returns the fitted script and a line saying why for each scene left
     out.
     """
     why: dict[str, str] = {}
+    have = set(fitted_stations(stations))
     for sid, sc in gs.scenes.items():
         used = [n for n in (sc.from_station, sc.to_station) if n is not None]
-        high = [n for n in used if n > stations]
+        high = [n for n in used if n not in have]
         down = [n for n in used if n in out]
         if high:
             why[sid] = f"station {max(high)} is not fitted"

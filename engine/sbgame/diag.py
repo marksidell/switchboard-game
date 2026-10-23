@@ -21,6 +21,7 @@ from typing import Awaitable, Callable
 
 from .board import Board, Offline
 from .link import Hw
+from .script_data import fitted_stations
 
 log = logging.getLogger("diag")
 
@@ -37,7 +38,7 @@ TESTS = {"station": ("hook", "tone", "voice", "monitor"),
 
 def targets(stations: int, trunks: int) -> list[str]:
     """Every target fitted, in the order the page lists them."""
-    return ([f"station/{n}" for n in range(1, stations + 1)]
+    return ([f"station/{n}" for n in fitted_stations(stations)]
             + [f"trunk/{n}" for n in range(1, trunks + 1)] + [TAP])
 
 

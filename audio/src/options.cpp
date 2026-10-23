@@ -60,8 +60,8 @@ static void usage(const char* p)
 "                         this below the circuit's own pilot is not heard (20)\n"
 "  --monitor DB           start with the monitor on at this gain (off)\n"
 "  --monitor-ch LIST      playback channels for the monitor, comma-separated,\n"
-"                         from 24, 33, 34 (24); 33,34 is the Digiface fallback\n"
-"  --monitor-src SRC      monitor source at startup: tap, station/1-22,\n"
+"                         from 33, 34 (33,34), the Digiface analog pair\n"
+"  --monitor-src SRC      monitor source at startup: tap, station/1-22 or 24,\n"
 "                         trunk/1-8 (tap)\n"
 "  --monitor-tap-trim DB  gain added only while the source is the tap (0)\n"
 "  --monitor-file-trim DB gain added to a file on the monitor (0)\n"
@@ -110,9 +110,8 @@ static bool parse_monitor_ch(const char* s, std::vector<int>& out)
             return false;
         }
         if (!chan::can_carry_monitor((int)ch)) {
-            std::fprintf(stderr, "--monitor-ch: channel %ld is not one of 24, 33, 34 "
-                                 "(24 is the A32 output to the amplifier; 33 and 34 are "
-                                 "the Digiface pair)\n", ch);
+            std::fprintf(stderr, "--monitor-ch: channel %ld is not 33 or 34, "
+                                 "the Digiface pair\n", ch);
             return false;
         }
         for (int have : out) {
@@ -189,8 +188,9 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         else if (a == "--monitor-src")    { o.monitor_src = chan::monitor_source_channel(nx); ++i;
                                             if (o.monitor_src == 0) {
                                                 std::fprintf(stderr, "--monitor-src: \"%s\" is not a source; "
-                                                             "expected tap, station/1-%d or trunk/1-%d\n",
-                                                             nx, chan::N_STATIONS, chan::N_TRUNKS);
+                                                             "expected tap, station/1-%d or %d, or trunk/1-%d\n",
+                                                             nx, chan::N_STATIONS, chan::PHONE_STATION,
+                                                             chan::N_TRUNKS);
                                                 return false;
                                             } }
         else if (a == "--monitor-tap-trim"){ o.monitor_tap_trim_db = atof(nx); ++i; }

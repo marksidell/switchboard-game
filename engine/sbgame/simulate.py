@@ -43,7 +43,7 @@ from pathlib import Path
 import aiomqtt
 
 from .config import Config
-from .script_data import build
+from .script_data import build, fitted_stations
 
 log = logging.getLogger("sim")
 PREFIX = "sbgame/"
@@ -110,7 +110,7 @@ class Sim:
 
     async def birth(self) -> None:
         """Come up as both clients would (mqtt.md §8.4)."""
-        for n in range(1, N_STATIONS + 1):
+        for n in fitted_stations(N_STATIONS):
             for f in ("hook", "ring", "peer", "op", "play", "listen"):
                 await self.pub(f"station/{n}/{f}", "")
         for n in range(1, N_TRUNKS + 1):
@@ -302,7 +302,7 @@ class Sim:
         this every line she ever answered stays lit as "operator on" for the
         rest of the session, which is exactly what it did.
         """
-        for n in range(1, N_STATIONS + 1):
+        for n in fitted_stations(N_STATIONS):
             c = f"station/{n}"
             if self.get(f"{c}/op") and not self._in_a_call(c):
                 await self.pub(f"{c}/op", "")

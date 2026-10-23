@@ -35,7 +35,7 @@ static bool topic_for(Topic t, int idx, char* out, size_t n)
         std::snprintf(out, n, "%saudio/tap/play", PREFIX);
         return true;
     }
-    if (t == Topic::Play && idx == chan::MONITOR_CH) {    // audio.md 10.4, Rev 11
+    if (t == Topic::Play && idx == chan::MONITOR_PROG) {  // audio.md 10.4, Rev 11
         std::snprintf(out, n, "%saudio/monitor/play", PREFIX);
         return true;
     }
@@ -372,8 +372,9 @@ void Net::on_message(const char* topic, const char* payload)
     }
 
     if (std::sscanf(topic, "sbgame/station/%d/%31s", &n, leaf) == 2) {
-        if (n < 1 || n > chan::N_STATIONS) {
-            log_line("mqtt: %s - station out of range 1-%d, dropped", topic, chan::N_STATIONS);
+        if (!chan::is_station(n)) {
+            log_line("mqtt: %s - station out of range 1-%d and %d, dropped", topic,
+                     chan::N_STATIONS, chan::PHONE_STATION);
             return;
         }
         char id[24]; chan::circuit_id(chan::station_slot(n), id, sizeof id);
@@ -407,7 +408,7 @@ void Net::on_message(const char* topic, const char* payload)
     }
     // audio.md 10.4, Rev 11: a file on the monitor, the tutor's voice.
     if (std::strcmp(topic, "sbgame/audio/monitor/play/set") == 0) {
-        handle_play(chan::MONITOR_CH, "monitor", payload); return;
+        handle_play(chan::MONITOR_PROG, "monitor", payload); return;
     }
     if (std::strcmp(topic, "sbgame/audio/monitor/set") == 0) { handle_monitor(payload); return; }
     if (std::strcmp(topic, "sbgame/audio/monitor/source/set") == 0) {
@@ -564,7 +565,7 @@ void Net::publish_initial()
             topic_for(Topic::Tone, s, topic, sizeof topic))   publish(topic, "");
     }
     if (topic_for(Topic::Play, chan::TAP_CH, topic, sizeof topic)) publish(topic, "");
-    if (topic_for(Topic::Play, chan::MONITOR_CH, topic, sizeof topic)) publish(topic, "");
+    if (topic_for(Topic::Play, chan::MONITOR_PROG, topic, sizeof topic)) publish(topic, "");
     topic_for(Topic::Monitor, 0, topic, sizeof topic);
     publish(topic, monitor_state_.c_str());
     topic_for(Topic::MonitorSrc, 0, topic, sizeof topic);
@@ -789,7 +790,7 @@ void Net::shutdown()
             topic_for(Topic::Tone, s, topic, sizeof topic))   publish(topic, "");
     }
     if (topic_for(Topic::Play, chan::TAP_CH, topic, sizeof topic)) publish(topic, "");
-    if (topic_for(Topic::Play, chan::MONITOR_CH, topic, sizeof topic)) publish(topic, "");
+    if (topic_for(Topic::Play, chan::MONITOR_PROG, topic, sizeof topic)) publish(topic, "");
     for (int ch = 1; ch <= chan::N_PLAY_CH; ++ch) {
         topic_for(Topic::Test, ch, topic, sizeof topic);
         publish(topic, "off");

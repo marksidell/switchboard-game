@@ -196,9 +196,9 @@ bool Engine::prepare()
         for (size_t i = 0; i < sh_.opt.monitor_ch.size() && k < (int)sizeof mon - 8; ++i)
             k += std::snprintf(mon + k, sizeof mon - k, "%s%d",
                                i ? "," : "", sh_.opt.monitor_ch[i]);
-        log_line("channel map: stations 1-%d, operator tap %d, monitor out %s, "
+        log_line("channel map: stations 1-%d and %d, operator tap %d, monitor out %s, "
                  "trunks 1-%d on %d-%d (document channels; ALSA index is one less)",
-                 chan::N_STATIONS, chan::TAP_CH, mon, chan::N_TRUNKS,
+                 chan::N_STATIONS, chan::PHONE_STATION, chan::TAP_CH, mon, chan::N_TRUNKS,
                  chan::trunk_slot(1), chan::trunk_slot(chan::N_TRUNKS));
     }
 
@@ -456,8 +456,8 @@ void Engine::drain_commands()
             }
             // The tutor's voice on the monitor (audio.md 10.4, Rev 11) is the
             // game's, so it goes with the game's other files.
-            if (prog_[chan::MONITOR_CH].kind != Prog::Kind::None)
-                stop_source(chan::MONITOR_CH, "");
+            if (prog_[chan::MONITOR_PROG].kind != Prog::Kind::None)
+                stop_source(chan::MONITOR_PROG, "");
             // The monitor keeps running, but its source returns to the tap
             // under the 10.3 ramp: the calls a circuit source was following
             // have been torn down, and the tap is the one source that is not
@@ -557,7 +557,7 @@ void Engine::process_capture()
     // the pilot band exactly as the source is: the loudspeaker is in the room
     // with the operator's microphone. Its filter runs whether a file plays or
     // not, so a file never starts against a cold state either.
-    Prog& mf = prog_[chan::MONITOR_CH];
+    Prog& mf = prog_[chan::MONITOR_PROG];
     const float* fs = nullptr;
     unsigned     fn = 0;
     if (mf.kind == Prog::Kind::File) {
@@ -604,7 +604,7 @@ void Engine::process_capture()
     if (fs) {
         // As a circuit's file: `play` clears from the period after it ends.
         mf.pos += fn;
-        if (mf.pos >= mf.buf->samples.size()) stop_source(chan::MONITOR_CH, "");
+        if (mf.pos >= mf.buf->samples.size()) stop_source(chan::MONITOR_PROG, "");
     }
 
     // Playback of a recording (audio.md 10.7, Rev 22): in place of the
@@ -727,8 +727,7 @@ void Engine::render()
         }
 
         // The monitor goes to whichever channels --monitor-ch named
-        // (audio.md 10.1): channel 24, the A32 output wired to the amplifier,
-        // by default; 33 and 34, the Digiface pair, as the fallback.
+        // (audio.md 10.1): 33 and 34, the Digiface pair, by default.
         if (mon_out_[ch]) {
             for (unsigned i = 0; i < period_; ++i)
                 out[i * stride] = float_to_s32(mon_row_[i]);
@@ -738,9 +737,8 @@ void Engine::render()
 
         const int slot = ch;
 
-        // Silence on everything the map gives nothing to: the monitor channel
-        // when the monitor is elsewhere, and the Digiface pair when it is not
-        // there. No pilot is generated for slots 23 and 24 (audio.md 2).
+        // Silence on everything the map gives nothing to: a Digiface channel
+        // the monitor is not on. No pilot is generated for slot 23 (audio.md 2).
         if (!chan::is_circuit_slot(slot) && slot != chan::TAP_CH) {
             for (unsigned i = 0; i < period_; ++i) out[i * stride] = 0;
             out_ceil_[ch] = 0.0f;

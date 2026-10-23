@@ -376,7 +376,7 @@ def main(argv: list[str] | None = None) -> int:
         description="Test a trunk board and a station board wired straight together.")
     p.add_argument("--stations", required=True, choices=sorted(BOARDS),
                    help="the station board on the trunks: a = stations 1-8, b = 9-16, "
-                        "c = 17-22 (its strips 7 and 8 are the tap and the monitor)")
+                        "c = 17-22 (its strip 7 is the tap; strip 8, station 24, is a real telephone)")
     p.add_argument("--no-audio", action="store_true", help="leave out the pilot tone tests")
     p.add_argument("--pairs", default="", metavar="N[,N...]",
                    help="test only these pairs, 1-8 (trunk n with the board's n-th station); "

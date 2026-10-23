@@ -2,13 +2,13 @@
 
 **Station Interface Circuit Design**
 
-*Rev 3.48 — 8 Strips Per Board, Three Boards (22 Stations, the Operator Tap and the Audience Monitor Output) Plus 8 Trunk Circuits, HCPL3700M Ring Detection, DPDT Double-Pole Off-Hook, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Station Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, 32-Slot Pilot Tone Comb, Operator Tap and Monitor Options on Two Strips, Common-Battery Power*
+*Rev 3.49 — 8 Strips Per Board, Three Boards (23 Stations, One a Real Telephone, and the Operator Tap) Plus 8 Trunk Circuits, HCPL3700M Ring Detection, DPDT Double-Pole Off-Hook, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Station Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, 32-Slot Pilot Tone Comb, the Operator Tap Option on One Strip, Common-Battery Power*
 
 # 1. Overview
 
 Each station interface circuit presents itself to the 551 switchboard as a subscriber station. The switchboard provides 24V DC loop current; the station circuit closes the loop (goes off-hook) on command via a relay. Each station detects incoming ring signal, passes bidirectional balanced audio to and from the Ferrofish A32 converter, and injects a pilot tone that allows the game controller to determine which stations are connected to each other through the switchboard.
 
-Boards carry 8 strips each and three are built, 24 strips in all. Twenty-two are stations. The last two strips of the last board are not: strip 7 — A32 channel 23 — is stuffed as the operator tap (§7.9), and strip 8 carries the audience monitor output on A32 channel 24 (§7.9.8). All boards are identical; the only per-board difference is the MCP23017 address strap and the A32 D-Sub connector they land on. Rev 3.5 through Rev 3.34 described a staged build of two boards with the third as populated-later capacity; as of Rev 3.35 all three are built and the build state is no longer a variable in this document.
+Boards carry 8 strips each and three are built, 24 strips in all. Twenty-three are stations, 1–22 and 24. Strip 7 of the last board — A32 channel 23 — is not: it is stuffed as the operator tap (§7.9). Strip 8 — A32 channel 24 — is station 24, a real telephone (§7.9.8, Rev 3.49); it carried the audience monitor output from Rev 3.40 to Rev 3.48. All boards are identical; the only per-board difference is the MCP23017 address strap and the A32 D-Sub connector they land on. Rev 3.5 through Rev 3.34 described a staged build of two boards with the third as populated-later capacity; as of Rev 3.35 all three are built and the build state is no longer a variable in this document.
 
 Alongside the stations the switchboard carries 8 trunk circuits, designed separately. They are referenced throughout this document wherever they affect the station design, which is in three places: they share the pilot tone comb (§8), they consume the remaining audio channels (§6), and they take the fourth MCP23017 address on the same I²C bus (§9.2). Thirty-two circuits in total.
 
@@ -403,6 +403,10 @@ Tx01 secondary: fully floating 600Ω winding
 
 The switchboard applies approximately 90V RMS AC at 20Hz across tip and ring when ringing a station. The HCPL3700M is a threshold-sensing AC/DC-to-logic optocoupler rather than a plain phototransistor coupler, and it absorbs most of the discrete circuitry the Rev 2.1 detector needed.
 
+
+## 1.28 Changes in Rev 3.49
+
+—  Board 3 strip 8 becomes station 24, a real telephone, following real_phone.md Rev 2 (option B, Mark, 2026-10-23); §7.9.8 is rewritten for it. The relay, Cx01, Tx01 and Rx08–Rx11 are fitted, Rx03 is not, and the ring-detector footprint is a DC hook detector across the line (2.2kΩ + 2.2kΩ 2W, Cx03 a 0Ω link). The phone is cabled to switchboard jack 10. The audience monitor leaves A32 output 24 for the Digiface's analog output, 33 and 34 (audio.md Rev 24). Stations are 1–22 and 24. The bench measurements are in §7.9.8. control.md Rev 33–38, mqtt.md Rev 43–44 and pilot-map.md follow.
 ## 3.1 Why This Part Changes the Circuit
 
 —  Internal diode bridge across the AC input pins. The external D1–D4 1N4007 bridge is deleted — 32 diodes removed from a fully populated 3-board system — while full-wave behaviour, and therefore the 40Hz pulsed output, is retained.
@@ -624,7 +628,7 @@ With the eight trunk circuits included, the system consumes exactly that:
 
 This is worth flagging clearly, because it is a change in kind rather than degree. Rev 3.1 had eight spare channels, a spare D-Sub pair and a spare board slot. The trunks consume all of it. At full build the system is exactly full, and every one of the four limits above lands on the same number at the same time — which is elegant, but it means there is no longer any margin anywhere for a fifth D-Sub of anything.
 
-All three station boards are built (Rev 3.35), so the four limits above are reached now rather than at some future full build. Twenty-two of the 24 station channels carry stations. Channel 23 is the operator tap (§7.9.6), which consumes an A32 channel in both directions like any other strip; channel 24’s output is the audience monitor feed and its input is unused (§7.9.8).
+All three station boards are built (Rev 3.35), so the four limits above are reached now rather than at some future full build. Twenty-three of the 24 station channels carry stations. Channel 23 is the operator tap (§7.9.6), which consumes an A32 channel in both directions like any other strip; channel 24 is station 24, the real telephone (§7.9.8).
 
 The practical consequence: a fourth station board cannot be added without expanding the audio hardware. The options at that point are a second A32 with a second Digiface USB, clock-locked and aggregated at the host, or moving the A32-to-host link to MADI. The A32 has MADI on board and MADI carries 64 channels at 48kHz, so a single RME MADI interface in place of the Digiface USB would double the channel budget over one cable and leave the station boards untouched. If there is any real prospect of going past 32 circuits, choosing MADI now rather than later avoids buying the Digiface twice.
 
@@ -862,11 +866,11 @@ One question the bench cannot answer: whether 9000Hz survives the switchboard’
 
 ## 7.9.6 Which Strip, and What It Costs
 
-Strip 7 of board 3 — A32 channel 23 — is the designated tap, and the rest of this document assumes it. Strip 8 of the same board is the audience monitor output (§7.9.8). Stations are therefore 1–22, contiguous.
+Strip 7 of board 3 — A32 channel 23 — is the designated tap, and the rest of this document assumes it. Strip 8 of the same board is station 24, a real telephone (§7.9.8, Rev 3.49). Stations are therefore 1–22 and 24.
 
 Rev 3.24 through Rev 3.34 designated station 8 on board 1, and recorded the last strip of the last board as the alternative, rejected because in a two-board build it would have meant putting the tap on station 16 and moving it when the third board arrived. With all three boards built (Rev 3.35) that objection was gone and the tap moved to board 3 strip 8, for contiguous station numbering and a place at the end of the I²C chain and of the station channels rather than in the middle of both. Rev 3.40 moves it one strip over, to strip 7, so that strip 8’s A32 output can carry the audience monitor. The advantages are unchanged, and the tap and the monitor now sit side by side on one board. Nothing electrical changes: the tap is a stuffing option on a strip that is identical on every board (§7.9.1), and moving it is a matter of which strip gets the Rx04/Rx05 pair and omits its relay and ring detector (§7.9.7).
 
-Channel cost. The tap consumes A32 channel 23 in both directions — the output carries the operator tone, the input carries the default monitor source (§8.8). The monitor takes channel 24’s output. The system is 22 stations, 8 trunks, the tap and the monitor, which is all 32 A32 outputs; on the input side channel 24 is the one channel left unused. Rev 3.35 through Rev 3.39 gave the tap channel 24, left no A32 output for the loudspeaker, and sent the monitor out of the Digiface USB instead; §8.8 keeps that route as the fallback.
+Channel cost. The tap consumes A32 channel 23 in both directions — the output carries the operator tone, the input carries the default monitor source (§8.8). Channel 24 is station 24 (Rev 3.49). The system is 23 stations, 8 trunks and the tap, which is all 32 A32 channels in both directions; the monitor is on the Digiface's own analog output. Rev 3.35 through Rev 3.39 gave the tap channel 24, left no A32 output for the loudspeaker, and sent the monitor out of the Digiface USB instead; §8.8 keeps that route as the fallback.
 
 Slots 23 and 24 of the pilot comb (bins 688 and 696, 8062.50Hz and 8156.25Hz) go unused while those two strips are the tap and the monitor. Leave them allocated rather than reassigning them. The detector needs no change either way, and a strip reverted to station service gets its pilot back with no firmware edit.
 
@@ -892,32 +896,33 @@ Rx12 is the exception and stays fitted. It is the 4.7kΩ pull-up on the HCPL3700
 
 Cx01 stays fitted and is doing the same job it does everywhere else. Rx03 does not: it is the loop current resistor and has no business across the operator’s talking path.
 
-## 7.9.8 Audience Monitor Strip
+## 7.9.8 Station 24: the Real Telephone Strip
 
-Strip 8 of board 3 carries the audience monitor. The filtered, limited mix of §8.8 leaves the host on A32 output 24, arrives at the board on J105 channel 8 like any other strip’s transmit audio, and goes from there to the loudspeaker amplifier. It is not a line interface: nothing on the switchboard side connects to it, J7B101’s strip-8 pair (pins 7 and 8) stays empty, and there is no receive signal, so A32 input 24 is unused.
+Rev 3.49, real_phone.md Rev 2 (option B, adopted 2026-10-23). Strip 8 of board 3 is station 24: a real telephone, wired across the strip's line pair at the game box (J7B101 pins 7 and 8) and cabled to switchboard jack 10. From Rev 3.40 to Rev 3.48 the strip carried the audience monitor output; the monitor is now on the Digiface's own analog output (audio.md Rev 24).
+
+Nothing on the strip feeds the loop. The switchboard's line circuit does, through the phone, so Rx03 is not fitted: the line's DC must be the phone's own for the hook detector to see it. The strip's relay connects the transformer to the line through Cx01, which blocks DC, so closing it changes nothing the switchboard or the detector sees, and the strip is then a line interface in both directions like any station: its pilot, the operator tone, play, listen and the monitor source all work on A32 channel 24.
 
 ```text
-  FIT          Rx12                               holds Port A bit 7 high
-  DO NOT FIT   Tx01, Cx01, Rx08, Rx09, Rx10, Rx11, Dx01     audio and line side
-               Rx04, Rx05                         tap parts
-               Kx01, Qx01, Dx02, Rx01, Rx02, Cx02, Rx03   off-hook path
-               Rx06, Rx07, Cx03, Ux01, Cx04            ring detector
-  CONNECTOR    J106, the MONITOR terminal, on strip 8's transmit pair:
-               pin 2  AOUT+_8, hot   (J105 pin 1, the J105-side pad of R910)
-               pin 1  AOUT−_8, cold  (J105 pin 14, the J105-side pad of R911)
-  CABLE        shielded pair from J106 to the amplifier;
-               shield not connected at the board, earthed at the amplifier
+  FIT          Kx01, Qx01, Rx01 1k, Rx02 10k, Dx02, Cx02     relay and driver
+               Cx01 0.47µF 250V film, Tx01, Rx08–Rx11 1k     transformer and pads
+               Ux01 HCPL3700M, Cx04 0.1µF, Rx12 4.7k         hook detector
+               Rx06, Rx07  2.2kΩ 2W (PR02), a few mm off the board
+               Cx03  0Ω link                                  DC-coupled
+               Dx01  P6KE120CA                                as every station
+  DO NOT FIT   Rx03                                           the phone carries the loop
+               Rx04, Rx05                                     tap parts
+  J106         not used; the monitor cable is off
 ```
 
-T901 is not fitted because it would put 2kΩ of R910/R911 and a transformer between the A32 and the amplifier for nothing: the A32 output is already balanced, and the amplifier is not a telephone line. J106 picks the signal up where the A32 delivers it, on the J105 side of R910 and R911.
+**Hook detector.** The ring-detector footprint, DC-coupled and with 4.4kΩ in place of 20kΩ, bridges the line and senses its voltage: it conducts while the phone is on-hook and the line sits near 24V, and releases when the phone is lifted and pulls the line down. Measured 2026-10-23 (real_phone.md §5): on-hook 24V, 23.5V with the detector's load; lifted 5.5V, with the answer cord in 7.9V, keyed 7.0V, patched to a station 7.9V. Turn-off is guaranteed below 1.00mA, (7.9 − 4.2) / 4.4kΩ = 0.84mA; turn-on above 3.11mA, (23.5 − 5.5) / 4.4kΩ = 4.1mA. The lamp does not light with the detector's load across an idle line.
 
-The shield is not connected at the board (Rev 3.45). It is earthed at the amplifier end only, which keeps the monitor run out of the ground loop §7.6 describes — board GND to the PSU, the PSU to mains earth, and earth back through the amplifier's chassis. At the amplifier end, terminate as its balanced input expects. If the run hums or picks up clicks when a station is rung, try the shield on the board's GND as well, as §7.6 does for the D-Sub grounds, and keep whichever is quieter.
+**Ringing.** The operator may ring the phone. The detector then releases near each zero crossing only, about 1.9ms in each 25ms (measured), shorter than the 5ms poll; the firmware latches the change in the expander (control.md §7.4). Rx06 and Rx07 dissipate about 0.8W each at 90V rms, 40% of the PR02's rating.
 
-The rev 2 board carries J106 for it, a two-way terminal at the low-voltage edge. Rev 3.40 to Rev 3.43 described the first board, which had no connector and took the cable on two resistor pads. J106 carries hot and cold only, and the shield stays unconnected at this end.
+**A cord at the jack.** Plugging a cord into jack 10 or pulling it out opens the line for 29–192ms (measured); the firmware's hook debounce, 400ms, rides over it (control.md §7.4, Rev 38).
 
-Level. Channel 24’s A32 analog reference and digital trim (§7.4) set the output level for the amplifier’s input sensitivity, and are recorded with the other commissioning values; the audio program’s gain and limiter sit ahead of them (§8.8, audio.md §10).
+**Transmission.** Measured with the phone off-hook and corded to station 22, both relays closed: 1kHz crosses in 9.3dB each way, reciprocal, against about 5dB for a station–trunk cord pair (audio-io.md). The extra is the phone's own load and T901 bridging it.
 
-Rx12 stays for the reason §7.9.7 gives: with Ux01 absent it holds Port A bit 7 of board 3’s expander at a steady no-ring. Port B bit 7 drives nothing.
+J106 stays on the board and is unused. Level on channel 24 is set as for any station (§7.4).
 
 # 8. Station Identification — Pilot Tone Comb
 
@@ -1170,9 +1175,9 @@ Headroom is not a concern. With the output reference at +20dBu per §7.9.3 the t
 
 Tone generation. The operator tone is now an ordinary output stream on the tap strip’s channel, summed with nothing else. 9000Hz at 48kHz is exactly 768 cycles per 4096-sample block, so a 4096-sample wavetable loops seamlessly and the tone sits dead centre in bin 768 with no leakage into its neighbours — the same property §8.2 relies on for the pilots, arrived at the same way.
 
-Monitor output channel. A32 output 24, board 3 strip 8, as of Rev 3.40 (§7.9.8). The audio program sends the filtered, limited monitor mix there, balanced, and channel 24’s A32 reference and trim set its level for the amplifier; nothing in this section’s software design changes. The amplifier connects to the cable soldered at strip 8 until the board carries a connector for it.
+Monitor output channel. The Digiface's own analog output, channels 33 and 34, as of Rev 3.49 (audio.md Rev 24); it was A32 output 24, board 3 strip 8, from Rev 3.40 to Rev 3.48, until strip 8 became station 24 (§7.9.8).
 
-The route before that is kept as the fallback. Rev 3.24 through Rev 3.34 had the monitor on output 17, free only while the third board was not yet fitted; Rev 3.35 put the tap on channel 24 and left no A32 output at all; Rev 3.36 settled on the RME Digiface USB’s own analog output — a 6.3mm TRS line/phones jack on the interface that the host sees as playback channels 33 and 34 alongside the 32 ADAT channels, +9.5dBu at 0dBFS. Confirmed on the host, 2026-09-17: under Linux the Digiface USB runs class-compliant on the stock snd-usb-audio driver and reports CHANNELS [10 34], S32_LE, 32–192kHz, so at 48kHz the audio program opens it at 34 channels and writes the 32 A32 outputs to channels 1–32; a test tone on 33/34 was heard at the phones jack. The program still opens it at 34, and 33/34 still work. What moved the monitor off them at Rev 3.40: there is no TotalMix on Linux and so no RME-side volume on that output — it sits at its default, +9.5dBu at full scale, unbalanced — which leaves the program’s own gain and limiter as the only stages before the amplifier’s input sensitivity, where an A32 channel is balanced and has a recallable reference and trim. The A32pro’s rear Main Out was considered at Rev 3.36 and is not usable for this: it is a monitor output with its own DAC that mirrors any one input, output or internal mix, not a channel the host can address. It could be pointed at analog input 23 — the tap’s raw receive audio — but that carries the operator tone and the pilots unfiltered, and would need an analog low-pass and limiter built between it and the amplifier.
+The route before that is the one in use again from Rev 3.49. Rev 3.24 through Rev 3.34 had the monitor on output 17, free only while the third board was not yet fitted; Rev 3.35 put the tap on channel 24 and left no A32 output at all; Rev 3.36 settled on the RME Digiface USB’s own analog output — a 6.3mm TRS line/phones jack on the interface that the host sees as playback channels 33 and 34 alongside the 32 ADAT channels, +9.5dBu at 0dBFS. Confirmed on the host, 2026-09-17: under Linux the Digiface USB runs class-compliant on the stock snd-usb-audio driver and reports CHANNELS [10 34], S32_LE, 32–192kHz, so at 48kHz the audio program opens it at 34 channels and writes the 32 A32 outputs to channels 1–32; a test tone on 33/34 was heard at the phones jack. The program still opens it at 34, and 33/34 still work. What moved the monitor off them at Rev 3.40, a cost Rev 3.49 accepts to free channel 24 for the telephone: there is no TotalMix on Linux and so no RME-side volume on that output — it sits at its default, +9.5dBu at full scale, unbalanced — which leaves the program’s own gain and limiter as the only stages before the amplifier’s input sensitivity, where an A32 channel is balanced and has a recallable reference and trim. The A32pro’s rear Main Out was considered at Rev 3.36 and is not usable for this: it is a monitor output with its own DAC that mirrors any one input, output or internal mix, not a channel the host can address. It could be pointed at analog input 23 — the tap’s raw receive audio — but that carries the operator tone and the pilots unfiltered, and would need an analog low-pass and limiter built between it and the amplifier.
 
 # 9. Digital Control — ESP32 and MCP23017
 

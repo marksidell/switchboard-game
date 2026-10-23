@@ -54,10 +54,9 @@ struct Options {
     bool   monitor_on = false;          // default off, audio.md 10.2
     double monitor_db = 0.0;
     // --monitor-ch: the playback channels the monitor is written to
-    // (audio.md 10.1, 14). Document channel numbers from {24, 33, 34}; 24 is
-    // the A32 output wired to the amplifier, and 33,34 is the Digiface
-    // fallback that Rev 1 to Rev 6 used. Never empty.
-    std::vector<int> monitor_ch { 24 };
+    // (audio.md 10.1, 14). Document channel numbers from {33, 34}, the
+    // Digiface's analog pair; 24 until Rev 24 made it a station. Never empty.
+    std::vector<int> monitor_ch { 33, 34 };
     // audio.md 10.3, 14. The source at startup, as a capture channel; tap by
     // default so a bench run with no game behaves as Rev 7 did. The trim is
     // added to the gain only while the source is the tap, because the tap

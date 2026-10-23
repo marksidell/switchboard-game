@@ -185,7 +185,7 @@ private:
     bool mon_out_[chan::N_PLAY_CH + 1] = { false };  // --monitor-ch, by channel
 
     // ---- monitor (audio.md 10): capture 23 (the tap) -> mon_hp_ ->
-    // mon_lp_[0..3] -> + a file on prog_[24] through its own mon_lp_ ->
+    // mon_lp_[0..3] -> + a file on prog_[MONITOR_PROG] through its own mon_lp_ ->
     // gain -> lim_ -> mon_row_ -> the playback channels --monitor-ch names,
     // 24 by default
     Biquad                   mon_hp_;       // 150 Hz high-pass

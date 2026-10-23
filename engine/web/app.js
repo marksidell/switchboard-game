@@ -15,6 +15,7 @@
 const PREFIX = 'sbgame/';
 const STALE_MS = 2500;              // §7.2: 2.5 s without a heartbeat
 const N_STATION_JACKS = 30, N_TRUNK_JACKS = 10;
+const PHONE_STATION = 24;           // the real telephone (game_control.md Rev 73)
 
 // ---- state: retained topic values, and nothing else ------------------------
 
@@ -175,17 +176,21 @@ function labelOf(circuit) {
  *  nothing cabled to it is drawn as a working jack at rest (Rev 11). */
 function tileState(kind, circuit, label) {
   if (!circuit) return label ? 'idle' : 'none';
+  // Station 24 is a real telephone: its own hook is `lifted`, and its `hook`
+  // is the relay that puts the line on channel 24 (Rev 73).
+  const offHook = kind === 'station' &&
+    on(circuit === `station/${PHONE_STATION}` ? `${circuit}/lifted` : `${circuit}/hook`);
   let peer = get(`${circuit}/peer`);
   if (circuit in peerFaultSince && Date.now() - peerFaultSince[circuit] < PEER_FAULT_MS)
     peer = peerBefore[circuit];        // held, as the game holds it (§5)
   if (peer === 'ambiguous' || peer === 'deaf' || get(`${circuit}/play`) === 'missing'
       || on(`${circuit}/fault`)) return 'fault';
   if (on(`${circuit}/ring`)) return 'ringing';
-  if (kind === 'station' && on(`${circuit}/hook`) && !on(`${circuit}/op`) && !peer)
+  if (offHook && !on(`${circuit}/op`) && !peer)
     return 'calling';
   if (peer) return 'connected';
   if (on(`${circuit}/op`)) return 'operator';
-  if (kind === 'station' ? on(`${circuit}/hook`) : on(`${circuit}/seize`)) return 'busy';
+  if (kind === 'station' ? offHook : on(`${circuit}/seize`)) return 'busy';
   return 'idle';
 }
 
@@ -309,10 +314,12 @@ window.addEventListener('resize', fitBoard);
 
 // ---- diagnostics (§7.5, Rev 25) ----------------------------------------------
 
-/** A circuit within game/stations and game/trunks (§6.5). */
+/** A circuit within game/stations and game/trunks (§6.5). Station 24, the
+ *  real telephone, is fitted with board 3, when game/stations is 22 (Rev 73). */
 function fitted(circuit) {
   const [kind, n] = circuit.split('/');
   const most = num(kind === 'station' ? 'game/stations' : 'game/trunks');
+  if (kind === 'station' && +n === PHONE_STATION) return most === null || most === 22;
   return most === null || +n <= most;
 }
 const diagOn = (target, test) => on(`game/diag/${target}/${test}`);
@@ -590,7 +597,9 @@ function showPanel(kind, n) {
   const cmds = circuit && showControls && fitted(circuit);
   const own = kind === 'station' ? 'hook' : 'ring';
   if (circuit) {
-    for (const f of (kind === 'station' ? ['hook', 'ring', 'peer', 'op', 'play', 'listen', 'fault']
+    for (const f of (kind === 'station'
+                       ? [...(circuit === `station/${PHONE_STATION}` ? ['lifted'] : []),
+                          'hook', 'ring', 'peer', 'op', 'play', 'listen', 'fault']
                                         : ['seize', 'ring', 'peer', 'op', 'play', 'tone', 'listen', 'fault']))
       rows.push([f, get(`${circuit}/${f}`) || '—', cmds && f === own ? own : '']);
     if (kind === 'trunk') rows.push(['dialled', get(`${circuit}/dialled`) || '—']);

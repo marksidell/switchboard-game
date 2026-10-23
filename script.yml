@@ -757,6 +757,8 @@ stations:
         number: 21
     room404:
         number: 22
+    phone:
+        number: 24              # the real telephone on board 3 strip 8 (real_phone.md)
 
 # The switchboard's 30 station jacks, as the page draws them (game_control.md 6.3).
 # Listed top row first: the board's rows run 21-30, 11-20, 1-10 from the top.
@@ -878,8 +880,7 @@ jacks:
         guest: "Miss Dorothy Crane"
     -   jack: 10
         label: "405"
-        station:                # the real phone, channel 24, is cabled here (real_phone.md §3);
-                                # not a station the game knows yet
+        station: phone          # the real telephone, station 24 (game_control.md Rev 73)
 
 scenes:
     nbn-valet:

@@ -33,11 +33,12 @@ MAX_NAME = 31
 FORBIDDEN_IN_NAME = ("/", "\\", "..")
 RESERVED_NAME = "stop"
 
-# Stations run 1..22. Slots 23 and 24 are the operator tap and the audience
-# monitor output, and neither is a station (CLAUDE.md, station Rev 3.40,
-# audio.md Rev 7 2). tts_task.md 3.1 still says "within 1-23" and has not been
-# revised; monitor_channel_task.md 4 says to treat it as 1-22.
+# Stations run 1..22, and 24, the real telephone (audio.md Rev 24,
+# game_control.md Rev 73). Slot 23 is the operator tap and is not a station
+# (station Rev 3.40). tts_task.md 3.1 still says "within 1-23" and has not
+# been revised.
 MIN_STATION, MAX_STATION = 1, 22
+PHONE_STATION = 24
 
 # The switchboard's own jacks, which are not the game's circuits: 30 station
 # jacks and 10 trunk jacks (game_control.md 6.3). Which circuit is cabled to
@@ -308,8 +309,9 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
         if not isinstance(number, int) or isinstance(number, bool):
             bad(f"stations.{name}.number", f"not an integer: {number!r}")
         else:
-            if not MIN_STATION <= number <= MAX_STATION:
-                bad(f"stations.{name}.number", f"{number} outside {MIN_STATION}-{MAX_STATION}")
+            if not (MIN_STATION <= number <= MAX_STATION or number == PHONE_STATION):
+                bad(f"stations.{name}.number",
+                    f"{number} outside {MIN_STATION}-{MAX_STATION} and {PHONE_STATION}")
             if number in seen_station:
                 bad(f"stations.{name}.number", f"{number} already used by {seen_station[number]}")
             else:
@@ -889,9 +891,11 @@ def _tutor_lines(raw: object, cast: dict, board: list[dict], stations: dict,
             add(prefix + key, text)
         elif field_ == "jack":
             # Named by station, not jack, so moving a label to another jack
-            # leaves the file alone; what is said follows the label.
+            # leaves the file alone; what is said follows the label. Not for
+            # the real telephone, which no scene rings (game_control.md Rev 73).
             for j in board:
-                if j["station"] and isinstance(j["jack"], int):
+                if (j["station"] and isinstance(j["jack"], int)
+                        and (stations.get(j["station"]) or {}).get("number") != PHONE_STATION):
                     add(f"{prefix}{key}-{j['station']}", text.format(jack=jack_words(j["label"])))
         elif field_ == "number":
             ex = _exchanges()

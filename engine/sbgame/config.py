@@ -67,8 +67,9 @@ class Config:
     audio_margin: float = 3.0
 
     # ---- the circuits fitted (game_control.md §6.5, Rev 25) ------------
-    # The first `stations` of 1-22 and the first `trunks` of 1-8. The
-    # command line's --stations and --trunks override these.
+    # The first `stations` of 1-22, with station 24 when it is 22 (Rev 73),
+    # and the first `trunks` of 1-8. The command line's --stations and
+    # --trunks override these.
     stations: int = 22
     trunks: int = 8
     # Out of service (Rev 36): fitted, but not to be rung in on, each with why.
@@ -148,9 +149,10 @@ class Config:
         else:
             for kind, top in (("trunks", 8), ("stations", 22)):
                 for k, v in (oos.get(kind) or {}).items():
-                    if not (str(k).isdigit() and 1 <= int(k) <= top):
+                    if not (str(k).isdigit() and (1 <= int(k) <= top
+                                                  or (kind == "stations" and int(k) == 24))):
                         bad.append(f"out_of_service.{kind}: {k!r} is not a "
-                                   f"{kind[:-1]} 1-{top}")
+                                   f"{kind[:-1]} 1-{top}" + (" or 24" if kind == "stations" else ""))
                     elif not (isinstance(v, str) and v.strip()):
                         bad.append(f"out_of_service.{kind}.{k}: give the reason as text")
         if bad:

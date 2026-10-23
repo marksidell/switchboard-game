@@ -273,19 +273,16 @@ static void test_detector()
     check(last(Topic::Peer, chan::station_slot(10)) == "deaf" && f,
           "an unconnected circuit reads deaf, not idle");
 
-    // Slot 24 has no pilot and no circuit, so nothing may be published for it
-    // and nothing may ever be reported as connected to it.
-    bool any_noncircuit = false;
-    for (const Result& x : all)
-        if ((x.topic == Topic::Peer || x.topic == Topic::Op) &&
-            (x.idx == chan::TAP_CH || x.idx == chan::MONITOR_CH))
-            any_noncircuit = true;
-    check(!any_noncircuit,
-          "neither the tap nor the monitor publishes a peer or op of its own");
-    bool any_station_23 = false;
-    for (const Result& x : all)
-        if (x.idx > chan::N_STATIONS && x.idx < chan::trunk_slot(1)) any_station_23 = true;
-    check(!any_station_23, "nothing is published for a station above 22");
+    // Slot 23, the tap, has no pilot and no circuit, so no peer or op may be
+    // published for it. Slot 24 is station 24 (audio.md Rev 24) and is.
+    bool any_tap = false, any_24 = false;
+    for (const Result& x : all) {
+        if (x.topic != Topic::Peer && x.topic != Topic::Op) continue;
+        if (x.idx == chan::TAP_CH) any_tap = true;
+        if (x.idx == chan::PHONE_STATION) any_24 = true;
+    }
+    check(!any_tap, "the tap publishes no peer or op of its own");
+    check(any_24, "station 24 publishes a peer and op, as any station");
 }
 
 // ---------------------------------------------------------------- pilot map
@@ -302,16 +299,22 @@ static void test_pilot_map()
     check_near(chan::OP_BIN * chan::BIN_HZ, 9000.00, 0.005, "the operator tone is 9000.00 Hz");
     check(chan::station_slot(22) == 22 && chan::trunk_slot(1) == 25,
           "station 22 is slot 22 and trunk 1 is slot 25");
-    check(chan::N_STATIONS == 22, "there are 22 stations (audio.md 2, Rev 7)");
-    check(!chan::is_circuit_slot(chan::TAP_CH) &&
-          !chan::is_circuit_slot(chan::MONITOR_CH),
-          "slots 23 and 24 are the tap and the monitor, not circuits");
-    check(chan::TAP_CH == 23 && chan::MONITOR_CH == 24,
-          "the tap is channel 23 and the monitor channel 24");
-    check(chan::can_carry_monitor(24) && chan::can_carry_monitor(33) &&
-          chan::can_carry_monitor(34) && !chan::can_carry_monitor(23) &&
+    check(chan::N_STATIONS == 22 && chan::PHONE_STATION == 24,
+          "the stations are 1-22 and 24 (audio.md 2, Rev 24)");
+    check(!chan::is_circuit_slot(chan::TAP_CH) && chan::is_circuit_slot(24),
+          "slot 23 is the tap, not a circuit; slot 24 is station 24");
+    check(chan::is_station(24) && !chan::is_station(23) && chan::is_station(22) &&
+          !chan::is_station(25), "is_station: 1-22 and 24");
+    check(chan::TAP_CH == 23, "the tap is channel 23");
+    check(chan::can_carry_monitor(33) && chan::can_carry_monitor(34) &&
+          !chan::can_carry_monitor(24) && !chan::can_carry_monitor(23) &&
           !chan::can_carry_monitor(1) && !chan::can_carry_monitor(25),
-          "only 24, 33 and 34 may carry the monitor");
+          "only 33 and 34 may carry the monitor");
+    {
+        char id24[24];
+        chan::circuit_id(24, id24, sizeof id24);
+        check(std::strcmp(id24, "station/24") == 0, "slot 24's circuit id is station/24");
+    }
 
     char id[24];
     chan::circuit_id(chan::trunk_slot(8), id, sizeof id);
@@ -576,28 +579,27 @@ static bool opts(Options& o, std::vector<const char*> args)
 }
 
 // test_monitor_ch()
-//   audio.md 14: the monitor goes to channels from {24, 33, 34}, and anything
-//   else is a startup error rather than a clamp.
+//   audio.md 14: the monitor goes to channels from {33, 34}, and anything
+//   else is a startup error rather than a clamp. 24 is station 24 (Rev 24).
 static void test_monitor_ch()
 {
     std::printf("--monitor-ch (audio.md 10.1, 14)\n");
     Options o;
 
-    check(opts(o, {}) && o.monitor_ch == std::vector<int>{ 24 },
-          "the default is channel 24, the A32 output to the amplifier");
-    check(opts(o, { "--monitor-ch", "24" }) && o.monitor_ch == std::vector<int>{ 24 },
-          "24 accepted");
-    check(opts(o, { "--monitor-ch", "33,34" }) && o.monitor_ch == (std::vector<int>{ 33, 34 }),
-          "33,34 accepted - the Digiface fallback of Rev 1 to Rev 6");
-    check(opts(o, { "--monitor-ch", "24,33" }) && o.monitor_ch == (std::vector<int>{ 24, 33 }),
-          "24,33 accepted");
+    check(opts(o, {}) && o.monitor_ch == (std::vector<int>{ 33, 34 }),
+          "the default is 33,34, the Digiface pair");
+    check(opts(o, { "--monitor-ch", "33" }) && o.monitor_ch == std::vector<int>{ 33 },
+          "33 accepted");
+    check(opts(o, { "--monitor-ch", "34,33" }) && o.monitor_ch == (std::vector<int>{ 34, 33 }),
+          "34,33 accepted");
+    check(!opts(o, { "--monitor-ch", "24" }), "24 refused: it is station 24");
 
     check(!opts(o, { "--monitor-ch", "23" }), "23 refused: it is the operator tap");
     check(!opts(o, { "--monitor-ch", "1" }),  "1 refused: it is a station");
     check(!opts(o, { "--monitor-ch", "25" }), "25 refused: it is a trunk");
     check(!opts(o, { "--monitor-ch", "" }),   "an empty list is refused");
-    check(!opts(o, { "--monitor-ch", "24,24" }), "a repeat is refused");
-    check(!opts(o, { "--monitor-ch", "24," }), "a trailing comma is refused");
+    check(!opts(o, { "--monitor-ch", "33,33" }), "a repeat is refused");
+    check(!opts(o, { "--monitor-ch", "33," }), "a trailing comma is refused");
     check(!opts(o, { "--monitor-ch", "twentyfour" }), "a non-number is refused");
     check(!opts(o, { "--monitor-ch", "35" }), "35 refused: there is no such channel");
 }
@@ -640,12 +642,12 @@ static bool any_signal(const std::vector<int32_t>& buf, int ch)
 }
 
 // test_render_map()
-//   audio.md 2, Rev 7: which playback channel carries what. The monitor row is
+//   audio.md 2, Rev 24: which playback channel carries what. The monitor row is
 //   set to a value nothing else produces, so the channel carrying it is
 //   unmistakable.
 static void test_render_map()
 {
-    std::printf("playback channel map (audio.md 2, Rev 7)\n");
+    std::printf("playback channel map (audio.md 2, Rev 24)\n");
     const float MON = 0.5f;
     const int32_t mon_s32 = float_to_s32(MON);
 
@@ -654,10 +656,11 @@ static void test_render_map()
     std::vector<int32_t> f = render_once(o, MON);
     check(f.size() == 256u * chan::N_PLAY_CH, "a period renders without a device");
 
-    check(all_frames(f, chan::MONITOR_CH, mon_s32),
-          "by default the monitor is on document channel 24 (ALSA index 23)");
-    check(all_frames(f, chan::DIGIFACE_CH_A, 0) && all_frames(f, chan::DIGIFACE_CH_B, 0),
-          "and the Digiface pair (indices 32, 33) is silent");
+    check(all_frames(f, chan::DIGIFACE_CH_A, mon_s32) &&
+          all_frames(f, chan::DIGIFACE_CH_B, mon_s32),
+          "by default the monitor is on the Digiface pair, 33 and 34 (indices 32, 33)");
+    check(any_signal(f, 24) && !all_frames(f, 24, mon_s32),
+          "channel 24 carries station 24's pilot, not the monitor");
     check(any_signal(f, chan::TAP_CH) && !all_frames(f, chan::TAP_CH, mon_s32),
           "channel 23 carries the operator tone");
 
@@ -670,13 +673,10 @@ static void test_render_map()
     check(pilots, "every circuit channel carries its pilot");
     check(clean, "no circuit channel carries the monitor");
 
-    check(opts(o, { "--monitor-ch", "33,34" }), "--monitor-ch 33,34 parses");
+    check(opts(o, { "--monitor-ch", "33" }), "--monitor-ch 33 parses");
     f = render_once(o, MON);
-    check(all_frames(f, chan::DIGIFACE_CH_A, mon_s32) &&
-          all_frames(f, chan::DIGIFACE_CH_B, mon_s32),
-          "--monitor-ch 33,34 moves the monitor to the Digiface pair");
-    check(all_frames(f, chan::MONITOR_CH, 0),
-          "and channel 24 then carries silence");
+    check(all_frames(f, chan::DIGIFACE_CH_A, mon_s32) && all_frames(f, chan::DIGIFACE_CH_B, 0),
+          "--monitor-ch 33 puts the monitor on 33 alone, and 34 is silent");
 }
 
 // test_output_check()
@@ -688,6 +688,7 @@ static void test_output_check()
 {
     std::printf("output self-check (audio.md 11.4, Rev 12)\n");
     auto sh = std::make_unique<Shared>();
+    sh->opt.monitor_ch = { 33 };            // so that 34 is a silent channel
     AlsaStream st;                          // never opened
     Engine eng(*sh, st);
     check(eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
@@ -873,7 +874,7 @@ static void test_monitor_play()
         while (sh->res_audio.pop(r)) {}     // let the 20ms ramp and the last file ring out
         Command c;
         c.verb = Verb::Play;
-        c.idx  = (int16_t)chan::MONITOR_CH;
+        c.idx  = (int16_t)chan::MONITOR_PROG;
         c.buf  = file();
         std::snprintf(c.name, sizeof c.name, "tutor.hello");
         check(sh->cmdq.push(c), "the play command queues");
@@ -888,12 +889,12 @@ static void test_monitor_play()
             const std::vector<int32_t>& out = eng.playback();
             const int n = (int)out.size() / chan::N_PLAY_CH;
             for (int f = 0; f < n; ++f) {
-                const size_t i = (size_t)f * chan::N_PLAY_CH + chan::MONITOR_CH - 1;
+                const size_t i = (size_t)f * chan::N_PLAY_CH + chan::DIGIFACE_CH_A - 1;
                 peak = std::max(peak, std::fabs((double)out[i] / 2147483648.0));
             }
             Result r;
             while (sh->res_audio.pop(r))
-                if (r.topic == Topic::Play && r.idx == chan::MONITOR_CH && r.value[0] == '\0')
+                if (r.topic == Topic::Play && r.idx == chan::MONITOR_PROG && r.value[0] == '\0')
                     finished = true;
         }
         return peak;
@@ -902,7 +903,7 @@ static void test_monitor_play()
     play(true);
     bool finished = false;
     const double on_peak = peak_over(25, finished);
-    check(on_peak > 0.2 && on_peak < 0.3, "channel 24 carries the file at unity, through the low-pass");
+    check(on_peak > 0.2 && on_peak < 0.3, "channel 33 carries the file at unity, through the low-pass");
     check(finished, "and play clears when the file ends");
 
     play(false);
@@ -929,12 +930,13 @@ static void test_monitor_source()
 
     // Out of range at both ends, on both kinds.
     check(chan::monitor_source_channel("station/0")  == 0, "station/0 is refused");
-    check(chan::monitor_source_channel("station/23") == 0, "station/23 is refused - 22 stations");
+    check(chan::monitor_source_channel("station/23") == 0, "station/23 is refused - it is the tap");
+    check(chan::monitor_source_channel("station/25") == 0, "station/25 is refused");
     check(chan::monitor_source_channel("trunk/0")    == 0, "trunk/0 is refused");
     check(chan::monitor_source_channel("trunk/9")    == 0, "trunk/9 is refused - 8 trunks");
 
-    // The tap and the monitor are not circuits and cannot be named as one.
-    check(chan::monitor_source_channel("station/24") == 0, "the monitor channel is not a station");
+    // Station 24, the real telephone, is a source like any station (Rev 24).
+    check(chan::monitor_source_channel("station/24") == 24, "station/24 is channel 24");
 
     // Malformed payloads. strtol would have taken most of these.
     const char* bad[] = { "", " ", "tap/", "Tap", "TAP", "station", "station/",
@@ -961,8 +963,8 @@ static void test_monitor_source()
           "channel 5 echoes as station/5");
     check(chan::monitor_source_name(27, n, sizeof n) && std::strcmp(n, "trunk/3") == 0,
           "channel 27 echoes as trunk/3");
-    check(!chan::monitor_source_name(chan::MONITOR_CH, n, sizeof n),
-          "channel 24 has no source name");
+    check(chan::monitor_source_name(24, n, sizeof n) && std::strcmp(n, "station/24") == 0,
+          "channel 24 echoes as station/24");
 
     // audio.md Rev 9 1.9: a source beyond what the device captures is refused
     // at startup rather than echoed against silence. Testable without hardware
@@ -1026,7 +1028,7 @@ static void test_monitor_gate()
             const std::vector<int32_t>& out = eng.playback();
             const int n = (int)out.size() / chan::N_PLAY_CH;
             for (int f = 0; f < n; ++f) {
-                const size_t i = (size_t)f * chan::N_PLAY_CH + chan::MONITOR_CH - 1;
+                const size_t i = (size_t)f * chan::N_PLAY_CH + chan::DIGIFACE_CH_A - 1;
                 peak = std::max(peak, std::fabs((double)out[i] / 2147483648.0));
             }
         }

@@ -20,7 +20,7 @@ import logging
 from typing import Awaitable, Callable, Iterable
 
 from .link import Hw
-from .script_data import Jack
+from .script_data import Jack, fitted_stations
 
 log = logging.getLogger("sweep")
 
@@ -35,13 +35,14 @@ PAUSE = 2.0          # s between one circuit and the next
 def station_order(jacks: Iterable[Jack], stations: int) -> list[tuple[int, Jack]]:
     """(station number, jack) for every fitted station, in jack order."""
     by_jack = {j.number: j for j in jacks if j.kind == "station" and j.circuit}
+    fitted = set(fitted_stations(stations))
     out = []
     for row in ROWS:
         for n in row:
             j = by_jack.get(n)
             if j is not None:
                 st = int(j.circuit.split("/")[1])
-                if st <= stations:
+                if st in fitted:
                     out.append((st, j))
     return out
 
