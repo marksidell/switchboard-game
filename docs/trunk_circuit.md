@@ -2,7 +2,7 @@
 
 **Trunk Interface Circuit Design**
 
-*Rev 5.54 — 8 Trunks, Constant-Current Loop Feed, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Trunk Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, External Ring Generator*
+*Rev 5.55 — 8 Trunks, Constant-Current Loop Feed, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Trunk Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, External Ring Generator*
 
 # **1. Overview**
 
@@ -159,6 +159,7 @@ Only two amendments to the station document are needed, and both are flagged whe
 - Rev 5.52: §4.5 pulls K901 on trunk 8 (Mark, 2026-10-22). It is not needed, since trunk 8 is never rung from the board. With it out, the ring bus cannot reach the ATA. Pole 1 COM is jumpered to NC and pole 2 COM to NC, so TIP and RING still reach node A and node B, and Tx01 and U901 stay on the line. The ATA's tip goes into the pole 1 NC hole. Its ring still goes to R906's lifted leg. The ATA connects at the board because trunk 8 reaches the switchboard through the board's RJ45 cable.
 - Rev 5.53: §4.5's ATA ring voltage is now 55 Vrms, up from at most 45 Vrms. At 45 Vrms the 551's trunk ring relay did not trip (Mark, 2026-10-22). At 55 Vrms the peak is 126 V even on the full 48 V feed, under Dx01's 128 V standoff. 55 Vrms is the ATA's maximum, so it cannot go higher.
 - Rev 5.54: §4.5 bypasses R906 for ring with a bipolar 110 µF across it, two 220 µF 25 V electrolytics back to back (Mark, 2026-10-23). With the 330 Ω alone the ATA's ring did not latch the switchboard's trunk relay; with one polarized 100 µF across it the relay latched but not every time. The ring is AC with no DC loop current, so a single polarized cap is reverse-biased each half-cycle; back to back, the pair is bipolar. 25 V is enough: across R906 there is about 10 V DC while seized and a few volts of ring.
+- Rev 5.55: §4.5 records the trunk 8 mod as Mark built it, step by step (2026-10-23), with the ATA on an RJ45 jack of its own glued to the board's edge, pins 4 and 5. It matches the drawing: D903's cathode pad is node A, and R906's pad on R907's side is node B.
 
 | **Former name** | **Designator** | **Former name** | **Designator** |
 | --- | --- | --- | --- |
@@ -619,6 +620,20 @@ Rev 5.51, 2026-10-22; Rev 5.52 pulls K901. A change to trunk 8 of the rev 2 boar
   loop:  ATA tip -- node A -- jumper -- TIP -- switchboard -- RING -- jumper
                  -- node B -- R906 || C_RB -- ATA ring
 ```
+
+**As built (Mark, 2026-10-23).** In this order:
+
+1. Remove D903, R906 and K901.
+2. Clip U901's pins 2 and 3 so they no longer reach their pads.
+3. On the underside, jumper U901 pin 1 to pin 2's pad, which joins pin 1 to R907. Pin 2 itself stays open, since it is clipped.
+4. Jumper K901's pins 11–12 and 21–22, pole COM to NC on each pole: TIP to node A, RING to node B.
+5. One end of a 330 Ω 2 W resistor goes in R906's pad on R907's side (node B). The other end is soldered to U901 pin 4.
+6. Solder C_RB across the 330 Ω: two 220 µF 25 V electrolytics back to back.
+7. Glue an RJ45 jack to the board's edge. Run a twisted pair from its pin 5 (tip) and pin 4 (ring).
+8. Tip goes to the pad of D903's removed cathode, which is node A (§3.1: Dx03's cathode is Kx01 pole 1 NC).
+9. Ring goes to the end of the 330 Ω at U901 pin 4.
+
+The ATA plugs into that jack on its line pair, pins 4 and 5. The board's own trunk RJ45 still carries trunk 8 to the switchboard.
 
 With R906 off ground and U901 on its AC pins, the loop floats: nothing in it touches board ground. That is the reason for the AC input (Mark, 2026-10-22). The internal bridge makes the detector indifferent to which way the ATA's feed flows, so its polarity does not have to be checked, and pin 3 no longer has to come off ground alone. U901 is soldered, not socketed, so pins 2 and 3 have to be lifted; Mark will do that. Pins 2 and 3 must be open. Leaving pin 2 on R907 with pin 1 also wired to it shorts one diode of the bridge, and one polarity then bypasses the buffer altogether.
 
