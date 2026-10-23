@@ -939,8 +939,13 @@ void loop() {
     }
 
     TIMED(T_INPUTS, expanderPollInputs());
-    TIMED(T_STATION, stationPoll(now));
-    TIMED(T_TRUNK, trunkPoll(now));
+    /* The samples are timed from when they were read, not from the top of
+     * the pass: netService() above can hold the pass for a few hundred ms
+     * waiting on the broker, and a change stamped with `now` then looked that
+     * much older than it was (6.3, Rev 37). */
+    const uint32_t sampled = millis();
+    TIMED(T_STATION, stationPoll(sampled));
+    TIMED(T_TRUNK, trunkPoll(sampled));
     TIMED(T_FLUSH, expanderFlushRelays());
 
     /* 9.3: after the poll and from this loop - never from a timer or the

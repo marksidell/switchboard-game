@@ -179,16 +179,6 @@ bool expanderScanAndConfigure(bool quiet) {
 
 /* ---- Poll --------------------------------------------------------------- */
 
-/* Reconfigure expander i after a reset, keeping the relays the game has
- * commanded: configureOne() writes them released, and expanderFlushRelays()
- * puts the shadow back. */
-static void restore(uint8_t i) {
-  const uint8_t keep = exp_state[i].relay_shadow;
-  configureOne(i);
-  exp_state[i].relay_shadow = keep;
-  exp_state[i].relay_dirty  = true;
-}
-
 bool expanderPollInputs() {
   bool ok = true;
   for (uint8_t i = 0; i < N_EXPANDERS; ++i) {
@@ -196,19 +186,6 @@ bool expanderPollInputs() {
     uint8_t v = 0;
     bool got;
     if (latchMask(i)) {
-      /* Station 24 reads its hook as a level, so a reset, which clears IPOLA,
-       * reads as the phone lifted until 6.4's check comes round, up to a
-       * second later. Check IPOLA before every read here instead, and on a
-       * reset configure it again and skip this poll (7.4, Rev 36). */
-      uint8_t ipola = 0;
-      if (!regRead(expanders[i].addr, REG_IPOLA, ipola)) { noteResult(i, false); ok = false; continue; }
-      if (ipola != 0xFF) {
-        Serial.printf("I2C: %s at 0x%02X reset (IPOLA %02X) - configured again, "
-                      "relays restored\n", expanders[i].label, expanders[i].addr, ipola);
-        restore(i);
-        exp_state[i].changed = 0;
-        continue;
-      }
       /* INTFA, INTFB, INTCAPA, INTCAPB, GPIOA in one read. INTFA says which
        * latched bits changed since the last read; reading GPIOA clears it. */
       uint8_t r[5];
@@ -296,7 +273,10 @@ int8_t expanderVerifyNext() {
     Serial.printf("I2C: %s at 0x%02X lost its configuration (IODIRA %02X IODIRB %02X "
                   "IPOLA %02X) - reset? configured again, relays restored\n",
                   expanders[i].label, a, iodira, iodirb, ipola);
-    restore(i);
+    const uint8_t keep = exp_state[i].relay_shadow;
+    configureOne(i);                         // writes OLATB 0 on the way
+    exp_state[i].relay_shadow = keep;
+    exp_state[i].relay_dirty  = true;        // expanderFlushRelays() puts them back
     return (int8_t)i;
   }
   return -1;
