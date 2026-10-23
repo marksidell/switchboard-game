@@ -55,6 +55,7 @@ bool expanderConfigured(uint8_t exp_index);
 struct ExpanderState {
   bool    present;       // answered the scan and has not faulted since
   uint8_t inputs;        // last Port A read, 1 = ring or seizure present
+  uint8_t changed;       // Port A bits that changed since the read before (INTFA)
   uint8_t relay_shadow;  // what Port B should be; written when dirty
   bool    relay_dirty;
 };
@@ -74,6 +75,14 @@ bool circuitLive(const CircuitMap& c);
 
 /* Reads this circuit's debounced input bit out of the last poll. */
 bool circuitInput(const CircuitMap& c);
+
+/* True when this circuit's input changed since the poll before, though it may
+ * read the same: a pulse shorter than the 5ms poll (control.md 7.4, Rev 34).
+ * Latched by the expander, and only for the Port A bits in latchMask(). */
+bool circuitChanged(const CircuitMap& c);
+
+/* The Port A bits of this expander whose changes it latches: station 24's. */
+uint8_t latchMask(uint8_t exp_index);
 
 /* Sets or clears this circuit's relay bit in the shadow. The write happens in
  * expanderFlushRelays(); nothing here touches the bus. */

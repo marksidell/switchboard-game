@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 33 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks, Switchboard Power Cut on GPIO15, Pulsed or Held, a Real Telephone on Station 24*
+*Rev 34 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks, Switchboard Power Cut on GPIO15, Pulsed or Held, a Real Telephone on Station 24*
 
 # 1. Overview
 
@@ -113,6 +113,12 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 — Firmware updates over the network (§2.1), so that the installed board can be reflashed without a USB cable. A cable left attached would join portland's ground to the system's 24V ground, which PoE's isolation keeps apart, and anything that opened the port would reset the board; Mark weighed powering the Olimex from USB and chose to stay on PoE (with a TL-SG105PE PoE switch in place of a separate injector) and update over the network instead. The generator §3.4 recommendation to prefer OTA in the installed system is now something the firmware can do.
 
 — Firmware consequence, for Claude Code, made in the same commit: ArduinoOTA started once Ethernet has an address, with the hostname `sbgame-esp32` and a SHA-256 password hash from `secrets.h` (`OTA_PASSWORD_SHA256`; without it the firmware builds with OTA off). The start callback stops the waveform and releases every relay before anything is written to flash; an error after that point restarts the board. §10 gains the row.
+
+## 1.34 Changes in Rev 34
+
+— Station 24's ring was missed (§6.3, §7.4), 2026-10-23. Its hook detector bridges the line through 4.4kΩ rather than the station's 20kΩ, so while it is rung it releases only near each zero crossing: measured on RING_DET_8 at 100kHz, a 1.9ms pulse (median) every 25.0ms. 25ms is five polls exactly, so the 5ms poll locked in step with it and saw most pulses or almost none: a 4s ring was published as `ring` `"on"` for under a second. On 0x22, interrupt-on-change is enabled for Port A bit 7 alone. There is still no INT line; the poll reads INTFA with GPIOA in one five-byte read (INTFA to GPIOA), and a latched change that reads the same level as the poll before counts as a pulse, two transitions. About 0.45ms more bus per tick on one expander, 9% of a 100kHz bus.
+
+— Firmware consequence, for Claude Code: `GPINTENA` from `latchMask()` in `configureOne()`; the five-byte poll on that expander; `circuitChanged()`; the pulse counted in `stationPoll()`. FIRMWARE_SPEC_REV 34.
 
 ## 1.33 Changes in Rev 33
 
@@ -393,7 +399,7 @@ The recovery is one reset, one rescan and one reconfigure. An expander that is s
 
 ## 6.3 Polling
 
-Poll Port A of every expander at 200Hz (every 5ms). There is no INT line and none is wanted: with the station ring detector pulsing at 40Hz, interrupt-on-change would mean 80 interrupts per second per ringing station, each needing an I²C transaction to identify and clear, and on the trunk board an accidental ring gives 40 per second for something that is not even a state change. Polling gives the debounce logic five samples per half-cycle of the 40Hz pulse train, makes the timing deterministic, and costs about 6% of a 100kHz bus for four expanders. Station §9.6 and trunk §10.4 have the hardware side.
+Poll Port A of every expander at 200Hz (every 5ms). Station 24's input alone has its changes latched in INTFA, read with the poll, since its pulses are shorter than the poll (§7.4, Rev 34). There is no INT line and none is wanted: with the station ring detector pulsing at 40Hz, interrupt-on-change would mean 80 interrupts per second per ringing station, each needing an I²C transaction to identify and clear, and on the trunk board an accidental ring gives 40 per second for something that is not even a state change. Polling gives the debounce logic five samples per half-cycle of the 40Hz pulse train, makes the timing deterministic, and costs about 6% of a 100kHz bus for four expanders. Station §9.6 and trunk §10.4 have the hardware side.
 
 Everything in §7 and §8 runs from this 200Hz sample stream. The MQTT heartbeat (§9.3) is published from the same loop after the poll, so that it proves this loop is running.
 
@@ -425,7 +431,7 @@ The echo is `sbgame/station/<n>/dial`, retained: the digits not yet finished, in
 
 Rev 33, real_phone.md Rev 2. A real telephone is wired across station board 3 strip 8's line pair, cabled to switchboard jack 10. Nothing on the board feeds its loop: the switchboard's line circuit does, and Rx03 is not fitted, so the line's DC is the phone's own. Strip 8's ring-detector footprint is fitted as a DC hook detector bridging the line (2.2kΩ + 2.2kΩ, no capacitor): it conducts while the phone is on-hook and the line sits near 24V, and releases when the phone is lifted and pulls the line below about 8V (measured 5.5–7.9V). Through IPOL, Port A bit 7 reads **1 on-hook, 0 lifted**.
 
-- **`ring`**: as §7.1, unchanged. A steady level, on-hook or lifted, has no transitions, so it never reads as ring; the operator ringing the phone does, because the detector is DC-coupled and pulses at 40Hz.
+- **`ring`**: as §7.1. A steady level, on-hook or lifted, has no transitions, so it never reads as ring; the operator ringing the phone does, because the detector is DC-coupled and pulses at 40Hz. Through 4.4kΩ it releases only near each zero crossing, about 1.9ms in each 25ms (measured, Rev 34), which the 5ms poll misses, so the expander latches the change: GPINTENA bit 7 on 0x22, and the poll reads INTFA with GPIOA. A latched change whose level reads the same as at the poll before is a pulse and counts as two transitions.
 - **`lifted`**: the phone is off-hook. Declared when Port A bit 7 has read the same for **100ms** with no transition, and held at its last value while `ring` is on, since ringing makes the input pulse (CLAUDE.md: ring energy masks supervision). Published on `sbgame/station/24/lifted` on change only, `"on"` lifted. 100ms passes the hook switch's bounce and the 61ms breaks of a dial. A phone that dials can also read as ring (§7.1's four transitions in 150ms), which holds `lifted` for the dial's duration; nothing is expected to dial on it.
 - **`hook/set`** and **`hook`**: as §7.2. The relay connects the line's transformer to A32 channel 24 through Cx01, which blocks DC, so it changes nothing the hook detector or the switchboard sees. Released by every condition of §10.
 - **`dial/set`**: logged and dropped. The relay does not carry the loop, so there is nothing to pulse.

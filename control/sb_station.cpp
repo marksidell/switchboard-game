@@ -119,8 +119,13 @@ void stationPoll(uint32_t now_ms) {
 
     const bool raw = circuitInput(c);       // IPOL has made 1 = ring present
 
-    if (raw != s.raw_last) {
-      s.raw_last      = raw;
+    /* Station 24's detector releases for about 2ms in each 25ms of ringing
+     * (7.4, Rev 34): mostly between polls, and at 40Hz in step with them. The
+     * expander latches the change; one that reads the same as before was a
+     * pulse, two transitions, counted here as one each time round. */
+    const bool missed = raw == s.raw_last && circuitChanged(c);
+    for (uint8_t k = missed ? 2 : raw != s.raw_last ? 1 : 0; k > 0; --k) {
+      s.raw_last      = !s.raw_last;
       s.last_trans_ms = now_ms;
       s.trans[s.head] = now_ms;
       s.head          = (uint8_t)((s.head + 1) % RING_TRANSITIONS_TO_DECLARE);

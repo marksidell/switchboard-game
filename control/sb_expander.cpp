@@ -19,6 +19,7 @@ static constexpr uint8_t REG_GPINTENA = 0x04;
 static constexpr uint8_t REG_GPINTENB = 0x05;
 static constexpr uint8_t REG_GPPUA  = 0x0C;
 static constexpr uint8_t REG_GPPUB  = 0x0D;
+static constexpr uint8_t REG_INTFA  = 0x0E;
 static constexpr uint8_t REG_GPIOA  = 0x12;
 static constexpr uint8_t REG_OLATB  = 0x15;
 
@@ -45,6 +46,17 @@ static bool regRead(uint8_t addr, uint8_t reg, uint8_t& val) {
   if (Wire.endTransmission(false) != 0) return false;   // repeated start
   if (Wire.requestFrom((int)addr, 1) != 1) return false;
   val = (uint8_t)Wire.read();
+  return true;
+}
+
+/* n consecutive registers from `reg`: IOCON.SEQOP is 0 at reset, so the
+ * address pointer increments. */
+static bool regReadN(uint8_t addr, uint8_t reg, uint8_t* val, uint8_t n) {
+  Wire.beginTransmission(addr);
+  Wire.write(reg);
+  if (Wire.endTransmission(false) != 0) return false;   // repeated start
+  if (Wire.requestFrom((int)addr, (int)n) != n) return false;
+  for (uint8_t i = 0; i < n; ++i) val[i] = (uint8_t)Wire.read();
   return true;
 }
 
@@ -107,8 +119,10 @@ void expanderResetPulse() {
 
 /* control.md 4.2 step 6: Port A inputs, Port B outputs, pull-ups off (the boards
  * fit their own), IPOL on Port A so a read returns 1 for present, Port B latch
- * zero so every relay is released by command as well as by default. Interrupts
- * are disabled explicitly: there is no INT line and none is wanted (6.3). */
+ * zero so every relay is released by command as well as by default. There is no
+ * INT line and none is wanted (6.3); interrupt-on-change is enabled only on
+ * station 24's input, for its flag, INTFA, which latches a change the 5ms poll
+ * would miss (7.4, Rev 34). Every other bit's is disabled explicitly. */
 static bool configureOne(uint8_t idx) {
   const uint8_t a = expanders[idx].addr;
   bool ok = true;
@@ -118,7 +132,7 @@ static bool configureOne(uint8_t idx) {
   ok &= regWrite(a, REG_GPPUB,    0x00);
   ok &= regWrite(a, REG_IPOLA,    0xFF);   // detectors are active low
   ok &= regWrite(a, REG_IPOLB,    0x00);
-  ok &= regWrite(a, REG_GPINTENA, 0x00);   // no interrupt-on-change
+  ok &= regWrite(a, REG_GPINTENA, latchMask(idx));   // INTFA latches these
   ok &= regWrite(a, REG_GPINTENB, 0x00);
   ok &= regWrite(a, REG_OLATB,    0x00);   // all relays released
   return ok;
@@ -130,6 +144,7 @@ bool expanderScanAndConfigure(bool quiet) {
   for (uint8_t i = 0; i < N_EXPANDERS; ++i) {
     exp_state[i].present      = false;
     exp_state[i].inputs       = 0;
+    exp_state[i].changed      = 0;
     exp_state[i].relay_shadow = 0;
     exp_state[i].relay_dirty  = false;
     consecutive_errors[i]     = 0;
@@ -169,7 +184,16 @@ bool expanderPollInputs() {
   for (uint8_t i = 0; i < N_EXPANDERS; ++i) {
     if (!exp_state[i].present) continue;
     uint8_t v = 0;
-    const bool got = regRead(expanders[i].addr, REG_GPIOA, v);
+    bool got;
+    if (latchMask(i)) {
+      /* INTFA, INTFB, INTCAPA, INTCAPB, GPIOA in one read. INTFA says which
+       * latched bits changed since the last read; reading GPIOA clears it. */
+      uint8_t r[5];
+      got = regReadN(expanders[i].addr, REG_INTFA, r, 5);
+      if (got) { exp_state[i].changed = (uint8_t)(r[0] & latchMask(i)); v = r[4]; }
+    } else {
+      got = regRead(expanders[i].addr, REG_GPIOA, v);
+    }
     noteResult(i, got);
     if (got) exp_state[i].inputs = v;
     else     ok = false;
@@ -284,6 +308,7 @@ bool expanderRescanAbsent() {
       exp_state[i].relay_shadow = 0;
       exp_state[i].relay_dirty  = false;
       exp_state[i].inputs       = 0;
+      exp_state[i].changed      = 0;
       if (configureOne(i)) {
         exp_state[i].present  = true;
         consecutive_errors[i] = 0;

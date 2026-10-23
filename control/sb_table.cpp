@@ -97,6 +97,15 @@ bool circuitInput(const CircuitMap& c) {
   return (exp_state[c.exp].inputs >> c.bit) & 1;
 }
 
+bool circuitChanged(const CircuitMap& c) {
+  return (exp_state[c.exp].changed >> c.bit) & 1;
+}
+
+uint8_t latchMask(uint8_t exp_index) {
+  const CircuitMap* c = stationCircuit(PHONE_STATION);
+  return c->exp == exp_index ? (uint8_t)(1u << c->bit) : 0;
+}
+
 void circuitSetRelay(const CircuitMap& c, bool on) {
   ExpanderState& e = exp_state[c.exp];
   const uint8_t mask = (uint8_t)(1u << c.bit);
