@@ -916,6 +916,8 @@ Nothing on the strip feeds the loop. The switchboard's line circuit does, throug
 
 **Hook detector.** The ring-detector footprint, DC-coupled and with 4.4kΩ in place of 20kΩ, bridges the line and senses its voltage: it conducts while the phone is on-hook and the line sits near 24V, and releases when the phone is lifted and pulls the line down. Measured 2026-10-23 (real_phone.md §5): on-hook 24V, 23.5V with the detector's load; lifted 5.5V, with the answer cord in 7.9V, keyed 7.0V, patched to a station 7.9V. Turn-off is guaranteed below 1.00mA, (7.9 − 4.2) / 4.4kΩ = 0.84mA; turn-on above 3.11mA, (23.5 − 5.5) / 4.4kΩ = 4.1mA. The lamp does not light with the detector's load across an idle line.
 
+**As built (2026-10-23).** Rx06 and Rx07 are 2.2kΩ ¼W for now, the only ones to hand; the 2W parts are on order (Mark). On-hook each dissipates about 39mW. Ringing puts about 0.8W in each, three times the rating: a ring of a few seconds has not hurt them so far, but keep rings on jack 10 short until the 2W parts are fitted.
+
 **Ringing.** The operator may ring the phone. The detector then releases near each zero crossing only, about 1.9ms in each 25ms (measured), shorter than the 5ms poll; the firmware latches the change in the expander (control.md §7.4). Rx06 and Rx07 dissipate about 0.8W each at 90V rms, 40% of the PR02's rating.
 
 **A cord at the jack.** Plugging a cord into jack 10 or pulling it out opens the line for 29–192ms (measured); the firmware's hook debounce, 400ms, rides over it (control.md §7.4, Rev 38).
