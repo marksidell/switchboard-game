@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 41 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test, Recording), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels, the Switchboard Power Cut, Pulsed or Held, the Host's Public Address, the Public Trunk's Registration*
+*Rev 42 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test, Recording), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels, the Switchboard Power Cut, Pulsed or Held, the Host's Public Address, the Public Trunk's Registration*
 
 # 1. Overview
 
@@ -203,6 +203,12 @@ This document specifies the messages: the topic names, who publishes each, what 
 ## 1.26 Changes in Rev 26
 
 — `trunk/<n>/shortring/set` added (§6, §8.4), following control.md Rev 25, 2026-10-05: `"on"` rings the trunk once for 0.5s, `"off"` cancels the burst; the ESP32 echoes the relay on the existing `ring` topic, `"on"` then `"off"`. The game program uses it to signal a call in on a trunk (game_control.md Rev 28). It is the third command that is not absolute state, after `next/set` and the station's `dial/set`: a duplicate delivered after the first burst has ended rings once more. That is harmless — the switchboard's trunk signal latches, and a second burst on an unanswered trunk changes nothing the operator sees; a duplicate during the burst, or after the trunk is seized, is ignored by the controller. QoS 1 as for every command. The ESP32 subscribes to one more pattern. No existing topic or payload changes.
+
+## 1.42 Changes in Rev 42
+
+— The public trunk is asked over SSH, not through the ATA's web interface (§6.3), 2026-10-23. The web interface keeps one session for the whole device, whatever the account: Rev 41's look every 10s, as `admin` and then as `viewer`, logged Mark out of the ATA's pages each time. An SSH session leaves them alone (Mark, 2026-10-23). The ATA's command shell takes no remote command, so the service sends `status` and `exit` on stdin and reads the `Port 1:` line, `On Hook<TAB>Registered` or `Not Registered`. SSH takes the `admin` account only. The password reaches ssh through SSH_ASKPASS, the service's own program reading `/etc/sbgame/ata.cred`, and the ATA's host key is pinned in `/etc/sbgame/ata-known_hosts`, which replaces Rev 41's pinned certificate. The topics and their four values are unchanged.
+
+— Code consequence, for Claude Code: `engine/sbgame/ata.py` rewritten, `--ata-known-hosts` in place of `--ata-cert` in `netcheck.py`, the test, and the known-hosts file in `host/`.
 
 ## 1.41 Changes in Rev 41
 
@@ -466,7 +472,7 @@ The public trunk (Rev 41), looked at every 10s and on connecting:
 
 | **Topic** | **Payload** | **Retained** | **Meaning** |
 | --- | --- | --- | --- |
-| `sbgame/host/public_trunk` | `registered`, `disconnected`, `offline` or `error` | yes | The trunk 8 ATA's FXS 1 registration. `registered` if `P4921` reads `Registered`, `disconnected` if it reads anything else. `offline` if the ATA does not answer — no name, no route, refused, or 5s without an answer. `error` for anything else that stops the look: a certificate that is not the pinned one, an HTTP error, a refused login, no credentials file, an answer that is not the API's. |
+| `sbgame/host/public_trunk` | `registered`, `disconnected`, `offline` or `error` | yes | The trunk 8 ATA's FXS 1 registration, from the `Port 1:` line of its `status` over SSH (Rev 42). `registered` if it reads `Registered`, `disconnected` if `Not Registered` or anything else. `offline` if the ATA does not answer — no name, no route, refused, or 5s without a connection. `error` for anything else that stops the look: a host key that is not the pinned one, a refused login, no credentials file, a session that does not finish in 15s, an answer with no `Port 1:` line. |
 | `sbgame/host/public_trunk/checked` | host Unix time, whole seconds | yes | When the last look was made. |
 
 A refused login is not tried again for 5 minutes: the ATA locks an account out after repeated failures.

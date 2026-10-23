@@ -31,7 +31,7 @@ etc/systemd/system/sbaudio.service            the audio program
 etc/systemd/system/sbgame-netcheck.service    the public address and the public trunk, for the page
 etc/udev/rules.d/70-sbgame-streamdeck.rules   the deck, for the sbgame-deck user
 etc/sbgame/game.toml                          the game program's configuration
-etc/sbgame/ata-cert.pem                       the trunk 8 ATA's certificate, pinned
+etc/sbgame/ata-known_hosts                    the trunk 8 ATA's SSH host key, pinned
 iam/certbot-route53.json                      the certbot user's policy
 ```
 
@@ -44,7 +44,7 @@ it. What is missing, and where it lives instead:
 | --- | --- |
 | `/etc/mosquitto/passwd` | hashed passwords. `make passwd` rebuilds it; never committed, hash or not |
 | `/etc/sbgame/mqtt-*.pass` | the plaintext passwords, 640, group = the group of the program that reads it |
-| `/etc/sbgame/ata.cred` | the trunk 8 ATA's web login: username on line 1, password on line 2; 640, group `sbgame-host` |
+| `/etc/sbgame/ata.cred` | the trunk 8 ATA's SSH login (admin): username on line 1, password on line 2; 640, group `sbgame-host` |
 | `control/secrets.h` | the controller's password, gitignored, and the source of `sbgame-control`'s entry |
 | `/root/.aws/credentials` | the Route 53 key for certbot, `[default]`, 600 |
 | `/etc/letsencrypt/` | the certificate, its key, and the ACME account |
@@ -112,29 +112,26 @@ sudo systemctl enable --now sbgame-netcheck
 
 The same service looks every 10s at the trunk 8 ATA, `switchboard.sidell.org`,
 and publishes its FXS port's registration on `sbgame/host/public_trunk`
-(`registered`, `disconnected`, `offline`, `error`). It logs in to the ATA's web
-interface with `/etc/sbgame/ata.cred`, the username on the first line and the
-password on the second. Use the ATA's `viewer` account, not `admin`: the ATA
-keeps one session per account, so an `admin` login every 10s logs the admin out
-of the web page. The viewer is off by default — System Settings → Security
-Settings → Web Access → Enable Viewer Level Web Access — and needed a reboot of
-the ATA to take effect (2026-10-23):
+(`registered`, `disconnected`, `offline`, `error`). It asks over SSH — `status`,
+and the `Port 1:` line of the answer — not through the ATA's web interface,
+which keeps one session for the whole device and logged the administrator out of
+its pages at every look; SSH does not (2026-10-23). SSH takes the `admin`
+account only. `/etc/sbgame/ata.cred` has the username on the first line and the
+password on the second:
 
 ```sh
-sudo sh -c 'umask 027; printf "%s\n%s\n" viewer "THE-PASSWORD" > /etc/sbgame/ata.cred'
+sudo sh -c 'umask 027; printf "%s\n%s\n" admin "THE-PASSWORD" > /etc/sbgame/ata.cred'
 make sbgame-host-user        # its group and mode
-make install                 # the ATA's certificate, /etc/sbgame/ata-cert.pem
+make install                 # the ATA's host key, /etc/sbgame/ata-known_hosts
 sudo systemctl restart sbgame-netcheck
 ```
 
-The ATA's certificate is pinned: it is issued to the ATA's MAC address, not its
-name, so the certificate itself in `etc/sbgame/ata-cert.pem` is what is
-trusted. A replaced or factory-reset ATA may present a new one, and the line
-reads `error` until it is saved again:
+The ATA's SSH host key is pinned in `etc/sbgame/ata-known_hosts`. A replaced or
+factory-reset ATA presents a new one, and the line reads `error` until it is
+saved again:
 
 ```sh
-echo | openssl s_client -connect switchboard.sidell.org:443 2>/dev/null \
-  | openssl x509 > etc/sbgame/ata-cert.pem
+ssh-keyscan switchboard.sidell.org > etc/sbgame/ata-known_hosts
 ```
 
 ## Two things this host taught us

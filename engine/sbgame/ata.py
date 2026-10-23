@@ -2,24 +2,20 @@
 
 The Grandstream HT80x V2 that feeds trunk 8 (trunk_circuit.md §4.5) is the
 public trunk: outside callers reach the switchboard through its FXS port 1
-only while that port is registered with the SIP provider. Its web interface
-has a JSON API, the one its own pages use:
+only while that port is registered with the SIP provider.
 
-  POST /cgi-bin/dologin         username=…&P2=<password, base64>
-       → {"response": "success", "body": {"session_token": "…", …}}
-  POST /cgi-bin/api.values.get  request=P4921&session_token=…
-       → {"response": "success", "body": {"P4921": "Registered"}}
+It is asked over SSH, not through its web interface (mqtt.md Rev 42). The web
+interface keeps one session for the whole device, whatever the account, so a
+look every 10s logged anyone out of its pages; an SSH session does not. Its
+command shell takes no remote command, so `status` and `exit` go in on stdin,
+and the answer has a line
 
-It logs in as the ATA's read-only `viewer` account: the ATA keeps one session
-per account, so logging in as `admin` would log the admin out of the web page
-on every look.
+    Port 1: On Hook<TAB>Registered          ("Not Registered" when not)
 
-P4921 is FXS 1's registration, "Registered" or "Not Registered". Read from
-the firmware's Status page script, 2026-10-23, not from a manual.
-
-The ATA's certificate is issued by Grandstream's CA to its MAC address, not to
-its name, so it is pinned: the certificate itself, saved in host/etc/sbgame/,
-is the only one trusted.
+SSH there takes the admin account only. The password comes from the
+credentials file through SSH_ASKPASS, which is this same program's console
+script run with ASKPASS_ENV set (`askpass()`), so it is never on a command
+line or in the environment. The ATA's host key is pinned in a known-hosts file.
 
 `sbgame-netcheck` runs this every 10s and publishes, retained:
 
@@ -29,30 +25,34 @@ is the only one trusted.
 
 from __future__ import annotations
 
-import base64
-import http.cookiejar
-import json
 import logging
-import ssl
+import os
+import re
+import subprocess
+import sys
 import time
-import urllib.error
-import urllib.parse
-import urllib.request
 from pathlib import Path
 
 log = logging.getLogger("ata")
 
 HOST = "switchboard.sidell.org"
 CRED_FILE = "/etc/sbgame/ata.cred"
-CERT_FILE = "/etc/sbgame/ata-cert.pem"
-REG = "P4921"                   # FXS 1 registration
-TIMEOUT = 5.0
+KNOWN_HOSTS = "/etc/sbgame/ata-known_hosts"
+CONNECT_TIMEOUT = 5             # seconds, to reach the ATA
+TIMEOUT = 15.0                  # seconds, for the whole session
 LOGIN_BACKOFF = 300.0           # after a refused login: the ATA locks out on repeats
+ASKPASS_ENV = "SBGAME_ATA_ASKPASS"  # set: print the password from this file
 
 REGISTERED = "registered"
 DISCONNECTED = "disconnected"
 OFFLINE = "offline"
 ERROR = "error"
+
+PORT1 = re.compile(r"^\s*Port 1:\s*(.*?)\s*$", re.M)
+# ssh's own words when the ATA does not answer at all.
+UNREACHABLE = ("Could not resolve hostname", "Connection timed out", "Connection refused",
+               "No route to host", "Network is unreachable", "Host is down")
+REFUSED = ("Permission denied", "Too many authentication failures")
 
 
 class Refused(Exception):
@@ -67,95 +67,83 @@ def read_cred(path: str) -> tuple[str, str]:
     return lines[0].strip(), lines[1]
 
 
-def pinned(cert_file: str) -> ssl.SSLContext:
-    """A context that trusts the one certificate in cert_file and nothing else."""
-    ctx = ssl.create_default_context(cafile=cert_file)
-    ctx.verify_flags |= ssl.VERIFY_X509_PARTIAL_CHAIN
-    ctx.check_hostname = False          # named for its MAC; the pin is the check
-    return ctx
+def askpass() -> int:
+    """SSH_ASKPASS: the password, from the file named in ASKPASS_ENV."""
+    print(read_cred(os.environ[ASKPASS_ENV])[1])
+    return 0
+
+
+def parse(text: str) -> tuple[str, str]:
+    """(REGISTERED or DISCONNECTED, the Port 1 line) from `status`."""
+    m = PORT1.search(text)
+    if not m:
+        raise Refused("no 'Port 1:' line in status")
+    line = m.group(1)
+    ok = "Registered" in line and "Not Registered" not in line
+    return (REGISTERED if ok else DISCONNECTED), line
+
+
+def askpass_program() -> str:
+    """This program's console script, beside the interpreter in the venv."""
+    return str(Path(sys.executable).with_name("sbgame-netcheck"))
 
 
 class Ata:
-    """One login kept between looks, renewed when the ATA stops taking it."""
+    """One SSH session per look."""
 
     def __init__(self, host: str = HOST, cred_file: str = CRED_FILE,
-                 cert_file: str = CERT_FILE) -> None:
-        self.base = f"https://{host}"
+                 known_hosts: str = KNOWN_HOSTS) -> None:
+        self.host = host
         self.cred_file = cred_file
-        self.cert_file = cert_file
-        self.token = ""
+        self.known_hosts = known_hosts
         self.refused_at = 0.0           # monotonic time of the last refused login
-        self.opener = None
         self.last = ""                  # the last state, logged when it changes
 
-    def post(self, path: str, data: dict[str, str]) -> dict:
-        if self.opener is None:
-            self.opener = urllib.request.build_opener(
-                urllib.request.HTTPSHandler(context=pinned(self.cert_file)),
-                urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
-        req = urllib.request.Request(
-            self.base + path, data=urllib.parse.urlencode(data).encode(),
-            headers={"X-Requested-With": "XMLHttpRequest", "Referer": self.base + "/"})
-        with self.opener.open(req, timeout=TIMEOUT) as r:
-            try:
-                return json.loads(r.read(65536))
-            except ValueError:
-                raise Refused(f"{path}: not JSON") from None
+    def command(self, user: str) -> list[str]:
+        return ["ssh", "-T", "-F", "/dev/null",
+                "-o", f"UserKnownHostsFile={self.known_hosts}",
+                "-o", "GlobalKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=yes",
+                "-o", "PubkeyAuthentication=no", "-o", "PreferredAuthentications=password",
+                "-o", "NumberOfPasswordPrompts=1", "-o", f"ConnectTimeout={CONNECT_TIMEOUT}",
+                "-o", "LogLevel=ERROR", f"{user}@{self.host}"]
 
-    def login(self) -> None:
+    def run(self, cmd: list[str], env: dict[str, str]) -> subprocess.CompletedProcess:
+        return subprocess.run(cmd, input="status\nexit\n", env=env, capture_output=True,
+                              text=True, timeout=TIMEOUT)
+
+    def status(self) -> str:
+        """The ATA's `status` text. Raises OSError (unreachable) or Refused."""
         if self.refused_at and time.monotonic() - self.refused_at < LOGIN_BACKOFF:
             raise Refused("login refused; waiting before trying again")
-        user, password = read_cred(self.cred_file)
-        # The login page sends the password base64-encoded (js-base64's encode).
-        p2 = base64.b64encode(password.encode("utf-8")).decode("ascii")
-        r = self.post("/cgi-bin/dologin", {"username": user, "P2": p2})
-        body = r.get("body")
-        token = body.get("session_token") if isinstance(body, dict) else None
-        if r.get("response") != "success" or not token:
+        try:
+            user, _ = read_cred(self.cred_file)
+        except OSError as e:            # not the ATA's fault: not offline
+            raise Refused(str(e)) from None
+        env = dict(os.environ, SSH_ASKPASS=askpass_program(), SSH_ASKPASS_REQUIRE="force",
+                   DISPLAY=":0", **{ASKPASS_ENV: self.cred_file})
+        try:
+            r = self.run(self.command(user), env)
+        except subprocess.TimeoutExpired:
+            raise Refused(f"no answer to status in {TIMEOUT:.0f}s") from None
+        if r.returncode == 0:
+            return r.stdout
+        lines = r.stderr.strip().splitlines()
+        err = lines[-1] if lines else f"ssh exit {r.returncode}"
+        if any(s in r.stderr for s in UNREACHABLE):
+            raise OSError(err)
+        if any(s in r.stderr for s in REFUSED):
             self.refused_at = time.monotonic()
-            raise Refused(f"login refused: {body!r}")
-        self.refused_at = 0.0
-        self.token = token
-
-    def registration(self) -> str:
-        """P4921 as the ATA reports it. Raises OSError or Refused."""
-        r: dict = {}
-        for _ in (0, 1):
-            if not self.token:
-                self.login()
-            r = self.post("/cgi-bin/api.values.get",
-                          {"request": REG, "session_token": self.token})
-            body = r.get("body")
-            if r.get("response") == "success" and isinstance(body, dict) and REG in body:
-                return str(body[REG])
-            self.token = ""             # expired, most likely: log in once more
-        raise Refused(f"values.get: {r!r}")
+        raise Refused(err)
 
     def state(self) -> str:
         """One of REGISTERED, DISCONNECTED, OFFLINE, ERROR."""
-        why = ""
         try:
-            reg = self.registration()
-            s = REGISTERED if reg == "Registered" else DISCONNECTED
-            why = reg
-        except (Refused, OSError) as e:
-            s = OFFLINE if unreachable(e) else ERROR
-            why = str(e)
+            s, why = parse(self.status())
+        except OSError as e:
+            s, why = OFFLINE, str(e)
+        except Refused as e:
+            s, why = ERROR, str(e)
         if s != self.last:
             log.info("public trunk %s (%s)", s, why)
             self.last = s
         return s
-
-
-def unreachable(e: Exception) -> bool:
-    """The ATA not answering at all — no name, no route, refused, no answer in
-    time — as against a fault once it has: a bad certificate, an HTTP error,
-    a refused login, a missing credentials file."""
-    if isinstance(e, urllib.error.HTTPError):
-        return False
-    if isinstance(e, urllib.error.URLError):
-        e = e.reason if isinstance(e.reason, Exception) else OSError(str(e.reason))
-    if isinstance(e, (ssl.SSLError, ssl.CertificateError, FileNotFoundError,
-                      PermissionError, Refused)):
-        return False
-    return isinstance(e, OSError)

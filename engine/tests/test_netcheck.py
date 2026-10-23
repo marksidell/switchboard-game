@@ -4,8 +4,11 @@
 """
 
 import asyncio
+import contextlib
+import io
+import os
 import socket
-import ssl
+import subprocess
 import sys
 import tempfile
 import time
@@ -72,44 +75,54 @@ async def main() -> int:
     cred.close()
     replies: list = []
     sent: list = []
+    STATUS = ("Grandstream HT801V2 Command Shell\nHT801V2> Product Model: HT801V2\n"
+              "Port Status:\n    Port 1: On Hook\t{}\nSystem uptime: 7934\nHT801V2> ")
 
-    def post(path, data):
-        sent.append((path, dict(data)))
+    def run(cmd, env):
+        sent.append((cmd, env))
         r = replies.pop(0)
         if isinstance(r, Exception):
             raise r
-        return r
+        code, out, err = r
+        return subprocess.CompletedProcess(cmd, code, out, err)
 
-    a = ata.Ata("ata.test", cred.name)
-    a.post = post
-    login_ok = {"response": "success", "body": {"session_token": "t1"}}
-    replies[:] = [login_ok, {"response": "success", "body": {"P4921": "Registered"}}]
+    a = ata.Ata("ata.test", cred.name, "/k")
+    a.run = run
+    replies[:] = [(0, STATUS.format("Registered"), "")]
     check(a.state() == "registered", "Registered: registered")
-    check(sent[0] == ("/cgi-bin/dologin", {"username": "admin", "P2": "c2VjcmV0"}),
-          "logs in with the file's username and password, base64")
-    check(sent[1][1] == {"request": "P4921", "session_token": "t1"}, "asks for P4921 with the token")
-    sent.clear()
-    replies[:] = [{"response": "success", "body": {"P4921": "Not Registered"}}]
-    check(a.state() == "disconnected" and len(sent) == 1,
-          "Not Registered: disconnected, on the same login")
-    replies[:] = [{"response": "error", "body": "session expired"}, login_ok,
-                  {"response": "success", "body": {"P4921": "Registered"}}]
-    check(a.state() == "registered", "an expired session: logs in again")
-    replies[:] = [urllib.error.URLError(TimeoutError("timed out"))]
+    cmd, env = sent[0]
+    check(cmd[-1] == "admin@ata.test" and "StrictHostKeyChecking=yes" in cmd
+          and "UserKnownHostsFile=/k" in cmd, "ssh as the file's user, host key pinned")
+    check("secret" not in " ".join(cmd) and "secret" not in "".join(env.values()),
+          "the password is on no command line and in no environment")
+    check(env[ata.ASKPASS_ENV] == cred.name and env["SSH_ASKPASS_REQUIRE"] == "force",
+          "askpass reads it from the file")
+    os.environ[ata.ASKPASS_ENV] = cred.name
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        ata.askpass()
+    del os.environ[ata.ASKPASS_ENV]
+    check(out.getvalue() == "secret\n", "askpass prints the password")
+    replies[:] = [(0, STATUS.format("Not Registered"), "")]
+    check(a.state() == "disconnected", "Not Registered: disconnected")
+    replies[:] = [(255, "", "ssh: connect to host ata.test port 22: Connection timed out\n")]
     check(a.state() == "offline", "no answer: offline")
-    replies[:] = [urllib.error.URLError(ConnectionRefusedError(111, "refused"))]
+    replies[:] = [(255, "", "ssh: Could not resolve hostname ata.test: Name or service not known\n")]
+    check(a.state() == "offline", "no name: offline")
+    replies[:] = [(255, "", "ssh: connect to host ata.test port 22: Connection refused\n")]
     check(a.state() == "offline", "refused: offline")
-    replies[:] = [urllib.error.URLError(ssl.SSLCertVerificationError("bad cert"))]
-    check(a.state() == "error", "a certificate that is not the pinned one: error")
-    replies[:] = [urllib.error.HTTPError("u", 500, "x", {}, None)]
-    check(a.state() == "error", "HTTP 500: error")
-    a.token = ""
+    replies[:] = [(255, "", "Host key verification failed.\n")]
+    check(a.state() == "error", "a host key that is not the pinned one: error")
+    replies[:] = [(0, "HT801V2> ", "")]
+    check(a.state() == "error", "no Port 1 line: error")
+    replies[:] = [subprocess.TimeoutExpired("ssh", 15)]
+    check(a.state() == "error", "a session that hangs: error")
     sent.clear()
-    replies[:] = [{"response": "error", "body": "wrong password"}]
+    replies[:] = [(255, "", "admin@ata.test: Permission denied (publickey,password).\n")]
     check(a.state() == "error", "a refused login: error")
     check(a.state() == "error" and len(sent) == 1, "and no second login for 5 min")
-    b = ata.Ata("ata.test", cred.name + ".missing")
-    b.post = post
+    b = ata.Ata("ata.test", cred.name + ".missing", "/k")
+    b.run = run
     check(b.state() == "error", "no credentials file: error")
 
     print("\nFAILURES" if failures else "\nall ok")

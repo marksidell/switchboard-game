@@ -25,6 +25,7 @@ import argparse
 import asyncio
 import ipaddress
 import logging
+import os
 import signal
 import socket
 import sys
@@ -122,7 +123,7 @@ class Looker:
 
 async def run(args: argparse.Namespace) -> int:
     looker = Looker()
-    trunk_ata = ata.Ata(args.ata_host, args.ata_cred, args.ata_cert)
+    trunk_ata = ata.Ata(args.ata_host, args.ata_cred, args.ata_known_hosts)
     asked = asyncio.Event()
     stopping = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -186,6 +187,8 @@ async def run(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    if ata.ASKPASS_ENV in os.environ:   # run by ssh as SSH_ASKPASS (ata.py)
+        return ata.askpass()
     p = argparse.ArgumentParser(
         description="Publish the host's public address for the page (mqtt.md 6.3).")
     p.add_argument("--broker", default="localhost")
@@ -195,7 +198,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--ata-host", default=ata.HOST, help="the trunk 8 ATA")
     p.add_argument("--ata-cred", default=ata.CRED_FILE,
                    help="its username, then its password, one per line")
-    p.add_argument("--ata-cert", default=ata.CERT_FILE, help="its certificate, pinned")
+    p.add_argument("--ata-known-hosts", default=ata.KNOWN_HOSTS,
+                   help="its SSH host key, pinned")
     p.add_argument("--once", action="store_true",
                    help="look once at both, print them, and exit; no broker")
     args = p.parse_args(argv)
@@ -208,7 +212,7 @@ def main(argv: list[str] | None = None) -> int:
         except (OSError, ValueError) as e:
             print(f"public ip     lookup failed: {why(e)}")
             rc = 1
-        state = ata.Ata(args.ata_host, args.ata_cred, args.ata_cert).state()
+        state = ata.Ata(args.ata_host, args.ata_cred, args.ata_known_hosts).state()
         print(f"public trunk  {state}")
         return rc if state != ata.ERROR else 1
     return asyncio.run(run(args))
