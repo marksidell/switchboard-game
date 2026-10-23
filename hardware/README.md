@@ -17,6 +17,7 @@ Front panels are Front Panel Designer files (Schaeffer / Front Panel Express).
   pair from the glued-on RJ45 down to strip 8; `jack` the RJ45 at the board's edge;
   `strip8` close up, the 330 Ω with the back-to-back 220 µF pair, U901's jumpers, the
   tip lead at D903's cathode pad and K901's two jumpers.
+  `whole` the finished board, the pair glued down at the corner by T901.
 - `rj45-punchdown-cat6.jpg` — the blue Cat 6 RJ45 keystone's punch-down terminals
   seen from above, jack opening at the top, with the colour on each pin. X is the
   group colour (white, red, black, yellow, violet). Go by the pin numbers, not the
