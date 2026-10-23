@@ -1,4 +1,5 @@
-"""The host's public address, for the page's health column (mqtt.md §6.3).
+"""sbgame-netcheck: the host's public address and the public trunk, for the
+page's health column (mqtt.md §6.3). `sbgame-publicip` until mqtt.md Rev 41.
 
 A service of its own, not part of the game program: finding the address means
 asking a server outside the house, and the game makes no network calls during
@@ -9,9 +10,13 @@ Publishes, retained:
 
   host/public_ip           the address the last good lookup found, "" before one
   host/public_ip/checked   host Unix time of the last lookup, good or not
-  host/public_ip/error     "" if it was good, else why not
+  host/public_ip/error     "" if it was good, "offline" if the internet cannot
+                           be reached at all, else why not
 
 and takes `host/public_ip/check/set` (any payload, QoS 0) to look now.
+
+It also looks every 10s at the trunk 8 ATA's registration, `host/public_trunk`
+(`ata.py`): another look at something outside the game, on the same account.
 """
 
 from __future__ import annotations
@@ -21,6 +26,7 @@ import asyncio
 import ipaddress
 import logging
 import signal
+import socket
 import sys
 import time
 import urllib.error
@@ -29,16 +35,24 @@ from pathlib import Path
 
 import aiomqtt
 
-log = logging.getLogger("publicip")
+from . import ata
+
+log = logging.getLogger("netcheck")
 
 PREFIX = "sbgame/"
 USERNAME = "sbgame-host"
 PASSWORD_FILE = "/etc/sbgame/mqtt-host.pass"
-CLIENT_ID = "sbgame-publicip"
+CLIENT_ID = "sbgame-netcheck"
 URL = "https://checkip.amazonaws.com/"
 EVERY = 300.0           # seconds between lookups
 TIMEOUT = 10.0          # for one lookup
 LEAST = 5.0             # seconds between lookups the page asks for
+TRUNK_EVERY = 10.0      # seconds between looks at the ATA
+# After a failed lookup, whether the internet is there at all: a TCP connect to
+# either of these, by number, so a DNS fault alone does not read as offline.
+PROBES = (("1.1.1.1", 443), ("8.8.8.8", 443))
+PROBE_TIMEOUT = 3.0
+OFFLINE = "offline"
 
 
 def lookup(url: str = URL, timeout: float = TIMEOUT) -> str:
@@ -51,6 +65,17 @@ def lookup(url: str = URL, timeout: float = TIMEOUT) -> str:
 def parse(text: str) -> str:
     """The server's answer as an address. ValueError if it is not one."""
     return str(ipaddress.ip_address(text.strip()))
+
+
+def online(probes=PROBES, timeout: float = PROBE_TIMEOUT) -> bool:
+    """True if any probe accepts a connection."""
+    for host, port in probes:
+        try:
+            socket.create_connection((host, port), timeout=timeout).close()
+            return True
+        except OSError:
+            pass
+    return False
 
 
 def why(e: Exception) -> str:
@@ -69,8 +94,9 @@ def why(e: Exception) -> str:
 class Looker:
     """When to look, and what to publish. No I/O of its own, for the tests."""
 
-    def __init__(self, look=lookup) -> None:
+    def __init__(self, look=lookup, reach=online) -> None:
         self.look = look
+        self.reach = reach
         self.address = ""
         self.last = 0.0                 # monotonic time of the last lookup
 
@@ -81,6 +107,8 @@ class Looker:
             error = ""
         except (OSError, ValueError) as e:
             error = why(e)
+            if not await asyncio.to_thread(self.reach):
+                error = OFFLINE
         log.info("public ip %s%s", self.address or "unknown",
                  f" (lookup failed: {error})" if error else "")
         return [("host/public_ip", self.address),
@@ -94,6 +122,7 @@ class Looker:
 
 async def run(args: argparse.Namespace) -> int:
     looker = Looker()
+    trunk_ata = ata.Ata(args.ata_host, args.ata_cred, args.ata_cert)
     asked = asyncio.Event()
     stopping = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -126,9 +155,17 @@ async def run(args: argparse.Namespace) -> int:
                     for topic, value in await looker.check():
                         await c.publish(PREFIX + topic, value, qos=1, retain=True)
 
+            async def trunk() -> None:
+                while True:
+                    state = await asyncio.to_thread(trunk_ata.state)
+                    for topic, value in (("host/public_trunk", state),
+                                         ("host/public_trunk/checked", str(int(time.time())))):
+                        await c.publish(PREFIX + topic, value, qos=1, retain=True)
+                    await asyncio.sleep(TRUNK_EVERY)
+
             asked.set()                 # look at once on connecting
             looker.last = 0.0
-            await asyncio.gather(listen(), looking())
+            await asyncio.gather(listen(), looking(), trunk())
 
     async def forever() -> None:
         delay = 1.0
@@ -155,18 +192,25 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--port", type=int, default=1883)
     p.add_argument("--user", default=USERNAME)
     p.add_argument("--password-file", default=PASSWORD_FILE)
+    p.add_argument("--ata-host", default=ata.HOST, help="the trunk 8 ATA")
+    p.add_argument("--ata-cred", default=ata.CRED_FILE,
+                   help="its username, then its password, one per line")
+    p.add_argument("--ata-cert", default=ata.CERT_FILE, help="its certificate, pinned")
     p.add_argument("--once", action="store_true",
-                   help="look once, print it, and exit; no broker")
+                   help="look once at both, print them, and exit; no broker")
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s",
                         datefmt="%H:%M:%S", stream=sys.stdout)
     if args.once:
+        rc = 0
         try:
-            print(lookup())
-            return 0
+            print(f"public ip     {lookup()}")
         except (OSError, ValueError) as e:
-            print(f"lookup failed: {why(e)}", file=sys.stderr)
-            return 1
+            print(f"public ip     lookup failed: {why(e)}")
+            rc = 1
+        state = ata.Ata(args.ata_host, args.ata_cred, args.ata_cert).state()
+        print(f"public trunk  {state}")
+        return rc if state != ata.ERROR else 1
     return asyncio.run(run(args))
 
 

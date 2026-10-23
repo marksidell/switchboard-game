@@ -32,6 +32,8 @@ sudo systemctl restart sbgame
 # The Stream Deck program runs from the same venv; restart it only if it is
 # running, since it is not enabled until the deck is commissioned.
 sudo systemctl try-restart sbgame-streamdeck
+# So does the network check, the public address and trunk (mqtt.md §6.3).
+sudo systemctl try-restart sbgame-netcheck
 
 # Give it a moment to load the script and reach the broker.
 sleep 2

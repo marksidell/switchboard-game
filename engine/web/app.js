@@ -142,6 +142,17 @@ const ipStale = () => {
   return !brokerUp || at === null || hostNow() - at > IP_STALE_S ||
     get('host/public_ip/error') !== '';
 };
+// The public trunk (§7.1, Rev 72): the trunk 8 ATA's registration, looked at
+// every 10s, so stale — the service is down — after 30s.
+const TRUNK_STALE_S = 30;
+const trunkStale = () => {
+  const at = num('host/public_trunk/checked');
+  return at === null || hostNow() - at > TRUNK_STALE_S;
+};
+const trunkShown = () => {
+  const v = get('host/public_trunk');
+  return !v ? '—' : (trunkStale() ? 'error' : v);
+};
 let ipAsked = null;                  // `checked` when the line was tapped
 let ipAskedAt = 0;
 
@@ -676,13 +687,25 @@ function renderHealth() {
     ['game', get('ctl/game_status') || '—', gameStale()],
     ['game beat', age(lastGameBeat), gameStale()],
     // §7.1, Rev 68: tap either row to look again now.
-    ['public IP', get('host/public_ip') || '—', ipStale(), 'ip'],
+    ['public IP', ipShown(), ipStale(), 'ip'],
     ['checked', ipChecked(), ipStale(), 'ip'],
+    ['public trunk', trunkShown(),
+     !brokerUp || trunkStale() || get('host/public_trunk') !== 'registered'],
   ];
   document.getElementById('health').innerHTML = rows.map(
     ([k, v, stale, act]) => `<div class="${stale ? 'stale' : ''}${act ? ' tap' : ''}"` +
                             `${act ? ` data-act="${act}"` : ''}><span>${esc(k)}</span>` +
                             `<b>${esc(v)}</b></div>`).join('');
+}
+
+// Rev 71: "offline" when the service found no internet, "error" for any other
+// failure or a service that has stopped looking, the address otherwise.
+function ipShown() {
+  const err = get('host/public_ip/error');
+  if (err === 'offline') return 'offline';
+  const at = num('host/public_ip/checked');
+  if (err || (at !== null && hostNow() - at > IP_STALE_S)) return 'error';
+  return get('host/public_ip') || '—';
 }
 
 function ipChecked() {

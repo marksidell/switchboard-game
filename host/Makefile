@@ -37,9 +37,10 @@ FILES := \
   etc/systemd/system/sbgame-streamdeck.service:root:root:644 \
   etc/systemd/system/sbaudio.service:root:root:644 \
   etc/systemd/system/sbgame-mqttlog.service:root:root:644 \
-  etc/systemd/system/sbgame-publicip.service:root:root:644 \
+  etc/systemd/system/sbgame-netcheck.service:root:root:644 \
   etc/udev/rules.d/70-sbgame-streamdeck.rules:root:root:644 \
-  etc/sbgame/game.toml:root:root:644
+  etc/sbgame/game.toml:root:root:644 \
+  etc/sbgame/ata-cert.pem:root:root:644
 
 .PHONY: diff install passwd status check-clean sbgame-user sbgame-deck-user sbgame-host-user sbgame-data sbgame-install sbgame-web sim
 
@@ -158,6 +159,10 @@ sbgame-host-user:
 	  $(SUDO) chmod 640 /etc/sbgame/mqtt-host.pass && \
 	  $(SUDO) ls -l /etc/sbgame/mqtt-host.pass | sed 's/^/  /' || \
 	  echo "  /etc/sbgame/mqtt-host.pass is not there yet"
+	@$(SUDO) chgrp sbgame-host /etc/sbgame/ata.cred 2>/dev/null && \
+	  $(SUDO) chmod 640 /etc/sbgame/ata.cred && \
+	  $(SUDO) ls -l /etc/sbgame/ata.cred | sed 's/^/  /' || \
+	  echo "  /etc/sbgame/ata.cred is not there yet"
 
 ## sbgame-install - the game program into /opt/sbgame, as the unit expects
 ##
@@ -237,7 +242,7 @@ sim:
 
 ## status - what is running and what is served
 status:
-	@for s in mosquitto nginx certbot.timer sbaudio sbgame sbgame-streamdeck sbgame-mqttlog sbgame-publicip; do \
+	@for s in mosquitto nginx certbot.timer sbaudio sbgame sbgame-streamdeck sbgame-mqttlog sbgame-netcheck; do \
 	  printf '%-16s %s\n' "$$s" "$$(systemctl is-active $$s)"; \
 	done
 	@echo "listeners:"

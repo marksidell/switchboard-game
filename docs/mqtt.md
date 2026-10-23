@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 39 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test, Recording), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels, the Switchboard Power Cut, Pulsed or Held, the Host's Public Address*
+*Rev 41 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test, Recording), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels, the Switchboard Power Cut, Pulsed or Held, the Host's Public Address, the Public Trunk's Registration*
 
 # 1. Overview
 
@@ -203,6 +203,20 @@ This document specifies the messages: the topic names, who publishes each, what 
 ## 1.26 Changes in Rev 26
 
 — `trunk/<n>/shortring/set` added (§6, §8.4), following control.md Rev 25, 2026-10-05: `"on"` rings the trunk once for 0.5s, `"off"` cancels the burst; the ESP32 echoes the relay on the existing `ring` topic, `"on"` then `"off"`. The game program uses it to signal a call in on a trunk (game_control.md Rev 28). It is the third command that is not absolute state, after `next/set` and the station's `dial/set`: a duplicate delivered after the first burst has ended rings once more. That is harmless — the switchboard's trunk signal latches, and a second burst on an unanswered trunk changes nothing the operator sees; a duplicate during the burst, or after the trunk is seized, is ignored by the controller. QoS 1 as for every command. The ESP32 subscribes to one more pattern. No existing topic or payload changes.
+
+## 1.41 Changes in Rev 41
+
+— The public trunk's registration (§6.3), following game_control.md Rev 72, Mark's request, 2026-10-23. `sbgame-netcheck` also looks every 10s at the Grandstream ATA that feeds trunk 8 (trunk_circuit.md §4.5), `switchboard.sidell.org`, through the JSON API its own web pages use — `/cgi-bin/dologin`, the password base64-encoded as the login page sends it, then `/cgi-bin/api.values.get` for `P4921`, FXS 1's registration — and publishes `host/public_trunk` and `host/public_trunk/checked`, retained. Its login is in `/etc/sbgame/ata.cred`, and its certificate is pinned (`host/README.md`). A look at a device on the LAN, not the game program's business, and the service already writes `host/#`, so the access list does not change. Topics added; nothing removed or changed.
+
+— The service is renamed `sbgame-netcheck`, from `sbgame-publicip`, since it now looks at more than the address (Mark, 2026-10-23): its unit, program, module and client identifier. Its user, `sbgame-host`, and every topic stay as they were.
+
+— Code consequence, for Claude Code: `engine/sbgame/ata.py`, its run loop in `netcheck.py` (was `publicip.py`), the test, the unit's new name, and the certificate and credentials file in `host/`. On the host, the old unit is disabled and removed and the new one enabled.
+
+## 1.40 Changes in Rev 40
+
+— `host/public_ip/error` gains one fixed value, `"offline"` (§6.3), following game_control.md Rev 71, Mark's request, 2026-10-23: the page says "offline" when portland cannot reach the internet, and "error" for any other failure, so the service has to tell the two apart. After a failed lookup it tries a TCP connection to `1.1.1.1` and then `8.8.8.8` on port 443, by number, 3s each. If neither answers, the error is `"offline"`. If either does, the internet is there and the error is the lookup's own reason, as before; a DNS fault alone is not offline. A value added to an existing topic; nothing removed or changed.
+
+— Code consequence, for Claude Code: `online()` and `Looker` in `engine/sbgame/publicip.py`, and its test.
 
 ## 1.39 Changes in Rev 39
 
@@ -440,19 +454,28 @@ The page's commands, consumed by the game program only (Rev 10). The Stream Deck
 
 ## 6.3 Messages Published by the Public-Address Service
 
-Rev 39. Not the game program: `sbgame-publicip`, a program of its own on the host, user `sbgame-host` (§9). It looks the host's public address up from `https://checkip.amazonaws.com/` when it connects, every 5 minutes after, and when the page asks, but no sooner than 5s after the last. Each lookup publishes all three state topics, in this order. It has no birth message or will: a `checked` time that has stopped moving is how the page sees it gone.
+Rev 39. Not the game program: `sbgame-netcheck` (`sbgame-publicip` until Rev 41), a program of its own on the host, user `sbgame-host` (§9). It looks the host's public address up from `https://checkip.amazonaws.com/` when it connects, every 5 minutes after, and when the page asks, but no sooner than 5s after the last. Each lookup publishes all three state topics, in this order. It has no birth message or will: a `checked` time that has stopped moving is how the page sees it gone.
 
 | **Topic** | **Payload** | **Retained** | **Meaning** |
 | --- | --- | --- | --- |
 | `sbgame/host/public_ip` | an IPv4 or IPv6 address, or `""` | yes | The address the last good lookup found. `""` until one has succeeded. A failed lookup leaves it as it was. |
 | `sbgame/host/public_ip/checked` | host Unix time, whole seconds | yes | When the last lookup was made, good or not. |
-| `sbgame/host/public_ip/error` | `""`, or a few words | yes | `""` if the last lookup succeeded; else why not: `"timed out"`, `"HTTP 503"`, `"not an address"`, or the network's reason. |
+| `sbgame/host/public_ip/error` | `""`, `"offline"`, or a few words | yes | `""` if the last lookup succeeded. `"offline"` if it failed and neither `1.1.1.1` nor `8.8.8.8` accepts a TCP connection on port 443 within 3s (Rev 40). Else why not: `"timed out"`, `"HTTP 503"`, `"not an address"`, or the network's reason. |
 
-The page's command, consumed by `sbgame-publicip` only:
+The public trunk (Rev 41), looked at every 10s and on connecting:
+
+| **Topic** | **Payload** | **Retained** | **Meaning** |
+| --- | --- | --- | --- |
+| `sbgame/host/public_trunk` | `registered`, `disconnected`, `offline` or `error` | yes | The trunk 8 ATA's FXS 1 registration. `registered` if `P4921` reads `Registered`, `disconnected` if it reads anything else. `offline` if the ATA does not answer — no name, no route, refused, or 5s without an answer. `error` for anything else that stops the look: a certificate that is not the pinned one, an HTTP error, a refused login, no credentials file, an answer that is not the API's. |
+| `sbgame/host/public_trunk/checked` | host Unix time, whole seconds | yes | When the last look was made. |
+
+A refused login is not tried again for 5 minutes: the ATA locks an account out after repeated failures.
+
+The page's command, consumed by `sbgame-netcheck` only:
 
 | **Topic** | **Payload** | **Retained** | **Consumer** | **Meaning** |
 | --- | --- | --- | --- | --- |
-| `sbgame/host/public_ip/check/set` | ignored | no — and QoS 0, §2 | publicip | Look the address up now. Shows as `checked` changing. Within 5s of the last lookup, ignored. |
+| `sbgame/host/public_ip/check/set` | ignored | no — and QoS 0, §2 | netcheck | Look the address up now. Shows as `checked` changing. Within 5s of the last lookup, ignored. |
 
 # 7. Payload Conventions
 

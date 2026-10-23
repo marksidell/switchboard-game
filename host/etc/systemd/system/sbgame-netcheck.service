@@ -1,5 +1,5 @@
 [Unit]
-Description=551 Switchboard Simulator public address for the page (mqtt.md 6.3)
+Description=551 Switchboard Simulator public address and public trunk for the page (mqtt.md 6.3)
 Documentation=file:///home/sidell/s/sbgame/engine/README.md
 # Only the broker; it retries forever if the broker is not up yet. A lookup
 # that fails is reported on the page and tried again in 5 min.
@@ -10,11 +10,12 @@ Wants=network-online.target
 Type=simple
 User=sbgame-host
 Group=sbgame-host
-ExecStart=/opt/sbgame/venv/bin/sbgame-publicip --password-file /etc/sbgame/mqtt-host.pass
+ExecStart=/opt/sbgame/venv/bin/sbgame-netcheck --password-file /etc/sbgame/mqtt-host.pass
 Restart=always
 RestartSec=5
 
-# It needs the broker, its password file and one HTTPS request out.
+# It needs the broker, its password file, one HTTPS request out and the
+# trunk 8 ATA on the LAN.
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true

@@ -28,9 +28,10 @@ etc/letsencrypt/renewal-hooks/deploy/nginx    reload nginx after a renewal
 etc/systemd/system/sbgame.service             the game program
 etc/systemd/system/sbgame-streamdeck.service  the Stream Deck program
 etc/systemd/system/sbaudio.service            the audio program
-etc/systemd/system/sbgame-publicip.service    the public address, for the page
+etc/systemd/system/sbgame-netcheck.service    the public address and the public trunk, for the page
 etc/udev/rules.d/70-sbgame-streamdeck.rules   the deck, for the sbgame-deck user
 etc/sbgame/game.toml                          the game program's configuration
+etc/sbgame/ata-cert.pem                       the trunk 8 ATA's certificate, pinned
 iam/certbot-route53.json                      the certbot user's policy
 ```
 
@@ -43,6 +44,7 @@ it. What is missing, and where it lives instead:
 | --- | --- |
 | `/etc/mosquitto/passwd` | hashed passwords. `make passwd` rebuilds it; never committed, hash or not |
 | `/etc/sbgame/mqtt-*.pass` | the plaintext passwords, 640, group = the group of the program that reads it |
+| `/etc/sbgame/ata.cred` | the trunk 8 ATA's web login: username on line 1, password on line 2; 640, group `sbgame-host` |
 | `control/secrets.h` | the controller's password, gitignored, and the source of `sbgame-control`'s entry |
 | `/root/.aws/credentials` | the Route 53 key for certbot, `[default]`, 600 |
 | `/etc/letsencrypt/` | the certificate, its key, and the ACME account |
@@ -89,9 +91,9 @@ It runs with no deck plugged in and picks one up within 2s of it appearing.
 If it never does: `lsusb -d 0fd9:` should show `0fd9:0084`, and
 `ls -l /dev/bus/usb/*/*` should show that device in group `sbgame-deck`.
 
-## The public address
+## The public address and the public trunk
 
-`sbgame-publicip` (`mqtt.md` §6.3) asks `checkip.amazonaws.com` for the host's
+`sbgame-netcheck` (`mqtt.md` §6.3) asks `checkip.amazonaws.com` for the host's
 public address every 5 minutes, and when the page's line is tapped, and
 publishes it retained on `sbgame/host/public_ip`. It is not part of the game
 program, which makes no network calls during a session; a lookup that fails
@@ -103,10 +105,33 @@ sudo sh -c 'umask 027; openssl rand -base64 18 > /etc/sbgame/mqtt-host.pass'
 make passwd                  # adds sbgame-host to the broker
 make install                 # the ACL and the unit
 make sbgame-install          # the user, and the program into /opt/sbgame/venv
-sudo systemctl enable --now sbgame-publicip
+sudo systemctl enable --now sbgame-netcheck
 ```
 
-`/opt/sbgame/venv/bin/sbgame-publicip --once` looks once and prints it.
+`/opt/sbgame/venv/bin/sbgame-netcheck --once` looks once at both and prints them.
+
+The same service looks every 10s at the trunk 8 ATA, `switchboard.sidell.org`,
+and publishes its FXS port's registration on `sbgame/host/public_trunk`
+(`registered`, `disconnected`, `offline`, `error`). It logs in to the ATA's web
+interface with `/etc/sbgame/ata.cred`, the username on the first line and the
+password on the second:
+
+```sh
+sudo sh -c 'umask 027; printf "%s\n%s\n" admin "THE-PASSWORD" > /etc/sbgame/ata.cred'
+make sbgame-host-user        # its group and mode
+make install                 # the ATA's certificate, /etc/sbgame/ata-cert.pem
+sudo systemctl restart sbgame-netcheck
+```
+
+The ATA's certificate is pinned: it is issued to the ATA's MAC address, not its
+name, so the certificate itself in `etc/sbgame/ata-cert.pem` is what is
+trusted. A replaced or factory-reset ATA may present a new one, and the line
+reads `error` until it is saved again:
+
+```sh
+echo | openssl s_client -connect switchboard.sidell.org:443 2>/dev/null \
+  | openssl x509 > etc/sbgame/ata-cert.pem
+```
 
 ## Two things this host taught us
 
