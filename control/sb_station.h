@@ -15,7 +15,8 @@
 void stationInit();
 
 /* Runs once per 200Hz poll, after expanderPollInputs(). Debounces the 40Hz
- * detector pulse train and publishes `ring` on change only. */
+ * detector pulse train and publishes `ring` on change only; on station 24 also
+ * `lifted`, the telephone's own hook (control.md 7.4). */
 void stationPoll(uint32_t now_ms);
 
 /* From sbgame/station/<n>/hook/set. Writes OFFHOOK_n and echoes `hook`.
@@ -33,7 +34,8 @@ void stationDial(uint8_t n, const char* digits);
  * caller decides whether the host is still listening. */
 void stationReleaseAll();
 
-/* Republish `ring`, `hook` and `dial` for station row i (0-22, station i+1), ignoring
+/* Republish `ring`, `hook` and `dial` - `lifted` in place of `dial` on station
+ * 24 - for station row i (0-21 for stations 1-22, 22 for 24), ignoring
  * change detection; nothing if its expander is absent. Two QoS 1 publishes,
  * each blocking until its PUBACK, so it is called for one circuit per poll tick
  * by the spread republish in control.ino and never in a loop over every station

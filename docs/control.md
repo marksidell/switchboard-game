@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 32 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks, Switchboard Power Cut on GPIO15, Pulsed or Held*
+*Rev 33 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks, Switchboard Power Cut on GPIO15, Pulsed or Held, a Real Telephone on Station 24*
 
 # 1. Overview
 
@@ -113,6 +113,12 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 — Firmware updates over the network (§2.1), so that the installed board can be reflashed without a USB cable. A cable left attached would join portland's ground to the system's 24V ground, which PoE's isolation keeps apart, and anything that opened the port would reset the board; Mark weighed powering the Olimex from USB and chose to stay on PoE (with a TL-SG105PE PoE switch in place of a separate injector) and update over the network instead. The generator §3.4 recommendation to prefer OTA in the installed system is now something the firmware can do.
 
 — Firmware consequence, for Claude Code, made in the same commit: ArduinoOTA started once Ethernet has an address, with the hostname `sbgame-esp32` and a SHA-256 password hash from `secrets.h` (`OTA_PASSWORD_SHA256`; without it the firmware builds with OTA off). The start callback stops the waveform and releases every relay before anything is written to flash; an error after that point restarts the board. §10 gains the row.
+
+## 1.33 Changes in Rev 33
+
+— Station 24, a real telephone on station board 3 strip 8 (§6.1, §7.4), 2026-10-23, following real_phone.md Rev 2 (adopted, option B). Strip 8 is no longer the audience monitor output; the monitor is on the Digiface's 33/34. The strip's ring-detector footprint is fitted as a DC hook detector across the phone's line, and its relay connects the line's transformer to A32 channel 24. Port A bit 7 and Port B bit 7 of 0x22 are now read and driven, as `station/24`: `ring` and `hook` as for any station, and `lifted`, the phone's own hook, debounced and held while ring is present (mqtt.md Rev 43). `dial/set` on station 24 is dropped. Bit 6, the operator tap, is unchanged.
+
+— Firmware consequence, for Claude Code: a station row for 24 at 0x22 bit 7 in `sb_table.cpp`, between the stations and the trunks; the `lifted` debounce in `sb_station.cpp`; the spread republish over 31 rows. FIRMWARE_SPEC_REV 33.
 
 ## 1.32 Changes in Rev 32
 
@@ -373,7 +379,7 @@ g_amplitude stays at 0.90 and must stay clear of 1.00. At 1.00 enough consecutiv
 
 One bus, 100kHz, SDA on GPIO13 and SCL on GPIO16, the single 2.2kΩ pull-up pair on the generator board. One MCP23017 per station board at 0x20, 0x21 and 0x22 and one on the trunk board at 0x23; 0x24–0x27 are reserved for optional second expanders that are not fitted. Hardware in generator §4, station §9.2–§9.5, trunk §10.2–§10.4.
 
-On every expander: Port A is eight inputs, Port B eight relay outputs. Station boards: Port A = RING_DET_1..8, Port B = OFFHOOK_1..8. Trunk board: Port A = SEIZE_1..8, Port B = RING_EN_1..8. The detectors are active low, so set IPOL on Port A and read 1 for present. Leave GPPU off — the boards fit their own pull-ups. On station board 3 the last two strips are not stations (station §7.9.6 to §7.9.8). Strip 7 — A32 channel 23 — is the operator tap and strip 8 — A32 channel 24 — is the audience monitor output. Neither has a relay or a ring detector fitted, so Port B bits 6 and 7 drive nothing and Port A bits 6 and 7 read a steady no-ring, held high by R2. Leave the mapping alone rather than special-casing it, and never publish station/23 or station/24 topics: there are 22 stations, 1–22. In the firmware this is a channel table with one row per circuit and no row for either bit, so nothing polls, publishes or commands them (Rev 7, Rev 10).
+On every expander: Port A is eight inputs, Port B eight relay outputs. Station boards: Port A = RING_DET_1..8, Port B = OFFHOOK_1..8. Trunk board: Port A = SEIZE_1..8, Port B = RING_EN_1..8. The detectors are active low, so set IPOL on Port A and read 1 for present. Leave GPPU off — the boards fit their own pull-ups. On station board 3 the last two strips are not ordinary stations (station §7.9.6 to §7.9.8). Strip 7 — A32 channel 23 — is the operator tap: no relay or ring detector is fitted, Port B bit 6 drives nothing and Port A bit 6 reads a steady no-ring, held high by R2. Never publish station/23 topics. Strip 8 — A32 channel 24 — is station 24, the real telephone of §7.4 (Rev 33; it was the audience monitor output until then). In the firmware this is a channel table with one row per circuit — stations 1–22, then 24, then the trunks — and no row for bit 6, so nothing polls, publishes or commands it (Rev 7, Rev 10).
 
 The MCP23017 driver is written against the registers, not over a general-purpose library (Rev 7). Two reasons that are specific to this design: §6.1 asks for IPOL on Port A, which the Adafruit library defines but gives no way to write; and §6.2 needs a NAK or a read-back mismatch to be visible as a failure, where a driver whose read returns 0 on a bus error cannot distinguish that from eight idle inputs — the one failure that looks exactly like normal. The poll reads whole ports, one transaction per expander. IOCON is left at its reset default rather than written, since every path into the driver has pulsed /RESET first and a hardware reset is a stronger guarantee of BANK = 0 than a write.
 
@@ -414,6 +420,16 @@ Release every OFFHOOK_n on any of the conditions in §10.
 Rev 17. On `sbgame/station/<n>/dial/set` with a payload of digits, `0`–`9`, at most 16, the station dials them by pulsing OFFHOOK_n as a rotary dial does (§8.2): N breaks for digit N, ten for 0, each **61ms open** then **39ms closed** — 10 pulses a second at 61% break, the nominal Bell figures — and **700ms closed** between digits, as a dial's return. Only while the station is off-hook: a `dial/set` on an on-hook station is logged and dropped, since there is no loop to break. A new `dial/set` replaces any dialling in progress; an empty payload stops it. `hook/set` `"off"` stops it and puts the station on-hook; every condition in §10 that releases the relay stops it too.
 
 The echo is `sbgame/station/<n>/dial`, retained: the digits not yet finished, including the one being sent, and empty when there are none — set at the command, shortened as each digit's last pulse ends, empty at the end or when stopped. `hook` is not republished during the pulses: the station is off-hook throughout, and the breaks are the dial's, not the hook's. The timing is on the 5ms poll tick, so each interval is good to one tick; the §8.2 thresholds have 35ms in hand either side of both.
+
+## 7.4 Station 24, the Real Telephone
+
+Rev 33, real_phone.md Rev 2. A real telephone is wired across station board 3 strip 8's line pair, cabled to switchboard jack 10. Nothing on the board feeds its loop: the switchboard's line circuit does, and Rx03 is not fitted, so the line's DC is the phone's own. Strip 8's ring-detector footprint is fitted as a DC hook detector bridging the line (2.2kΩ + 2.2kΩ, no capacitor): it conducts while the phone is on-hook and the line sits near 24V, and releases when the phone is lifted and pulls the line below about 8V (measured 5.5–7.9V). Through IPOL, Port A bit 7 reads **1 on-hook, 0 lifted**.
+
+- **`ring`**: as §7.1, unchanged. A steady level, on-hook or lifted, has no transitions, so it never reads as ring; the operator ringing the phone does, because the detector is DC-coupled and pulses at 40Hz.
+- **`lifted`**: the phone is off-hook. Declared when Port A bit 7 has read the same for **100ms** with no transition, and held at its last value while `ring` is on, since ringing makes the input pulse (CLAUDE.md: ring energy masks supervision). Published on `sbgame/station/24/lifted` on change only, `"on"` lifted. 100ms passes the hook switch's bounce and the 61ms breaks of a dial. A phone that dials can also read as ring (§7.1's four transitions in 150ms), which holds `lifted` for the dial's duration; nothing is expected to dial on it.
+- **`hook/set`** and **`hook`**: as §7.2. The relay connects the line's transformer to A32 channel 24 through Cx01, which blocks DC, so it changes nothing the hook detector or the switchboard sees. Released by every condition of §10.
+- **`dial/set`**: logged and dropped. The relay does not carry the loop, so there is nothing to pulse.
+
 
 # 8. Trunk Circuits
 
@@ -544,7 +560,7 @@ With the birth message, publish `sbgame/ctl/firmware`, retained: `"control.md Re
 
 State topics are published retained, QoS 1, on change only, from the 200Hz loop. The one event topic, `trunk/<n>/digit`, is published unretained at QoS 0 (§8.2). Commands are never published by the ESP32. On `ctl/sync`, republish every state topic. Also republish every state topic on a slow timer — every 30s — which bounds how long a lost publish can leave a retained value stale at the broker; the game program reacts to changes in value, so a repeated value is harmless.
 
-A full republish is 90 messages — 68 until Rev 17 added each station's `dial` — and with this client a QoS 1 publish blocks until its PUBACK arrives. Sent as one burst it holds the 200Hz loop for on the order of 100–300ms on a LAN, which is longer than the station ring-release quiet time (§7.1) and longer than a dial pulse (§8.2): a ringing station would report `off`/`on` every 30s and a digit under way would be spoiled or split. So the republish — on reconnect, on `ctl/sync` and on the timer alike — is spread one circuit per 5ms poll tick, round-robin over the 30 circuits, so each tick pays one round trip and the whole set is refreshed in about 150ms (Rev 7; 31 circuits and 155ms until Rev 10). The first firmware sent it as a burst; the fix is a code consequence of Rev 7.
+A full republish is 93 messages — 68 until Rev 17 added each station's `dial`, 90 until Rev 33 added station 24's `ring`, `hook` and `lifted` — and with this client a QoS 1 publish blocks until its PUBACK arrives. Sent as one burst it holds the 200Hz loop for on the order of 100–300ms on a LAN, which is longer than the station ring-release quiet time (§7.1) and longer than a dial pulse (§8.2): a ringing station would report `off`/`on` every 30s and a digit under way would be spoiled or split. So the republish — on reconnect, on `ctl/sync` and on the timer alike — is spread one circuit per 5ms poll tick, round-robin over the 31 circuits, so each tick pays one round trip and the whole set is refreshed in about 155ms (Rev 7; 31 circuits until Rev 10, 30 until station 24 in Rev 33). The first firmware sent it as a burst; the fix is a code consequence of Rev 7.
 
 ## 9.3 Heartbeats
 

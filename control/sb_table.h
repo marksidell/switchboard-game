@@ -4,10 +4,10 @@
  * Twenty-two stations and eight trunks differ only in which expander bit they
  * live on and which of two behaviours they follow. Everything else about them
  * is identical, so they are described by a table rather than by code: one row
- * per circuit, 30 rows, and every loop in the firmware walks the table.
+ * per circuit, 31 rows, and every loop in the firmware walks the table.
  * Fitting or removing a station board is a change to STATION_BOARDS_FITTED and
- * nothing else. The operator tap and the monitor bits have no rows
- * (control.md 6.1).
+ * nothing else. The operator tap's bit has no row (control.md 6.1); station 24,
+ * the real telephone, is a station row (7.4, Rev 33).
  *
  * control.md 6.1 for the port assignments:
  *   Station board  Port A = RING_DET_1..8   Port B = OFFHOOK_1..8
@@ -34,13 +34,13 @@ struct ExpanderMap {
 
 struct CircuitMap {
   Kind    kind;
-  uint8_t number;   // 1-22 for stations, 1-8 for trunks - the number on the wire
+  uint8_t number;   // 1-22 and 24 for stations, 1-8 for trunks - the number on the wire
   uint8_t exp;      // index into expanders[]
   uint8_t bit;      // 0-7, in Port A (input) and Port B (relay) alike
 };
 
 static constexpr uint8_t N_EXPANDERS = 4;                    // 0x20-0x23
-static constexpr uint8_t N_CIRCUITS  = N_STATIONS + N_TRUNKS; // 30 rows
+static constexpr uint8_t N_CIRCUITS  = N_STATION_ROWS + N_TRUNKS; // 31 rows
 
 extern const ExpanderMap expanders[N_EXPANDERS];
 extern const CircuitMap  circuits[N_CIRCUITS];
@@ -63,7 +63,8 @@ extern ExpanderState exp_state[N_EXPANDERS];
 
 /* ---- Lookups ------------------------------------------------------------ */
 
-const CircuitMap* stationCircuit(uint8_t n);   // n = 1-22, nullptr if out of range
+const CircuitMap* stationCircuit(uint8_t n);   // n = 1-22 or 24, nullptr otherwise
+int               stationRow(uint8_t n);       // its row, 0-22, or -1
 const CircuitMap* trunkCircuit(uint8_t n);     // n = 1-8
 
 /* True when this circuit's expander answered the scan. Commands for a circuit

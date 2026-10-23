@@ -5,13 +5,13 @@
 #include "sb_table.h"
 
 /* Expander 2 (0x22) carries stations 17-22 on bits 0-5; bit 6 is the operator
- * tap and bit 7 the audience monitor output, neither of which has a row.
+ * tap, which has no row, and bit 7 station 24, the real telephone (7.4).
  * 0x24-0x27 are reserved for optional second expanders that are not fitted
  * (control.md 6.1) and so have no rows. */
 const ExpanderMap expanders[N_EXPANDERS] = {
   { 0x20, "station board 1 (st 1-8)",   0 },
   { 0x21, "station board 2 (st 9-16)",  1 },
-  { 0x22, "station board 3 (st 17-22 + tap + monitor)", 2 },
+  { 0x22, "station board 3 (st 17-22 + tap + 24)", 2 },
   { 0x23, "trunk board (tr 1-8)",      -1 },
 };
 
@@ -48,14 +48,12 @@ const CircuitMap circuits[N_CIRCUITS] = {
   { Kind::Station,  20,   2,   3 },
   { Kind::Station,  21,   2,   4 },
   { Kind::Station,  22,   2,   5 },
-  /* 0x22 bits 6 and 7 are not stations and have no rows: bit 6 is the operator
-   * tap strip and bit 7 is the strip whose A32 output feeds the audience
-   * loudspeaker (station Rev 3.40, control.md 6.1). Neither has a relay or a
-   * ring detector fitted, so nothing polls them, nothing publishes them and no
-   * command can reach them - control.md 6.1 adopts this as its statement of
-   * "leave the mapping alone". The shadow leaves both bits 0 for the life of
-   * the run. The tap was bit 7 until Rev 3.40 moved it down one strip to free
-   * that channel for the monitor. */
+  /* 0x22 bit 6 is the operator tap strip and has no row (station Rev 3.40,
+   * control.md 6.1): no relay or ring detector is fitted, so nothing polls it,
+   * nothing publishes it and no command can reach it, and the shadow leaves
+   * it 0 for the life of the run. Bit 7 fed the audience loudspeaker until
+   * control.md Rev 33 made it station 24, the real telephone (7.4). */
+  { Kind::Station,  24,   2,   7 },
   { Kind::Trunk,     1,   3,   0 },
   { Kind::Trunk,     2,   3,   1 },
   { Kind::Trunk,     3,   3,   2 },
@@ -76,13 +74,19 @@ bool expanderConfigured(uint8_t exp_index) {
 }
 
 const CircuitMap* stationCircuit(uint8_t n) {
-  if (n < 1 || n > N_STATIONS) return nullptr;
-  return &circuits[n - 1];                          // stations occupy rows 0..22
+  const int r = stationRow(n);
+  return r < 0 ? nullptr : &circuits[r];
+}
+
+int stationRow(uint8_t n) {
+  if (n >= 1 && n <= N_STATIONS) return n - 1;      // stations 1-22 are rows 0..21
+  if (n == PHONE_STATION) return N_STATIONS;        // and 24 is row 22
+  return -1;
 }
 
 const CircuitMap* trunkCircuit(uint8_t n) {
   if (n < 1 || n > N_TRUNKS) return nullptr;
-  return &circuits[N_STATIONS + n - 1];             // trunks occupy rows 23..30
+  return &circuits[N_STATION_ROWS + n - 1];         // trunks occupy rows 23..30
 }
 
 bool circuitLive(const CircuitMap& c) {

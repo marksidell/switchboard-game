@@ -473,8 +473,8 @@ static bool ota_in_progress = false;      // past the start callback
  * quiet rule (7.1) and longer than a dial pulse (8.2) - so a ringing station
  * would flicker off/on every 30s and a digit under way would be spoiled or
  * split. Instead every full republish walks the channel table one circuit per
- * poll tick: each tick pays for two or three round trips, and all 30 circuits
- * are refreshed in 30 ticks, about 150ms.
+ * poll tick: each tick pays for two or three round trips, and all 31 circuits
+ * are refreshed in 31 ticks, about 155ms.
  *
  * requestRepublish() (re)starts the walk from row 0; republishStep() does one
  * row and is called once per poll tick. A request that arrives mid-walk
@@ -488,8 +488,8 @@ static void requestRepublish() { republish_row = 0; }
 static void republishStep() {
   if (republish_row < 0 || !netConnected()) return;
   const uint8_t r = (uint8_t)republish_row;
-  if (r < N_STATIONS) stationPublishOne(r);
-  else                trunkPublishOne((uint8_t)(r - N_STATIONS));
+  if (r < N_STATION_ROWS) stationPublishOne(r);
+  else                    trunkPublishOne((uint8_t)(r - N_STATION_ROWS));
   republish_row = (r + 1 < N_CIRCUITS) ? (int16_t)(r + 1) : -1;
 }
 

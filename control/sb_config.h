@@ -16,7 +16,7 @@
  * document whenever a revision has a firmware consequence. The commit and the
  * build time come from sb_version.h, which control/compile writes before it
  * compiles; a build without it says "unknown". Published on ctl/firmware. */
-static constexpr unsigned FIRMWARE_SPEC_REV = 32;
+static constexpr unsigned FIRMWARE_SPEC_REV = 33;
 
 /* Milliseconds from `since` to `now`, never wrapping (control.md 6.3, Rev 21).
  * The loop reads millis() once a pass, and a command handled in that pass
@@ -46,13 +46,15 @@ static constexpr uint8_t STATION_BOARDS_FITTED = 3;
 
 static constexpr uint8_t STATIONS_PER_BOARD = 8;
 
-/* Twenty-two stations. The last two positions on the last station board -
- * 0x22, strips 7 and 8, bits 6 and 7 - are the operator tap and the audience
- * monitor output, and neither has a relay or a ring detector fitted (station
- * Rev 3.40, control.md 6.1; mqtt.md 9 numbers stations 1-22). Three boards give
- * 24 positions and two of them are not stations. */
-static constexpr uint8_t N_STATIONS = 22;
-static constexpr uint8_t N_TRUNKS   = 8;
+/* Twenty-two stations, 1-22, and station 24. The last two positions on the last
+ * station board - 0x22, strips 7 and 8, bits 6 and 7 - are the operator tap,
+ * which has no relay or ring detector fitted and no row (station Rev 3.40,
+ * control.md 6.1), and station 24, a real telephone (control.md 7.4, Rev 33).
+ * Station 24 is a row after station 22, so the station rows are 0-22. */
+static constexpr uint8_t N_STATIONS     = 22;              // 1-22, numbered as their rows
+static constexpr uint8_t PHONE_STATION  = 24;              // the real telephone
+static constexpr uint8_t N_STATION_ROWS = N_STATIONS + 1;  // and its row, the 23rd
+static constexpr uint8_t N_TRUNKS       = 8;
 
 /* ---- Pins (control.md 3; generator 3.1/3.2 is the authority) ---------------
  * PIN_PWM_A/B, PIN_SD and PIN_ENBL are declared in control.ino, which owns the
@@ -78,6 +80,7 @@ static constexpr uint32_t POLL_PERIOD_MS = 5;
 /* ---- Station ring detection (control.md 7.1) ------------------------------ */
 static constexpr uint8_t  RING_TRANSITIONS_TO_DECLARE = 4;    // within the window
 static constexpr uint32_t RING_DECLARE_WINDOW_MS      = 150;
+static constexpr uint32_t PHONE_HOOK_STABLE_MS        = 100;   // 7.4: station 24's `lifted`
 static constexpr uint32_t RING_RELEASE_QUIET_MS       = 100;   // no transition
 // control.md 7.3 (Rev 17): a station dialling, for the board test. The nominal
 // Bell figures, 10pps at 61% break, and a dial's return between digits.

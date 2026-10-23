@@ -60,7 +60,7 @@ static TrunkState tr[N_TRUNKS];
 
 /* ---- helpers ------------------------------------------------------------ */
 
-static inline const CircuitMap& row(uint8_t i) { return circuits[N_STATIONS + i]; }
+static inline const CircuitMap& row(uint8_t i) { return circuits[N_STATION_ROWS + i]; }
 
 static void publishBoolIfChanged(const CircuitMap& c, const char* leaf,
                                  bool value, int8_t& cache) {

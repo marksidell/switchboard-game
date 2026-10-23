@@ -17,9 +17,11 @@ struct StationState {
   uint32_t last_trans_ms;
   bool     ring;            // debounced
   bool     hook;            // commanded relay state
+  bool     lifted;          // station 24 only: the phone is off-hook (7.4)
 
   int8_t   ring_pub;        // last published: -1 never, 0 off, 1 on
   int8_t   hook_pub;
+  int8_t   lifted_pub;
 
   // Dialling (control.md 7.3): the digits, the one being sent, and where in it.
   char     dial[DIAL_MAX_DIGITS + 1];
@@ -32,13 +34,14 @@ struct StationState {
 
 enum : uint8_t { DIAL_IDLE = 0, DIAL_OPEN, DIAL_CLOSED, DIAL_GAP };
 
-static StationState st[N_STATIONS];
+static StationState st[N_STATION_ROWS];  // by row: stations 1-22, then 24
 
 void stationInit() {
-  for (uint8_t i = 0; i < N_STATIONS; ++i) {
+  for (uint8_t i = 0; i < N_STATION_ROWS; ++i) {
     st[i] = StationState{};
-    st[i].ring_pub = -1;
-    st[i].hook_pub = -1;
+    st[i].ring_pub   = -1;
+    st[i].hook_pub   = -1;
+    st[i].lifted_pub = -1;
   }
 }
 
@@ -106,7 +109,7 @@ static void dialStep(const CircuitMap& c, StationState& s, uint32_t now_ms) {
 }
 
 void stationPoll(uint32_t now_ms) {
-  for (uint8_t i = 0; i < N_STATIONS; ++i) {
+  for (uint8_t i = 0; i < N_STATION_ROWS; ++i) {
     const CircuitMap& c = circuits[i];
     StationState&     s = st[i];
 
@@ -139,6 +142,15 @@ void stationPoll(uint32_t now_ms) {
     }
 
     publishIfChanged(c, "ring", s.ring, s.ring_pub);
+
+    /* Station 24's hook detector reads 1 while the phone is on-hook (7.4). Its
+     * level counts once it has held for 100ms, and not while ring is on: a
+     * ringing line pulses the input. */
+    if (c.number == PHONE_STATION) {
+      if (!s.ring && elapsedMs(now_ms, s.last_trans_ms) >= PHONE_HOOK_STABLE_MS)
+        s.lifted = !raw;
+      publishIfChanged(c, "lifted", s.lifted, s.lifted_pub);
+    }
   }
 }
 
@@ -150,7 +162,7 @@ void stationSetHook(uint8_t n, bool on) {
                   (unsigned)n, expanders[c->exp].addr);
     return;
   }
-  StationState& s = st[n - 1];
+  StationState& s = st[stationRow(n)];
   stopDial(*c, s, true);                   // a hook command ends any dialling (7.3)
   s.hook = on;
   circuitSetRelay(*c, on);                 // 1 = off-hook, loop closed through R3
@@ -165,7 +177,11 @@ void stationDial(uint8_t n, const char* digits) {
                   (unsigned)n, expanders[c->exp].addr);
     return;
   }
-  StationState& s = st[n - 1];
+  if (n == PHONE_STATION) {               // 7.4: the relay does not carry the loop
+    Serial.printf("dial/set: station %u is the telephone - dropped\n", (unsigned)n);
+    return;
+  }
+  StationState& s = st[stationRow(n)];
   const size_t len = strlen(digits);
   if (len == 0) {                          // stop
     stopDial(*c, s, true);
@@ -190,7 +206,7 @@ void stationDial(uint8_t n, const char* digits) {
 }
 
 void stationReleaseAll() {
-  for (uint8_t i = 0; i < N_STATIONS; ++i) {
+  for (uint8_t i = 0; i < N_STATION_ROWS; ++i) {
     st[i].hook = false;
     st[i].dial_phase = DIAL_IDLE;          // 7.3: a release ends dialling
     circuitSetRelay(circuits[i], false);
@@ -198,7 +214,7 @@ void stationReleaseAll() {
 }
 
 void stationPublishOne(uint8_t i) {
-  if (i >= N_STATIONS) return;
+  if (i >= N_STATION_ROWS) return;
   const CircuitMap& c = circuits[i];
   if (!circuitLive(c)) return;              // state the firmware cannot know
   StationState& s = st[i];
@@ -206,5 +222,10 @@ void stationPublishOne(uint8_t i) {
   s.hook_pub = s.hook ? 1 : 0;
   netPublishState(c, "ring", s.ring ? "on" : "off");
   netPublishState(c, "hook", s.hook ? "on" : "off");
-  publishDial(c, s);
+  if (c.number == PHONE_STATION) {
+    s.lifted_pub = s.lifted ? 1 : 0;
+    netPublishState(c, "lifted", s.lifted ? "on" : "off");
+  } else {
+    publishDial(c, s);
+  }
 }

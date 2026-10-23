@@ -1,10 +1,18 @@
 # 551 Switchboard Simulator — A Real Telephone on the Board (Proposal)
 
-Rev 1 — 2026-10-17. A proposal, not adopted. Nothing here is built or coded, and no
-specification has changed. If it is adopted, the parts of it that are design go into
-`station_circuit.md`, `audio.md`, `pilot-map.md`, `control.md`, `mqtt.md` and
-`game_control.md` (§6 below), and this document becomes the record of how the decision
-was reached.
+Rev 2 — 2026-10-23. Adopted, option B (Mark, 2026-10-23). The parts of it that are
+design go into `station_circuit.md`, `audio.md`, `pilot-map.md`, `control.md`, `mqtt.md`
+and `game_control.md` (§6 below), and this document becomes the record of how the
+decision was reached.
+
+## Changes in Rev 2
+
+- Adopted, option B, on board 3 strip 8 (Mark, 2026-10-23). The monitor already runs on
+  the Digiface 33/34.
+- §3: the phone's line is on switchboard jack 10, room 405.
+- §5: the bench measurements are in. The phone pulls the line to 7.9 V at most, under
+  the 8.5 V the §3.1 values need, and the 4.4 kΩ load neither lights the lamp nor sags
+  the line much (23.5 V). The §3.1 values stand.
 
 ## Changes in Rev 1
 
@@ -35,6 +43,8 @@ phone is off-hook.
 The phone uses board 3 strip 8's line pair. The pair already runs from the switchboard to
 the game box and is unused on the line side: the strip carries the audience monitor
 (J7B101 pins 7/8; station §7.9.8). The phone is wired across it at the game box.
+It is cabled to switchboard jack 10, room 405 (Mark, 2026-10-23): bundle 2,
+white-brown, `hardware/station-wiring.csv`.
 
 ### 3.1 Hook detector
 
@@ -56,8 +66,10 @@ Sizing, from the device's guaranteed limits (station §3.5: turn-on 1.96–3.11 
 1.00–1.62 mA, about 4.2–5.5 V across the input):
 
 - On-hook, 24 V: (24 − 5.5) / 4.4 kΩ ≈ 4.2 mA, more than the 3.11 mA worst-case turn-on.
-- Off-hook: below 1.0 mA, and so released, as long as the line is under about 8.5 V.
-  **Unconfirmed: needs the bench measurement (§5).**
+- Off-hook: below 1.0 mA, and so released, as long as the line is under about 8.5 V
+  ((8.5 − 4.2) / 4.4 kΩ). Measured at most 7.9 V (§5): 0.84 mA, released.
+- On-hook with the detector's own load: 23.5 V measured (§5), (23.5 − 5.5) / 4.4 kΩ =
+  4.1 mA, on.
 - Ringing: **the operator may ring the phone, and nothing can stop her (Mark).** At
   90 V rms, about 1.6 W in total, 0.8 W in each resistor, 40% of a PR02's rating.
 - Being DC-coupled, the detector also sees ringing. Its output pulses at 40 Hz while the
@@ -116,7 +128,20 @@ Phone on the strip 8 pair at the game box:
 5. Does a 4.4 kΩ resistor across the pair light the line lamp, or pull in the line relay?
    The detector draws about 4.2 mA all the time the phone is on-hook.
 
-The resistor values in §3.1 are placeholders until these are in.
+Measured 2026-10-23 (Mark), phone on the strip 8 pair, board unchanged:
+
+| # | Condition | Tip–ring |
+|---|---|---|
+| 1 | On-hook | 24 V |
+| 2 | Off-hook, not answered | 5.5 V |
+| 3 | Off-hook, answer cord in | 7.9 V |
+| 3a | Off-hook, answer cord in, operator keyed in | 7.0 V |
+| 4 | Off-hook, patched to a station | 7.9 V |
+| 5 | On-hook, 4.4 kΩ across the pair | 23.5 V; lamp dark |
+
+The worst off-hook case, 7.9 V, is 0.6 V under the 8.5 V limit: 0.84 mA against the
+1.00 mA worst-case turn-off. The §3.1 values stand. (2 × 2.4 kΩ would split the margin
+more evenly, 3.75 mA on and 0.77 mA off, but 2.2 kΩ meets both worst cases.)
 
 ## 6. If adopted
 

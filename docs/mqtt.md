@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 42 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test, Recording), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels, the Switchboard Power Cut, Pulsed or Held, the Host's Public Address, the Public Trunk's Registration*
+*Rev 43 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor and Its Source, Test, Recording), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels, the Switchboard Power Cut, Pulsed or Held, the Host's Public Address, the Public Trunk's Registration, a Real Telephone on Station 24*
 
 # 1. Overview
 
@@ -204,6 +204,10 @@ This document specifies the messages: the topic names, who publishes each, what 
 
 — `trunk/<n>/shortring/set` added (§6, §8.4), following control.md Rev 25, 2026-10-05: `"on"` rings the trunk once for 0.5s, `"off"` cancels the burst; the ESP32 echoes the relay on the existing `ring` topic, `"on"` then `"off"`. The game program uses it to signal a call in on a trunk (game_control.md Rev 28). It is the third command that is not absolute state, after `next/set` and the station's `dial/set`: a duplicate delivered after the first burst has ended rings once more. That is harmless — the switchboard's trunk signal latches, and a second burst on an unanswered trunk changes nothing the operator sees; a duplicate during the burst, or after the trunk is seized, is ignored by the controller. QoS 1 as for every command. The ESP32 subscribes to one more pattern. No existing topic or payload changes.
 
+## 1.43 Changes in Rev 43
+
+— Station 24, a real telephone on station board 3 strip 8 (§3, §4, §6), following control.md Rev 33 and real_phone.md Rev 2, 2026-10-23. The ESP32 publishes `station/24/ring` and `station/24/hook` as for any station, and one new topic, `station/24/lifted`: `"on"` while the phone is off-hook. It takes `station/24/hook/set`, which connects the phone's line to A32 channel 24, and drops `station/24/dial/set`. Station numbers are now 1–22 and 24; 23, the operator tap, still has no topics. An addition; no existing topic or payload changes. The audio program does not yet treat slot 24 as a circuit (audio.md, pilot-map.md to follow), so `station/24` has no `peer`, `op`, `play` or `listen` yet.
+
 ## 1.42 Changes in Rev 42
 
 — The public trunk is asked over SSH, not through the ATA's web interface (§6.3), 2026-10-23. The web interface keeps one session for the whole device, whatever the account: Rev 41's look every 10s, as `admin` and then as `viewer`, logged Mark out of the ATA's pages each time. An SSH session leaves them alone (Mark, 2026-10-23). The ATA's command shell takes no remote command, so the service sends `status` and `exit` on stdin and reads the `Port 1:` line, `On Hook<TAB>Registered` or `Not Registered`. SSH takes the `admin` account only. The password reaches ssh through SSH_ASKPASS, the service's own program reading `/etc/sbgame/ata.cred`, and the ATA's host key is pinned in `/etc/sbgame/ata-known_hosts`, which replaces Rev 41's pinned certificate. The topics and their four values are unchanged.
@@ -306,7 +310,7 @@ Every topic begins `sbgame/`. Two letters were used at first (`sw/`), which coul
 
 Below the prefix:
 
-- `station/<n>/…`, n = 1–22, and `trunk/<n>/…`, n = 1–8 — per-circuit topics, whichever client publishes or consumes them. Board 3's last two strips are not stations: strip 7 is the operator tap and strip 8 is the audience monitor output (station §7.9.6) — no relay, no ring detector, no pilot of their own — and neither has topics. n is the circuit's own number, not the 1–32 comb slot of station §8.3, which exists so one formula maps a circuit to its FFT bin and is internal to the audio program's detector.
+- `station/<n>/…`, n = 1–22 and 24, and `trunk/<n>/…`, n = 1–8 — per-circuit topics, whichever client publishes or consumes them. Board 3's strip 7 is the operator tap (station §7.9.6) — no relay, no ring detector, no pilot of its own — and has no topics. Strip 8 is station 24, a real telephone (control.md §7.4; Rev 43); it was the audience monitor output until then. n is the circuit's own number, not the 1–32 comb slot of station §8.3, which exists so one formula maps a circuit to its FFT bin and is internal to the audio program's detector.
 - `audio/…` — the audio program's non-circuit state and commands: the loudspeaker monitor and its source, the test tone per output channel, the tap's own-tone check. Channel numbers under `audio/test/` are 1–34 output channels as the documents number them (audio.md §2), not circuits.
 - `game/…` — the game program's own state, and the page's commands to it: the run state, pacing, tallies, call slots and log (Rev 10). Call slot numbers under `game/call/` are 1–8 and are not circuits.
 - `board/station/<n>/…`, n = 1–30, and `board/trunk/<n>/…`, n = 1–10 — the switchboard's own jacks, numbered as on the board (Rev 12). They are not circuits. A jack carries at most one circuit, named in its `circuit` topic.
@@ -323,9 +327,10 @@ The ESP32 publishes hardware state as it debounces it (`control.md` §7 and §8)
 
 | **Topic** | **Payload** | **Retained** | **Meaning** |
 | --- | --- | --- | --- |
-| `sbgame/station/<1-22>/ring` | `"on"` or `"off"` | yes | Ring voltage is arriving at this station from the switchboard. Debounced from the 40Hz detector pulse train, station §3.7. |
-| `sbgame/station/<1-22>/hook` | `"on"` or `"off"` | yes | Off-hook relay state, echoed from the relay drive. `"on"` is off-hook (loop closed). |
+| `sbgame/station/<1-22, 24>/ring` | `"on"` or `"off"` | yes | Ring voltage is arriving at this station from the switchboard. Debounced from the 40Hz detector pulse train, station §3.7. |
+| `sbgame/station/<1-22, 24>/hook` | `"on"` or `"off"` | yes | Off-hook relay state, echoed from the relay drive. `"on"` is off-hook (loop closed). |
 | `sbgame/station/<1-22>/dial` | digits, or `""` | yes | The digits a `dial/set` has still to finish, the one being sent included; empty when the station is not dialling (control.md §7.3; Rev 24). |
+| `sbgame/station/24/lifted` | `"on"` or `"off"` | yes | The real telephone on station 24 is off-hook. From its hook detector, 100ms stable, held while `ring` is on (control.md §7.4; Rev 43). Station 24 also has `ring` and `hook` as above; `hook` there is the relay that connects the line to A32 channel 24, not the line's loop. |
 | `sbgame/trunk/<1-8>/seize` | `"on"` or `"off"` | yes | The switchboard has seized this trunk — loop current is flowing. Debounced, trunk §11.1. The trunk analogue of a station's `hook`. |
 | `sbgame/trunk/<1-8>/ring` | `"on"` or `"off"` | yes | This trunk's ring relay is energised — the board is applying ring toward the switchboard. Actual relay state, echoed back, so a monitoring UI can show a ringing trunk. A `shortring/set` shows as one `"on"` and `"off"` half a second apart (Rev 26). |
 | `sbgame/trunk/<1-8>/digit` | `"0"` to `"9"` | no — and QoS 0, §2 | The operator has just dialled this digit on the seized trunk. One message per completed digit, in order; ten pulses is `"0"`. Decoded by the firmware from the seizure input, control.md §8.2. Never published outside seizure, never for a partial digit. |
@@ -374,7 +379,7 @@ The game program is the only client that commands the ESP32 and the audio progra
 
 | **Topic** | **Payload** | **Retained** | **Consumer** | **Meaning** |
 | --- | --- | --- | --- | --- |
-| `sbgame/station/<1-22>/hook/set` | `"on"` or `"off"` | no | ESP32 | Take this station off-hook / on-hook. The ESP32 echoes the result on `hook`. |
+| `sbgame/station/<1-22, 24>/hook/set` | `"on"` or `"off"` | no | ESP32 | Take this station off-hook / on-hook. On station 24, connect the real telephone's line to A32 channel 24 / disconnect it (Rev 43). The ESP32 echoes the result on `hook`. |
 | `sbgame/station/<1-22>/dial/set` | digits `0`–`9`, at most 16, or `""` | no | ESP32 | Dial them on this off-hook station, the controller timing the pulses; `""` stops. Published by `sbgame-boardtest` only (Rev 24). Echoed on `dial`. |
 | `sbgame/trunk/<1-8>/shortring/set` | `"on"` or `"off"` | no | ESP32 | Ring this trunk once, for 1s (Rev 32; 0.5s at Rev 26), then leave it idle and able to see a seizure (`control.md` §8.4, Rev 25); `"off"` cancels the burst. Echoed on `ring`. Not absolute state: a late duplicate rings once more, which the switchboard's latching trunk signal makes harmless (§1.26). |
 | `sbgame/trunk/<1-8>/ring/set` | `"on"` or `"off"` | no | ESP32 | Start / stop ringing this trunk. The ESP32 runs the cadence and the 30s timeout (`control.md` §8) and echoes the relay state on `ring`. |

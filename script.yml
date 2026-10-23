@@ -878,7 +878,8 @@ jacks:
         guest: "Miss Dorothy Crane"
     -   jack: 10
         label: "405"
-        station:
+        station:                # the real phone, channel 24, is cabled here (real_phone.md §3);
+                                # not a station the game knows yet
 
 scenes:
     nbn-valet:
