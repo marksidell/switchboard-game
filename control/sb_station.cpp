@@ -19,6 +19,7 @@ struct StationState {
   bool     hook;            // commanded relay state
   bool     lifted;          // station 24 only: the phone is off-hook (7.4)
   uint32_t run_ms;          // station 24 only: the first pulse of this run
+  uint8_t  run_pulses;      // station 24 only: polls with a pulse in it, saturating
 
   int8_t   ring_pub;        // last published: -1 never, 0 off, 1 on
   int8_t   hook_pub;
@@ -113,16 +114,22 @@ static void dialStep(const CircuitMap& c, StationState& s, uint32_t now_ms) {
  * phone is on-hook. Rung, it releases for about 2ms in each 25ms (Rev 34):
  * mostly between polls, and at 40Hz in step with them, so the expander latches
  * the change, and a poll that sees a change, or a latched one, is a pulse.
- * Ring is pulses for 50ms with no gap over 50ms; plugging a cord into the jack
- * or pulling it out bounces for about 20ms, which is not ring (Rev 35). The
- * level counts as the hook once it has held for 100ms, and not while ring is
- * on. */
+ * Ring is four pulses over 50ms or more with no gap over 50ms. Plugging a cord
+ * into the jack or pulling it out opens the line for 29-192ms, measured, with
+ * a bounce at each end: two or three pulses, which are not ring (Rev 35, 38).
+ * The level counts as the hook once it has held for 400ms, past the longest
+ * of those, and not while ring is on. */
 static void phonePoll(const CircuitMap& c, StationState& s, bool raw, uint32_t now_ms) {
   if (raw != s.raw_last || circuitChanged(c)) {
-    if (elapsedMs(now_ms, s.last_trans_ms) > PHONE_RING_GAP_MS) s.run_ms = now_ms;
+    if (elapsedMs(now_ms, s.last_trans_ms) > PHONE_RING_GAP_MS) {
+      s.run_ms     = now_ms;
+      s.run_pulses = 0;
+    }
+    if (s.run_pulses < 255) s.run_pulses++;
     s.raw_last      = raw;
     s.last_trans_ms = now_ms;
-    if (elapsedMs(now_ms, s.run_ms) >= PHONE_RING_RUN_MS) s.ring = true;
+    if (elapsedMs(now_ms, s.run_ms) >= PHONE_RING_RUN_MS &&
+        s.run_pulses >= PHONE_RING_PULSES) s.ring = true;
   }
   if (s.ring && elapsedMs(now_ms, s.last_trans_ms) >= RING_RELEASE_QUIET_MS)
     s.ring = false;
