@@ -18,6 +18,7 @@ struct StationState {
   bool     ring;            // debounced
   bool     hook;            // commanded relay state
   bool     lifted;          // station 24 only: the phone is off-hook (7.4)
+  uint32_t run_ms;          // station 24 only: the first pulse of this run
 
   int8_t   ring_pub;        // last published: -1 never, 0 off, 1 on
   int8_t   hook_pub;
@@ -108,6 +109,30 @@ static void dialStep(const CircuitMap& c, StationState& s, uint32_t now_ms) {
   }
 }
 
+/* Station 24, the real telephone (7.4). Its hook detector reads 1 while the
+ * phone is on-hook. Rung, it releases for about 2ms in each 25ms (Rev 34):
+ * mostly between polls, and at 40Hz in step with them, so the expander latches
+ * the change, and a poll that sees a change, or a latched one, is a pulse.
+ * Ring is pulses for 50ms with no gap over 50ms; plugging a cord into the jack
+ * or pulling it out bounces for about 20ms, which is not ring (Rev 35). The
+ * level counts as the hook once it has held for 100ms, and not while ring is
+ * on. */
+static void phonePoll(const CircuitMap& c, StationState& s, bool raw, uint32_t now_ms) {
+  if (raw != s.raw_last || circuitChanged(c)) {
+    if (elapsedMs(now_ms, s.last_trans_ms) > PHONE_RING_GAP_MS) s.run_ms = now_ms;
+    s.raw_last      = raw;
+    s.last_trans_ms = now_ms;
+    if (elapsedMs(now_ms, s.run_ms) >= PHONE_RING_RUN_MS) s.ring = true;
+  }
+  if (s.ring && elapsedMs(now_ms, s.last_trans_ms) >= RING_RELEASE_QUIET_MS)
+    s.ring = false;
+  publishIfChanged(c, "ring", s.ring, s.ring_pub);
+
+  if (!s.ring && elapsedMs(now_ms, s.last_trans_ms) >= PHONE_HOOK_STABLE_MS)
+    s.lifted = !raw;
+  publishIfChanged(c, "lifted", s.lifted, s.lifted_pub);
+}
+
 void stationPoll(uint32_t now_ms) {
   for (uint8_t i = 0; i < N_STATION_ROWS; ++i) {
     const CircuitMap& c = circuits[i];
@@ -119,13 +144,10 @@ void stationPoll(uint32_t now_ms) {
 
     const bool raw = circuitInput(c);       // IPOL has made 1 = ring present
 
-    /* Station 24's detector releases for about 2ms in each 25ms of ringing
-     * (7.4, Rev 34): mostly between polls, and at 40Hz in step with them. The
-     * expander latches the change; one that reads the same as before was a
-     * pulse, two transitions, counted here as one each time round. */
-    const bool missed = raw == s.raw_last && circuitChanged(c);
-    for (uint8_t k = missed ? 2 : raw != s.raw_last ? 1 : 0; k > 0; --k) {
-      s.raw_last      = !s.raw_last;
+    if (c.number == PHONE_STATION) { phonePoll(c, s, raw, now_ms); continue; }
+
+    if (raw != s.raw_last) {
+      s.raw_last      = raw;
       s.last_trans_ms = now_ms;
       s.trans[s.head] = now_ms;
       s.head          = (uint8_t)((s.head + 1) % RING_TRANSITIONS_TO_DECLARE);
@@ -147,15 +169,6 @@ void stationPoll(uint32_t now_ms) {
     }
 
     publishIfChanged(c, "ring", s.ring, s.ring_pub);
-
-    /* Station 24's hook detector reads 1 while the phone is on-hook (7.4). Its
-     * level counts once it has held for 100ms, and not while ring is on: a
-     * ringing line pulses the input. */
-    if (c.number == PHONE_STATION) {
-      if (!s.ring && elapsedMs(now_ms, s.last_trans_ms) >= PHONE_HOOK_STABLE_MS)
-        s.lifted = !raw;
-      publishIfChanged(c, "lifted", s.lifted, s.lifted_pub);
-    }
   }
 }
 

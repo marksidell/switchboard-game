@@ -16,7 +16,7 @@
  * document whenever a revision has a firmware consequence. The commit and the
  * build time come from sb_version.h, which control/compile writes before it
  * compiles; a build without it says "unknown". Published on ctl/firmware. */
-static constexpr unsigned FIRMWARE_SPEC_REV = 34;
+static constexpr unsigned FIRMWARE_SPEC_REV = 35;
 
 /* Milliseconds from `since` to `now`, never wrapping (control.md 6.3, Rev 21).
  * The loop reads millis() once a pass, and a command handled in that pass
@@ -81,6 +81,8 @@ static constexpr uint32_t POLL_PERIOD_MS = 5;
 static constexpr uint8_t  RING_TRANSITIONS_TO_DECLARE = 4;    // within the window
 static constexpr uint32_t RING_DECLARE_WINDOW_MS      = 150;
 static constexpr uint32_t PHONE_HOOK_STABLE_MS        = 100;   // 7.4: station 24's `lifted`
+static constexpr uint32_t PHONE_RING_RUN_MS           = 50;    // 7.4: pulses this long are ring
+static constexpr uint32_t PHONE_RING_GAP_MS           = 50;    //   with no gap longer than this
 static constexpr uint32_t RING_RELEASE_QUIET_MS       = 100;   // no transition
 // control.md 7.3 (Rev 17): a station dialling, for the board test. The nominal
 // Bell figures, 10pps at 61% break, and a dial's return between digits.
