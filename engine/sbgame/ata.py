@@ -10,6 +10,10 @@ has a JSON API, the one its own pages use:
   POST /cgi-bin/api.values.get  request=P4921&session_token=…
        → {"response": "success", "body": {"P4921": "Registered"}}
 
+It logs in as the ATA's read-only `viewer` account: the ATA keeps one session
+per account, so logging in as `admin` would log the admin out of the web page
+on every look.
+
 P4921 is FXS 1's registration, "Registered" or "Not Registered". Read from
 the firmware's Status page script, 2026-10-23, not from a manual.
 

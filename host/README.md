@@ -114,10 +114,14 @@ The same service looks every 10s at the trunk 8 ATA, `switchboard.sidell.org`,
 and publishes its FXS port's registration on `sbgame/host/public_trunk`
 (`registered`, `disconnected`, `offline`, `error`). It logs in to the ATA's web
 interface with `/etc/sbgame/ata.cred`, the username on the first line and the
-password on the second:
+password on the second. Use the ATA's `viewer` account, not `admin`: the ATA
+keeps one session per account, so an `admin` login every 10s logs the admin out
+of the web page. The viewer is off by default — System Settings → Security
+Settings → Web Access → Enable Viewer Level Web Access — and needed a reboot of
+the ATA to take effect (2026-10-23):
 
 ```sh
-sudo sh -c 'umask 027; printf "%s\n%s\n" admin "THE-PASSWORD" > /etc/sbgame/ata.cred'
+sudo sh -c 'umask 027; printf "%s\n%s\n" viewer "THE-PASSWORD" > /etc/sbgame/ata.cred'
 make sbgame-host-user        # its group and mode
 make install                 # the ATA's certificate, /etc/sbgame/ata-cert.pem
 sudo systemctl restart sbgame-netcheck
