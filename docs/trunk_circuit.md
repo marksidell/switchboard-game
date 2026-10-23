@@ -633,7 +633,7 @@ Rev 5.51, 2026-10-22; Rev 5.52 pulls K901. A change to trunk 8 of the rev 2 boar
 8. Tip goes to the pad of D903's removed cathode, which is node A (§3.1: Dx03's cathode is Kx01 pole 1 NC).
 9. Ring goes to the end of the 330 Ω at U901 pin 4.
 
-The ATA plugs into that jack on its line pair, pins 4 and 5. The board's own trunk RJ45 still carries trunk 8 to the switchboard.
+The ATA plugs into that jack on its line pair, pins 4 and 5. The board's own trunk RJ45 still carries trunk 8 to the switchboard. Photographs: `hardware/trunk8-ata-mod-2026-10-23-*.jpg`.
 
 With R906 off ground and U901 on its AC pins, the loop floats: nothing in it touches board ground. That is the reason for the AC input (Mark, 2026-10-22). The internal bridge makes the detector indifferent to which way the ATA's feed flows, so its polarity does not have to be checked, and pin 3 no longer has to come off ground alone. U901 is soldered, not socketed, so pins 2 and 3 have to be lifted; Mark will do that. Pins 2 and 3 must be open. Leaving pin 2 on R907 with pin 1 also wired to it shorts one diode of the bridge, and one polarity then bypasses the buffer altogether.
 
