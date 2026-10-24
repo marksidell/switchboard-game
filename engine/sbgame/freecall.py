@@ -33,7 +33,7 @@ log = logging.getLogger("free")
 
 PHONE = f"station/{PHONE_STATION}"
 LISTEN = 7.0          # s for the caller to start talking before "Hello?"
-TURN_END = 1.0        # s more of silence before it is the answerer's turn
+TURN_END = 0.4        # s more of silence before it is the answerer's turn (Rev 76)
 PATCH_WAIT = 8.0      # s for the cord to join a room that answered (§5, Rev 60)
 DIAL_DELAY = 1.0      # s from seizure to dial tone (§5, Rev 46)
 DIAL_FIRST = 15.0     # s for the first digit
