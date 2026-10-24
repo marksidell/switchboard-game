@@ -544,7 +544,7 @@ reactions:
 #     loop:     said round and round after the lines
 #
 freecall:
-    # Mark's spec, word for word (lenny-spec.txt, 2026-10-23).
+    # Mark's spec, word for word (docs/lenny-spec.txt, 2026-10-23).
     thornhill:
         greeting: Hi! Mellow greetings, ukie-dukie!
         lines:

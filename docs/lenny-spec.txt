@@ -1,0 +1,32 @@
+The Lenny Mode spec:
+
+A real person will pick up the phone on station 24 or call in from an
+outside line. We assume the operator will connect the caller to one of
+our game stations or dial one of our pre-defined outside numbers. If
+the operator dials some other outside number, the game should still answer,
+but in this case use the "real" Lenny voice.
+
+The actor residing at the called station or outside establishment
+should answer in an appropriate way. For example, Mary Smith (in the
+Imperial Suite) could say, "Hello? Who is this?" Lundquist could say,
+"Ahoy! Lundquist here!" (a nod to Bell himself, who wanted people to
+answer with "Ahoy!" The guy at V16 could say "V16 automobile company
+of America."
+
+Then the actor responds to speech by the caller by iterating through
+the standard Lenny utterances. (I don't know the Lenny game well. Does
+he choose utterances at random? And can you obtain a list of the
+utterances?) The actor continues in this mode until the calling party
+disconnects, at which time the called station or trunk hangs up.
+
+Thornill is a special case. He should answer with this:
+Hi! Mellow greetings, ukie-dukie!
+
+His first "Lenny" utterance, after the caller speaks, should be this:
+Hey, you remind me of a man.
+
+Then he should rotate through the following utterances in this order:
+The man with the power.
+The power of hoodoo.
+You do.
+Remind me of a man.
