@@ -1,0 +1,13 @@
+{
+  "person": "sergeant",
+  "take": 2,
+  "seed": 1952,
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "instruct": "A male voice. Accent: Irish American, weary. desk sergeant at the Seattle Police.\nNatural, conversational telephone speech, 1950s.",
+  "sample_text": "Police department, Sergeant Riley speaking. All right, slow down, mister. Start from the beginning and tell me what happened.",
+  "sample_from": [],
+  "rate": 24000,
+  "seconds": 6.8,
+  "generate_seconds": 10.38,
+  "chosen_candidate": 2
+}

@@ -460,12 +460,13 @@ cast:
         accent: generic American, young man, sheepish
         description: Eddie Moran, a former pupil of Miss Crane, now in the Navy
 
-    # Free calls (game_control.md 4.12, Rev 74), added 2026-10-23: who answers
-    # the police, which no scene calls.
-    desk_sergeant:
+    # Sergeant Riley, back (2026-10-23): he left with the cut Thornhill
+    # scenes on 2026-09-28; now he answers the police in free calls
+    # (game_control.md 4.12). His chosen voice is restored, take 2.
+    sergeant:
         sex: male
         accent: Irish American, weary
-        description: Sergeant Riley, desk sergeant at the Seattle Police; back from the cut Thornhill scenes
+        description: desk sergeant at the Seattle Police
         sample: Police department, Sergeant Riley speaking. All right, slow down, mister. Start from the beginning and tell me what happened.
 
     # The real Lenny (game_control.md 4.12, Rev 74): his sixteen recordings,
@@ -999,7 +1000,7 @@ freecall:
             - Car or walk on?
             - Huh. Well, that's the darnedest thing.
             - Okay. Anything else?
-    desk_sergeant:
+    sergeant:
         greeting: Police department. Sergeant Riley speaking.
         lines:
             - Uh huh. Slow down. Start from the beginning.
@@ -1238,7 +1239,7 @@ outside:
         number: "623-2111"
         description: Seattle Police
         # Who answers it, since no scene does: a free call (game_control.md 4.12).
-        person: desk_sergeant
+        person: sergeant
     swedish:
         number: "322-5100"
         description: Swedish Hospital
