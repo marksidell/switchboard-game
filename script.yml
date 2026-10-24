@@ -1251,7 +1251,7 @@ outside:
 #
 stations:
     frontdesk:
-        number: 7               # on channel 7 since 2026-10-16: channel 1's line is open (TODO.md)
+        number: 1
     lobby:
         number: 2
     restaurant:
@@ -1263,7 +1263,7 @@ stations:
     housekeeping:
         number: 6
     bellcaptain:
-        number: 1               # on the dead channel 1, out of service in game.toml
+        number: 7
     concierge:
         number: 8
     imperialsuite:
@@ -1313,14 +1313,14 @@ stations:
 #
 jacks:
     -   jack: 21
-        label: "Bell Captain"
-        station: bellcaptain
+        label: "Front Desk"
+        station: frontdesk
     -   jack: 22
         label: "Lobby"
         station: lobby
     -   jack: 23
-        label: "Maintenance"
-        station:
+        label: "Stoneburner"
+        station: restaurant
     -   jack: 24
         label: "Room Service"
         station: roomservice
@@ -1331,14 +1331,14 @@ jacks:
         label: "Housekeeping"
         station: housekeeping
     -   jack: 27
-        label: "Front Desk"
-        station: frontdesk
+        label: "Bell Captain"
+        station: bellcaptain
     -   jack: 28
         label: "Concierge"
         station: concierge
     -   jack: 29
-        label: "Stoneburner"
-        station: restaurant
+        label: "Maintenance"
+        station:
     -   jack: 30
         label: "Penthouse"
         station: imperialsuite
