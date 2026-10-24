@@ -73,7 +73,7 @@ PATCH_WAIT = 8.0
 # takes to put a receiver back on its hook.
 HANG_UP = 1.5
 DIAL_FIRST = 15.0
-WRONG_RING = 1.5          # s of ring before a wrong party answers, as the right one does
+ANSWER_AFTER = 3.0        # s of ring before a room answers, right or wrong (Rev 82; 1.5 before)
 
 
 class Misdialled(Exception):
@@ -319,7 +319,7 @@ async def _wrong_party(ctx: Ctx, n: int, deadline: float) -> None:
     if hello is None or ctx.b.on(f"{room}/hook") or n == ctx.scene.from_station:
         return
     try:
-        await asyncio.sleep(WRONG_RING)
+        await asyncio.sleep(ANSWER_AFTER)
         if ctx.b.on(f"{room}/hook"):
             return                      # taken meanwhile, by another call
         await ctx.hw.hook(n, True)
@@ -679,7 +679,7 @@ async def station_to_station(ctx: Ctx) -> Outcome:
                 if await _route_unless_engaged(ctx, sc.to_station, deadline):
                     return await _found_engaged(ctx, caller, gone)
                 await ctx.slots.set_stage(ctx.call, Stage.RINGING, deadline)
-                await asyncio.sleep(1.5)                   # let it ring a little
+                await asyncio.sleep(ANSWER_AFTER)          # let it ring a little
                 if sc.if_busy and _engaged(sc.to_station)(ctx.b):
                     return await _found_engaged(ctx, caller, gone)
                 answered = True
@@ -869,7 +869,7 @@ async def outside_to_station(ctx: Ctx, trunk: int) -> Outcome:
             while True:
                 await _wait_for_right_station(ctx, sc.to_station, deadline)
                 await ctx.slots.set_stage(ctx.call, Stage.RINGING, deadline)
-                await asyncio.sleep(1.5)
+                await asyncio.sleep(ANSWER_AFTER)
                 # tutor: she rang with the far switch, and the near one still
                 # has her on the line, so before the room answers (§4.9).
                 if _last_wait(sc) is None:

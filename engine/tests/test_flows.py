@@ -350,7 +350,7 @@ async def main() -> int:
     # §5, Rev 56, at the tests' speed: digits come D/2 apart.
     flows.DIAL_SETTLE, flows.DIAL_PAUSE = D, D * 6
     # Rev 60, the same.
-    flows.NUDGE_AFTER, flows.PATCH_WAIT, flows.WRONG_RING, flows.DIAL_FIRST = \
+    flows.NUDGE_AFTER, flows.PATCH_WAIT, flows.ANSWER_AFTER, flows.DIAL_FIRST = \
         D * 4, D * 6, D, D * 10
 
     print("\n== station to station, a good operator")
