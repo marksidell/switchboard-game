@@ -32,6 +32,7 @@ fcm.DIAL_SETTLE = D * 5
 fcm.RINGBACK_KNOWN = D
 fcm.RINGBACK_LENNY = D * 2
 fcm.RETRY = D * 5
+fcm.ROOM_ANSWER = D * 4
 
 failures = 0
 
@@ -167,8 +168,10 @@ async def phone_to_room() -> None:
     await b.update("station/21/ring", "off")
     await asyncio.sleep(D)
     await b.update("station/21/ring", "on")
+    await asyncio.sleep(fcm.ROOM_ANSWER / 2)
+    check(not b.on("station/21/hook"), "a room rung: not at once")
     await until(b, lambda b: b.on("station/21/hook"))
-    check(True, "a room rung: it answers")
+    check(True, "a room rung: it answers after ROOM_ANSWER")
     await b.update("station/21/ring", "off")
     await b.update("station/21/peer", "station/24")
     await b.update("station/24/peer", "station/21")

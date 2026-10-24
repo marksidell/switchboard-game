@@ -42,6 +42,7 @@ DIAL_PAUSE = 10.0     # s with no new digit, short of a number: fast busy (Rev 8
 DIAL_SETTLE = 3.0     # s after the last digit a number needs, before it rings (Rev 80)
 NUMBER = 7            # digits in a number; "0" alone is the operator
 RINGBACK_KNOWN = 2.0  # s of ringback before an establishment answers
+ROOM_ANSWER = 4.0     # s from her ringing a room to its answering (Rev 81)
 RINGBACK_LENNY = 4.0  # and before the real Lenny does
 RETRY = 2.0           # s before a free call that ended on a fault starts again
 
@@ -131,6 +132,12 @@ class FreeCall:
         self.who, lines = self.fc.game.gs.answerer(self.fc.game.gs.free_station.get(n, ""))
         self.line = next(iter(self.fc.game._station_lines.get(n, ())), "")
         try:
+            # Someone has to get to the telephone.
+            try:
+                await self.b.wait_until(self.gone, ROOM_ANSWER)
+                return
+            except TimeoutError:
+                pass
             await self.hw.hook(n, True)
             if not await self._patched(c):
                 await self.b.wait_until(lambda b: not b.on(f"{c}/ring") or self.gone(b), None)
