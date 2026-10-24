@@ -54,7 +54,9 @@ DIAL_DELAY = 1.0
 ABANDON = 10.0
 ABANDON_MISDIALLED = 5.0
 # §5, Rev 56: a number dialled with too many digits or too few gets reorder,
-# the fast busy, and fails the call as `misdialled`. Too few is a pause of
+# the fast busy, until she releases the trunk; since Rev 84 she may then take
+# a trunk and dial again, and the call fails as `misdialled` only if the
+# connect timeout runs out after a reorder. Too few is a pause of
 # DIAL_PAUSE after a digit, short of the number; too many is a digit more
 # within DIAL_SETTLE of the last one it needs, which is how long the game
 # waits before it takes a number as dialled - longer than a dial takes to
@@ -66,18 +68,16 @@ DIAL_SETTLE = 3.0
 # silence, then goes on after as long again. A party she rings that is not
 # patched to its caller says "Hello?" after PATCH_WAIT, and hangs up after as
 # long again; one she rings by mistake answers, and hangs up. A trunk taken
-# and not dialled for DIAL_FIRST gets reorder, outside tutor mode.
+# and not dialled for DIAL_FIRST gets reorder, outside tutor mode (Rev 84:
+# 30s, where it was 15s, time to look a number up).
 NUDGE_AFTER = 6.0
 PATCH_WAIT = 8.0
 # s between a party's last words and its hanging up (§5, Rev 75): the time it
 # takes to put a receiver back on its hook.
 HANG_UP = 1.5
-DIAL_FIRST = 15.0
+DIAL_FIRST = 30.0
 ANSWER_AFTER = 3.0        # s of ring before a room answers, right or wrong (Rev 82; 1.5 before)
 
-
-class Misdialled(Exception):
-    """A number dialled with too many digits or too few (§5, Rev 56)."""
 
 log = logging.getLogger("flow")
 
@@ -104,6 +104,7 @@ class Ctx:
     tutor: Tutor | None = None                     # §4.9, in tutor mode
     jack_of: Callable[[int], int | None] = lambda n: None   # station -> its jack (§6.3)
     misdialled: bool = False                       # a wrong number this call (§5, Rev 48)
+    reordered: bool = False                        # fast busy this call (§5, Rev 84)
     # Rev 60: a party's reactions, by kind and cast member, and who answers a
     # room nobody expects to be rung.
     reaction: Callable[[str, str], Speech | None] = lambda kind, voice: None
@@ -498,12 +499,12 @@ async def _wait_for_right_number(ctx: Ctx, trunk: int, want: str,
                 raise
             got = "none"
         if got == "none":
-            await _reorder(ctx, trunk, "none", want, deadline)
+            got = await _reorder(ctx, trunk, "none", want, deadline)
         if got != "released":
             await ctx.hw.tone(trunk, "off")
             got = await _number(ctx, trunk, len(digits), deadline)
         if got in ("short", "long"):
-            await _reorder(ctx, trunk, got, want, deadline)
+            got = await _reorder(ctx, trunk, got, want, deadline)
         if got == "released":
             # She hung up the trunk: wait for the next seizure and start over.
             await ctx.hw.tone(trunk, "off")
@@ -548,19 +549,21 @@ async def _number(ctx: Ctx, trunk: int, n: int, deadline: float) -> str:
             return "released"
 
 
-async def _reorder(ctx: Ctx, trunk: int, why: str, want: str, deadline: float) -> None:
-    """Fast busy until she releases the trunk, then the call fails (§5, Rev 56)."""
+async def _reorder(ctx: Ctx, trunk: int, why: str, want: str, deadline: float) -> str:
+    """Fast busy until she releases the trunk (§5, Rev 56); then "released",
+    and she may take a trunk and dial again (Rev 84)."""
     got = ctx.b.dialled(trunk)
     what = {"long": "too many digits", "short": "too few digits", "none": "nothing dialled"}[why]
     ctx.say_event(f"dialled {got or 'nothing'}, wanted {want}: {what}")
     log.info("%s: misdialled %s (%s)", ctx.scene.id, got, why)
+    ctx.reordered = True
     try:
         await ctx.hw.tone(trunk, "reorder")
         await ctx.b.wait_until(lambda b, t=trunk: not b.on(f"trunk/{t}/seize"),
                                ctx.left(deadline))
     finally:
         await _quietly(ctx.hw.tone(trunk, "off"))
-    raise Misdialled(why)
+    return "released"
 
 
 def _cord_broken(a: str, c: str):
@@ -744,10 +747,8 @@ async def station_to_outside(ctx: Ctx) -> Outcome:
             return await _wait_for_right_number(ctx, t, sc.dial, deadline)
         try:
             trunk = await _unless_abandoned(ctx, caller, route())
-        except TimeoutError:
-            return Outcome(False, Reason.NOT_CONNECTED)
-        except Misdialled:
-            return Outcome(False, Reason.MISDIALLED)            # Rev 56
+        except TimeoutError:                                    # Rev 56, Rev 84
+            return Outcome(False, Reason.MISDIALLED if ctx.reordered else Reason.NOT_CONNECTED)
 
         called = f"trunk/{trunk}"
         await ctx.hw.tone(trunk, "ringback")
@@ -809,10 +810,8 @@ async def busy_scene(ctx: Ctx) -> Outcome:
             return await _wait_for_right_number(ctx, t, sc.dial, deadline)
         try:
             trunk = await _unless_abandoned(ctx, caller, route())
-        except TimeoutError:
-            return Outcome(False, Reason.NOT_CONNECTED)
-        except Misdialled:
-            return Outcome(False, Reason.MISDIALLED)            # Rev 56
+        except TimeoutError:                                    # Rev 56, Rev 84
+            return Outcome(False, Reason.MISDIALLED if ctx.reordered else Reason.NOT_CONNECTED)
 
         await ctx.hw.tone(trunk, "busy")
         await ctx.slots.set_stage(ctx.call, Stage.BUSY,

@@ -260,13 +260,29 @@ async def incoming_operator(h: Harness) -> None:
 
 
 async def misdialling_operator(h: Harness, number: str) -> None:
-    """Dials `number`, waits for reorder, listens a while, then releases."""
+    """Dials `number`, waits for reorder, listens a while, releases, then
+    takes the trunk again and dials the right number (Rev 84)."""
+    c = "station/12"
     await outgoing_operator(h, number)
     await h.b.wait_until(lambda b: b.get("trunk/3/tone") == "reorder", 5)
     h.reorder_at = h.b.get("trunk/3/dialled")
     await asyncio.sleep(D * 4)
     h.still = h.b.get("trunk/3/tone")
     await h.b.update("trunk/3/seize", "off")
+    await asyncio.sleep(D)
+    await h.b.update("trunk/3/seize", "on")
+    await h.b.update("trunk/3/peer", c)
+    await h.b.update(f"{c}/peer", "trunk/3")
+    await h.b.wait_until(lambda b: b.get("trunk/3/tone") == "dial", 5)
+    for d in "2754101":
+        await asyncio.sleep(D / 2)
+        await h.b.update("trunk/3/digit", d)
+
+
+async def misdial_and_stay(h: Harness) -> None:
+    """Dials too few digits and stays on the trunk through the fast busy."""
+    await outgoing_operator(h, "27541")
+    await asyncio.sleep(30)
 
 
 def with_reactions(h: Harness) -> Harness:
@@ -497,13 +513,22 @@ async def main() -> int:
         h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
                           dial="275-4101"))
         r = await h.run(station_to_outside, lambda hh: misdialling_operator(hh, number))
-        check(not r.ok and r.reason == Reason.MISDIALLED, f"fails as misdialled: {r.reason!r}")
+        check(r.ok, f"succeeds once she redials (Rev 84): {r.reason!r}")
         check(h.reorder_at == number, f"reorder once {h.reorder_at!r} is in")
         check(h.still == "reorder", "and goes on while she stays on the trunk")
         tones = [v for k, v in h.link.sent if k == "trunk/3/tone/set"]
-        check(tones[-2:] == ["reorder", "off"], f"stops when she releases: {tones}")
+        i = tones.index("reorder")
+        check(tones[i + 1] == "off" and "dial" in tones[i:] and "ringback" in tones[i:],
+              f"stops when she releases, dial tone on the next seizure: {tones}")
         check(any("too " + ("many" if len(number) > 7 else "few") in e for e in h.events),
               f"logged: {h.events[-1:]}")
+
+    print("\n== a misdial and the connect timeout runs out (Rev 84)")
+    h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
+                      dial="275-4101"))
+    h.ctx.cfg.connect_timeout = 3.0           # DIAL_DELAY is 1s
+    r = await h.run(station_to_outside, misdial_and_stay)
+    check(not r.ok and r.reason == Reason.MISDIALLED, f"fails as misdialled: {r.reason!r}")
 
     print("\n== the operator does not speak: the caller nudges her (Rev 60)")
     h = with_reactions(Harness(scene(Shape.STATION_TO_STATION)))
@@ -542,8 +567,9 @@ async def main() -> int:
     print("\n== a trunk taken and not dialled (Rev 60)")
     h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
                       dial="275-4101"))
+    h.ctx.cfg.connect_timeout = 3.0           # DIAL_DELAY is 1s
     r = await h.run(station_to_outside, never_dials)
-    check(not r.ok and r.reason == Reason.MISDIALLED, f"fails as misdialled: {r.reason!r}")
+    check(not r.ok and r.reason == Reason.MISDIALLED, f"fails as misdialled at the timeout: {r.reason!r}")
     check(any("nothing dialled" in e for e in h.events), f"logged: {h.events[-1:]}")
 
     print("\n== a busy scene")
