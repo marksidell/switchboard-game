@@ -69,6 +69,9 @@ DIAL_SETTLE = 3.0
 # and not dialled for DIAL_FIRST gets reorder, outside tutor mode.
 NUDGE_AFTER = 6.0
 PATCH_WAIT = 8.0
+# s between a party's last words and its hanging up (§5, Rev 75): the time it
+# takes to put a receiver back on its hook.
+HANG_UP = 1.5
 DIAL_FIRST = 15.0
 WRONG_RING = 1.5          # s of ring before a wrong party answers, as the right one does
 
@@ -452,10 +455,12 @@ async def _closing(ctx: Ctx, caller: str, abort_if) -> None:
     """
     sc = ctx.scene
     if not sc.closing:
+        await asyncio.sleep(HANG_UP)            # Rev 75
         return
     sp = Speech(name=sc.closing, seconds=0.0, by="caller", operator=sc.closing)
     try:
         await _operator_speaks(ctx, caller, sp, abort_if)
+        await asyncio.sleep(HANG_UP)            # Rev 75
     except TimeoutError:
         log.info("%s: closing not heard", sc.id)
     except Abandoned:
@@ -588,6 +593,7 @@ async def _converse(ctx: Ctx, caller: str, called: str) -> None:
                            abort_if=broken)
         await _lead_in(ctx, where, line, broken)
         await _play(ctx, where, line, broken)
+    await asyncio.sleep(HANG_UP)                # Rev 75: then the receivers go down
 
 
 def _centred(*circuits: str):
@@ -638,6 +644,7 @@ async def _found_engaged(ctx: Ctx, caller: str, gone) -> Outcome:
             await _operator_speaks(ctx, caller, line, gone)
             await _lead_in(ctx, caller, line, gone)
             await _play(ctx, caller, line, gone)
+        await asyncio.sleep(HANG_UP)            # Rev 75
     except TimeoutError:
         return Outcome(False, Reason.TIMEOUT)
     return Outcome(True)
