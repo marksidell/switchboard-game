@@ -386,6 +386,9 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
         if not isinstance(number, str):
             bad(f"outside.{name}.number", f"not a string: {number!r} — quote it")
             continue
+        person = (entry or {}).get("person")
+        if person is not None and person not in cast:
+            bad(f"outside.{name}.person", f"{person!r} is not in the cast")
         if number in seen_outside:
             bad(f"outside.{name}.number", f"{number} already used by {seen_outside[number]}")
         else:

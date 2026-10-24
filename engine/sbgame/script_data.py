@@ -310,7 +310,8 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
         for who, _ in by_line.get(line, Counter()).most_common():
             if who in s.freecall:
                 return who
-        return ""
+        # An outside line no scene speaks for may name its own (Rev 74).
+        return str((s.outside.get(line) or {}).get("person", ""))
     free_station = {e["number"]: best(line) for line, e in stations.items()
                     if isinstance(e, dict) and isinstance(e.get("number"), int)}
     free_outside = {line: best(line) for line in s.outside}

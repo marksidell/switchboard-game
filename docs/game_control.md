@@ -775,7 +775,7 @@ Rev 74. Mark's spec, 2026-10-23:
 
 While a free caller is routing, a game call routing at the same time does not take a rung room as a wrong party unless it is the room it wants, and does not take a trunk whose `peer` is a free caller. One operator does one thing at a time, so the two rarely meet; when they do the game call wins.
 
-**Who answers.** At a room, its occupant: the cast member who speaks for that station most often in the scenes (§5, Rev 60). At an outside number, the cast member who speaks for that line most often. If that person has no `freecall:` entry, or the line has nobody (the police), the real Lenny answers.
+**Who answers.** At a room, its occupant: the cast member who speaks for that station most often in the scenes (§5, Rev 60). At an outside number, the cast member who speaks for that line most often, or, for a line no scene speaks for, the one its `outside:` entry names with `person:` — the police's desk sergeant. If that person has no `freecall:` entry, or the line has nobody, the real Lenny answers.
 
 **How they talk.** The answerer plays their `greeting:`. Then, over and over:
 

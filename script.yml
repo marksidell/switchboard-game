@@ -460,6 +460,18 @@ cast:
         accent: generic American, young man, sheepish
         description: Eddie Moran, a former pupil of Miss Crane, now in the Navy
 
+    # Free calls (game_control.md 4.12, Rev 74), added 2026-10-23: who answers
+    # the police, which no scene calls.
+    desk_sergeant:
+        sex: male
+        accent: Seattle Irish, gruff, weary
+        description: Sergeant Kowalski, on the desk at Seattle Police headquarters, night shift
+        voice: >
+            A man in his fifties with a deep, gravelly, tired voice and a
+            trace of an Irish-American lilt. Slow and flat, a policeman who has
+            heard every story twice and believes none of them. Natural,
+            conversational telephone speech, 1950s.
+
     # The real Lenny (game_control.md 4.12, Rev 74): his sixteen recordings,
     # released freely on the internet in 2013, answer a number the game does
     # not know. His lines are under freecall:, his takes in tts/recorded/.
@@ -991,6 +1003,19 @@ freecall:
             - Car or walk on?
             - Huh. Well, that's the darnedest thing.
             - Okay. Anything else?
+    desk_sergeant:
+        greeting: Police headquarters. Sergeant Kowalski.
+        lines:
+            - Uh huh. Slow down. Start from the beginning.
+        loop:
+            - Uh huh. And what time was this?
+            - Can you describe him? Height, weight, hat?
+            - I'm writing it down. I'm writing it all down.
+            - Sorry, say again? They're bringing in a drunk.
+            - You know, we had a call just like this one Tuesday. Was that you?
+            - Is anybody hurt? Then it can wait till morning.
+            - And where are you calling from?
+            - Uh huh. I'll have a car swing by. Eventually.
     nurse:
         greeting: Swedish Hospital.
         lines:
@@ -1216,6 +1241,8 @@ outside:
     police:
         number: "623-2111"
         description: Seattle Police
+        # Who answers it, since no scene does: a free call (game_control.md 4.12).
+        person: desk_sergeant
     swedish:
         number: "322-5100"
         description: Swedish Hospital
