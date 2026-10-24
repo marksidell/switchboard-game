@@ -5246,35 +5246,35 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "thornhill",
-    "text_sha": "a395e9b6d0ceb965",
+    "text_sha": "6f49c522e849beec",
     "voice_sha": "f3ffa390a902a572"
   },
   "free.thornhill.2": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "thornhill",
-    "text_sha": "adc218aff9055132",
+    "text_sha": "d2f96ad388f18843",
     "voice_sha": "f3ffa390a902a572"
   },
   "free.thornhill.3": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "thornhill",
-    "text_sha": "35e8657ca5f3528b",
+    "text_sha": "70cf71dcaa24a786",
     "voice_sha": "f3ffa390a902a572"
   },
   "free.thornhill.4": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "thornhill",
-    "text_sha": "ee4493c45a7493fa",
+    "text_sha": "1d74dc8529d0f553",
     "voice_sha": "f3ffa390a902a572"
   },
   "free.thornhill.5": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "thornhill",
-    "text_sha": "fe1a3ebaabc4de2c",
+    "text_sha": "82730d09ed4e9ae4",
     "voice_sha": "f3ffa390a902a572"
   },
   "free.thornhill.g": {

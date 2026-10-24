@@ -548,12 +548,12 @@ freecall:
     thornhill:
         greeting: Hi! Mellow greetings, ukie-dukie!
         lines:
-            - Hey, you remind me of a man.
+            - Hey, you remind me of a man!
         loop:
-            - The man with the power.
-            - The power of hoodoo.
-            - You do.
-            - Remind me of a man.
+            - The man with the power!
+            - The power of hoodoo!
+            - You do!
+            - Remind me of a man!
     marysmith:
         greeting: Hello? Who is this?
         lines:
