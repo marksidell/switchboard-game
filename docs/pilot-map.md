@@ -113,7 +113,7 @@ carries eight strips; the seventh is not a station:
 | --- | --- | --- |
 | 1–6 | 17–22 | stations 17–22 |
 | 7 | 23 | operator tap — transmits the 9 kHz operator tone, receives the monitor source |
-| 8 | 24 | station 24 — a real telephone, cabled to switchboard jack 10 (`real_phone.md`) |
+| 8 | 24 | station 24 — a real telephone, cabled to switchboard jack 18 (`real_phone.md`; jack 10 until 2026-10-24) |
 
 The comb still has 32 slots and the formula is unchanged; slot 23 simply has no
 circuit behind it, and `sbgame/station/23/…` are topics that never appear.

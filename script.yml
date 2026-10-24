@@ -1372,7 +1372,7 @@ jacks:
         station:
     -   jack: 18
         label: "203"
-        station:
+        station: phone          # the real telephone, station 24 (game_control.md Rev 83)
     -   jack: 19
         label: "204"
         station: room204
@@ -1417,7 +1417,7 @@ jacks:
         guest: "Miss Dorothy Crane"
     -   jack: 10
         label: "405"
-        station: phone          # the real telephone, station 24 (game_control.md Rev 73)
+        station:
 
 scenes:
     nbn-valet:

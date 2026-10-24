@@ -360,8 +360,8 @@ async def main() -> int:
         print("\n== station 24, the real telephone (§6.5, Rev 73)")
         check(fitted_stations(22) == list(range(1, 23)) + [24], "fitted with board 3, at 22 stations")
         check(fitted_stations(21) == list(range(1, 22)), "and not below it")
-        j10 = next(j for j in full.jacks if j.kind == "station" and j.number == 10)
-        check(j10.circuit == "station/24", f"cabled to jack 10: {j10.circuit!r}")
+        j18 = next(j for j in full.jacks if j.kind == "station" and j.number == 18)
+        check(j18.circuit == "station/24", f"cabled to jack 18: {j18.circuit!r}")
 
         print("\n== stations out of service (§6.5, Rev 43)")
         so = {"stations": {"1": "top row dead", "9": "top row dead"}}

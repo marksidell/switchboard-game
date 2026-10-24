@@ -1,9 +1,14 @@
 # 551 Switchboard Simulator — A Real Telephone on the Board (Proposal)
 
-Rev 2 — 2026-10-23. Adopted, option B (Mark, 2026-10-23). The parts of it that are
+Rev 3 — 2026-10-24. Adopted, option B (Mark, 2026-10-23). The parts of it that are
 design go into `station_circuit.md`, `audio.md`, `pilot-map.md`, `control.md`, `mqtt.md`
 and `game_control.md` (§6 below), and this document becomes the record of how the
 decision was reached.
+
+## Changes in Rev 3
+
+- §3: the phone's line moved to switchboard jack 18, room 203 (Mark, 2026-10-24). Jack 10
+  is uncabled.
 
 ## Changes in Rev 2
 
@@ -43,7 +48,8 @@ phone is off-hook.
 The phone uses board 3 strip 8's line pair. The pair already runs from the switchboard to
 the game box and is unused on the line side: the strip carries the audience monitor
 (J7B101 pins 7/8; station §7.9.8). The phone is wired across it at the game box.
-It is cabled to switchboard jack 10, room 405 (Mark, 2026-10-23): bundle 2,
+It is cabled to switchboard jack 18, room 203 (Mark, 2026-10-24; jack 10, room 405, from
+2026-10-23): bundle 2,
 white-brown, `hardware/station-wiring.csv`.
 
 ### 3.1 Hook detector
