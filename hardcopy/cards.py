@@ -14,7 +14,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 FONT_FILE = os.path.join(HERE, "fonts", "SpecialElite-Regular.ttf")
 FONT = "Special Elite"
 EXCHANGES = os.path.join(HERE, "seattle-exchanges.csv")
-DATE = "September 29"
+DATE = "November 7"
 
 # How each outside number is typed. Keyed by the outside: id.
 OUTSIDE = {
