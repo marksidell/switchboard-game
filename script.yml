@@ -718,7 +718,7 @@ freecall:
             - The draperies, the water pressure, and now this.
             - Hmph. Go on, then.
     martha:
-        greeting: Woof. I mean, hello?
+        greeting: Woof, woof!
         lines:
             - Is that you? I know that voice. Do you have a biscuit?
         loop:
