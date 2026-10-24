@@ -80,7 +80,7 @@ bool Engine::prepare()
     ring_.assign((size_t)chan::N_CAP_CH * FFT_N, 0.0f);
     test_row_.assign(period_, 0.0f);
     mon_row_.assign(period_, 0.0f);
-    line_row_.assign((size_t)period_ * 2, 0.0f);
+    line_row_.assign((size_t)period_ * 2 * sh_.opt.record_line.size(), 0.0f);
 
     for (int i = 0; i < 2; ++i) {
         sh_.snap[i].data.assign((size_t)chan::N_CAP_CH * FFT_N, 0.0f);
@@ -855,21 +855,24 @@ void Engine::check_output()
 }
 
 // record_line()                                                        [audio]
-//   --record-line (audio.md 10.6, Rev 25): while a recording runs, the slot's
-//   output as about to be written and its capture of this period, in pairs,
-//   to the MQTT thread's second file. Raw: the samples ALSA is given and gave,
-//   so the echo of the slot's own playback can be measured against what was
-//   sent. A full ring loses the period, counted with the recording's.
+//   --record-line (audio.md 10.6, Rev 25): while a recording runs, each
+//   slot's output as about to be written and its capture of this period, a
+//   pair per slot in each frame, to the MQTT thread's second file. Raw: the
+//   samples ALSA is given and gave, so the echo of a slot's own playback can
+//   be measured against what was sent. A full ring loses the period, counted
+//   with the recording's.
 void Engine::record_line()
 {
-    const int s = sh_.opt.record_line;
-    if (s == 0 || !sh_.rec_on.load(std::memory_order_acquire)) return;
-    if ((unsigned)s > nplay_ || (unsigned)s > ncap_) return;
-    const int32_t* out = obuf_.data() + (s - 1);
-    const float*   cap = &capf_[(size_t)(s - 1) * period_];
-    for (unsigned i = 0; i < period_; ++i) {
-        line_row_[2 * i]     = s32_to_float(out[(size_t)i * nplay_]);
-        line_row_[2 * i + 1] = cap[i];
+    const std::vector<int>& sl = sh_.opt.record_line;
+    if (sl.empty() || !sh_.rec_on.load(std::memory_order_acquire)) return;
+    const size_t w = 2 * sl.size();
+    for (size_t k = 0; k < sl.size(); ++k) {
+        const int s = sl[k];
+        const bool have = (unsigned)s <= nplay_ && (unsigned)s <= ncap_;
+        for (unsigned i = 0; i < period_; ++i) {
+            line_row_[i * w + 2 * k]     = have ? s32_to_float(obuf_[(size_t)i * nplay_ + (s - 1)]) : 0.0f;
+            line_row_[i * w + 2 * k + 1] = have ? capf_[(size_t)(s - 1) * period_ + i] : 0.0f;
+        }
     }
     if (!sh_.line_ring.write(line_row_.data(), line_row_.size())) ++rec_lost_;
 }

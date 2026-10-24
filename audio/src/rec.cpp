@@ -50,7 +50,7 @@ Recorder::~Recorder()
 void Recorder::prepare()
 {
     sh_.rec_ring.allocate();
-    if (sh_.opt.record_line) sh_.line_ring.allocate();
+    if (!sh_.opt.record_line.empty()) sh_.line_ring.allocate();
     xfer_.assign(XFER, 0.0f);
     sh_.play_ring.allocate();
     gain_ = makeup(sh_);
@@ -93,28 +93,30 @@ std::string Recorder::start()
     sf_command(snd_, SFC_SET_CLIPPING, nullptr, SF_TRUE);
     sf_command(snd_, SFC_SET_UPDATE_HEADER_AUTO, nullptr, SF_TRUE);
 
-    // --record-line (Rev 25): the slot's output and capture beside it, as
-    // two-channel float, unscaled. The '.' keeps it out of list().
-    if (sh_.opt.record_line) {
-        const std::string lp = sh_.opt.record_dir + "/" + base + ".line" +
-                               std::to_string(sh_.opt.record_line) + ".wav";
+    // --record-line (Rev 25): each slot's output and capture beside it, as
+    // float, unscaled, two channels a slot. The '.' keeps it out of list().
+    const std::vector<int>& sl = sh_.opt.record_line;
+    if (!sl.empty()) {
+        std::string lp = sh_.opt.record_dir + "/" + base + ".line";
+        for (size_t k = 0; k < sl.size(); ++k) lp += (k ? "-" : "") + std::to_string(sl[k]);
+        lp += ".wav";
         SF_INFO li;
         std::memset(&li, 0, sizeof li);
         li.samplerate = chan::SAMPLE_RATE;
-        li.channels   = 2;
+        li.channels   = 2 * (int)sl.size();
         li.format     = SF_FORMAT_WAV | SF_FORMAT_FLOAT;
         line_ = sf_open(lp.c_str(), SFM_WRITE, &li);
         if (!line_) log_line("record: cannot open %s: %s", lp.c_str(), sf_strerror(nullptr));
         else {
             sf_command(line_, SFC_SET_UPDATE_HEADER_AUTO, nullptr, SF_TRUE);
-            log_line("record: slot %d output and capture to %s", sh_.opt.record_line, lp.c_str());
+            log_line("record: %zu slots' output and capture to %s", sl.size(), lp.c_str());
         }
     }
 
     name_  = base;
     since_ = monotonic_s();
     sh_.rec_ring.discard();
-    if (sh_.opt.record_line) sh_.line_ring.discard();
+    if (!sl.empty()) sh_.line_ring.discard();
     sh_.rec_on.store(true, std::memory_order_release);
     log_line("record: started %s (makeup %+.1f dB)", path.c_str(), lin_to_db(gain_));
     return name_;
@@ -130,9 +132,13 @@ void Recorder::drain()
         if ((size_t)sf_write_float(snd_, xfer_.data(), (sf_count_t)n) != n)
             log_line("record: write to %s.wav failed: %s", name_.c_str(), sf_strerror(snd_));
     }
-    if (!sh_.opt.record_line) return;
-    while ((n = sh_.line_ring.read(xfer_.data(), xfer_.size() & ~(size_t)1)) > 0) {
-        if (line_) sf_writef_float(line_, xfer_.data(), (sf_count_t)(n / 2));
+    const size_t w = 2 * sh_.opt.record_line.size();
+    if (w == 0) return;
+    // Whole frames only: the audio thread writes whole periods, so what is
+    // waiting is always a multiple of w.
+    const size_t chunk = xfer_.size() - xfer_.size() % w;
+    while ((n = sh_.line_ring.read(xfer_.data(), chunk)) > 0) {
+        if (line_) sf_writef_float(line_, xfer_.data(), (sf_count_t)(n / w));
     }
 }
 

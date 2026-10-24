@@ -48,8 +48,9 @@ static void usage(const char* p)
 "  --max-file SECONDS     longest file accepted (120)\n"
 "  --record-dir PATH      where loudspeaker recordings go (recordings)\n"
 "  --record-max SECONDS   longest recording; it then stops itself (14400)\n"
-"  --record-line SLOT     with each recording, also SLOT's output and capture,\n"
-"                         raw, as <name>.line<SLOT>.wav (none; bench use)\n"
+"  --record-line SLOT[,SLOT...]  with each recording, also up to 8 slots' output\n"
+"                         and capture, raw, as <name>.line<SLOT>[-<SLOT>...].wav\n"
+"                         (none; bench use)\n"
 "  --pilot-db DB          pilot level (-40)\n"
 "  --op-db DB             operator tone level (-18)\n"
 "  --tone-db DB           trunk tone peak level (-20)\n"
@@ -87,6 +88,33 @@ static void usage(const char* p)
 //   Checks that the option at argv[i] is followed by at least n more
 //   arguments. Prints "--x needs n arguments" and returns false if not, so the
 //   caller never reads past the end of argv.
+// parse_record_line()                                                [startup]
+//   "21" or "20,25,26" -> the slots, in the order given: circuits only, no
+//   repeats, at most 8 (audio.md 10.6, Rev 25).
+static bool parse_record_line(const char* s, std::vector<int>& out)
+{
+    out.clear();
+    const std::string str = s;
+    size_t i = 0;
+    while (i <= str.size()) {
+        const size_t c = str.find(',', i);
+        const std::string tok = str.substr(i, (c == std::string::npos ? str.size() : c) - i);
+        char* end = nullptr;
+        const long n = std::strtol(tok.c_str(), &end, 10);
+        if (tok.empty() || !end || *end != '\0' || !chan::is_circuit_slot((int)n)) {
+            std::fprintf(stderr, "--record-line: \"%s\" is not a circuit's slot\n", tok.c_str());
+            return false;
+        }
+        for (int have : out)
+            if (have == (int)n) { std::fprintf(stderr, "--record-line: %ld given twice\n", n); return false; }
+        out.push_back((int)n);
+        if (c == std::string::npos) break;
+        i = c + 1;
+    }
+    if (out.size() > 8) { std::fprintf(stderr, "--record-line: at most 8 slots\n"); return false; }
+    return true;
+}
+
 // parse_monitor_ch()                                                 [startup]
 //   "24", "33,34", "24,33" -> the channels, in the order given. Refuses
 //   rather than clamps (audio.md 14): an empty list, a repeat, anything that
@@ -176,7 +204,8 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         else if (a == "--max-file")       { o.max_file = atof(nx); ++i; }
         else if (a == "--record-dir")     { o.record_dir = nx; ++i; }
         else if (a == "--record-max")     { o.record_max = atof(nx); ++i; }
-        else if (a == "--record-line")    { o.record_line = atoi(nx); ++i; }
+        else if (a == "--record-line")    { if (!parse_record_line(nx, o.record_line)) return false;
+                                            ++i; }
         else if (a == "--pilot-db")       { o.pilot_db = atof(nx); ++i; }
         else if (a == "--op-db")          { o.op_db = atof(nx); ++i; }
         else if (a == "--tone-db")        { o.tone_db = atof(nx); ++i; }
@@ -267,8 +296,6 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
     if (o.lp_stop <= o.lp_pass)           { std::fprintf(stderr, "--monitor-lp: stopband edge must exceed passband edge\n"); return false; }
     if (o.max_file <= 0.0)                { std::fprintf(stderr, "--max-file must be positive\n"); return false; }
     if (o.record_max <= 0.0)              { std::fprintf(stderr, "--record-max must be positive\n"); return false; }
-    if (o.record_line != 0 && !chan::is_circuit_slot(o.record_line)) {
-        std::fprintf(stderr, "--record-line: %d is not a circuit's slot\n", o.record_line); return false; }
     // Both are counted in 10 ms frames, so anything under one frame would be
     // zero frames - speech that ends the instant it starts.
     if (o.vad_hangover < 0.01 || o.vad_hangover > 60.0) {

@@ -177,7 +177,7 @@ Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout t
 
 ## 1.25 Changes in Rev 25
 
-— `--record-line SLOT`, a bench option (§10.6, §14): with every loudspeaker recording, the program also writes the slot's output and capture, raw, to `<name>.line<SLOT>.wav` beside it. It is for measuring how the circuit's own playback returns on its receive — the echo that §9.3 discards — to decide whether a software echo canceller can let the speech detector hear a caller who talks over a file (game_control.md Rev 78, 2026-10-24). Not set in service; added to the unit for a bench session and taken out after.
+— `--record-line SLOT[,SLOT...]`, a bench option (§10.6, §14): with every loudspeaker recording, the program also writes up to eight slots' output and capture, raw, to `<name>.line<SLOT>[-<SLOT>...].wav` beside it. It is for measuring how the circuit's own playback returns on its receive — the echo that §9.3 discards — to decide whether a software echo canceller can let the speech detector hear a caller who talks over a file (game_control.md Rev 78, 2026-10-24). Not set in service; added to the unit for a bench session and taken out after.
 
 — Code consequence, made the same day: `Engine::record_line()` after the render, `Shared::line_ring`, the second file in the Recorder.
 
@@ -481,7 +481,7 @@ Rev 22. `sbgame/audio/record/set` `"on"` starts a recording of the monitor's out
 
 **State.** `sbgame/audio/record`, retained: the base name of the file being written, `"off"`, or `"failed"` when the last `"on"` could not open a file — the directory missing or not writable — which persists until the next `record/set`. Echoed by the MQTT thread once the file is open or closed, since the file is that thread's (§12). An `"on"` while recording leaves the recording as it is and echoes its name. At `--record-max`, four hours by default, a recording stops itself, is converted, and the state goes `"off"`.
 
-**One circuit raw** (Rev 25, bench use). With `--record-line SLOT`, each recording also writes `<name>.line<SLOT>.wav`: WAV, 48kHz, two channels, 32-bit float, unscaled — channel 1 the slot's output as given to ALSA (pilot, file or tone, and test tone, whatever the render made), channel 2 its capture as ALSA gave it, period by period, so the round-trip delay is fixed and measurable. The audio thread writes the pairs to a second ring of 2^20 samples, 10.9s, after the render; the MQTT thread drains it with the recording's and closes it with the WAV. It is never converted, and the `.` in its name keeps it out of `audio/recordings` and playback. A full ring loses the period, counted with the recording's.
+**Circuits raw** (Rev 25, bench use). With `--record-line SLOT[,SLOT...]`, up to eight circuit slots, each recording also writes `<name>.line<SLOT>[-<SLOT>...].wav`: WAV, 48kHz, 32-bit float, unscaled, two channels a slot in the order given — the slot's output as given to ALSA (pilot, file or tone, and test tone, whatever the render made), then its capture as ALSA gave it, period by period, so the round-trip delay is fixed and measurable. The audio thread writes the frames to a second ring of 2^20 samples, 10.9s for one slot and 1.4s for eight, after the render; the MQTT thread drains it with the recording's and closes it with the WAV. It is never converted, and the `.` in its name keeps it out of `audio/recordings` and playback. A full ring loses the period, counted with the recording's.
 
 ## 10.7 Playing a Recording Back
 
@@ -582,8 +582,9 @@ Command-line options, each with the default given here, and no configuration fil
 --max-file SECONDS     longest file accepted (120)
 --record-dir PATH      where loudspeaker recordings go (recordings) (§10.6)
 --record-max SECONDS   longest recording; it then stops itself (14400)
---record-line SLOT     with each recording, also SLOT's output and capture,
-                       raw, as <name>.line<SLOT>.wav (none; bench use, §10.6)
+--record-line SLOT[,SLOT...]  with each recording, also up to 8 slots'
+                       output and capture, raw, as <name>.line<SLOT>[-<SLOT>...].wav
+                       (none; bench use, §10.6)
 --pilot-db DB          pilot level (-40)
 --op-db DB             operator tone level (-18)
 --tone-db DB           trunk tone peak level (-20)
