@@ -27,7 +27,8 @@ fcm.TURN_END = D * 3
 fcm.PATCH_WAIT = D * 10
 fcm.DIAL_DELAY = D
 fcm.DIAL_FIRST = D * 20
-fcm.DIAL_PAUSE = D * 5
+fcm.DIAL_PAUSE = D * 8
+fcm.DIAL_SETTLE = D * 5
 fcm.RINGBACK_KNOWN = D
 fcm.RINGBACK_LENNY = D * 2
 fcm.RETRY = D * 5
@@ -293,6 +294,34 @@ async def public_line_out(number: str, who: str, ringback: str) -> None:
     runner.cancel()
 
 
+async def public_line_short() -> None:
+    print("\n== three digits and a pause: fast busy, not Lenny (Rev 80)")
+    g = StubGame()
+    await g.live()
+    runner = asyncio.create_task(g.free.run())
+    b = g.b
+    await b.update("trunk/8/seize", "on")
+    await b.update("trunk/8/op", "on")
+    await until(b, lambda b: g.free.routing())
+    await b.update("trunk/3/seize", "on")
+    await b.update("trunk/3/peer", "trunk/8")
+    await until(b, lambda b: b.get("trunk/3/tone") == "dial")
+    for d in "283":
+        await b.update("trunk/3/digit", d)
+        await asyncio.sleep(D / 2)
+    await asyncio.sleep(fcm.DIAL_PAUSE / 2)
+    check(b.get("trunk/3/tone") != "reorder", "a pause shorter than DIAL_PAUSE: still dialling")
+    await until(b, lambda b: b.get("trunk/3/tone") == "reorder")
+    check(not g.played("trunk/3"), "then fast busy, and nobody answers")
+    check(any("too few digits" in s for s in g.said), "logged as too few digits")
+    await b.update("trunk/3/seize", "off")
+    await until(b, lambda b: g.sent("trunk/3/tone/set")[-1] == "off")
+    check(True, "released: the fast busy stops")
+    await b.update("trunk/8/seize", "off")
+    await until(b, lambda b: not g.free.circuits())
+    runner.cancel()
+
+
 async def scene_trunk_rules() -> None:
     print("\n== the routing flows leave the public line and a free call's trunk alone")
     from sbgame.flows import Ctx, _fresh
@@ -324,6 +353,7 @@ async def main() -> int:
     await silent_caller()
     await public_line_out("2835678", "maitre_d", "known")
     await public_line_out("5551212", "lenny", "unknown")
+    await public_line_short()
     await scene_trunk_rules()
     print("\nall passed" if not failures else f"\nFAILURES: {failures}")
     return 1 if failures else 0

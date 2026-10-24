@@ -38,7 +38,9 @@ TURN_END = 0.4        # s more of silence before it is the answerer's turn (Rev 
 PATCH_WAIT = 8.0      # s for the cord to join a room that answered (§5, Rev 60)
 DIAL_DELAY = 1.0      # s from seizure to dial tone (§5, Rev 46)
 DIAL_FIRST = 15.0     # s for the first digit
-DIAL_PAUSE = 3.0      # s with no new digit ends the number
+DIAL_PAUSE = 10.0     # s with no new digit, short of a number: fast busy (Rev 80)
+DIAL_SETTLE = 3.0     # s after the last digit a number needs, before it rings (Rev 80)
+NUMBER = 7            # digits in a number; "0" alone is the operator
 RINGBACK_KNOWN = 2.0  # s of ringback before an establishment answers
 RINGBACK_LENNY = 4.0  # and before the real Lenny does
 RETRY = 2.0           # s before a free call that ended on a fault starts again
@@ -181,6 +183,15 @@ class FreeCall:
             digits = await self._number(k)
             if digits is None:
                 return
+            if digits in ("short", "long"):
+                # Fast busy, as a game call's misdial gets (§5, Rev 56), until
+                # she releases the trunk or the caller goes.
+                got = self.b.dialled(k)
+                await self.fc.say(f"free call: {self.name} dialled {got}: too "
+                                  + ("few" if digits == "short" else "many") + " digits")
+                await self.hw.tone(k, "reorder")
+                await self.b.wait_until(lambda b: not up(b) or self.gone(b), None)
+                return
             gs = self.fc.game.gs
             line = gs.numbers.get(digits, "")
             self.line = line
@@ -197,18 +208,23 @@ class FreeCall:
             await _quietly(self.hw.stop(t))
 
     async def _number(self, k: int) -> str | None:
-        """The digits once DIAL_PAUSE passes with no new one; None if she
+        """The number once dialled (Rev 80): seven digits, or "0" for the
+        operator, with DIAL_SETTLE and no digit more. "long" for a digit more,
+        "short" for DIAL_PAUSE with no digit short of a number; None if she
         released the trunk or the caller went."""
         while True:
             have = self.b.dialled(k)
+            if len(have) > NUMBER:
+                return "long"
+            whole = len(have) == NUMBER or have == "0"
             try:
                 got = await self.b.wait_until(
                     lambda b: (self.gone(b) and "gone")
                               or (not b.on(f"trunk/{k}/seize") and "released")
                               or len(b.dialled(k)) > len(have),
-                    DIAL_PAUSE)
+                    DIAL_SETTLE if whole else DIAL_PAUSE)
             except TimeoutError:
-                return have
+                return have if whole else "short"
             if got in ("gone", "released"):
                 return None
 
