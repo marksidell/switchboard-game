@@ -78,6 +78,8 @@ static void usage(const char* p)
 "  --vad-floor DB         speech absolute threshold (-50)\n"
 "  --vad-hangover S       silence that ends speech (1.5)\n"
 "  --vad-max-speech S     longest speech waited out before timeout (30)\n"
+"  --aec on|off           the echo canceller while a circuit plays a file (on)\n"
+"  --aec-delay MS         lag before its first tap; it covers 16 ms from there (10)\n"
 "  --dump CIRCUIT SECONDS spectrum dump to stdout, e.g. --dump station/5 10\n"
 "  --window rect|hann     detector window (rect; see docs/pilot-map.md)\n"
 "  --no-realtime          do not ask for SCHED_FIFO or lock memory\n"
@@ -238,6 +240,11 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         else if (a == "--vad-floor")      { o.vad_floor = atof(nx); ++i; }
         else if (a == "--vad-hangover")   { o.vad_hangover = atof(nx); ++i; }
         else if (a == "--vad-max-speech") { o.vad_max_speech = atof(nx); ++i; }
+        else if (a == "--aec")            { const std::string v = nx; ++i;
+                                            if (v == "on") o.aec = true;
+                                            else if (v == "off") o.aec = false;
+                                            else { std::fprintf(stderr, "--aec: on or off\n"); return false; } }
+        else if (a == "--aec-delay")      { o.aec_delay = atof(nx); ++i; }
         else if (a == "--dump")           { if (!want(argc, i, 2, "--dump")) return false;
                                             o.dump_circuit  = argv[i + 1];
                                             o.dump_seconds  = atof(argv[i + 2]); i += 2; }
@@ -302,5 +309,9 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         std::fprintf(stderr, "--vad-hangover must be 0.01-60 s\n"); return false; }
     if (o.vad_max_speech < 0.01 || o.vad_max_speech > 3600.0) {
         std::fprintf(stderr, "--vad-max-speech must be 0.01-3600 s\n"); return false; }
+    // The reference history is 64 ms; the taps reach 16 ms past the delay, and
+    // a period's worth more is needed for the samples not yet rendered.
+    if (o.aec_delay < 0.0 || o.aec_delay > 30.0) {
+        std::fprintf(stderr, "--aec-delay must be 0-30 ms\n"); return false; }
     return true;
 }

@@ -33,6 +33,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "aec.h"
 #include "alsa.h"
 #include "dsp.h"
 #include "ipc.h"
@@ -129,6 +130,7 @@ private:
     void process_capture();
     void render();
     void check_output();
+    void aec_feed(int slot, const float* s, unsigned n);
     void record_line();
     void hop_if_due();
 
@@ -182,6 +184,18 @@ private:
     Prog prog_[chan::N_SLOTS + 1];
     Vad  vad_[chan::N_SLOTS + 1];           // Listener holds 400 bytes of history;
                                             // 33 of them, allocated with Engine
+
+    // ---- the echo canceller (audio.md 9.4, Rev 26), one per slot, on the
+    // heap: 3 KB each. Its reference, the file, through the detector's band-
+    // pass, sample by sample in render(); and the 8 kHz index its last echo
+    // sample falls at, after which it stops.
+    struct AecRef {
+        BiquadState hp, lp[3];
+        uint32_t    until = 0;
+    };
+    std::vector<EchoCanceller> aec_;
+    AecRef   aec_ref_[chan::N_SLOTS + 1];
+    uint64_t g_ = 0;                        // 48 kHz samples before this period
     bool test_on_[chan::N_PLAY_CH + 1] = { false };
     bool mon_out_[chan::N_PLAY_CH + 1] = { false };  // --monitor-ch, by channel
 

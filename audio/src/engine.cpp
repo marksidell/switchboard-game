@@ -81,6 +81,8 @@ bool Engine::prepare()
     test_row_.assign(period_, 0.0f);
     mon_row_.assign(period_, 0.0f);
     line_row_.assign((size_t)period_ * 2 * sh_.opt.record_line.size(), 0.0f);
+    aec_.assign(chan::N_SLOTS + 1, EchoCanceller());
+    for (auto& a : aec_) a.configure((int)std::lround(sh_.opt.aec_delay * 8.0));
 
     for (int i = 0; i < 2; ++i) {
         sh_.snap[i].data.assign((size_t)chan::N_CAP_CH * FFT_N, 0.0f);
@@ -521,25 +523,47 @@ void Engine::process_capture()
         const bool src_active = prog_[slot].kind != Prog::Kind::None;
         if (src_active) v.src_seen = true;
 
+        // The echo canceller (audio.md 9.4) runs from a file's start until its
+        // echo is over: the last sample sent, plus 50 ms.
+        EchoCanceller& ec = aec_[slot];
+        if (ec.on() && prog_[slot].kind != Prog::Kind::File &&
+            (int32_t)((uint32_t)(g_ / EchoCanceller::DECIM) - aec_ref_[slot].until) >= 0)
+            ec.stop((uint32_t)(g_ / EchoCanceller::DECIM));
+
         for (unsigned i = 0; i < period_; ++i) {
             double y = v.hp.run(vad_hp_, (double)src[i]);
             for (int s = 0; s < 3; ++s) y = v.lp[s].run(vad_lp_[s], y);
             v.acc += y * y;
+            const uint64_t g = g_ + i;
+            if (ec.on() && g % EchoCanceller::DECIM == 0)
+                ec.step((uint32_t)(g / EchoCanceller::DECIM), (float)y);
             if (++v.nacc < VAD_FRAME) continue;
 
             const double rms = std::sqrt(v.acc / (double)VAD_FRAME);
-            const float  db  = (float)lin_to_db(rms * M_SQRT2);
+            float db  = (float)lin_to_db(rms * M_SQRT2);
             v.acc  = 0.0;
             v.nacc = 0;
 
             // A frame during which this channel had a programme source
             // running is not valid (audio.md 9.3): the two-wire interface has
             // no hybrid, so our own file returns on this receive at full
-            // strength. The Listener discards it and restarts its window.
-            const bool valid = !v.src_seen;
+            // strength. The Listener discards it and restarts its window -
+            // unless the echo canceller ran for the whole frame and has
+            // converged (9.4, Rev 26). Then the residual is judged, against
+            // the echo it took out as well as the usual threshold, and kept
+            // out of the history so the floor stays the quiet before the file.
+            bool   valid = !v.src_seen;
+            bool   keep  = valid;
+            double min_db = -1e9;
+            const EchoCanceller::Frame f = ec.end_frame((uint32_t)(g / EchoCanceller::DECIM));
+            if (f.full) {
+                valid  = f.valid;
+                db     = (float)f.resid_db;
+                min_db = f.echo_db - EchoCanceller::ECHO_MARGIN_DB;
+            }
             v.src_seen = false;
 
-            switch (v.lis.frame(db, valid, vad_params_)) {
+            switch (v.lis.frame(db, valid, vad_params_, keep, min_db)) {
             case Listener::Event::Speech:  post(Topic::Listen, slot, "speech");  break;
             case Listener::Event::Silence: post(Topic::Listen, slot, "silence"); break;
             case Listener::Event::Timeout: post(Topic::Listen, slot, "timeout"); break;
@@ -766,6 +790,7 @@ void Engine::render()
         // source alone has a ceiling to check (audio.md 11.4).
         Prog& p = prog_[slot];
         out_ceil_[ch] = (p.kind == Prog::Kind::None) ? amp : -1.0f;
+        if (p.kind != Prog::Kind::File) aec_feed(slot, nullptr, 0);
         if (p.kind == Prog::Kind::None) continue;
 
         // Sum the programme source over the fixed one, in float, hard-clipped
@@ -774,6 +799,7 @@ void Engine::render()
             const size_t have = p.buf->samples.size() - p.pos;
             const unsigned n_s = (unsigned)std::min<size_t>(have, period_);
             const float* s = p.buf->samples.data() + p.pos;
+            if (slot != chan::TAP_CH) aec_feed(slot, s, n_s);
             n = pilot_n_;
             for (unsigned i = 0; i < n_s; ++i) {
                 float v = amp * tbl_.at(b * n) + s[i];
@@ -821,6 +847,36 @@ void Engine::render()
     }
 
     pilot_n_ = (pilot_n_ + period_) & (FFT_N - 1);
+    g_ += period_;
+}
+
+// aec_feed()                                                           [audio]
+//   The echo canceller's reference for one circuit, this period (audio.md
+//   9.4, Rev 26): n samples of its file, then silence, through the speech
+//   detector's band-pass so that both sides of the subtraction are filtered
+//   alike, every sixth sample kept. A file starting starts the canceller;
+//   while it runs, silence is fed after the file ends, until its echo is over.
+void Engine::aec_feed(int slot, const float* s, unsigned n)
+{
+    if (!sh_.opt.aec || !chan::is_circuit_slot(slot)) return;
+    EchoCanceller& ec = aec_[slot];
+    AecRef& r = aec_ref_[slot];
+    constexpr int D = EchoCanceller::DECIM;
+    if (n > 0) {
+        if (!ec.on()) {
+            ec.start((uint32_t)(g_ / D));
+            r.hp.reset();
+            for (auto& l : r.lp) l.reset();
+        }
+        r.until = (uint32_t)((g_ + n) / D) + 400;          // + 50 ms of echo
+    }
+    if (!ec.on()) return;
+    for (unsigned i = 0; i < period_; ++i) {
+        double y = r.hp.run(vad_hp_, i < n ? (double)s[i] : 0.0);
+        for (int k = 0; k < 3; ++k) y = r.lp[k].run(vad_lp_[k], y);
+        const uint64_t g = g_ + i;
+        if (g % D == 0) ec.ref((uint32_t)(g / D), (float)y);
+    }
 }
 
 // check_output()                                                       [audio]

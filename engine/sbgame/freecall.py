@@ -21,9 +21,9 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
-from .board import LIVE_CONTROL, Abandoned, Board, Offline
+from .board import LIVE_AUDIO, LIVE_CONTROL, Abandoned, Board, Offline
 from .deck import Holding
-from .scenes import _quietly, hear, say
+from .scenes import MARGIN, MAX_SPEECH, _quietly, hear, say
 from .script_data import PHONE_STATION, FreeLines, fitted_stations
 
 if TYPE_CHECKING:
@@ -220,20 +220,44 @@ class FreeCall:
             log.warning("free call: no lines for %s, not even Lenny's; silence", self.who)
             await self.b.wait_until(lambda b: False, None, abort_if=abort)
             return
-        await say(self.b, self.hw, c, lines.greeting.name, lines.greeting.seconds, abort_if=abort)
         hello = self.fc.game.gs.reaction("hello", self.who)
         k = 0
-        wait = LISTEN
+        sp, wait = lines.greeting, LISTEN
         while True:
-            if not await self._turn(c, wait, abort):
-                if hello is not None:
-                    await say(self.b, self.hw, c, hello.name, hello.seconds, abort_if=abort)
-                wait = LISTEN_AGAIN
-                continue
-            wait = LISTEN
-            sp = lines.said(k)
-            k += 1
+            if await self._line(c, sp, wait, abort):
+                sp, wait = lines.said(k), LISTEN
+                k += 1
+            elif hello is not None:
+                sp, wait = hello, LISTEN_AGAIN
+            else:
+                # Lenny says nothing to silence: he listens until the caller speaks.
+                while not await self._turn(c, LISTEN_AGAIN, abort):
+                    pass
+                sp, wait = lines.said(k), LISTEN
+                k += 1
+
+    async def _line(self, c: str, sp, wait: float, abort) -> bool:
+        """Say a line, listening from its start (Rev 79): the audio program's
+        echo canceller hears a caller who talks over it (audio.md 9.4). True
+        once the caller has spoken, during the line or within `wait` after
+        it, and then stopped for TURN_END; False if they said nothing."""
+        key = f"{c}/listen"
+        await self.b.expect(key)
+        await self.hw.listen(c, sp.seconds + wait)
+        try:
             await say(self.b, self.hw, c, sp.name, sp.seconds, abort_if=abort)
+            await self.b.wait_until(
+                lambda b: b.get(key) in ("silence", "timeout") and b.get(key),
+                wait + MAX_SPEECH + MARGIN, abort_if=abort, needs=(LIVE_AUDIO,))
+        except BaseException:
+            await _quietly(self.hw.listen(c, 0))
+            raise
+        spoke = self.b.saw(key, "speech")
+        while spoke:
+            await hear(self.b, self.hw, c, TURN_END, abort_if=abort)
+            if not self.b.saw(key, "speech"):
+                break
+        return spoke
 
     async def _turn(self, c: str, wait: float, abort) -> bool:
         """Listen for the caller's turn. True once they have spoken and then

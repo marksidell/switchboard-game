@@ -252,8 +252,9 @@ async def silent_caller() -> None:
     p = g.played("station/21")
     check(p[:3] == ["free.thornhill.g", "hello.thornhill", "hello.thornhill"],
           f"greeting, then Hello? and Hello? again, no line: {p[:3]}")
-    check(g.link.listens[:2] == [fcm.LISTEN, fcm.LISTEN_AGAIN],
-          f"the first wait LISTEN, then LISTEN_AGAIN: {g.link.listens[:2]}")
+    want = [D * 2 + fcm.LISTEN, D * 2 + fcm.LISTEN_AGAIN]
+    check(all(abs(a - b) < 1e-6 for a, b in zip(g.link.listens[:2], want)) and len(g.link.listens) >= 2,
+          f"each listen from the line's start, the line and LISTEN, then LISTEN_AGAIN: {g.link.listens[:2]}")
     await b.update("station/24/lifted", "off")
     await until(b, lambda b: not g.free.circuits())
     runner.cancel()

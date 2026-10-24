@@ -36,6 +36,7 @@ add_library(sbaudio_core STATIC
   src/engine.cpp
   src/detector.cpp
   src/vad.cpp
+  src/aec.cpp
   src/rec.cpp
 )
 target_link_libraries(sbaudio_core PUBLIC
@@ -55,3 +56,7 @@ add_executable(monitor_check test/monitor_check.cpp)
 target_link_libraries(monitor_check PRIVATE sbaudio_core)
 
 install(TARGETS sbaudio RUNTIME DESTINATION bin)
+
+# The echo canceller over a --record-line recording (audio.md 9.4). A tool.
+add_executable(aec_check test/aec_check.cpp)
+target_link_libraries(aec_check PRIVATE sbaudio_core)

@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 
+#include "../src/aec.h"
 #include "../src/channels.h"
 #include "../src/cityring.h"
 #include "../src/detector.h"
@@ -1157,6 +1158,130 @@ static void test_recording()
     check(std::system(cmd.c_str()) == 0, "cleaned up");
 }
 
+// Speech-like test signal: noise through a 300-3400 Hz band, in 4 Hz
+// syllables, at about `db` dBFS while on. Deterministic.
+struct Talker {
+    uint32_t seed;
+    BiquadState h, l[3];
+    Biquad hp = butter_highpass(300.0, 48000.0);
+    std::vector<Biquad> lp = butter_lowpass6(3400.0, 48000.0);
+    double amp;
+    uint64_t n = 0;
+    Talker(uint32_t s, double db) : seed(s), amp(std::pow(10.0, db / 20.0) * 2.0) {}
+    float next()
+    {
+        seed = seed * 1664525u + 1013904223u;
+        double x = ((double)(seed >> 8) / 8388608.0 - 1.0);
+        x = h.run(hp, x);
+        for (int k = 0; k < 3; ++k) x = l[k].run(lp[k], x);
+        const double env = 0.6 + 0.4 * std::sin(2.0 * M_PI * 4.0 * (double)n++ / 48000.0);
+        return (float)(amp * env * x);
+    }
+};
+
+static void test_aec()
+{
+    std::printf("echo canceller (audio.md 9.4, Rev 26)\n");
+
+    {   // The class alone, at 8 kHz: an echo 12 dB down, 95 samples late
+        // through a three-tap path, and a caller 20 dB below the echo for a
+        // second in the middle.
+        EchoCanceller ec;
+        ec.configure(80);
+        ec.start(0);
+        Talker far(1, -20.0), near(2, -52.0);
+        std::vector<float> ref(80000, 0.0f);
+        double e_late = 0, c_late = 0, e_dt = 0, n_dt = 0, e_after = 0, c_after = 0;
+        bool valid_late = true, valid_dt = true;
+        for (uint32_t m = 0; m < 64000; ++m) {
+            // Decimate the talker crudely: it is band-limited already.
+            float x = 0; for (int k = 0; k < 6; ++k) x = far.next();
+            ref[m] = x;
+            ec.ref(m, x);
+            float echo = 0.25f * (m >= 95 ? ref[m - 95] : 0.0f)
+                       + 0.10f * (m >= 96 ? ref[m - 96] : 0.0f)
+                       - 0.05f * (m >= 110 ? ref[m - 110] : 0.0f);
+            float nr = 0; for (int k = 0; k < 6; ++k) nr = near.next();
+            const bool dt = m >= 32000 && m < 40000;
+            const float c = echo + (dt ? nr : 0.0f);
+            const float e = ec.step(m, c);
+            if (m >= 24000 && m < 32000) { e_late += e * e; c_late += c * c; }
+            if (dt) { e_dt += (e - nr) * (e - nr); n_dt += nr * nr; }
+            if (m >= 48000) { e_after += e * e; c_after += c * c; }
+            if ((m + 1) % EchoCanceller::FRAME == 0) {
+                const EchoCanceller::Frame f = ec.end_frame(m);
+                if (m >= 24000 && m < 32000 && !f.valid) valid_late = false;
+                if (dt && !f.valid) valid_dt = false;
+            }
+        }
+        const double erle = 10.0 * std::log10(c_late / e_late);
+        const double keep = 10.0 * std::log10(n_dt / e_dt);
+        const double erle2 = 10.0 * std::log10(c_after / e_after);
+        std::printf("    after 3 s: %.1f dB off; the caller kept to %.1f dB; after: %.1f dB\n",
+                    erle, keep, erle2);
+        check(erle > 30.0, "converged: the echo 30 dB down within 3 s");
+        check(valid_late, "and reported converged");
+        check(keep > 10.0, "a caller over the echo comes through: what is left is the caller");
+        check(valid_dt, "still converged while the caller talks");
+        check(erle2 > 30.0, "the caller did not spoil it: 30 dB off afterwards");
+    }
+
+    {   // In the engine: a file on station 5 that comes back 12 dB down, 562
+        // samples late, as the bench measured, with a listen started with it.
+        for (int talk = 0; talk < 2; ++talk) {
+            auto sh = std::make_unique<Shared>();
+            sh->opt.vad_floor = -70.0;
+            sh->opt.vad_hangover = 0.5;
+            AlsaStream st;
+            Engine eng(*sh, st);
+            eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH);
+            const int S = 5;
+            Talker file(3, -20.0), caller(4, -50.0);
+            Command c;
+            c.verb = Verb::Play; c.idx = S; c.buf = new AudioBuffer;
+            for (int i = 0; i < 4 * 48000; ++i) c.buf->samples.push_back(file.next());
+            std::snprintf(c.name, sizeof c.name, "line");
+            sh->cmdq.push(c);
+            Command l; l.verb = Verb::Listen; l.idx = S; l.arg = 10.0f;
+            sh->cmdq.push(l);
+            std::vector<float> sent;
+            double speech_at = -1, ended_at = -1;
+            for (int per = 0; per < 6 * 48000 / 256; ++per) {
+                float* cap = eng.capture_row_for_test(S);
+                for (int i = 0; i < 256; ++i) {
+                    const size_t t = (size_t)per * 256 + (size_t)i;
+                    float v = t >= 562 && t - 562 < sent.size() ? 0.25f * sent[t - 562] : 0.0f;
+                    if (talk && t >= 3 * 48000 && t < (size_t)(3.6 * 48000)) v += caller.next();
+                    cap[i] = v;
+                }
+                eng.capture_for_test();
+                eng.drain_for_test();
+                eng.render_for_test();
+                const std::vector<int32_t>& o = eng.playback();
+                for (int i = 0; i < 256; ++i)
+                    sent.push_back((float)o[(size_t)i * chan::N_PLAY_CH + S - 1] / 2147483648.0f);
+                Result r;
+                while (sh->res_audio.pop(r)) {
+                    if (r.topic == Topic::Listen && r.idx == S && std::strcmp(r.value, "speech") == 0 && speech_at < 0)
+                        speech_at = per * 256 / 48000.0;
+                    if (r.topic == Topic::Play && r.idx == S && r.value[0] == 0 && ended_at < 0)
+                        ended_at = per * 256 / 48000.0;
+                    if (r.buf) delete r.buf;
+                }
+            }
+            if (talk) {
+                std::printf("    caller from 3.0 s: speech reported at %.2f s, the file ended at %.2f s\n",
+                            speech_at, ended_at);
+                check(speech_at >= 3.0 && speech_at < 3.5, "a caller talking over the file is heard during it");
+            } else {
+                std::printf("    no caller: speech reported at %.2f s, the file ended at %.2f s\n",
+                            speech_at, ended_at);
+                check(speech_at < 0, "no caller: nothing heard, the echo is not speech");
+            }
+        }
+    }
+}
+
 int main()
 {
     log_start();
@@ -1175,6 +1300,7 @@ int main()
     test_monitor_play();
     test_trunk_tones();
     test_recording();
+    test_aec();
     std::printf("\n%s\n", failures ? "FAILURES" : "all checks passed");
     return failures ? 1 : 0;
 }

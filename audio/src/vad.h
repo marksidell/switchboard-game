@@ -60,7 +60,12 @@ public:
     //   it (audio.md 9.3). Called for every frame whether or not a listen is
     //   running, because the history must always be current. Returns what
     //   happened, if anything; after Silence or Timeout the phase is Off.
-    Event frame(float db, bool valid, const VadParams& p);
+    //   A frame the echo canceller cleaned (audio.md 9.4, Rev 26) counts but
+    //   is kept out of the history, `keep` false, so the floor is still the
+    //   quiet before the file; and it must clear `min_db` as well as the
+    //   threshold.
+    Event frame(float db, bool valid, const VadParams& p, bool keep = true,
+                double min_db = -1e9);
 
     Phase  phase()    const { return phase_; }
     bool   active()   const { return phase_ != Phase::Off; }

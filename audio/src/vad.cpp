@@ -41,7 +41,8 @@ void Listener::start(double seconds)
 //   into the window, and the phase's rule is applied. Every frame, valid or
 //   not, advances the phase's clock: the timeouts are wall-clock bounds, and a
 //   stretch of discarded frames is still time the game is waiting.
-Listener::Event Listener::frame(float db, bool valid, const VadParams& p)
+Listener::Event Listener::frame(float db, bool valid, const VadParams& p, bool keep,
+                                double min_db)
 {
     if (!valid) {
         // audio.md 9.3: the channel's own programme returns on its receive at
@@ -49,7 +50,7 @@ Listener::Event Listener::frame(float db, bool valid, const VadParams& p)
         // they are kept out of the history too, or the floor would follow our
         // own file up.
         clear_window();
-    } else {
+    } else if (keep) {
         hist_[hist_w_] = db;
         hist_w_ = (hist_w_ + 1) % 100;
         if (hist_n_ < 100) ++hist_n_;
@@ -65,7 +66,7 @@ Listener::Event Listener::frame(float db, bool valid, const VadParams& p)
         const double cand = history_p10();
         if (cand > floor_db_) floor_db_ = std::min(cand, floor_db_ + 0.01);
 
-        const double thr = std::max(floor_db_ + p.margin_db, p.abs_floor_db);
+        const double thr = std::max({ floor_db_ + p.margin_db, p.abs_floor_db, min_db });
         win_ = ((win_ << 1) | (db >= thr ? 1u : 0u)) & ((1u << WIN) - 1u);
         if (win_n_ < WIN) ++win_n_;
     }

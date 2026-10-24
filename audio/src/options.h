@@ -84,6 +84,9 @@ struct Options {
     double vad_floor      = -50.0;
     double vad_hangover   = 1.5;        // s of quiet that ends speech (Rev 6)
     double vad_max_speech = 30.0;       // s of speech waited out before timeout
+    // The echo canceller, audio.md 9.4 (Rev 26)
+    bool   aec       = true;
+    double aec_delay = 10.0;            // ms before its first tap
 
     // Diagnostics
     std::string dump_circuit;           // "station/5" or "trunk/2"

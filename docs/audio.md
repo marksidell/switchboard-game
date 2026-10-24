@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 25 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on the Digiface's Analog Output from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, a Recording of the Loudspeaker to WAV and MP3 and Its Playback, a Shorter Wait After the Operator Speaks, All Commanded and Reported over MQTT, Station 24 a Real Telephone, One Circuit's Output and Capture Recorded Raw for the Bench*
+*Rev 26 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on the Digiface's Analog Output from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, a Recording of the Loudspeaker to WAV and MP3 and Its Playback, a Shorter Wait After the Operator Speaks, All Commanded and Reported over MQTT, Station 24 a Real Telephone, One Circuit's Output and Capture Recorded Raw for the Bench, an Echo Canceller So a Caller Talking Over a File Is Heard*
 
 # 1. Overview
 
@@ -174,6 +174,14 @@ Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout t
 — The speech detector's low-pass is sixth-order, and the installation's `--vad-floor` is −70dBFS (§9.2). Found on the switchboard, 2026-10-16: the detector heard the operator only when she spoke loudly. Bridged onto station 13 and counting one to ten at a normal level, she was not heard in a 30s listen. A recording of the line put her voice at −55 to −65dBFS in the detector's band, peaks −47, against a threshold of −50, the absolute bound, which no word cleared for the 200ms of 300 a start needs. Lowering the bound alone does not do: through one low-pass section the station's own pilot, measured at −58.4dBFS on the line, arrives at −71.5 and sets the floor, so floor + 10dB is −61, still above most of her voice. With three sections the pilot is at −97, under the line's own noise near −91, and with the bound at −70 the recording declares speech one second into the count, with no frame above −70 in the quiet before it. Her voice is about 30dB below the authored speech on the line; a stronger transmitter would give more margin, and the electret headset (kicad/electret) is the way to it.
 
 — Code consequence, made the same day: `butter_lowpass6()` in `dsp.cpp`, the detector's three sections, and the tests. `sbaudio.service` gains `--vad-floor -70`.
+
+## 1.26 Changes in Rev 26
+
+— An echo canceller on every circuit while it plays a file (§9.4), so a listen hears a caller who talks over the file instead of discarding those frames (§9.3). Asked for 2026-10-24 for free calls (game_control.md Rev 79), where Mark's "What power?" over the end of Thornhill's line went unheard. Measured first with `--record-line` (Rev 25) on station 21, the real phone at the far end: the file returns 12–15 dB down, 11.7ms late, its echo over within 26ms; a fixed filter takes 36–40dB off it. Trunks are not measured: their pilot returns only 5dB down, and the public line's audio from outside does not work yet. The canceller needs no measurement to be safe on them — until it has converged it changes nothing.
+
+— Regular play is unchanged. The game listens there only after a line has ended, and nothing a canceller does reaches a listen that starts after the file: its frames are kept out of the history the floor comes from, and a listen clears its window when it starts.
+
+— Code consequence, made the same day: `aec.h` and `aec.cpp`; `Engine::aec_feed()` in the render and the canceller's step in `process_capture()`; `Listener::frame()` gains `keep` and `min_db`; `--aec` and `--aec-delay`; `test_aec()`; `aec_check`, the canceller over a recording, for the bench.
 
 ## 1.25 Changes in Rev 25
 
@@ -405,9 +413,25 @@ The thresholds, the window, the hangover and the maximum speech time are options
 
 ## 9.3 What Is Excluded
 
-Frames during which the same channel has an active program source are discarded, and the 30-frame window restarts when the source ends. The reason is station §8.4's: the two-wire interface has no hybrid, so everything this channel transmits returns on its own receive at full strength, and the program would detect its own file. The echo that persists after the source stops — through the switchboard's cord circuit and the far-end transformer — is milliseconds and is covered by the window restart.
+Frames during which the same channel has an active program source are discarded, and the 30-frame window restarts when the source ends — unless the echo canceller has cleaned them (§9.4, Rev 26). The reason is station §8.4's: the two-wire interface has no hybrid, so everything this channel transmits returns on its own receive at full strength, and the program would detect its own file. The echo that persists after the source stops — through the switchboard's cord circuit and the far-end transformer — is milliseconds and is covered by the window restart.
 
 What is not excluded is the far end. If the game plays a file on station 5 while listening on trunk 2 and the two are patched together, trunk 2 hears the file and reports speech. The program cannot know that is not wanted, and the game, which issued both commands, can. Do not listen on a channel whose peer is playing, or expect the result you asked for.
+
+## 9.4 The Echo Canceller
+
+Rev 26. While a circuit plays a file, a line echo canceller learns the file's echo on that circuit's receive and subtracts it, so that the detector can judge what is left: a caller talking over the file. A listen started with the file, or before it, then hears such a caller; one started after it is not affected.
+
+**Where.** In the voice band at 8kHz. The file, as summed into the circuit's output, and the capture each go through the detector's band-pass of §9.2, and every sixth sample is kept. A running sample count common to the render and the capture lines the two up, whatever the period. The canceller starts with the file and runs until 50ms after its last sample, when its echo is over. A trunk tone is not a reference: the canceller does not run for one, and a tone's frames are discarded as before.
+
+**How.** Two NLMS filters of 128 taps, covering 10–26ms of lag, `--aec-delay` 10ms plus 16ms: the bench round trip is 11.7ms at 256 × 3 frames, and the echo was over by 26ms. The *background* filter adapts on every sample, step 0.5. The *foreground* filter is what is subtracted, and is a copy of the background taken once a frame when the background's residual has been at least 3dB below the foreground's, and at least 10dB below the capture, for three frames running. A background that falls 6dB behind the foreground is put back from it. A caller's voice therefore spoils only the background, never the filter in use, and no double-talk detector is needed — one would have to tell a caller 15dB below the echo from the echo. This is the two-path scheme (Ochiai, 1977).
+
+**Converged.** Once a copy has taken 20dB or more off the capture, until the foreground makes the line louder than the capture for half a second, which a caller cannot cause and a changed echo path does. A canceller that has not converged changes nothing: its frames are discarded as §9.3 says. Between two files on a circuit it keeps what it learnt; after 30s with no file it starts afresh, since the next file is likely another call.
+
+**What the detector does with it.** A frame in which the canceller ran throughout and has converged counts. Its level is the residual's; it is judged against the usual threshold and also against the echo subtracted less 20dB, so that the echo left behind — 31–40dB under the echo on the bench, against 15–25dB for a caller — does not read as speech. It is not added to the floor's history (§9.2), which stays the quiet before the file. The window does not restart when the file ends, so a caller who started over the end of a file is heard at once.
+
+**Cost.** Two filters' outputs and one adaptation, 128 taps, 8000 times a second, on each circuit while it plays: about 3 million multiply-adds a second each.
+
+**Bench.** On the station 21 recording of 2026-10-24, 16 lines: the canceller took 27–34dB off each line Mark did not talk over, and no window there reached more than 13 frames of 30 above threshold; the lines he talked over showed 11–19dB, the residual being him, and those he talked over for longer than the window were heard. `aec_check FILE.lineN.wav` runs the canceller over a `--record-line` recording and prints each frame.
 
 # 10. Audience Monitor
 
@@ -616,6 +640,8 @@ Command-line options, each with the default given here, and no configuration fil
 --vad-floor DB         speech absolute threshold (-50)
 --vad-hangover S       silence that ends speech (1.5)
 --vad-max-speech S     longest speech waited out before timeout (30)
+--aec on|off           the echo canceller while a circuit plays a file (on) (§9.4)
+--aec-delay MS         lag before its first tap; it covers 16 ms from there (10)
 --dump CIRCUIT SECONDS spectrum dump (§11.3)
 ```
 
