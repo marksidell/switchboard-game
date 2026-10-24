@@ -80,6 +80,7 @@ bool Engine::prepare()
     ring_.assign((size_t)chan::N_CAP_CH * FFT_N, 0.0f);
     test_row_.assign(period_, 0.0f);
     mon_row_.assign(period_, 0.0f);
+    line_row_.assign((size_t)period_ * 2, 0.0f);
 
     for (int i = 0; i < 2; ++i) {
         sh_.snap[i].data.assign((size_t)chan::N_CAP_CH * FFT_N, 0.0f);
@@ -853,6 +854,26 @@ void Engine::check_output()
     }
 }
 
+// record_line()                                                        [audio]
+//   --record-line (audio.md 10.6, Rev 25): while a recording runs, the slot's
+//   output as about to be written and its capture of this period, in pairs,
+//   to the MQTT thread's second file. Raw: the samples ALSA is given and gave,
+//   so the echo of the slot's own playback can be measured against what was
+//   sent. A full ring loses the period, counted with the recording's.
+void Engine::record_line()
+{
+    const int s = sh_.opt.record_line;
+    if (s == 0 || !sh_.rec_on.load(std::memory_order_acquire)) return;
+    if ((unsigned)s > nplay_ || (unsigned)s > ncap_) return;
+    const int32_t* out = obuf_.data() + (s - 1);
+    const float*   cap = &capf_[(size_t)(s - 1) * period_];
+    for (unsigned i = 0; i < period_; ++i) {
+        line_row_[2 * i]     = s32_to_float(out[(size_t)i * nplay_]);
+        line_row_[2 * i + 1] = cap[i];
+    }
+    if (!sh_.line_ring.write(line_row_.data(), line_row_.size())) ++rec_lost_;
+}
+
 // ---------------------------------------------------------------- the loop
 
 // run()                                                                [audio]
@@ -889,6 +910,7 @@ void Engine::run()
         drain_commands();
         render();
         check_output();
+        record_line();
 
         const snd_pcm_sframes_t w = st_.write(obuf_.data());
         if (w < 0) {

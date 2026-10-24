@@ -40,6 +40,7 @@ static bool is_recording_name(const std::string& n)
 Recorder::~Recorder()
 {
     if (snd_) sf_close(snd_);
+    if (line_) sf_close(line_);
 }
 
 // prepare()                                                          [startup]
@@ -49,6 +50,7 @@ Recorder::~Recorder()
 void Recorder::prepare()
 {
     sh_.rec_ring.allocate();
+    if (sh_.opt.record_line) sh_.line_ring.allocate();
     xfer_.assign(XFER, 0.0f);
     sh_.play_ring.allocate();
     gain_ = makeup(sh_);
@@ -91,9 +93,28 @@ std::string Recorder::start()
     sf_command(snd_, SFC_SET_CLIPPING, nullptr, SF_TRUE);
     sf_command(snd_, SFC_SET_UPDATE_HEADER_AUTO, nullptr, SF_TRUE);
 
+    // --record-line (Rev 25): the slot's output and capture beside it, as
+    // two-channel float, unscaled. The '.' keeps it out of list().
+    if (sh_.opt.record_line) {
+        const std::string lp = sh_.opt.record_dir + "/" + base + ".line" +
+                               std::to_string(sh_.opt.record_line) + ".wav";
+        SF_INFO li;
+        std::memset(&li, 0, sizeof li);
+        li.samplerate = chan::SAMPLE_RATE;
+        li.channels   = 2;
+        li.format     = SF_FORMAT_WAV | SF_FORMAT_FLOAT;
+        line_ = sf_open(lp.c_str(), SFM_WRITE, &li);
+        if (!line_) log_line("record: cannot open %s: %s", lp.c_str(), sf_strerror(nullptr));
+        else {
+            sf_command(line_, SFC_SET_UPDATE_HEADER_AUTO, nullptr, SF_TRUE);
+            log_line("record: slot %d output and capture to %s", sh_.opt.record_line, lp.c_str());
+        }
+    }
+
     name_  = base;
     since_ = monotonic_s();
     sh_.rec_ring.discard();
+    if (sh_.opt.record_line) sh_.line_ring.discard();
     sh_.rec_on.store(true, std::memory_order_release);
     log_line("record: started %s (makeup %+.1f dB)", path.c_str(), lin_to_db(gain_));
     return name_;
@@ -109,6 +130,10 @@ void Recorder::drain()
         if ((size_t)sf_write_float(snd_, xfer_.data(), (sf_count_t)n) != n)
             log_line("record: write to %s.wav failed: %s", name_.c_str(), sf_strerror(snd_));
     }
+    if (!sh_.opt.record_line) return;
+    while ((n = sh_.line_ring.read(xfer_.data(), xfer_.size() & ~(size_t)1)) > 0) {
+        if (line_) sf_writef_float(line_, xfer_.data(), (sf_count_t)(n / 2));
+    }
 }
 
 // stop()                                                                [mqtt]
@@ -118,6 +143,7 @@ void Recorder::stop(bool conv)
     sh_.rec_on.store(false, std::memory_order_release);
     drain();
     sf_close(snd_);
+    if (line_) { sf_close(line_); line_ = nullptr; }
     snd_ = nullptr;
     log_line("record: stopped %s after %.0f s", name_.c_str(), monotonic_s() - since_);
     if (conv) convert(name_);

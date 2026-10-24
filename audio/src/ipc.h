@@ -151,6 +151,9 @@ struct Shared {
     // period's monitor row to rec_ring.
     SampleRing        rec_ring;
     std::atomic<bool> rec_on { false };
+    // --record-line's slot, raw, beside it (Rev 25): its output and its
+    // capture, interleaved in pairs, while rec_on is set.
+    SampleRing        line_ring;
     // Playback of a recording, MQTT -> audio (audio.md 10.7): the Player
     // fills play_ring and sets play_on; while play_on is set the audio thread
     // plays play_ring in place of the monitor, and while it is clear empties

@@ -39,6 +39,10 @@ struct Options {
     // The loudspeaker recording, audio.md 10.6 (Rev 22)
     std::string record_dir = "recordings";
     double      record_max = 14400.0;   // seconds; a forgotten recording stops
+    // --record-line (Rev 25): a circuit slot whose output and capture are
+    // recorded raw beside each loudspeaker recording, for measuring the echo
+    // of its own playback. 0 for none.
+    int         record_line = 0;
 
     // Levels, all station 8 figures
     double pilot_db  = -40.0;           // station 8.4

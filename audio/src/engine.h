@@ -129,6 +129,7 @@ private:
     void process_capture();
     void render();
     void check_output();
+    void record_line();
     void hop_if_due();
 
     // Helpers for drain_commands() and friends.
@@ -223,6 +224,7 @@ private:
     double  mon_step_ = 0.0;                // gain change per sample while ramping
     int     mon_ramp_ = 0;                  // samples of ramp remaining
     std::vector<float> mon_row_;            // this period's monitor samples
+    std::vector<float> line_row_;           // --record-line: output, capture pairs
 
     unsigned clips_ = 0;                    // clipped samples since last report
     unsigned rec_lost_ = 0;                 // recorded periods lost, ring full

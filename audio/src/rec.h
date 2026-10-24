@@ -103,7 +103,8 @@ public:
 
     // stop()                                                            [mqtt]
     //   Clears rec_on, writes what is left in the ring, closes the WAV and,
-    //   if `convert`, starts lame on it. Nothing if none is running.
+    //   if `convert`, starts lame on it. Nothing if none is running. The
+    //   --record-line file is closed with it and never converted.
     void stop(bool convert);
 
     // service()                                                         [mqtt]
@@ -127,6 +128,7 @@ private:
 
     Shared&            sh_;
     SNDFILE*           snd_ = nullptr;
+    SNDFILE*           line_ = nullptr;     // --record-line's raw pair, or none
     std::string        name_;               // base name of the file being written
     double             since_ = 0.0;        // monotonic start time
     double             gain_ = 1.0;         // the makeup gain, linear
