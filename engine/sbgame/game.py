@@ -464,7 +464,7 @@ class Game:
 
         try:
             await sweep.run(kind, self.hw, self.gs.jacks, self.cfg.stations, self.cfg.trunks,
-                            self.diag.circuits, self._say, out)
+                            self.diag.circuits, self._say, out, self.cfg.public_trunk)
         except asyncio.CancelledError:
             raise
         except Exception as e:                       # offline, above all

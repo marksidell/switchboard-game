@@ -20,7 +20,7 @@ import logging
 from typing import Awaitable, Callable, Iterable
 
 from .link import Hw
-from .script_data import Jack, fitted_stations
+from .script_data import PHONE_STATION, Jack, fitted_stations
 
 log = logging.getLogger("sweep")
 
@@ -49,13 +49,16 @@ def station_order(jacks: Iterable[Jack], stations: int) -> list[tuple[int, Jack]
 
 async def run(kind: str, hw: Hw, jacks: Iterable[Jack], stations: int, trunks: int,
               busy: Callable[[], set[str]], say: Callable[[str], Awaitable[None]],
-              out_of_service: Callable[[str], bool]) -> None:
-    """One sweep, to its end. Cancelling it puts the current circuit back."""
+              out_of_service: Callable[[str], bool], public_trunk: int = 0) -> None:
+    """One sweep, to its end. Cancelling it puts the current circuit back.
+    Not the public line nor station 24, the real telephone (§4.12, Rev 74):
+    the game never rings the one, and the other's relay lights nothing."""
     if kind == "trunks":
-        steps = [(f"trunk/{n}", f"trunk {n}") for n in range(1, trunks + 1)]
+        steps = [(f"trunk/{n}", f"trunk {n}") for n in range(1, trunks + 1)
+                 if n != public_trunk]
     else:
         steps = [(f"station/{st}", f"jack {j.number} ({j.label}), station {st}")
-                 for st, j in station_order(jacks, stations)]
+                 for st, j in station_order(jacks, stations) if st != PHONE_STATION]
     await say(f"test {kind}: {len(steps)}, {PAUSE:g}s apart")
     for i, (circuit, name) in enumerate(steps):
         if i:
