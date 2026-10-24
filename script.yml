@@ -464,13 +464,9 @@ cast:
     # the police, which no scene calls.
     desk_sergeant:
         sex: male
-        accent: Seattle Irish, gruff, weary
-        description: Sergeant Kowalski, on the desk at Seattle Police headquarters, night shift
-        voice: >
-            A man in his fifties with a deep, gravelly, tired voice and a
-            trace of an Irish-American lilt. Slow and flat, a policeman who has
-            heard every story twice and believes none of them. Natural,
-            conversational telephone speech, 1950s.
+        accent: Irish American, weary
+        description: Sergeant Riley, desk sergeant at the Seattle Police; back from the cut Thornhill scenes
+        sample: Police department, Sergeant Riley speaking. All right, slow down, mister. Start from the beginning and tell me what happened.
 
     # The real Lenny (game_control.md 4.12, Rev 74): his sixteen recordings,
     # released freely on the internet in 2013, answer a number the game does
@@ -1004,7 +1000,7 @@ freecall:
             - Huh. Well, that's the darnedest thing.
             - Okay. Anything else?
     desk_sergeant:
-        greeting: Police headquarters. Sergeant Kowalski.
+        greeting: Police department. Sergeant Riley speaking.
         lines:
             - Uh huh. Slow down. Start from the beginning.
         loop:
