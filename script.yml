@@ -586,9 +586,9 @@ freecall:
         lines:
             - Ah, yes, splendid. And to whom do I have the pleasure, old bean?
         loop:
-            - Quite. Quite right. Now, have you considered the sixteen cylinder model?
+            - Quite. Quite right. Sorry, did you say twelve cylinders or sixteen?
             - Indeed. Sixteen cylinders, you see. Not eight. Not twelve. Sixteen.
-            - Ah, but you haven't heard the engine. It purrs, dear fellow. It positively purrs.
+            - Ah, but you haven't heard the engine. It purrs, my friend. It positively purrs.
             - I beg your pardon? The line's a bit rummy at this end. Do go on.
             - Of course. Of course. And may I ask what you're driving at present?
             - Ha ha! Very good. Very good indeed. Now, about the down payment.
@@ -614,7 +614,7 @@ freecall:
             - I was expecting your call. Though perhaps not so soon.
         loop:
             - How interesting. Go on.
-            - You speak very freely, for a man on a hotel telephone.
+            - You speak very freely, for someone on a hotel telephone.
             - Of course. Everybody says that. And then they change their minds.
             - I am afraid I did not catch that. The lobby is so very noisy.
             - Mm. And who else knows that you are calling?
@@ -637,14 +637,14 @@ freecall:
     waiter:
         greeting: Room service.
         lines:
-            - Yes, sir. And what room is this, please? My card's slipped off the desk.
+            - Yes. And what room is this, please? My card's slipped off the desk.
         loop:
             - Yes. Yes. Very good.
             - And would you like anything to drink with that?
             - Oh, I'm afraid the kitchen's out of the lobster. We do have a very nice meat loaf.
-            - Mm hm. And how would you like that cooked?
+            - Mm hm. You know, my brother-in-law says the same thing. He's in Tacoma.
             - I'm sorry, could you repeat the last part? The dumbwaiter's going.
-            - Of course. That'll be about forty minutes. Maybe an hour.
+            - I'm sorry, was that the Waldorf salad or the weather? The kitchen is very loud.
             - You know, a gentleman ordered just that last Tuesday. He was very happy. Mostly.
             - Yes. I'll send that right up. Was there anything else?
     valet:
@@ -653,8 +653,8 @@ freecall:
             - Sure thing. Hang on, let me get the iron off the collar. Okay, go ahead.
         loop:
             - Uh huh. Sponged and pressed?
-            - Now, is that the gray suit or the brown suit?
-            - I can have it back to you in twenty minutes. Maybe twenty-five.
+            - You know, I pressed a suit for Bing Crosby once. Well, it looked like Bing Crosby.
+            - Come again? I had my head in the closet.
             - Sorry, what was that? The steamer's going.
             - Well, the last fella who said that, his trousers came back two inches shorter.
             - Sure, sure. And did you want a crease in that?
@@ -676,10 +676,10 @@ freecall:
     desk_clerk:
         greeting: Front desk, good evening.
         lines:
-            - Yes, sir, how may I help you? Sorry, could you give me your name again?
+            - Yes, how may I help you? Sorry, could you give me your name again?
         loop:
             - Yes, of course. Just one moment while I check.
-            - I'm afraid I don't see that on the register. Could you spell it for me?
+            - Hmm. The manager's at lunch. He's been at lunch since Tuesday.
             - Mm hm. And was that for one night or two?
             - I'm sorry, there's a convention checking in. Could you say that again?
             - Certainly. I'll have the bellman take care of it.
@@ -720,7 +720,7 @@ freecall:
         loop:
             - Well, that's simply not good enough.
             - In Pasadena, we would never stand for such a thing.
-            - I beg your pardon? Speak up, young man. I can't abide mumbling.
+            - I beg your pardon? Speak up, dear. I can't abide mumbling.
             - And I suppose you expect me to be grateful for that?
             - My late husband would have had something to say about this. Several things.
             - Oh, very well. And what do you propose to do about it?
@@ -779,9 +779,9 @@ freecall:
             - Sure, sure. And who else in the house does the cleaning?
             - Uh huh. Let me just write that down.
     beaumont:
-        greeting: Colonel Augustus Beaumont speaking, sir!
+        greeting: Colonel Augustus Beaumont speaking!
         lines:
-            - Speak up, sir! The connection is as poor as Yankee coffee.
+            - Speak up! The connection is as poor as Yankee coffee.
         loop:
             - Indeed, sir. Indeed.
             - Why, that reminds me of the summer of nineteen hundred and eight in Savannah.
@@ -789,8 +789,8 @@ freecall:
             - That is a matter of honor, sir. Of honor!
             - My sister Lucinda would have strong words to say about that.
             - Well, I'll be. You don't say.
-            - Now, sir, are you a Georgia man? You don't sound like a Georgia man.
-            - Proceed, sir. I am all attention.
+            - Now, are you from Georgia? You don't sound like Georgia.
+            - Proceed. I am all attention.
     albright:
         greeting: Hello, this is Mrs. Albright.
         lines:
@@ -853,10 +853,10 @@ freecall:
             - I'm sorry, could you repeat the number?
             - Is that a local call or long distance?
             - The line is busy. Will you wait?
-            - I'm sorry, sir, I can't give out that information.
+            - I'm sorry, I can't give out that information.
             - Uh huh. Uh huh. Hold the line, please.
             - Would you like me to try again?
-            - Thank you. One moment, please.
+            - Say, is this the party that called about the cat in the phone booth?
     pizza_man:
         greeting: Sunny Hill Pizza! Whaddya need?
         lines:
@@ -866,7 +866,7 @@ freecall:
             - Sure, sure, we deliver. The kid's got a bicycle.
             - What? I can't hear ya, the oven door's open.
             - My mother makes it the same way. In Naples. She's a hundred and two.
-            - Thirty minutes. Maybe forty. Maybe fifty.
+            - Ah, you sound just like my cousin Sal. Sal, is that you?
             - Okay, okay. And what's the address?
             - You want anchovies on that? Nobody wants anchovies.
             - Yeah, yeah. I'm writing it down.
@@ -881,7 +881,7 @@ freecall:
             - I'm sorry, I didn't quite hear you. The piano, you understand.
             - Ah. Yes. Mr. Canlis was asking about that very thing last week.
             - The salmon is excellent tonight. The salmon is always excellent.
-            - And will madame be joining you?
+            - And will anyone be joining you?
             - Very good. I shall make a note of it.
     florist:
         greeting: Harbor Florist, good morning!
@@ -891,7 +891,7 @@ freecall:
             - Oh, roses are always nice. Or carnations, if it's not serious yet.
             - And what would you like the card to say?
             - Sorry, could you say that again? I'm up to my elbows in gladiolas.
-            - Oh, that's so romantic. Does she know?
+            - Oh, that's so romantic. Do they know?
             - We had a gentleman order a dozen yellow roses just yesterday. Was that you?
             - Mm hm. Mm hm. And what color?
             - We can have them there by four o'clock. Probably.
@@ -902,7 +902,7 @@ freecall:
             - Where to, and where from?
         loop:
             - Uh huh.
-            - I got a car in about twenty minutes. Maybe thirty.
+            - Say again? I got the radio squawking in my other ear.
             - What? Speak up, I got three phones going.
             - Is that the Ballard Hotel? Or the other Ballard Hotel?
             - Last fella who said that, the driver waited forty minutes and he never came down.
@@ -938,14 +938,14 @@ freecall:
     pigalle:
         greeting: Place Pigalle, bonsoir.
         lines:
-            - Yes, monsieur. And for how many persons?
+            - Oui, of course. And for how many persons?
         loop:
             - Oui. Oui.
             - Ah, but tonight, it is very difficult. Very, very difficult.
             - Pardon? I do not understand. Say again, please, more slowly.
-            - Non, non, monsieur. We do not do that here.
+            - Non, non, non. We do not do that here.
             - The view of the Sound, it is magnifique. You will love it.
-            - And the name, monsieur? Ah, how charming.
+            - And the name? Ah, how charming.
             - Perhaps at nine o'clock. Perhaps at ten.
             - Bien. I write it in the book.
     telegraph_clerk:
