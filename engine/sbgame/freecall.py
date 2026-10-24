@@ -32,7 +32,8 @@ if TYPE_CHECKING:
 log = logging.getLogger("free")
 
 PHONE = f"station/{PHONE_STATION}"
-LISTEN = 7.0          # s for the caller to start talking before "Hello?"
+LISTEN = 3.0          # s after a line for the caller to start talking before "Hello?" (Rev 78)
+LISTEN_AGAIN = 7.0    # s after a "Hello?" before the next one
 TURN_END = 0.4        # s more of silence before it is the answerer's turn (Rev 76)
 PATCH_WAIT = 8.0      # s for the cord to join a room that answered (§5, Rev 60)
 DIAL_DELAY = 1.0      # s from seizure to dial tone (§5, Rev 46)
@@ -222,20 +223,23 @@ class FreeCall:
         await say(self.b, self.hw, c, lines.greeting.name, lines.greeting.seconds, abort_if=abort)
         hello = self.fc.game.gs.reaction("hello", self.who)
         k = 0
+        wait = LISTEN
         while True:
-            if not await self._turn(c, abort):
+            if not await self._turn(c, wait, abort):
                 if hello is not None:
                     await say(self.b, self.hw, c, hello.name, hello.seconds, abort_if=abort)
+                wait = LISTEN_AGAIN
                 continue
+            wait = LISTEN
             sp = lines.said(k)
             k += 1
             await say(self.b, self.hw, c, sp.name, sp.seconds, abort_if=abort)
 
-    async def _turn(self, c: str, abort) -> bool:
+    async def _turn(self, c: str, wait: float, abort) -> bool:
         """Listen for the caller's turn. True once they have spoken and then
-        stopped for TURN_END; False if they said nothing within LISTEN."""
+        stopped for TURN_END; False if they said nothing within `wait`."""
         key = f"{c}/listen"
-        start = LISTEN
+        start = wait
         spoke = False
         while True:
             await hear(self.b, self.hw, c, start, abort_if=abort)

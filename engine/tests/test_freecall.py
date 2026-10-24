@@ -22,6 +22,7 @@ logging.basicConfig(level=logging.WARNING, stream=sys.stdout)
 
 # The module's waits at the tests' speed.
 fcm.LISTEN = D * 10
+fcm.LISTEN_AGAIN = D * 15
 fcm.TURN_END = D * 3
 fcm.PATCH_WAIT = D * 10
 fcm.DIAL_DELAY = D
@@ -56,6 +57,20 @@ class Talker(FakeLink):
         await super()._echo(key, p)
 
 
+class Silent(FakeLink):
+    """The caller never speaks: every listen times out."""
+
+    async def _echo(self, key: str, p: str) -> None:
+        if key.endswith("/listen/set") and p != "0":
+            base = key.removesuffix("/set")
+            self.listens.append(float(p))
+            await self.b.update(base, "listening")
+            await asyncio.sleep(float(p))
+            await self.b.update(base, "timeout")
+            return
+        await super()._echo(key, p)
+
+
 def lines(who: str, n_lines: int, n_loop: int) -> FreeLines:
     sp = lambda i: Speech(f"free.{who}.{i}", D * 2, "called")
     return FreeLines(Speech(f"free.{who}.g", D * 2, "called"),
@@ -81,9 +96,10 @@ class GS:
 
 
 class StubGame:
-    def __init__(self) -> None:
+    def __init__(self, link=None) -> None:
         self.b = Board(hold=HOLD)
-        self.link = Talker(self.b)
+        self.link = (link or Talker)(self.b)
+        self.link.listens = []
         self.hw = Hw(self.link)
         self.gs = GS()
         self.cfg = Config()
@@ -218,6 +234,31 @@ async def nobody_patched() -> None:
     runner.cancel()
 
 
+async def silent_caller() -> None:
+    print("\n== a caller who says nothing: Hello? soon, then less often (Rev 78)")
+    g = StubGame(Silent)
+    await g.live()
+    runner = asyncio.create_task(g.free.run())
+    b = g.b
+    await b.update("station/24/lifted", "on")
+    await b.update("station/24/op", "on")
+    await until(b, lambda b: g.free.routing())
+    await b.update("station/21/ring", "on")
+    await until(b, lambda b: b.on("station/21/hook"))
+    await b.update("station/21/ring", "off")
+    await b.update("station/21/peer", "station/24")
+    await b.update("station/24/peer", "station/21")
+    await until(b, lambda b: g.played("station/21").count("hello.thornhill") >= 2, 10)
+    p = g.played("station/21")
+    check(p[:3] == ["free.thornhill.g", "hello.thornhill", "hello.thornhill"],
+          f"greeting, then Hello? and Hello? again, no line: {p[:3]}")
+    check(g.link.listens[:2] == [fcm.LISTEN, fcm.LISTEN_AGAIN],
+          f"the first wait LISTEN, then LISTEN_AGAIN: {g.link.listens[:2]}")
+    await b.update("station/24/lifted", "off")
+    await until(b, lambda b: not g.free.circuits())
+    runner.cancel()
+
+
 async def public_line_out(number: str, who: str, ringback: str) -> None:
     print(f"\n== the public line, {number} dialled on trunk 3")
     g = StubGame()
@@ -279,6 +320,7 @@ async def main() -> int:
     await phone_to_room()
     await cord_out_then_again()
     await nobody_patched()
+    await silent_caller()
     await public_line_out("2835678", "maitre_d", "known")
     await public_line_out("5551212", "lenny", "unknown")
     await scene_trunk_rules()
