@@ -66,6 +66,11 @@ function connect() {
   client.on('connect', () => {
     brokerUp = true;
     // Retained topics give the whole state at once; there is nothing to request.
+    // Drop what we held first: a topic cleared while we were away, such as a
+    // peer back from deaf, is not sent again (Rev 77).
+    for (const k in S) delete S[k];
+    for (const k in peerFaultSince) delete peerFaultSince[k];
+    for (const k in peerBefore) delete peerBefore[k];
     client.subscribe(PREFIX + '#', { qos: 0 });
     render();
   });
