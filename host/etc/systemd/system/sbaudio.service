@@ -27,7 +27,6 @@ ExecStart=/usr/local/bin/sbaudio \
     --mqtt-user sbgame-audio --mqtt-pass-file /etc/sbgame/mqtt-audio.pass \
     --wav-dir /home/sidell/s/sbgame/wav \
     --record-dir /srv/sbgame/recordings \
-    --record-line 20,25,26,27,28,29,31 \
     --monitor 0 \
     --monitor-ch 33 \
     --monitor-file-trim -18 \
