@@ -95,6 +95,7 @@ async def run(cfg: Config) -> int:
         asyncio.create_task(link.run(), name="link"),
         asyncio.create_task(game.run_scheduler(), name="scheduler"),
         asyncio.create_task(game.watch_clients(), name="clients"),
+        asyncio.create_task(game.free.run(), name="free-calls"),     # §4.12, Rev 74
     ]
     if cfg.ring_cue:                                # §6.6, Rev 51
         if (cfg.resolved("wav_dir") / f"{cue.CUE}.wav").is_file():
@@ -110,6 +111,7 @@ async def run(cfg: Config) -> int:
         # Tear down a game in progress first, so the controller and the audio
         # program are left idle rather than holding a call we walked away from.
         await game.stop("the game program is shutting down")
+        await game.free.close()
         try:
             await asyncio.wait_for(link.state("ctl/game_status", "offline"), 2)
         except (Exception, asyncio.TimeoutError) as e:

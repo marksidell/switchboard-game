@@ -108,6 +108,11 @@ class Ctx:
     # Rev 60: trunks already up when this call began to route, and not
     # released since: not this call's, so never taken as the one she seized.
     stale_trunks: set[int] = field(default_factory=set)
+    # Rev 74: free calls (§4.12). The circuits of free callers, whether one is
+    # waiting to be put through, and the public line, which no scene takes.
+    free_callers: Callable[[], set[str]] = lambda: set()
+    free_routing: Callable[[], bool] = lambda: False
+    public_trunk: int = 0
 
     @property
     def b(self) -> Board:
@@ -282,6 +287,12 @@ async def _wait_for_right_station(ctx: Ctx, want: int, deadline: float) -> None:
         n = await ctx.b.wait_until(ringing_station, ctx.left(deadline))
         if n == want:
             return
+        if ctx.free_routing():
+            # Rev 74: a free caller waits to be put through, so the room is
+            # likely theirs (§4.12): not a wrong party for this call.
+            await ctx.b.wait_until(lambda b, n=n: not b.on(f"station/{n}/ring"),
+                                   ctx.left(deadline))
+            continue
         if n not in wrong_seen:
             wrong_seen.add(n)
             ctx.say_event(f"rang station {n}, wanted {want}")
@@ -356,9 +367,12 @@ def _fresh(ctx: Ctx):
     """A trunk up that is this call's to take (Rev 60): not one already up
     when it began to route. A stale trunk released and taken again is fresh."""
     def seized(b: Board) -> int | None:
+        free = ctx.free_callers()
         for n in range(1, 9):
             if not b.on(f"trunk/{n}/seize"):
                 ctx.stale_trunks.discard(n)
+            elif n == ctx.public_trunk or b.get(f"trunk/{n}/peer") in free:
+                continue                # the public line, or a free call's (Rev 74)
             elif n not in ctx.stale_trunks:
                 return n
         return None

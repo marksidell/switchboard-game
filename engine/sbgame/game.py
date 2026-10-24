@@ -40,6 +40,7 @@ from .config import Config
 from .deck import Deck, Holding
 from .diag import TESTS, Diagnostics, kind_of
 from .flows import Ctx, FLOWS, Outcome, outside_to_station, to_operator
+from .freecall import FreeCalls
 from .gamelog import GameLog
 from .pacing import PACES
 from .link import Hw, Link
@@ -96,6 +97,7 @@ class Game:
         self._scheduler: asyncio.Task | None = None
         self._decks_recorded = 0        # how many of deck.orders are in SQLite
         self.diag: Diagnostics | None = None
+        self.free = FreeCalls(self)           # §4.12, Rev 74
         self.queued = ""                # the chosen next scene (§4.8)
         self._scenarios_dealt: set[str] = set()   # once a game each (§4.10)
         self._delays = random.Random()  # drawn `delay` ranges, from the seed (§4.4)
@@ -492,9 +494,10 @@ class Game:
         if self.link is not None:
             await self.link.state("game/sweep", "")
 
-    def _circuits_in_calls(self) -> set[str]:
-        """Every station and trunk a call in progress is using."""
-        out: set[str] = set()
+    def _circuits_in_calls(self, free: bool = True) -> set[str]:
+        """Every station and trunk a call in progress is using; and, unless
+        free is false, every one a free call is using (§4.12)."""
+        out: set[str] = self.free.circuits() if free else set()
         assert self.slots is not None
         for call in self.slots:
             sc = self.gs.scenes.get(call.scene)
@@ -642,8 +645,9 @@ class Game:
     # ---- dealing and running calls --------------------------------------
 
     def _held(self) -> list[Holding]:
-        """What every call in progress and every waiting `after:` occupies."""
-        out = list(self._pending_after.values())
+        """What every call in progress and every waiting `after:` occupies,
+        and every free call (§4.12)."""
+        out = list(self._pending_after.values()) + self.free.holdings()
         # A station under test is busy for dealing (§7.5).
         if self.diag is not None:
             for c in self.diag.circuits():
@@ -655,6 +659,16 @@ class Game:
             sc = self.gs.scenes[call.scene]
             people = frozenset(p for p in self.gs.people[sc.id] if p)
             out.append(Holding(frozenset(sc.lines), people))
+        return out
+
+    def _wanted_stations(self) -> set[int]:
+        """The rooms the game calls not yet connected are to ring (§4.12):
+        a ring on one of them is that call's, not a free call's."""
+        out: set[int] = set()
+        for call in (self.slots if self.slots is not None else ()):
+            sc = self.gs.scenes.get(call.scene)
+            if sc is not None and sc.to_station is not None and not call.connected:
+                out.add(sc.to_station)
         return out
 
     def _waiting_to_connect(self) -> bool:
@@ -844,7 +858,9 @@ class Game:
                   set_monitor=self._monitor,
                   tutor=self.tutor, jack_of=self.gs.jack_of,
                   reaction=self.gs.reaction,
-                  occupant=lambda n: self.gs.occupants.get(n, ""))
+                  occupant=lambda n: self.gs.occupants.get(n, ""),
+                  free_callers=self.free.callers, free_routing=self.free.routing,
+                  public_trunk=self.cfg.public_trunk)
         outcome = Outcome(False, "cancelled")
         try:
             if scene.shape == Shape.OUTSIDE_TO_STATION:

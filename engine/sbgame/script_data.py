@@ -97,6 +97,23 @@ class Jack:
     circuit: str         # "station/11", "trunk/3", or "" if nothing is cabled
 
 
+@dataclass(frozen=True)
+class FreeLines:
+    """One answerer's free-call lines (§4.12, Rev 74), those whose wavs are here."""
+    greeting: Speech
+    lines: tuple[Speech, ...]      # said once each, in order
+    loop: tuple[Speech, ...]       # then round and round
+
+    def said(self, k: int) -> Speech:
+        """The k-th line after the greeting, 0 up."""
+        if k < len(self.lines):
+            return self.lines[k]
+        return self.loop[(k - len(self.lines)) % len(self.loop)]
+
+
+LENNY = "lenny"                    # the real Lenny, for a number nobody answers (§4.12)
+
+
 @dataclass
 class GameScript:
     script: Script
@@ -116,6 +133,21 @@ class GameScript:
     # Station circuit -> who answers it when nobody is expected (Rev 60): the
     # person the scenes most often have on that line.
     occupants: dict[int, str] = field(default_factory=dict)
+    # Free calls (§4.12, Rev 74): each answerer's lines, by cast member, only
+    # those with a greeting and a loop here; who answers each station and
+    # each outside line, from the people the scenes have on it; and each
+    # outside number, digits only, to its line.
+    freecall: dict[str, FreeLines] = field(default_factory=dict)
+    free_station: dict[int, str] = field(default_factory=dict)
+    free_outside: dict[str, str] = field(default_factory=dict)
+    numbers: dict[str, str] = field(default_factory=dict)
+
+    def answerer(self, who: str) -> tuple[str, FreeLines | None]:
+        """Who answers in place of `who` ("" for nobody), and their lines:
+        `who` if they have lines here, else the real Lenny (§4.12)."""
+        if who in self.freecall:
+            return who, self.freecall[who]
+        return LENNY, self.freecall.get(LENNY)
 
     def reaction(self, kind: str, voice: str) -> Speech | None:
         return self.reactions.get(kind, {}).get(voice)
@@ -249,6 +281,43 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
                 seen.setdefault(n, Counter())[e["person"]] += 1
     occupants = {n: c.most_common(1)[0][0] for n, c in seen.items()}
 
+    # Free calls (§4.12, Rev 74): each answerer's lines, tolerant of wavs not
+    # rendered yet; who answers each station and outside line - the person
+    # the scenes have there most often, among those with free-call lines.
+    freecall: dict[str, FreeLines] = {}
+    for who, entry in s.freecall.items():
+        def have(us):
+            out = []
+            for u in us:
+                try:
+                    out.append(Speech(u.name, _wav_seconds(wav, u.name), "called"))
+                except (OSError, EOFError, wave.Error):
+                    pass
+            return tuple(out)
+        g, lines, loop = have([entry["greeting"]]), have(entry["lines"]), have(entry["loop"])
+        if g and loop:
+            freecall[who] = FreeLines(g[0], lines, loop)
+    by_line: dict[str, Counter] = {}
+    for sid, raw in s.scenes.items():
+        if not isinstance(raw, dict):
+            continue
+        for end in ("calling", "called"):
+            e = raw.get(end) or {}
+            if e.get("line") and e.get("person"):
+                by_line.setdefault(e["line"], Counter())[e["person"]] += 1
+
+    def best(line: str) -> str:
+        for who, _ in by_line.get(line, Counter()).most_common():
+            if who in s.freecall:
+                return who
+        return ""
+    free_station = {e["number"]: best(line) for line, e in stations.items()
+                    if isinstance(e, dict) and isinstance(e.get("number"), int)}
+    free_outside = {line: best(line) for line in s.outside}
+    numbers = {"".join(ch for ch in str((e or {}).get("number", "")) if ch.isdigit()): line
+               for line, e in s.outside.items()}
+    numbers.pop("", None)
+
     reactions: dict[str, dict[str, Speech]] = {}
     for kind, by_voice in s.reactions.items():
         for who, u in by_voice.items():
@@ -270,6 +339,8 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
                 missing.append(u.name)
 
     return GameScript(script=s, scenes=scenes, people=people, jacks=_jacks(s),
+                      freecall=freecall, free_station=free_station,
+                      free_outside=free_outside, numbers=numbers,
                       tutor=tutor, tutor_missing=tuple(missing),
                       lessons=tuple(tuple(g) for g in s.lessons),
                       reactions=reactions, occupants=occupants)
@@ -320,14 +391,12 @@ def fit(gs: GameScript, stations: int = N_STATIONS, trunks: int = N_TRUNKS,
                 why[sid] = f"it follows {sc.after}, left out"
                 changed = True
     keep = {i: s for i, s in gs.scenes.items() if i not in why}
-    fitted = GameScript(script=gs.script, scenes=keep,
-                        people={i: p for i, p in gs.people.items() if i in keep},
-                        jacks=gs.jacks, tutor=gs.tutor, tutor_missing=gs.tutor_missing,
-                        # A lesson left out goes from its group; an emptied
-                        # group goes altogether (§6.5).
-                        lessons=tuple(g for g in (tuple(i for i in grp if i in keep)
-                                                  for grp in gs.lessons) if g),
-                        reactions=gs.reactions, occupants=gs.occupants)
+    fitted = dataclasses.replace(
+        gs, scenes=keep, people={i: p for i, p in gs.people.items() if i in keep},
+        # A lesson left out goes from its group; an emptied group goes
+        # altogether (§6.5).
+        lessons=tuple(g for g in (tuple(i for i in grp if i in keep)
+                                  for grp in gs.lessons) if g))
     return fitted, [f"{i}: {w}" for i, w in why.items()]
 
 

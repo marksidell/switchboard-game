@@ -79,6 +79,12 @@ TUTOR_KEYS: dict[str, str | None] = {
 #   hello  - they have answered and nobody is on the line
 #   wrong  - the operator has put them through to the wrong party
 REACTIONS = ("nudge", "hello", "wrong")
+# Free calls, Lenny mode (game_control.md 4.12, Rev 74), under freecall:,
+# per cast member: a greeting:, the lines: said once in order, and the loop:
+# said round and round after them. Named free.<cast>.g for the greeting and
+# free.<cast>.<n>, 1 up, for the rest in the order they are said.
+FREE = "free"
+FREE_KEYS = ("greeting", "lines", "loop")
 
 # The lines that may be given a short form under tutor: brief: (Rev 55), said
 # from the third call she tutors on: brief-<key> in Script.tutor, and named
@@ -173,6 +179,9 @@ class Script:
     # reactions:, by kind and then speaker: reactions["nudge"]["martha"]
     # (game_control.md 5, Rev 60). Empty without a reactions: section.
     reactions: dict[str, dict[str, Utterance]] = field(default_factory=dict)
+    # freecall:, by cast member: {"greeting": Utterance, "lines": [...],
+    # "loop": [...]} (game_control.md 4.12, Rev 74). Empty without it.
+    freecall: dict[str, dict] = field(default_factory=dict)
     # tutor: lessons:, the scenes a tutored game starts with, one picked from
     # each group (game_control.md 4.9, Rev 30). Empty without it.
     lessons: list[list[str]] = field(default_factory=list)
@@ -296,7 +305,7 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
         bad(f"{name}", "is both a station and an outside entry")
     if OPERATOR_SCENE in scenes:
         bad(f"scenes.{OPERATOR_SCENE}", "is reserved for the names of operator_lines:")
-    for reserved in (TUTOR, BRIEF, *REACTIONS):
+    for reserved in (TUTOR, BRIEF, FREE, *REACTIONS):
         if reserved in scenes:
             bad(f"scenes.{reserved}", "is reserved for the names of the tutor's lines")
     lines = set(stations) | set(outside)
@@ -688,6 +697,11 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
     reactions = _reactions(data.get("reactions"), cast, bad)
     for by_speaker in reactions.values():
         utterances.extend(by_speaker.values())
+
+    # --- free calls, Lenny mode (game_control.md 4.12, Rev 74) --------------
+    freecall = _freecall(data.get("freecall"), cast, bad)
+    for entry in freecall.values():
+        utterances.extend([entry["greeting"], *entry["lines"], *entry["loop"]])
     lessons = _lessons((data.get("tutor") or {}).get("lessons")
                        if isinstance(data.get("tutor"), dict) else None,
                        scenes, stations, bad)
@@ -698,7 +712,8 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
     return Script(path=path, setting=data.get("setting") or {}, cast=cast,
                   outside=outside, stations=stations, scenes=scenes,
                   jacks=board, utterances=utterances, operator_lines=stock,
-                  closings=closings, tutor=tutor, reactions=reactions, lessons=lessons)
+                  closings=closings, tutor=tutor, reactions=reactions, lessons=lessons,
+                  freecall=freecall)
 
 
 def scene_kind(scene: dict, stations: dict) -> str:
@@ -941,14 +956,60 @@ def _reactions(raw: object, cast: dict, bad) -> dict[str, dict[str, Utterance]]:
         text = " ".join(text.split())
         out[kind] = {}
         for who in cast:
-            if who in (TUTOR, HOTEL_OPERATOR):
-                continue
+            if who in (TUTOR, HOTEL_OPERATOR) or "recorded" in (cast[who] or {}):
+                continue                    # a recorded part says only its takes
             u = Utterance(scene=kind, id=who, speaker=who, text=text, role="caller")
             why = name_problem(u.name)
             if why is not None:
                 bad(f"reactions.{kind}", f"file name {u.name!r} is not usable: {why}")
                 continue
             out[kind][who] = u
+    return out
+
+
+def _freecall(raw: object, cast: dict, bad) -> dict[str, dict]:
+    """freecall: expanded into each answerer's utterances (game_control.md 4.12)."""
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        bad(FREE + "call", "not a mapping")
+        return {}
+    out: dict[str, dict] = {}
+    for who, entry in raw.items():
+        at = f"freecall.{who}"
+        if who not in cast or who in (TUTOR, HOTEL_OPERATOR):
+            bad(at, "is not a cast member who can answer")
+            continue
+        if not isinstance(entry, dict):
+            bad(at, "not a mapping")
+            continue
+        for key in sorted(set(map(str, entry)) - set(FREE_KEYS)):
+            bad(f"{at}.{key}", "is not one of " + ", ".join(FREE_KEYS))
+        greeting = entry.get("greeting")
+        lines, loop = entry.get("lines") or [], entry.get("loop")
+        if not isinstance(greeting, str) or not greeting.strip():
+            bad(f"{at}.greeting", "missing or empty")
+            continue
+        if not isinstance(loop, list) or not loop:
+            bad(f"{at}.loop", "missing or empty: the lines said round and round")
+            continue
+        if not isinstance(lines, list):
+            bad(f"{at}.lines", "not a list")
+            continue
+        texts = [*lines, *loop]
+        if any(not isinstance(t, str) or not t.strip() for t in texts):
+            bad(at, "every line must be text")
+            continue
+        made = [Utterance(scene=f"{FREE}.{who}", id="g", speaker=who,
+                          text=" ".join(greeting.split()), role="called")]
+        for i, t in enumerate(texts, 1):
+            made.append(Utterance(scene=f"{FREE}.{who}", id=str(i), speaker=who,
+                                  text=" ".join(t.split()), role="called"))
+        if any((why := name_problem(u.name)) is not None for u in made):
+            bad(at, f"file name {made[-1].name!r} is not usable: {why}")
+            continue
+        out[who] = {"greeting": made[0], "lines": made[1:1 + len(lines)],
+                    "loop": made[1 + len(lines):]}
     return out
 
 

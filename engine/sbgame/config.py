@@ -78,6 +78,10 @@ class Config:
     # and [out_of_service.stations] (Rev 43), station number -> reason: no
     # scene calling from or to one is played.
     out_of_service: dict = field(default_factory=dict)
+    # The public line (§4.12, Rev 74): the trunk the Grandstream ATA feeds
+    # (trunk_circuit.md 4.5). No scene takes, rings or dials on it; outside
+    # free calls come in on it. 0 for none.
+    public_trunk: int = 8
 
     def stations_out(self) -> frozenset[int]:
         """The fitted stations no scene may use (§6.5, Rev 43)."""
@@ -86,7 +90,7 @@ class Config:
     def working_trunks(self) -> list[int]:
         """The fitted trunks a call may ring in on (§6.5)."""
         out = {int(k) for k in (self.out_of_service.get("trunks") or {})}
-        return [n for n in range(1, self.trunks + 1) if n not in out]
+        return [n for n in range(1, self.trunks + 1) if n not in out and n != self.public_trunk]
 
     # ---- the session log -----------------------------------------------
     session_db: str = "~/.local/state/sbgame/sessions.db"
@@ -140,6 +144,8 @@ class Config:
             bad.append(f"ring_cue {self.ring_cue!r} is not true or false")
         if not (isinstance(self.stations, int) and 0 <= self.stations <= 22):
             bad.append(f"stations {self.stations!r} is not a whole number 0-22")
+        if not (isinstance(self.public_trunk, int) and 0 <= self.public_trunk <= 8):
+            bad.append(f"public_trunk {self.public_trunk!r} is not a trunk 1-8, or 0 for none")
         if not (isinstance(self.trunks, int) and 0 <= self.trunks <= 8):
             bad.append(f"trunks {self.trunks!r} is not a whole number 0-8")
         oos = self.out_of_service

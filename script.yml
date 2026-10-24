@@ -460,6 +460,15 @@ cast:
         accent: generic American, young man, sheepish
         description: Eddie Moran, a former pupil of Miss Crane, now in the Navy
 
+    # The real Lenny (game_control.md 4.12, Rev 74): his sixteen recordings,
+    # released freely on the internet in 2013, answer a number the game does
+    # not know. His lines are under freecall:, his takes in tts/recorded/.
+    lenny:
+        sex: male
+        accent: English, elderly, hesitant
+        description: Lenny, an old man who keeps telemarketers talking
+        recorded: Lenny (the public recordings of 2013)
+
 # What the player says (game_control.md 4.7).
 #     The game never plays these: the person at the board speaks them. They
 #     are rendered in hotel_operator's voice, as operator.<id>, so that a
@@ -513,6 +522,510 @@ reactions:
     hello: Hello? ... Hello? Is anybody there?
     # She has put the caller through to the wrong party.
     wrong: Operator, that's not who I asked for.
+
+# Free calls, Lenny mode (game_control.md 4.12, Rev 74). A real person on
+# station 24 or the public trunk is put through to a room or an outside
+# number, and whoever is there answers with their greeting:, then says one
+# line at each pause in the caller's talk: the lines: once each in order,
+# then the loop: in order, round and round, until the caller hangs up. The
+# lines are made to fit after almost anything a caller says. Rendered as
+# free.<cast>.g, then free.<cast>.1 up in the order they are said.
+#     greeting: what they say on picking up
+#     lines:    said once each, after the greeting (may be left out)
+#     loop:     said round and round after the lines
+#
+freecall:
+    # Mark's spec, word for word (lenny-spec.txt, 2026-10-23).
+    thornhill:
+        greeting: Hi! Mellow greetings, ukie-dukie!
+        lines:
+            - Hey, you remind me of a man.
+        loop:
+            - The man with the power.
+            - The power of hoodoo.
+            - You do.
+            - Remind me of a man.
+    marysmith:
+        greeting: Hello? Who is this?
+        lines:
+            - Oh! Well, I wasn't expecting anybody. Everything's been happening so fast today.
+            - Listen, if this is about the coat, I didn't ask for it. It just fell on me. Out of the sky!
+        loop:
+            - Uh huh. Uh huh. And then what?
+            - Gee, you sound just like a fellow I met at the Automat. Are you a banker?
+            - Now wait a minute. Who told you I was in the Imperial Suite?
+            - Say, that's swell. That's really swell. I think.
+            - I'm sorry, the room service man is here again. He keeps bringing me things! Go on.
+            - You know, nobody's ever been this nice to me. It makes a girl nervous.
+            - Hold on, you're going too fast for me. Start from the part about the money.
+            - Well, I'll have to ask Johnny about that. He handles everything now. I think.
+    lindqvist:
+        greeting: Ahoy! Lindqvist here!
+        lines:
+            - Ja, you'll have to speak up. I been on the boats all morning and my ears are full of diesel.
+        loop:
+            - Ja. Ja, sure.
+            - Is this about the halibut? Because I told that fella, the halibut's not running till June.
+            - Well, now, my father used to say the same thing. He was from Bergen. Very stubborn man.
+            - Hold on, I got to find my pencil. Okay. Go ahead.
+            - You know, that reminds me of the time the Inga Marie lost her rudder off Cape Flattery.
+            - Uh huh. And how much would that run me?
+            - Say that again? There's a seagull on the window sill and he's looking at my sandwich.
+            - Well, that sounds all right. I'll talk to the wife about it.
+    carsalesman:
+        greeting: V16 Automobile Company of America.
+        lines:
+            - Ah, yes, splendid. And to whom do I have the pleasure, old bean?
+        loop:
+            - Quite. Quite right. Now, have you considered the sixteen cylinder model?
+            - Indeed. Sixteen cylinders, you see. Not eight. Not twelve. Sixteen.
+            - Ah, but you haven't heard the engine. It purrs, dear fellow. It positively purrs.
+            - I beg your pardon? The line's a bit rummy at this end. Do go on.
+            - Of course. Of course. And may I ask what you're driving at present?
+            - Ha ha! Very good. Very good indeed. Now, about the down payment.
+            - Mm, yes, terms can be arranged. We are a very understanding company.
+            - Splendid. Shall I send a man round with the brochure?
+    # Hotel staff on the stations.
+    bellcaptain:
+        greeting: Bell captain. Gus speaking.
+        lines:
+            - Uh huh. Hold on, kid, let me get the cigar out of my mouth. Okay. Shoot.
+        loop:
+            - Yeah. Yeah. I got it.
+            - You want a boy sent up? I only got two boys, and one of 'em's eating.
+            - Listen, I been bell captain here nineteen years. I seen everything. Go on.
+            - Say that again? The elevator's making that noise again.
+            - Sure, sure. And what room did you say that was?
+            - That's funny, the fella in 403 said the same thing this morning.
+            - Okay, but that's gonna cost you. Nothing's free in this hotel but the matches.
+            - Uh huh. You want I should write that down?
+    valerian:
+        greeting: Yes?
+        lines:
+            - I was expecting your call. Though perhaps not so soon.
+        loop:
+            - How interesting. Go on.
+            - You speak very freely, for a man on a hotel telephone.
+            - Of course. Everybody says that. And then they change their minds.
+            - I am afraid I did not catch that. The lobby is so very noisy.
+            - Mm. And who else knows that you are calling?
+            - We met once before, I think. You do not remember? I do.
+            - That is a very reasonable proposal. We will discuss it in person.
+            - Yes. Yes. And where are you now, exactly?
+    hostess:
+        greeting: Good evening, the Stoneburner. This is the hostess speaking.
+        lines:
+            - Oh, I'm sorry, could you say that again? We have the dinner rush just now.
+        loop:
+            - Yes, of course. And how many in your party?
+            - Oh, I'm sure we can find something. Would you mind a table near the kitchen?
+            - Mm hm. Mm hm. And was that for this evening?
+            - I'm so sorry, the band has just started. Could you speak up a little?
+            - Oh, that's lovely. The chef will be so pleased to hear it.
+            - Now, did you want the salmon, or were you calling about the coat check?
+            - Yes, we did have a gentleman ask about that last week. Was that you?
+            - Of course, of course. I'll just make a little note.
+    waiter:
+        greeting: Room service.
+        lines:
+            - Yes, sir. And what room is this, please? My card's slipped off the desk.
+        loop:
+            - Yes. Yes. Very good.
+            - And would you like anything to drink with that?
+            - Oh, I'm afraid the kitchen's out of the lobster. We do have a very nice meat loaf.
+            - Mm hm. And how would you like that cooked?
+            - I'm sorry, could you repeat the last part? The dumbwaiter's going.
+            - Of course. That'll be about forty minutes. Maybe an hour.
+            - You know, a gentleman ordered just that last Tuesday. He was very happy. Mostly.
+            - Yes. I'll send that right up. Was there anything else?
+    valet:
+        greeting: Valet.
+        lines:
+            - Sure thing. Hang on, let me get the iron off the collar. Okay, go ahead.
+        loop:
+            - Uh huh. Sponged and pressed?
+            - Now, is that the gray suit or the brown suit?
+            - I can have it back to you in twenty minutes. Maybe twenty-five.
+            - Sorry, what was that? The steamer's going.
+            - Well, the last fella who said that, his trousers came back two inches shorter.
+            - Sure, sure. And did you want a crease in that?
+            - Yes sir, we do shoes too. Leave 'em outside the door.
+            - Uh huh. Uh huh. Got it.
+    housekeeper:
+        greeting: Housekeeping. Mrs. Olsen.
+        lines:
+            - Ja, ja. Is this about the towels again?
+        loop:
+            - Uh huh. And when did you notice this?
+            - Well, the girl was in there at ten o'clock. I saw her go in myself.
+            - Sorry, what was that? The vacuum is going in the hall.
+            - We do have more pillows. But I must ask, how many pillows does one person need?
+            - Ja. Ja. I will send somebody up. Eventually.
+            - You know, in Ballard we would just do it ourselves. But this is a hotel.
+            - And was there anything else? The ice bucket? The shower curtain?
+            - Ja, I'll make a note. I have many notes.
+    desk_clerk:
+        greeting: Front desk, good evening.
+        lines:
+            - Yes, sir, how may I help you? Sorry, could you give me your name again?
+        loop:
+            - Yes, of course. Just one moment while I check.
+            - I'm afraid I don't see that on the register. Could you spell it for me?
+            - Mm hm. And was that for one night or two?
+            - I'm sorry, there's a convention checking in. Could you say that again?
+            - Certainly. I'll have the bellman take care of it.
+            - Oh, yes, the manager did mention something about that. Was that you who called?
+            - Of course. And will you be needing a wake up call?
+            - Yes. Yes. I've written it down right here.
+    concierge:
+        greeting: Concierge's desk. Fairweather speaking.
+        lines:
+            - Ah, how delightful. And how may I be of service this evening?
+        loop:
+            - But of course. I know just the person.
+            - Mm, yes. The Ambassador said precisely the same thing to me, only last week.
+            - I'm so sorry, I didn't quite catch that. Would you be so kind as to repeat it?
+            - Tickets? For tonight? Well, nothing is impossible. Merely expensive.
+            - Indeed. And may I ask who recommended us?
+            - Oh, I wouldn't go there. The fish is dreadful. Let me suggest somewhere else.
+            - Splendid. I shall arrange everything. Leave it entirely to me.
+            - Yes, yes. And was there anything further?
+    # The guests on the stations.
+    hollis:
+        greeting: Hollis.
+        lines:
+            - Yes. I'm on call at the hospital, so be brief.
+        loop:
+            - Hm. And how long has this been going on?
+            - Any fever? Any pain on the left side?
+            - I see. Well, that's very interesting, medically speaking.
+            - Say that again? I was reading a journal.
+            - I had a patient in Baltimore say exactly that. He made a full recovery. Eventually.
+            - Mm. Have you tried bed rest?
+            - Well, I can't say anything for certain over the telephone.
+            - Yes. Yes. Go on.
+    pemberton:
+        greeting: Yes? This is Mrs. Pemberton.
+        lines:
+            - Finally. I have been waiting for someone to call me back all afternoon.
+        loop:
+            - Well, that's simply not good enough.
+            - In Pasadena, we would never stand for such a thing.
+            - I beg your pardon? Speak up, young man. I can't abide mumbling.
+            - And I suppose you expect me to be grateful for that?
+            - My late husband would have had something to say about this. Several things.
+            - Oh, very well. And what do you propose to do about it?
+            - The draperies, the water pressure, and now this.
+            - Hmph. Go on, then.
+    martha:
+        greeting: Woof. I mean, hello?
+        lines:
+            - Is that you? I know that voice. Do you have a biscuit?
+        loop:
+            - Uh huh. Uh huh. Ruff.
+            - Sorry, what was that? There was a squirrel.
+            - You smell very nice over the telephone.
+            - Oh, I'm not allowed on the bed. I'm on the bed right now.
+            - Yes, yes, yes. Good. Good. Are we going for a walk?
+            - I chewed a shoe this morning. It was not my shoe.
+            - Can you say that again, slower? I'm only a dog.
+            - Who's a good caller? You are. Yes you are.
+    dobbs:
+        greeting: Dobbs here! Earl Dobbs!
+        lines:
+            - Well, hello there! Say, this is the first time I been called in a hotel. Fancy!
+        loop:
+            - You don't say! You don't say!
+            - Back in Omaha we got a feller just like you. Sells seed corn.
+            - What's that? You gotta holler, the radiator's banging.
+            - Well, Mabel's gonna get a kick out of this. I'll tell her tonight.
+            - How much? Holy smokes. For that much I could buy a tractor.
+            - Ha! That's a good one. That's a real good one.
+            - Now, is this the fella about the salmon? Or the other fella?
+            - Sure, sure. Go on, I'm listening.
+    vance:
+        greeting: Mm. Hello? Who's calling at this hour?
+        lines:
+            - Darling, it's barely noon. I was asleep.
+        loop:
+            - Mm hm.
+            - You were at the club last night? That's sweet. Which song did you like?
+            - Say that again, honey. I haven't had my coffee.
+            - Oh, everybody says that. But it's nice to hear.
+            - Flowers? Again? Darling, you shouldn't have. No really, you shouldn't have.
+            - Mm. Tell me more. Slowly.
+            - I'm opening at the Trianon on Friday. You'll come, won't you?
+            - Yes. Yes. I'm listening. More or less.
+    pike:
+        greeting: Harold Pike, Whirlwind Vacuum Company! What can I do for you?
+        lines:
+            - Say, have you got a minute? 'Cause I got a minute.
+        loop:
+            - Uh huh, uh huh. And what are you using now? A broom? A broom!
+            - The Whirlwind picks up dirt you didn't even know you had.
+            - Sorry, what? I got the demonstrator running in here.
+            - That's exactly what Mrs. Gunderson said, and now she's my best customer. More or less.
+            - I could come by this afternoon. I got the attachments right here.
+            - You drive a hard bargain. I like that in a customer.
+            - Sure, sure. And who else in the house does the cleaning?
+            - Uh huh. Let me just write that down.
+    beaumont:
+        greeting: Colonel Augustus Beaumont speaking, sir!
+        lines:
+            - Speak up, sir! The connection is as poor as Yankee coffee.
+        loop:
+            - Indeed, sir. Indeed.
+            - Why, that reminds me of the summer of nineteen hundred and eight in Savannah.
+            - I beg your pardon? My hearing is not what it was at San Juan Hill.
+            - That is a matter of honor, sir. Of honor!
+            - My sister Lucinda would have strong words to say about that.
+            - Well, I'll be. You don't say.
+            - Now, sir, are you a Georgia man? You don't sound like a Georgia man.
+            - Proceed, sir. I am all attention.
+    albright:
+        greeting: Hello, this is Mrs. Albright.
+        lines:
+            - Oh dear, I'm so glad somebody called. It's so quiet up here.
+        loop:
+            - Oh, my. Oh, my.
+            - Is this Chester? It doesn't sound like Chester. You're not asking for money, are you?
+            - Sorry, dear, could you say that again? I've left my hearing aid on the dresser.
+            - My sister Ruth in Portland said exactly the same thing at Easter.
+            - Well, my late husband always handled these things. He was very good with figures.
+            - Yes, dear. Yes. And what was your name again?
+            - Oh, that sounds lovely. Is it expensive?
+            - I'll have to think about it. Tell me again, slowly.
+    finch:
+        greeting: Hello? Howard Finch. Is this the doctor?
+        lines:
+            - Oh. Well, I've been feeling a bit peculiar, so I thought it might be the doctor.
+        loop:
+            - Uh huh. Is that contagious?
+            - I'm sorry, could you say that again? I think my ear is blocked. My left ear.
+            - You know, I read about that in Reader's Digest. It's very serious.
+            - Edna says I worry too much. Do you think I worry too much?
+            - Hold on, I'm taking my temperature. Mm. Ninety eight point seven. Is that high?
+            - I'm here with the Rotary. We're all very healthy. Except me.
+            - Yes. Yes. And how much does that cost?
+            - Oh dear. Oh dear, oh dear.
+    hale:
+        greeting: Hello? Oh, hello! This is Mrs. Hale. Mrs. Jim Hale!
+        lines:
+            - Gee, I still can't get used to saying that. We just got married Saturday!
+        loop:
+            - Oh, that's wonderful! Isn't it wonderful?
+            - Is this Mother? It doesn't sound like Mother.
+            - I'm sorry, Jim's singing in the shower. What did you say?
+            - Gosh, we haven't even thought about that yet.
+            - Jim says we should get a house with a picket fence. Do you have a picket fence?
+            - Oh, golly. Well, I'll have to ask Jim.
+            - Gee, everybody in Seattle is so friendly!
+            - Uh huh! Uh huh! And then what?
+    crane:
+        greeting: Miss Crane speaking.
+        lines:
+            - I'm sorry, could you state your name clearly? And then your business.
+        loop:
+            - I see.
+            - Speak in complete sentences, please.
+            - That is very nearly correct. Try again.
+            - In Yakima, we would call that a run on sentence.
+            - I beg your pardon? You'll have to enunciate.
+            - One of my former pupils said exactly that. He's in the Navy now.
+            - Mm hm. And what is the capital of Montana?
+            - Very well. Continue.
+    # Outside: the establishments' numbers.
+    local_operator:
+        greeting: Operator.
+        lines:
+            - What number are you calling, please?
+        loop:
+            - One moment, please.
+            - I'm sorry, could you repeat the number?
+            - Is that a local call or long distance?
+            - The line is busy. Will you wait?
+            - I'm sorry, sir, I can't give out that information.
+            - Uh huh. Uh huh. Hold the line, please.
+            - Would you like me to try again?
+            - Thank you. One moment, please.
+    pizza_man:
+        greeting: Sunny Hill Pizza! Whaddya need?
+        lines:
+            - Hold on, hold on, I got flour on the phone. Okay. Go.
+        loop:
+            - Pepperoni? Sausage? We got it all.
+            - Sure, sure, we deliver. The kid's got a bicycle.
+            - What? I can't hear ya, the oven door's open.
+            - My mother makes it the same way. In Naples. She's a hundred and two.
+            - Thirty minutes. Maybe forty. Maybe fifty.
+            - Okay, okay. And what's the address?
+            - You want anchovies on that? Nobody wants anchovies.
+            - Yeah, yeah. I'm writing it down.
+    maitre_d:
+        greeting: Canlis. Good evening.
+        lines:
+            - Of course. And may I have the name for the reservation?
+        loop:
+            - Very good.
+            - I'm afraid we are quite full this evening. But for you, perhaps.
+            - Jacket and tie, naturally.
+            - I'm sorry, I didn't quite hear you. The piano, you understand.
+            - Ah. Yes. Mr. Canlis was asking about that very thing last week.
+            - The salmon is excellent tonight. The salmon is always excellent.
+            - And will madame be joining you?
+            - Very good. I shall make a note of it.
+    florist:
+        greeting: Harbor Florist, good morning!
+        lines:
+            - Oh, I love a phone call. Now, who are the flowers for?
+        loop:
+            - Oh, roses are always nice. Or carnations, if it's not serious yet.
+            - And what would you like the card to say?
+            - Sorry, could you say that again? I'm up to my elbows in gladiolas.
+            - Oh, that's so romantic. Does she know?
+            - We had a gentleman order a dozen yellow roses just yesterday. Was that you?
+            - Mm hm. Mm hm. And what color?
+            - We can have them there by four o'clock. Probably.
+            - Oh, that's lovely. I'm writing it all down.
+    dispatcher:
+        greeting: Shilshole Cab.
+        lines:
+            - Where to, and where from?
+        loop:
+            - Uh huh.
+            - I got a car in about twenty minutes. Maybe thirty.
+            - What? Speak up, I got three phones going.
+            - Is that the Ballard Hotel? Or the other Ballard Hotel?
+            - Last fella who said that, the driver waited forty minutes and he never came down.
+            - Okay, okay. How many in the party?
+            - Sure. Is that a cash fare?
+            - Right. I'll get somebody out to you.
+    reporter:
+        greeting: City desk, Barrett!
+        lines:
+            - Yeah, yeah, I'm listening. Is this a tip? I love a tip.
+        loop:
+            - Uh huh, uh huh. Can I quote you on that?
+            - Spell your name for me? Never mind, I'll make one up.
+            - What? The presses are running, I can't hear a thing.
+            - That's funny, I got a call about the same thing last week. Was that you?
+            - Who else knows about this?
+            - Sure, sure. And what time did this happen?
+            - Hold on, let me get my pencil. Okay. Go on.
+            - That's terrific. That's front page. Well, page eleven.
+    rays_host:
+        greeting: Ray's Boathouse, this is Ray. Well, it's not Ray. Ray's out.
+        lines:
+            - What can I do you for?
+        loop:
+            - Sure, sure.
+            - We got a table by the window, if you don't mind the gulls.
+            - Sorry, what was that? There's a boat coming in.
+            - Ray says the same thing every Tuesday.
+            - Yeah, we got clams. We always got clams.
+            - Huh. Well, how about that.
+            - What time you figuring on coming down?
+            - Okay. I'll tell Ray when he gets back.
+    pigalle:
+        greeting: Place Pigalle, bonsoir.
+        lines:
+            - Yes, monsieur. And for how many persons?
+        loop:
+            - Oui. Oui.
+            - Ah, but tonight, it is very difficult. Very, very difficult.
+            - Pardon? I do not understand. Say again, please, more slowly.
+            - Non, non, monsieur. We do not do that here.
+            - The view of the Sound, it is magnifique. You will love it.
+            - And the name, monsieur? Ah, how charming.
+            - Perhaps at nine o'clock. Perhaps at ten.
+            - Bien. I write it in the book.
+    telegraph_clerk:
+        greeting: Western Union.
+        lines:
+            - Go ahead. Message, please.
+        loop:
+            - Stop.
+            - That's eleven words. Ten words is cheaper.
+            - Repeat that? The ticker's going.
+            - And the address?
+            - Got it. Stop.
+            - We send a lot of those. You'd be surprised.
+            - Will there be an answer?
+            - Okay. Anything else? Stop.
+    pharmacist:
+        greeting: Ballard Pharmacy.
+        lines:
+            - Now, what seems to be the trouble?
+        loop:
+            - Uh huh. And how long have you had that?
+            - Well, I'd take two aspirin and lie down.
+            - I'm sorry, what was that? The soda fountain is busy.
+            - We have a tonic for that. It's mostly cherry syrup.
+            - Is this Mr. Finch again? It sounds a little like Mr. Finch.
+            - Mm hm. Mm hm. Any dizziness?
+            - We close at nine, but I'll be here till ten.
+            - Well, now. Let me see what I've got.
+    box_office:
+        greeting: Paramount box office.
+        lines:
+            - Yeah, whaddya want?
+        loop:
+            - Uh huh.
+            - The picture starts at seven and nine fifteen.
+            - What? I'm chewing gum, I can't hear ya.
+            - Balcony's fifty cents. Orchestra's seventy five.
+            - Yeah, it's got Cary Grant in it. They all got Cary Grant in 'em.
+            - Look, I just sell the tickets.
+            - Uh huh. And how many?
+            - Yeah, yeah. Sure.
+    ferry_clerk:
+        greeting: Ferry dock, information.
+        lines:
+            - Which run you asking about?
+        loop:
+            - Uh huh.
+            - Next boat to Bremerton's at four ten. If she's on time. She's never on time.
+            - What's that? There's a whistle going.
+            - Fog's coming in, so don't hold me to nothing.
+            - That's what everybody asks. And I tell 'em what I'm telling you.
+            - Car or walk on?
+            - Huh. Well, that's the darnedest thing.
+            - Okay. Anything else?
+    nurse:
+        greeting: Swedish Hospital.
+        lines:
+            - Which department, please?
+        loop:
+            - One moment, please.
+            - Is the patient a relative?
+            - I'm sorry, could you repeat that? It's very busy here this evening.
+            - Visiting hours are two to four and seven to eight.
+            - I'm afraid I can't give out that information over the telephone.
+            - Mm hm. And your name?
+            - Doctor Hollis is in surgery. Would you care to leave a message?
+            - Yes. Yes. I'll make a note.
+    # The real Lenny, recorded (game_control.md 4.12): the transcripts of his
+    # sixteen public recordings, close but not exact. His takes are in
+    # tts/recorded/; the 16th is the plain one, not the one with the song.
+    lenny:
+        greeting: Hello, this is Lenny!
+        lines:
+            - Sorry, I can barely hear you there?
+            - Yes, yes, yes.
+            - Oh good, yes, yes, yes.
+            - Uh, yes, someone did say last week, or someone did call last week about the same thing. Was that, was that you?
+            - Sorry, what was your name again?
+        loop:
+            - Well, it's funny that you should call, because my third eldest, Larissa, she was talking about this just last week. She's very smart, she was the first in the family to go to the university, and she passed with distinctions. We're all quite proud of her. She was saying that I should look into this sort of thing. So, what more can you tell me about it?
+            - I am sorry, I couldn't quite catch you there. What was that again?
+            - Sorry, again?
+            - Could you say that again, please?
+            - Yes, yes, yes.
+            - Sorry, which company did you say you were calling from again?
+            - Well, you know, here's the thing. The last time that someone called up and spoke to me on the phone, I got in quite a bit of trouble with the people here, because I went for something that I shouldn't have. I probably shouldn't be telling you that. My eldest, Rachel, she wouldn't speak to me for a week. Sometimes in the family these things are quite important. They're more important than any job, or phone call, or whatever it is.
+            - Well, since you put it that way, I mean, you've been quite friendly and straightforward with me here. Hello? Hello, are you there? Oh yes, sorry, I have a bit of a problem with this phone, and my hearing is not so good. Sorry, what were you saying again?
+            - Well, you know, with the world finances the way they are, we're not allowed to spend as much as what we were. How is this going to work?
+            - Well, that does sound good. You have been very patient with an old man here. It's something that I've been told I should be looking at. My third eldest, Larissa, I think I mentioned Larissa before, she says I should be going for something like this. Sorry, could you just hang on for one second here? Hang on. Sorry about that. What were you saying there again?
 
 tutor:
     # The introduction, in three parts (game_control.md 4.9, Rev 31). After
