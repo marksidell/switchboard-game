@@ -500,6 +500,15 @@ operator_lines:
     desk-busy:
         id: 5
         text: I'm sorry, the front desk is busy just now. Please try again in a few minutes.
+    housekeeping-busy:
+        id: 6
+        text: I'm sorry, housekeeping is busy just now. Please try again in a few minutes.
+    bellcaptain-busy:
+        id: 7
+        text: I'm sorry, the bell captain is busy just now. Please try again in a few minutes.
+    valet-busy:
+        id: 8
+        text: I'm sorry, the valet is busy just now. Please try again in a few minutes.
 
 # What the tutor says (game_control.md 4.9). Tutor mode is switched on from
 # the Stream Deck; the tutor speaks on the loudspeaker at each step of a call
@@ -3724,8 +3733,10 @@ scenes:
     # the tenth call handled; each scene after it starts two to five seconds
     # after the one before has started, so the calls arrive almost together.
     # Every guest room but Martha's calls, and the lobby and the restaurant.
-    # The calls to the front desk carry if_busy: (4.11): while the desk is on
-    # another call, the operator tells the guest to try again later.
+    # The calls to the front desk, housekeeping, the bell captain and the
+    # valet carry if_busy: (4.11): while that station is on another call, the
+    # operator tells the guest to try again later. Four go to the desk; Mark,
+    # 2026-10-24, sent the rest elsewhere in the hotel.
     panic:
         active: true
         after_handled: 10
@@ -3831,15 +3842,15 @@ scenes:
             line: room204
             person: pike
         called:
-            line: frontdesk
-            person: desk_clerk
+            line: bellcaptain
+            person: bellcaptain
         request:
             id: 1
             operator: internal-greeting
-            text: Front desk, operator. It's an emergency.
+            text: The bell captain, operator. It's an emergency.
         conversation:
             -   id: 2
-                called: Front desk.
+                called: Bell captain. Gus.
             -   id: 3
                 caller: Harold Pike, 204. I was demonstrating the Whirlwind in the hall and a dog attacked it.
             -   id: 4
@@ -3847,10 +3858,10 @@ scenes:
             -   id: 5
                 caller: She's got it by the hose. She thinks it's a snake. That's my sample machine!
             -   id: 6
-                called: I'll send the bellboy, sir. Don't pull on the hose.
+                called: I'll send a boy up. Don't pull on the hose, she'll think you're playing.
         if_busy:
             -   id: 7
-                operator: desk-busy
+                operator: bellcaptain-busy
                 caller: Busy! I'll lose the whole Seattle territory over this.
 
     panic-beaumont:
@@ -3881,15 +3892,15 @@ scenes:
             line: room102
             person: pemberton
         called:
-            line: frontdesk
-            person: desk_clerk
+            line: housekeeping
+            person: housekeeper
         request:
             id: 1
             operator: internal-greeting
-            text: Operator, the front desk. Immediately.
+            text: Operator, housekeeping. Immediately.
         conversation:
             -   id: 2
-                called: Front desk.
+                called: Housekeeping. Mrs. Olsen.
             -   id: 3
                 caller: This is Mrs. Pemberton in 102. There is a dog outside my door, and she is staring at my parrot.
             -   id: 4
@@ -3897,13 +3908,13 @@ scenes:
             -   id: 5
                 caller: Reginald. He has pulled out two feathers and he will only say "bad dog". He used to sing.
             -   id: 6
-                called: I'll have the dog taken away at once, ma'am.
+                called: Ja, I know that dog. I am coming up with my broom.
             -   id: 7
                 caller: And a blanket for Reginald's cage. He needs to lie down.
         if_busy:
             -   id: 8
-                operator: desk-busy
-                caller: Busy! My parrot is having a nervous collapse and the front desk is busy.
+                operator: housekeeping-busy
+                caller: Busy! My parrot is having a nervous collapse and housekeeping is busy.
 
     panic-albright:
         active: true
@@ -3914,24 +3925,26 @@ scenes:
             line: room302
             person: albright
         called:
-            line: frontdesk
-            person: desk_clerk
+            line: housekeeping
+            person: housekeeper
         request:
             id: 1
             operator: internal-greeting
-            text: The front desk, please, dear.
+            text: Housekeeping, please, dear.
         conversation:
             -   id: 2
-                called: Front desk.
+                called: Housekeeping. Mrs. Olsen.
             -   id: 3
                 caller: This is Mrs. Albright, 302. I left my knitting on the chair in the hall, and a dog has run off with the yarn.
             -   id: 4
-                called: Oh dear. Which way did she go, ma'am?
+                called: Oh, ja. Which way did she go, ma'am?
             -   id: 5
                 caller: Everywhere. Just follow the blue wool. It goes down the stairs.
+            -   id: 7
+                called: I will wind it up as I go. And at the end of it, I find that dog.
         if_busy:
             -   id: 6
-                operator: desk-busy
+                operator: housekeeping-busy
                 caller: Never mind, dear. I'll follow the wool myself.
 
     panic-finch:
@@ -3962,15 +3975,15 @@ scenes:
             line: room305
             person: hale
         called:
-            line: frontdesk
-            person: desk_clerk
+            line: valet
+            person: valet
         request:
             id: 1
             operator: internal-greeting
-            text: Could you put me through to the front desk?
+            text: Could you put me through to the valet?
         conversation:
             -   id: 2
-                called: Front desk.
+                called: Valet.
             -   id: 3
                 caller: This is Mrs. Hale in 305. Jim put his shoes out to be shined, and a dog took one.
             -   id: 4
@@ -3978,10 +3991,10 @@ scenes:
             -   id: 5
                 caller: Just the one. And they're his wedding shoes. He's out in the hall in his socks, calling her.
             -   id: 6
-                called: Tell him to stay put, ma'am. We'll bring it up.
+                called: Tell him to stay put, ma'am. I'll get it back, and I'll shine it while I'm at it.
         if_busy:
             -   id: 7
-                operator: desk-busy
+                operator: valet-busy
                 caller: Busy? Well, Jim's gone after her in his socks anyway.
 
     panic-lindqvist:

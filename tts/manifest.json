@@ -8378,19 +8378,40 @@
     "text_sha": "006ac1ad29c70ab8",
     "voice_sha": "16619c235a8d72ff"
   },
+  "operator.6": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "9687f1ef6b1d54c7",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "operator.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "1aedddc25c8cfb17",
+    "voice_sha": "16619c235a8d72ff"
+  },
+  "operator.8": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "hotel_operator",
+    "text_sha": "45bfef0e1668d2aa",
+    "voice_sha": "16619c235a8d72ff"
+  },
   "panic-albright.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "albright",
-    "text_sha": "48e525af3661dc4c",
+    "text_sha": "fa98a748d2306ff3",
     "voice_sha": "e92994696ef162d0"
   },
   "panic-albright.2": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "desk_clerk",
-    "text_sha": "854500996e9a159d",
-    "voice_sha": "2a891ba79a329173"
+    "speaker": "housekeeper",
+    "text_sha": "72e8645b4b70f667",
+    "voice_sha": "4728e91795e03cf6"
   },
   "panic-albright.3": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -8402,9 +8423,9 @@
   "panic-albright.4": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "desk_clerk",
-    "text_sha": "afae5582b0a434dc",
-    "voice_sha": "2a891ba79a329173"
+    "speaker": "housekeeper",
+    "text_sha": "fb0a45e7a47070b6",
+    "voice_sha": "4728e91795e03cf6"
   },
   "panic-albright.5": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -8419,6 +8440,13 @@
     "speaker": "albright",
     "text_sha": "e3b88cd1913d64d7",
     "voice_sha": "e92994696ef162d0"
+  },
+  "panic-albright.7": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "housekeeper",
+    "text_sha": "e06d7b15cc18967f",
+    "voice_sha": "4728e91795e03cf6"
   },
   "panic-beaumont.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -8508,15 +8536,15 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "hale",
-    "text_sha": "ccca0eafa03a0e7d",
+    "text_sha": "f1a71bf5b289829f",
     "voice_sha": "b27d27d5a98678fa"
   },
   "panic-hale.2": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "desk_clerk",
-    "text_sha": "854500996e9a159d",
-    "voice_sha": "2a891ba79a329173"
+    "speaker": "valet",
+    "text_sha": "f125a6b46764ca6d",
+    "voice_sha": "998d77d4a381a2bc"
   },
   "panic-hale.3": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -8528,9 +8556,9 @@
   "panic-hale.4": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "desk_clerk",
+    "speaker": "valet",
     "text_sha": "7eafe4c9c456f18f",
-    "voice_sha": "2a891ba79a329173"
+    "voice_sha": "998d77d4a381a2bc"
   },
   "panic-hale.5": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -8542,9 +8570,9 @@
   "panic-hale.6": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "desk_clerk",
-    "text_sha": "c29102df0fe73cd2",
-    "voice_sha": "2a891ba79a329173"
+    "speaker": "valet",
+    "text_sha": "a40e55589b6ef856",
+    "voice_sha": "998d77d4a381a2bc"
   },
   "panic-hale.7": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -8690,15 +8718,15 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "pemberton",
-    "text_sha": "46be0a3be8b4bbdc",
+    "text_sha": "8f9e587ab619a922",
     "voice_sha": "c0d65bbbe2a1933e"
   },
   "panic-pemberton.2": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "desk_clerk",
-    "text_sha": "854500996e9a159d",
-    "voice_sha": "2a891ba79a329173"
+    "speaker": "housekeeper",
+    "text_sha": "72e8645b4b70f667",
+    "voice_sha": "4728e91795e03cf6"
   },
   "panic-pemberton.3": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -8710,9 +8738,9 @@
   "panic-pemberton.4": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "desk_clerk",
+    "speaker": "housekeeper",
     "text_sha": "5e6635f2cc0172a3",
-    "voice_sha": "2a891ba79a329173"
+    "voice_sha": "4728e91795e03cf6"
   },
   "panic-pemberton.5": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -8724,9 +8752,9 @@
   "panic-pemberton.6": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "desk_clerk",
-    "text_sha": "3a7d6906880bfe18",
-    "voice_sha": "2a891ba79a329173"
+    "speaker": "housekeeper",
+    "text_sha": "2dcd3d09f3707e9a",
+    "voice_sha": "4728e91795e03cf6"
   },
   "panic-pemberton.7": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -8739,22 +8767,22 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "pemberton",
-    "text_sha": "5f9d2d54c4024209",
+    "text_sha": "8b56fc23e7170940",
     "voice_sha": "c0d65bbbe2a1933e"
   },
   "panic-pike.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "pike",
-    "text_sha": "c991e03020528392",
+    "text_sha": "9ceae4d0a60af693",
     "voice_sha": "a8807f00109b66da"
   },
   "panic-pike.2": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "desk_clerk",
-    "text_sha": "854500996e9a159d",
-    "voice_sha": "2a891ba79a329173"
+    "speaker": "bellcaptain",
+    "text_sha": "3ec6b89dfbc34ab4",
+    "voice_sha": "fca126ddb00be043"
   },
   "panic-pike.3": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -8766,9 +8794,9 @@
   "panic-pike.4": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "desk_clerk",
+    "speaker": "bellcaptain",
     "text_sha": "1938f510a435f938",
-    "voice_sha": "2a891ba79a329173"
+    "voice_sha": "fca126ddb00be043"
   },
   "panic-pike.5": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -8780,9 +8808,9 @@
   "panic-pike.6": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "desk_clerk",
-    "text_sha": "9e2f3b85cac04c65",
-    "voice_sha": "2a891ba79a329173"
+    "speaker": "bellcaptain",
+    "text_sha": "a665c8712b905fbb",
+    "voice_sha": "fca126ddb00be043"
   },
   "panic-pike.7": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
