@@ -1,0 +1,73 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>500 Set Impedance Checklist</title>
+<style>
+@page { size: letter; margin: 0.5in 0.7in; }
+body { font: 10pt/1.3 "DejaVu Sans", Arial, sans-serif; color: #000; }
+h1 { font-size: 16pt; margin: 0 0 2pt; }
+.sub { font-size: 9.5pt; margin: 0 0 10pt; }
+h2 { font-size: 11.5pt; margin: 9pt 0 3pt; border-bottom: 1px solid #000; padding-bottom: 1pt; }
+ul { list-style: none; padding-left: 0; margin: 0; }
+li { margin: 3pt 0 3pt 20pt; text-indent: -20pt; }
+li::before { content: "\2610\00a0\00a0"; font-size: 12pt; }
+.f { display: inline-block; border-bottom: 1px solid #000; min-width: 0.9in; }
+.note { font-size: 9pt; margin: 2pt 0 2pt 20pt; }
+code { font: 9.5pt "DejaVu Sans Mono", monospace; }
+table { border-collapse: collapse; margin: 4pt 0 0 20pt; font-size: 9.5pt; }
+td { border: 1px solid #000; padding: 2pt 6pt; }
+pre { font: 8.5pt "DejaVu Sans Mono", monospace; margin: 4pt 0 0 20pt; }
+</style></head><body>
+
+<h1>500 Set Impedance: Bench Checklist</h1>
+<p class="sub">551 Switchboard Simulator. Purpose: the 500 set's off-hook impedance, 100 Hz–20 kHz,
+to size an analog low-pass in station 24's loop that keeps the pilot tones (6–9 kHz) out of the earpiece.
+Date <span class="f"></span>&nbsp; Set (model / date stamp) <span class="f" style="min-width:1.6in"></span></p>
+
+<h2>0. Before you start</h2>
+<ul>
+<li>Close WaveForms on the Windows machine (only one program can hold the AD3).</li>
+<li>AD3 + Impedance Analyzer adapter plugged into <b>portland</b> USB, if Claude is to run the sweeps.</li>
+<li>Bench supply is floating (isolated outputs). The AD3's ground is portland's ground.</li>
+</ul>
+
+<h2>1. Loop current on the switchboard (reference)</h2>
+<ul>
+<li>500 set on jack 18 (station 24, room 203). DMM in series with one leg, mA range.</li>
+<li>Lift the handset. Loop current: <span class="f"></span> mA</li>
+</ul>
+
+<h2>2. Bench feed</h2>
+<ul>
+<li>24 V supply through 200 Ω in <b>each</b> leg (2 W parts: up to 0.7 W each with the line shorted).</li>
+<li>Measured: supply <span class="f"></span> V &nbsp; R tip leg <span class="f"></span> Ω &nbsp; R ring leg <span class="f"></span> Ω</li>
+<li>Phone on L1/L2, handset lifted. Bench loop current: <span class="f"></span> mA &nbsp;(should be near step 1)</li>
+<p class="note">Optional, more accurate: 48 V through 2 × 600 Ω, if on hand. The feed is in parallel with the
+phone, and a larger feed resistance makes subtracting it more accurate. Note which was used.</p>
+</ul>
+
+<h2>3. Connect the AD3</h2>
+<ul>
+<li>Impedance adapter across the phone's L1/L2 through a DC blocking capacitor: ≥ 10 µF, film or bipolar, ≥ 50 V.
+Value used: <span class="f"></span> µF</li>
+<li>Compensation with the capacitor in circuit: <b>open</b> (leads apart) and <b>short</b> (across the phone's terminals).</li>
+<li>Settings: reference 1 kΩ, amplitude 100 mV, 100 Hz – 20 kHz, average 5.</li>
+</ul>
+
+<h2>4. Two sweeps</h2>
+<ul>
+<li><b>Feed alone</b>: phone unplugged, feed and capacitor still in place. Save as <code>feed.txt</code></li>
+<li><b>Feed + phone off hook</b>: handset lifted, loop current flowing. Save as <code>500set_offhook.txt</code></li>
+<li>Loop current during the second sweep: <span class="f"></span> mA</li>
+</ul>
+<p class="note">Save to <code>kicad/electret/measurements/</code> (on Windows <code>C:\s\sbgame\kicad\electret\measurements</code>),
+the same WaveForms text format as <code>source_500set.txt</code>. Add a <code>#Note:</code> line saying what was connected.
+Claude removes the feed from the second sweep to get the phone alone.</p>
+
+<h2>5. Hand over to Claude</h2>
+<ul>
+<li>Tell Claude: wired / AD3 on portland (Claude runs the sweeps), or the two files saved.</li>
+<li>Give the readings above: the two loop currents, the feed's V and R, and the capacitor.</li>
+</ul>
+
+<h2>Notes</h2>
+<div style="border:1px solid #000; height:0.7in; margin-top:4pt"></div>
+</body></html>
