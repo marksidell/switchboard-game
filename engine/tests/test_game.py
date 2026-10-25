@@ -428,6 +428,9 @@ async def main() -> int:
               "voice on the tap plays through audio/tap/play/set")
         await g.on_command("diag/station/4/monitor", "on")
         check(("audio/monitor/source/set", "station/4") in link.sent, "monitor moves the loudspeaker")
+        i = link.sent.index(("audio/monitor/source/set", "station/4"))
+        check(link.sent[i - 1] == ("audio/monitor/peer/set", "auto"),
+              "the peer boost to its measurement just before (Rev 86)")
         await g.on_command("diag/tap/monitor", "on")
         check(link.state_v.get("game/diag/station/4/monitor") == "off", "one monitor test at a time")
         link.sent.clear()

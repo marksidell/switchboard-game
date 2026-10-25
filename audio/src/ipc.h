@@ -59,6 +59,7 @@ enum class Verb : uint8_t {
     Listen,      // slot, arg = timeout in seconds, 0 = cancel
     Monitor,     // arg = gain dB, on = false for mute
     MonitorSrc,  // idx = capture channel of the new source (audio.md 10.3)
+    MonitorPeer, // on = fixed at arg dB, off = measured (audio.md 10.8, Rev 29)
     Test,        // ch 1-34, on
     StopGame,    // stop every file and tone, cancel every listen (audio.md 13.2)
     Quit
@@ -71,8 +72,8 @@ struct Command {
     Verb         verb = Verb::Quit;
     int16_t      idx  = 0;          // circuit slot 1-32, playback channel 1-34,
                                     // or MonitorSrc's capture channel
-    bool         on   = false;      // Monitor: on or muted. Test: on or off.
-    float        arg  = 0.0f;       // Tone: ToneKind. Listen: seconds. Monitor: dB.
+    bool         on   = false;      // Monitor: on or muted. Test: on or off. MonitorPeer: fixed.
+    float        arg  = 0.0f;       // Tone: ToneKind. Listen: seconds. Monitor, MonitorPeer: dB.
     AudioBuffer* buf  = nullptr;    // Play: the file, now owned by the audio thread
     char         name[32] = { 0 };  // filename, for the echo on `play`
 };
@@ -85,6 +86,7 @@ enum class Topic : uint8_t {
     Listen,     // idx = slot
     Monitor,
     MonitorSrc,
+    MonitorPeer,
     Test,       // idx = playback channel 1-34
     Peer,       // idx = slot
     Op,         // idx = slot
@@ -194,8 +196,9 @@ struct Shared {
     // deaf or ambiguous - and read by the audio thread for the peer boost.
     std::atomic<int> heard_peer[chan::N_SLOTS + 1] {};
     // The boost in use, for the log: hundredths of a dB, the peer's slot and
-    // whether it is measured, packed by the audio thread as
-    // cdb * 1000 + peer * 10 + measured; -1 for none. Written once a second.
+    // whether it is the start (0), measured (1) or fixed by the game (2),
+    // packed by the audio thread as cdb * 1000 + peer * 10 + that; -1 for
+    // none. Written once a second.
     std::atomic<int> peer_boost { -1 };
 
     // Output self-check (audio.md 11.4), per playback channel 1-34, element 0

@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 28 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on the Digiface's Analog Output from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, a Recording of the Loudspeaker to WAV and MP3 and Its Playback, a Shorter Wait After the Operator Speaks, All Commanded and Reported over MQTT, Station 24 a Real Telephone, One Circuit's Output and Capture Recorded Raw for the Bench, an Echo Canceller So a Caller Talking Over a File Is Heard*
+*Rev 29 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on the Digiface's Analog Output from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, a Recording of the Loudspeaker to WAV and MP3 and Its Playback, a Shorter Wait After the Operator Speaks, All Commanded and Reported over MQTT, Station 24 a Real Telephone, One Circuit's Output and Capture Recorded Raw for the Bench, an Echo Canceller So a Caller Talking Over a File Is Heard*
 
 # 1. Overview
 
@@ -174,6 +174,12 @@ Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout t
 — The speech detector's low-pass is sixth-order, and the installation's `--vad-floor` is −70dBFS (§9.2). Found on the switchboard, 2026-10-16: the detector heard the operator only when she spoke loudly. Bridged onto station 13 and counting one to ten at a normal level, she was not heard in a 30s listen. A recording of the line put her voice at −55 to −65dBFS in the detector's band, peaks −47, against a threshold of −50, the absolute bound, which no word cleared for the 200ms of 300 a start needs. Lowering the bound alone does not do: through one low-pass section the station's own pilot, measured at −58.4dBFS on the line, arrives at −71.5 and sets the floor, so floor + 10dB is −61, still above most of her voice. With three sections the pilot is at −97, under the line's own noise near −91, and with the bound at −70 the recording declares speech one second into the count, with no frame above −70 in the quiet before it. Her voice is about 30dB below the authored speech on the line; a stronger transmitter would give more margin, and the electret headset (kicad/electret) is the way to it.
 
 — Code consequence, made the same day: `butter_lowpass6()` in `dsp.cpp`, the detector's three sections, and the tests. `sbaudio.service` gains `--vad-floor -70`.
+
+## 1.29 Changes in Rev 29
+
+— The peer boost can be fixed by the game (§10.8, §12), 2026-10-25: `sbgame/audio/monitor/peer/set`, `"auto"` or a boost in dB, echoed on `sbgame/audio/monitor/peer` (mqtt.md Rev 45). On a free call the caller is live and nothing plays on the caller's line, so the own path is never measured and the boost would sit at `--monitor-peer-start`, which the installation sets for game calls. The game program knows which kind of call it is and sends the figure for a free call (game_control.md Rev 86). The program starts in `auto`, and returns to it with the source when it loses the game program (§13.2).
+
+— Code consequence: `Verb::MonitorPeer` and `Topic::MonitorPeer`; the subscription, its check and its echo; the fixed boost in `peer_boost_begin()` and `peer_boost_end()`; `fixed` in the log line; `ctest`.
 
 ## 1.28 Changes in Rev 28
 
@@ -541,9 +547,11 @@ Rev 28. The monitor follows the calling line (game_control.md §6.4). On that li
 
 **The boost.** Once each path holds a second of file, the boost is the own path's gain over the peer's, in dB, clamped to 0 – `--monitor-peer-max` (15dB). Until then it is `--monitor-peer-start` (6dB). It is applied to the source only while a file plays on the peer and none on the source, eased in and out with a 20ms one-pole, ahead of the gain and the limiter. Anything else on the line — the operator, a live caller on the real telephone, the caller's own file — is untouched; so is a file on the monitor (§10.4). `--monitor-peer-max 0` turns it off.
 
+**Fixed by the game** (Rev 29). `sbgame/audio/monitor/peer/set` is `"auto"`, the measurement above, or a boost in dB, 0 to `--monitor-peer-max`, which is applied as is, at the same moments and with the same easing, and nothing is measured. A figure outside that range is clamped and logged; anything else is logged and dropped. The retained `sbgame/audio/monitor/peer` echoes `"auto"` or the figure. The program starts in `auto` and returns to it, with the source, when it loses the game program (§13.2). `--monitor-peer-max 0` turns the boost off whatever is sent. The game program fixes it for a free call, whose caller is live (game_control.md §4.12, Rev 86).
+
 **Installation.** `sbaudio.service` sets `--monitor-peer-max 20 --monitor-peer-start 12` from the measurement in Rev 28's note.
 
-**Log.** `monitor: peer boost +N.NdB, peer <circuit> (measured|start)` when the boost or its peer changes by more than 0.5dB, at most once a second.
+**Log.** `monitor: peer boost +N.NdB, peer <circuit> (measured|start|fixed)` when the boost or its peer changes by more than 0.5dB, at most once a second.
 
 # 11. Diagnostics
 
@@ -580,6 +588,7 @@ sbgame/trunk/+/tone/set
 sbgame/station/+/listen/set    sbgame/trunk/+/listen/set
 sbgame/audio/monitor/set
 sbgame/audio/monitor/source/set
+sbgame/audio/monitor/peer/set
 sbgame/audio/test/+/set
 sbgame/audio/record/set        sbgame/audio/playback/set
 sbgame/ctl/game_heartbeat
@@ -589,7 +598,7 @@ Station n is validated 1–22 or 24 (Rev 24) and trunk n 1–8; a topic outside 
 
 Every command is acknowledged by its state topic changing, retained, from the audio thread after it has taken effect — `record/set` and `playback/set` from the MQTT thread, which carries them out (§10.6, §10.7) — — the same convention as the ESP32's `hook` echoing `hook/set` (mqtt.md §3). A command that arrives while the program is running and produces no change in the state topic was not acted on, and the log says why.
 
-Published state at start, before the birth message, so that a subscriber that sees `audio_status` go `online` already has consistent values: `play`, `tone` and `listen` empty for every circuit, `monitor` and `monitor/source` as started, `test/<ch>` off for every channel, `record`, `recordings` and `playback` as they are (Rev 22), then `peer`, `op` and `optone` from the analysis thread's first pass — the MQTT thread raises a flag asking for a full publish and waits for the analysis thread to report that pass done. Only then `sbgame/ctl/audio_status` = `"online"`. The same sequence runs on every reconnect. The values republished are what the program is doing at that moment, not the last values that reached the broker, so a change made while disconnected is what reconnect announces (Rev 9). (Rev 2's program published `online` first and let the detector topics follow up to a hop later — Rev 3 code consequence 3.)
+Published state at start, before the birth message, so that a subscriber that sees `audio_status` go `online` already has consistent values: `play`, `tone` and `listen` empty for every circuit, `monitor`, `monitor/source` and `monitor/peer` as started, `test/<ch>` off for every channel, `record`, `recordings` and `playback` as they are (Rev 22), then `peer`, `op` and `optone` from the analysis thread's first pass — the MQTT thread raises a flag asking for a full publish and waits for the analysis thread to report that pass done. Only then `sbgame/ctl/audio_status` = `"online"`. The same sequence runs on every reconnect. The values republished are what the program is doing at that moment, not the last values that reached the broker, so a change made while disconnected is what reconnect announces (Rev 9). (Rev 2's program published `online` first and let the detector topics follow up to a hop later — Rev 3 code consequence 3.)
 
 # 13. Startup, Shutdown and Failure
 
@@ -603,7 +612,7 @@ SIGTERM or SIGINT: stop every program source and the test tones, clear their sta
 
 The program mirrors the ESP32's rule (mqtt.md §8.2) for the same reason. A game program that has crashed can leave a trunk sending ringback to the operator indefinitely, which presents as a hardware fault. So:
 
-- **Two consecutive missed `game_heartbeat`s** (no beat for 2s): stop every trunk tone and every file, clear their state topics, log it. Pilots, the operator tone and the monitor continue — they are not things the game started and are harmless without it. The monitor's source returns to the tap, under the §10.3 ramp, and `monitor/source` echoes `"tap"`: the calls a circuit source was following have been torn down, and the tap is the one source that is not about a call (Rev 8). Listens in progress are cancelled and cleared; their results would go nowhere. Test tones continue: they are a bench diagnostic, not game state, and stopping them under someone's meter is unhelpful. So does a recording (§10.6, Rev 22): the moment the game is lost is one worth having on it, and `--record-max` ends a forgotten one. A playback (§10.7) runs to its end.
+- **Two consecutive missed `game_heartbeat`s** (no beat for 2s): stop every trunk tone and every file, clear their state topics, log it. Pilots, the operator tone and the monitor continue — they are not things the game started and are harmless without it. The monitor's source returns to the tap, under the §10.3 ramp, and `monitor/source` echoes `"tap"`, and the peer boost returns to `auto` (Rev 29): the calls a circuit source was following have been torn down, and the tap is the one source that is not about a call (Rev 8). Listens in progress are cancelled and cleared; their results would go nowhere. Test tones continue: they are a bench diagnostic, not game state, and stopping them under someone's meter is unhelpful. So does a recording (§10.6, Rev 22): the moment the game is lost is one worth having on it, and `--record-max` ends a forgotten one. A playback (§10.7) runs to its end.
 - **Broker connection lost**: the same stops, applied locally, and reconnect with backoff — 1s, doubling to a 30s ceiling, reset on success; a refused connection (bad credentials, mqtt.md §9) backs off the same way rather than retrying at speed. The will is registered once on the client handle and survives every reconnect. On reconnect: republish all state as at start, then `online`. The will has already published `offline` on the program's behalf. Results the audio and analysis threads post while disconnected are discarded, not queued: the sources they describe were stopped at the disconnect, and the detector republishes in full on reconnect. State is not a result. The state republished on reconnect is read from the program as it stands, so the monitor's return to the tap, made locally while disconnected, is what reconnect announces on `monitor/source` (Rev 9).
 - **The stream fails** and cannot be recovered: exit non-zero. Under systemd, `Restart=on-failure` brings it back and the birth/LWT sequence tells the game what happened. There is no attempt to run without audio.
 

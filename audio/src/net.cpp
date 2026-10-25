@@ -57,6 +57,8 @@ static bool topic_for(Topic t, int idx, char* out, size_t n)
     case Topic::Monitor: std::snprintf(out, n, "%saudio/monitor", PREFIX); return true;
     case Topic::MonitorSrc:
         std::snprintf(out, n, "%saudio/monitor/source", PREFIX); return true;
+    case Topic::MonitorPeer:
+        std::snprintf(out, n, "%saudio/monitor/peer", PREFIX); return true;
     case Topic::OpTone:  std::snprintf(out, n, "%saudio/optone",  PREFIX); return true;
     case Topic::Test:    std::snprintf(out, n, "%saudio/test/%d", PREFIX, idx); return true;
     case Topic::FreeBuf: return false;
@@ -162,6 +164,7 @@ void Net::on_connect(int rc)
         "sbgame/trunk/+/tone/set",
         "sbgame/station/+/listen/set", "sbgame/trunk/+/listen/set",
         "sbgame/audio/monitor/set",    "sbgame/audio/monitor/source/set",
+        "sbgame/audio/monitor/peer/set",
         "sbgame/audio/test/+/set",
         "sbgame/audio/record/set",     "sbgame/audio/playback/set",
         "sbgame/ctl/game_heartbeat"
@@ -337,6 +340,33 @@ void Net::handle_monitor_source(const char* payload)
     send(c);
 }
 
+// handle_monitor_peer()                                                 [mqtt]
+//   monitor/peer/set: "auto", or the peer boost fixed at a figure in dB,
+//   clamped to 0 - --monitor-peer-max (audio.md 10.8, Rev 29).
+void Net::handle_monitor_peer(const char* payload)
+{
+    Command c;
+    c.verb = Verb::MonitorPeer;
+    if (std::strcmp(payload, "auto") == 0) {
+        c.on = false;
+        log_line("mqtt: monitor/peer/set auto");
+    } else {
+        char* end = nullptr;
+        double db = std::strtod(payload, &end);
+        if (end == payload || !std::isfinite(db)) {
+            log_line("mqtt: monitor/peer/set %s - not auto or a boost, dropped", payload);
+            return;
+        }
+        const double clamped = std::min(sh_.opt.monitor_peer_max_db, std::max(0.0, db));
+        if (clamped != db)
+            log_line("mqtt: monitor/peer/set %s clamped to %g", payload, clamped);
+        c.on  = true;
+        c.arg = (float)clamped;
+        log_line("mqtt: monitor/peer/set %g", clamped);
+    }
+    send(c);
+}
+
 // handle_test()                                                         [mqtt]
 //   audio/test/<ch>/set: "on" or "off" for playback channel ch.
 void Net::handle_test(int ch, const char* payload)
@@ -413,6 +443,9 @@ void Net::on_message(const char* topic, const char* payload)
     if (std::strcmp(topic, "sbgame/audio/monitor/set") == 0) { handle_monitor(payload); return; }
     if (std::strcmp(topic, "sbgame/audio/monitor/source/set") == 0) {
         handle_monitor_source(payload); return;
+    }
+    if (std::strcmp(topic, "sbgame/audio/monitor/peer/set") == 0) {
+        handle_monitor_peer(payload); return;
     }
 
     if (std::strcmp(topic, "sbgame/audio/record/set") == 0) { handle_record(payload); return; }
@@ -528,6 +561,7 @@ void Net::publish_result(const Result& r)
         if (monitor_source_ != r.value) log_line("monitor: source is now %s", r.value);
         monitor_source_ = r.value;
         break;
+    case Topic::MonitorPeer: monitor_peer_ = r.value; break;
     case Topic::Test:
         if (r.idx >= 1 && r.idx <= chan::N_PLAY_CH)
             test_state_[r.idx] = std::strcmp(r.value, "on") == 0;
@@ -570,6 +604,8 @@ void Net::publish_initial()
     publish(topic, monitor_state_.c_str());
     topic_for(Topic::MonitorSrc, 0, topic, sizeof topic);
     publish(topic, monitor_source_.c_str());
+    topic_for(Topic::MonitorPeer, 0, topic, sizeof topic);
+    publish(topic, monitor_peer_.c_str());
     for (int ch = 1; ch <= chan::N_PLAY_CH; ++ch) {
         topic_for(Topic::Test, ch, topic, sizeof topic);
         publish(topic, test_state_[ch] ? "on" : "off");
@@ -635,6 +671,7 @@ void Net::drain_results(bool publishing)
             // even while disconnected, or reconnect would announce a source the
             // program stopped using when the connection dropped.
             if (!publishing && r.topic == Topic::MonitorSrc) monitor_source_ = r.value;
+            if (!publishing && r.topic == Topic::MonitorPeer) monitor_peer_ = r.value;
             if (publishing) publish_result(r);
         }
     }
@@ -667,14 +704,14 @@ void Net::report_counters(double now)
     const int pb = sh_.peer_boost.load(std::memory_order_relaxed);
     if (pb != last_peer_boost_) {
         const int peer = pb < 0 ? 0 : (pb % 1000) / 10, was = last_peer_boost_ < 0 ? 0 : (last_peer_boost_ % 1000) / 10;
-        const bool measured = pb >= 0 && pb % 10, was_m = last_peer_boost_ >= 0 && last_peer_boost_ % 10;
+        const int measured = pb < 0 ? 0 : pb % 10, was_m = last_peer_boost_ < 0 ? 0 : last_peer_boost_ % 10;
         const int cdb = pb < 0 ? 0 : pb / 1000, was_cdb = last_peer_boost_ < 0 ? 0 : last_peer_boost_ / 1000;
         if (peer != was || measured != was_m || std::abs(cdb - was_cdb) > 50) {
             if (peer) {
                 char id[24];
                 chan::circuit_id(peer, id, sizeof id);
                 log_line("monitor: peer boost %+.1fdB, peer %s (%s)", cdb / 100.0, id,
-                         measured ? "measured" : "start");
+                         measured == 2 ? "fixed" : measured ? "measured" : "start");
             }
             last_peer_boost_ = pb;
         }

@@ -121,6 +121,7 @@ class Sim:
         await self.pub("audio/optone", "off")
         await self.pub("audio/monitor", "off")
         await self.pub("audio/monitor/source", "tap")
+        await self.pub("audio/monitor/peer", "auto")
         await self.pub("audio/monitor/play", "")           # the tutor (audio.md §10.4)
         await self.pub("ctl/status", "online")
         await self.pub("ctl/audio_status", "online")
@@ -196,7 +197,7 @@ class Sim:
             log.info("monitor source -> %s", payload)
             return
 
-        if base == "audio/monitor":
+        if base in ("audio/monitor", "audio/monitor/peer"):
             await self.pub(base, payload)
             return
 

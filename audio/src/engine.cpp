@@ -452,6 +452,18 @@ void Engine::drain_commands()
             break;
         }
 
+        case Verb::MonitorPeer: {
+            // audio.md 10.8, Rev 29: a figure from the game, or back to the
+            // measurement. Net has clamped it to 0 - --monitor-peer-max.
+            pb_fixed_ = c.on;
+            pb_fixed_lin_ = db_to_lin(c.arg);
+            char buf[32];
+            if (c.on) format_db(c.arg, buf, sizeof buf);
+            else      std::snprintf(buf, sizeof buf, "auto");
+            post(Topic::MonitorPeer, 0, buf);
+            break;
+        }
+
         case Verb::Test:
             if (c.idx >= 1 && c.idx <= (int)chan::N_PLAY_CH) {
                 test_on_[c.idx] = c.on;
@@ -485,6 +497,11 @@ void Engine::drain_commands()
                     mon_pend_ch_ = chan::TAP_CH;
                     monitor_ramp_to(0.0);
                 }
+            }
+            // And the peer boost to its measurement (10.8, Rev 29).
+            if (pb_fixed_) {
+                pb_fixed_ = false;
+                post(Topic::MonitorPeer, 0, "auto");
             }
             break;
 
@@ -905,8 +922,9 @@ int Engine::peer_boost_begin()
     }
     const bool own   = g_ < file_until_[src];
     const bool other = pb_peer_ && g_ < file_until_[pb_peer_];
-    if (own && !other) return 1;
-    if (other && !own) { pb_target_ = pb_lin_; return 2; }
+    // Fixed by the game (Rev 29): the same moments, nothing measured.
+    if (own && !other) return pb_fixed_ ? 0 : 1;
+    if (other && !own) { pb_target_ = pb_lin_; return pb_fixed_ ? 0 : 2; }
     return 0;
 }
 
@@ -929,6 +947,11 @@ void Engine::peer_boost_end(int mode, double energy, bool gated)
     }
     for (int s = 1; s <= chan::N_SLOTS; ++s) file_e_[s] = 0.0;
 
+    if (pb_fixed_) {
+        pb_lin_ = std::min(pb_fixed_lin_, pb_max_lin_);
+        pb_measured_ = false;
+        return;
+    }
     const bool both = pb_own_.n >= SAMPLE_RATE && pb_other_.n >= SAMPLE_RATE &&
                       pb_own_.file > 0.0 && pb_other_.file > 0.0 &&
                       pb_own_.mon > 0.0 && pb_other_.mon > 0.0;
@@ -1080,7 +1103,7 @@ void Engine::run()
             if (play_short_) { sh_.play_short.fetch_add(play_short_, std::memory_order_relaxed); play_short_ = 0; }
             sh_.peer_boost.store(pb_src_ && pb_peer_
                                  ? (int)std::lround(2000.0 * std::log10(pb_lin_)) * 1000
-                                   + pb_peer_ * 10 + (pb_measured_ ? 1 : 0)
+                                   + pb_peer_ * 10 + (pb_fixed_ ? 2 : pb_measured_ ? 1 : 0)
                                  : -1, std::memory_order_relaxed);
             const unsigned l = lim_.take_active();
             if (l) sh_.limiter_hits.fetch_add(l, std::memory_order_relaxed);

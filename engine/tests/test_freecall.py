@@ -116,8 +116,9 @@ class StubGame:
     async def _say(self, text: str) -> None:
         self.said.append(text)
 
-    async def _monitor(self, src: str) -> None:
+    async def _monitor(self, src: str, peer: str = "auto") -> None:
         self.monitor.append(src)
+        self.peer = peer
 
     def _circuits_in_calls(self, free: bool = True) -> set[str]:
         return set(self.in_calls) | (self.free.circuits() if free else set())
@@ -158,6 +159,7 @@ async def phone_to_room() -> None:
     await b.update("station/24/op", "on")
     await until(b, lambda b: g.monitor == ["station/24"])
     check("free call: phone answered" in g.said, "answered: logged, and the loudspeaker moves to it")
+    check(g.peer == "6", "with the peer boost fixed at 6dB (Rev 86)")
     check(g.free.routing(), "routing until she puts it through")
 
     g.wanted = {21}

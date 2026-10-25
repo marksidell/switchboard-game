@@ -198,7 +198,10 @@ class Hw:
     async def listen(self, circuit: str, seconds: float) -> None:
         await self._p(f"{circuit}/listen/set", f"{seconds:g}")
 
-    async def monitor_source(self, source: str) -> None:  # "tap" or a circuit id
+    async def monitor_source(self, source: str, peer: str = "auto") -> None:
+        """Move the loudspeaker to "tap" or a circuit id, with the peer boost
+        just before it: "auto", measured, or a figure in dB (audio.md §10.8)."""
+        await self._p("audio/monitor/peer/set", peer)
         await self._p("audio/monitor/source/set", source)
 
     async def record(self, on: bool) -> None:

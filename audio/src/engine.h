@@ -258,6 +258,8 @@ private:
     uint64_t pb_peer_at_ = 0;               // g_ it was last heard
     PathSum  pb_own_, pb_other_;
     bool     pb_measured_ = false;
+    bool     pb_fixed_ = false;             // monitor/peer/set a figure (Rev 29)
+    double   pb_fixed_lin_ = 1.0;           // and that figure, linear
     double   pb_lin_ = 1.0;                 // the boost, linear
     double   pb_target_ = 1.0;              // this period's: pb_lin_ or 1
     double   pb_g_ = 1.0;                   // eased toward it, per sample

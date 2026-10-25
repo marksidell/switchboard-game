@@ -70,6 +70,7 @@ private:
     void handle_listen(int slot, const char* circuit, const char* payload);
     void handle_monitor(const char* payload);
     void handle_monitor_source(const char* payload);
+    void handle_monitor_peer(const char* payload);
     void handle_test(int ch, const char* payload);
     void handle_record(const char* payload);
     void handle_playback(const char* payload);
@@ -109,5 +110,6 @@ private:
     // truthfully rather than assert the startup defaults (audio.md 12).
     std::string monitor_state_ = "off";
     std::string monitor_source_ = "tap";       // audio.md 10.3, echoed retained
+    std::string monitor_peer_ = "auto";        // audio.md 10.8, Rev 29, the same
     bool        test_state_[chan::N_PLAY_CH + 1] = { false };
 };

@@ -45,6 +45,7 @@ RINGBACK_KNOWN = 2.0  # s of ringback before an establishment answers
 ROOM_ANSWER = 4.0     # s from her ringing a room to its answering (Rev 81)
 RINGBACK_LENNY = 4.0  # and before the real Lenny does
 RETRY = 2.0           # s before a free call that ended on a fault starts again
+FREE_PEER_DB = 6      # the loudspeaker's peer boost, dB: the caller is live (Rev 86)
 
 
 class Gone(Exception):
@@ -86,7 +87,7 @@ class FreeCall:
                 return
             self.answered = True
             await self.fc.say(f"free call: {self.name} answered")
-            await self.fc.game._monitor(self.caller)       # §6.4: at the answer
+            await self.fc.game._monitor(self.caller, str(FREE_PEER_DB))  # §6.4: at the answer
             while not self.gone(self.b):
                 target = await self._route()
                 if target is None:

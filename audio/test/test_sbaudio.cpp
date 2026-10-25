@@ -1287,11 +1287,12 @@ static void test_aec()
 //   2. Station 1's file comes back on its own line at 0.5, station 2's
 //   through the cord at 0.1, 14dB lower. Lines alternate, 2 s each: after the
 //   first of each, the boost is measured and the called party is raised to
-//   the caller's level. With no peer heard, nothing is raised.
+//   the caller's level. With no peer heard, nothing is raised. Fixed by the
+//   game at 6dB (Rev 29), it is 6dB, and the called party 8dB down.
 static void test_peer_boost()
 {
-    std::printf("the monitor's peer boost (audio.md 10.8, Rev 28)\n");
-    for (int heard = 0; heard < 2; ++heard) {
+    std::printf("the monitor's peer boost (audio.md 10.8, Rev 28, 29)\n");
+    for (int heard = 0; heard < 3; ++heard) {
         auto sh = std::make_unique<Shared>();
         AlsaStream st;
         Engine eng(*sh, st);
@@ -1300,6 +1301,10 @@ static void test_peer_boost()
         sh->cmdq.push(m);
         Command src; src.verb = Verb::MonitorSrc; src.idx = 1;
         sh->cmdq.push(src);
+        if (heard == 2) {
+            Command p; p.verb = Verb::MonitorPeer; p.on = true; p.arg = 6.0f;
+            sh->cmdq.push(p);
+        }
         eng.drain_for_test();
         sh->heard_peer[1].store(heard ? 2 : 0);
         Talker a(5, -20.0), b(6, -20.0);
@@ -1340,8 +1345,12 @@ static void test_peer_boost()
         }
         const double caller = 10.0 * std::log10(lv[2] + 1e-20), called = 10.0 * std::log10(lv[3] + 1e-20);
         std::printf("    peer %s: caller %.1f dB, called %.1f dB, boost %.1f dB\n",
-                    heard ? "heard" : "not heard", caller, called, eng.peer_boost_db_for_test());
-        if (heard) {
+                    heard == 2 ? "fixed" : heard ? "heard" : "not heard", caller, called,
+                    eng.peer_boost_db_for_test());
+        if (heard == 2) {
+            check(std::fabs(eng.peer_boost_db_for_test() - 6.0) < 0.1, "fixed by the game: 6 dB");
+            check(std::fabs(caller - called - 8.0) < 1.5, "and the called party 8 dB down");
+        } else if (heard) {
             check(std::fabs(caller - called) < 1.5, "the called party is raised to the caller's level");
             check(std::fabs(eng.peer_boost_db_for_test() - 14.0) < 1.0, "by the 14 dB between the paths");
         } else {

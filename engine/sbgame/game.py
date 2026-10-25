@@ -631,14 +631,15 @@ class Game:
             if self._to_tutor is asyncio.current_task():
                 self._to_tutor = None
 
-    async def _monitor(self, source: str) -> None:
-        """The game moving the loudspeaker (§6.4). That ends a monitor test."""
+    async def _monitor(self, source: str, peer: str = "auto") -> None:
+        """The game moving the loudspeaker (§6.4), with the peer boost.
+        That ends a monitor test."""
         if self.hw is None:
             return
         if self.diag is not None:
             await self.diag.monitor_moved()
         try:
-            await self.hw.monitor_source(source)
+            await self.hw.monitor_source(source, peer)
         except Offline as e:
             log.warning("monitor source %s dropped: %s", source, e)
 
