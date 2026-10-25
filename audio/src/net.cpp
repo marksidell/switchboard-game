@@ -662,6 +662,23 @@ void Net::check_heartbeat(double now)
 //   line if any of them is non-zero. Silence in the log means all is well.
 void Net::report_counters(double now)
 {
+    // audio.md 10.8, Rev 28: the peer boost, when it or its peer changes by
+    // enough to matter. The audio thread writes it once a second.
+    const int pb = sh_.peer_boost.load(std::memory_order_relaxed);
+    if (pb != last_peer_boost_) {
+        const int peer = pb < 0 ? 0 : (pb % 1000) / 10, was = last_peer_boost_ < 0 ? 0 : (last_peer_boost_ % 1000) / 10;
+        const bool measured = pb >= 0 && pb % 10, was_m = last_peer_boost_ >= 0 && last_peer_boost_ % 10;
+        const int cdb = pb < 0 ? 0 : pb / 1000, was_cdb = last_peer_boost_ < 0 ? 0 : last_peer_boost_ / 1000;
+        if (peer != was || measured != was_m || std::abs(cdb - was_cdb) > 50) {
+            if (peer) {
+                char id[24];
+                chan::circuit_id(peer, id, sizeof id);
+                log_line("monitor: peer boost %+.1fdB, peer %s (%s)", cdb / 100.0, id,
+                         measured ? "measured" : "start");
+            }
+            last_peer_boost_ = pb;
+        }
+    }
     if (now - last_count_report_ < 10.0) return;
     last_count_report_ = now;
 

@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 27 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on the Digiface's Analog Output from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, a Recording of the Loudspeaker to WAV and MP3 and Its Playback, a Shorter Wait After the Operator Speaks, All Commanded and Reported over MQTT, Station 24 a Real Telephone, One Circuit's Output and Capture Recorded Raw for the Bench, an Echo Canceller So a Caller Talking Over a File Is Heard*
+*Rev 28 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on the Digiface's Analog Output from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, a Recording of the Loudspeaker to WAV and MP3 and Its Playback, a Shorter Wait After the Operator Speaks, All Commanded and Reported over MQTT, Station 24 a Real Telephone, One Circuit's Output and Capture Recorded Raw for the Bench, an Echo Canceller So a Caller Talking Over a File Is Heard*
 
 # 1. Overview
 
@@ -174,6 +174,12 @@ Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout t
 — The speech detector's low-pass is sixth-order, and the installation's `--vad-floor` is −70dBFS (§9.2). Found on the switchboard, 2026-10-16: the detector heard the operator only when she spoke loudly. Bridged onto station 13 and counting one to ten at a normal level, she was not heard in a 30s listen. A recording of the line put her voice at −55 to −65dBFS in the detector's band, peaks −47, against a threshold of −50, the absolute bound, which no word cleared for the 200ms of 300 a start needs. Lowering the bound alone does not do: through one low-pass section the station's own pilot, measured at −58.4dBFS on the line, arrives at −71.5 and sets the floor, so floor + 10dB is −61, still above most of her voice. With three sections the pilot is at −97, under the line's own noise near −91, and with the bound at −70 the recording declares speech one second into the count, with no frame above −70 in the quiet before it. Her voice is about 30dB below the authored speech on the line; a stronger transmitter would give more margin, and the electret headset (kicad/electret) is the way to it.
 
 — Code consequence, made the same day: `butter_lowpass6()` in `dsp.cpp`, the detector's three sections, and the tests. `sbaudio.service` gains `--vad-floor -70`.
+
+## 1.28 Changes in Rev 28
+
+— The peer boost (§10.8), Mark's request, 2026-10-24: on the loudspeaker the called party is usually much quieter than the caller. The monitor follows the caller's line, where the caller's file returns at full strength and the called party's arrives only through the cord. While a file plays on the line the source is patched to, and none on the source, the source is now raised by the difference between the two paths, measured in the call: each file's energy as sent against what it brings to the monitor. A measurement, not an AGC, so the gaps, the hiss and the clicks are not raised. Up to `--monitor-peer-max`, 15dB; `--monitor-peer-start`, 6dB, until both paths are measured — the 18:04 recording that day had a called party's files 6dB under a live caller on the real telephone.
+
+— Code consequence: `Shared::heard_peer`, written by the detector each hop; the boost in `process_capture()`, the file energies in `render()`; the two options; the log line; `ctest`.
 
 ## 1.27 Changes in Rev 27
 
@@ -525,6 +531,18 @@ Rev 22. `sbgame/audio/playback/set` with a recording's base name, as `audio/reco
 
 Losing the game or the broker does not stop a playback (§13.2); it runs to its end. Shutdown stops it.
 
+## 10.8 The Peer Boost
+
+Rev 28. The monitor follows the calling line (game_control.md §6.4). On that line the caller's file returns at full strength, since the interface has no hybrid, and the called party's arrives only after crossing the operator's cord to it — on the switchboard, a good many dB lower. The audio program knows what every circuit is playing and, from its own detector, what the source is patched to, so it evens the two by measurement rather than by riding the level.
+
+**The peer.** The detector writes each circuit's heard peer, every hop, to `Shared::heard_peer`: the slot of the one circuit heard, or 0 for idle, deaf or ambiguous. The audio thread takes the source's, and holds it through 2s of anything else, since a circuit's own playback makes its peer flicker to idle (§6.2). A different peer starts its measurement afresh; so does a different source, or the tap.
+
+**The two paths.** While a file plays on the source and none on the peer, the source's monitor signal — after the filters and the gate, before the gain — is summed as energy against the energy of the file sent, period by period: the **own** path. While a file plays on the peer and none on the source, the same sums give the **peer** path. A file counts as playing until 50ms after its last sample, for the echo. A period in which the gate is shut is left out of both. Each sum is halved once it holds 10s, so it follows the call.
+
+**The boost.** Once each path holds a second of file, the boost is the own path's gain over the peer's, in dB, clamped to 0 – `--monitor-peer-max` (15dB). Until then it is `--monitor-peer-start` (6dB). It is applied to the source only while a file plays on the peer and none on the source, eased in and out with a 20ms one-pole, ahead of the gain and the limiter. Anything else on the line — the operator, a live caller on the real telephone, the caller's own file — is untouched; so is a file on the monitor (§10.4). `--monitor-peer-max 0` turns it off.
+
+**Log.** `monitor: peer boost +N.NdB, peer <circuit> (measured|start)` when the boost or its peer changes by more than 0.5dB, at most once a second.
+
 # 11. Diagnostics
 
 ## 11.1 Test Tone
@@ -640,6 +658,10 @@ Command-line options, each with the default given here, and no configuration fil
 --monitor-gate DB      mute the source while its line carries more than this
                        below 50Hz, -90 to -10 dBFS (off) (§10.5, Rev 17, 19)
 --monitor-gate-hold S  how long it stays muted after, 0.05 to 2 (0.25)
+--monitor-peer-max DB  most the source is raised while its peer plays a file,
+                       0 to 24, 0 = off (15) (§10.8, Rev 28)
+--monitor-peer-start DB the boost until both paths are measured, 0 to the
+                       max (6)
 --monitor-lp HZ HZ DB  monitor low-pass passband edge, stopband edge,
                        stopband dB (3600 5600 70)
 --vad-margin DB        speech threshold above floor (10)

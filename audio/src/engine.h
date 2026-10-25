@@ -30,6 +30,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <vector>
 
@@ -85,6 +86,7 @@ public:
     // Times the gate has shut. run() hands the count to Shared each second;
     // a detached engine keeps it, for monitor_check.
     unsigned gate_hits_for_test() const { return gate_hits_; }
+    double peer_boost_db_for_test() const { return 20.0 * std::log10(pb_lin_); }
 
 private:
     // Prog - what one circuit is playing on top of its pilot: nothing, a file
@@ -127,6 +129,8 @@ private:
     void   monitor_ramp_to(double target);
     double gate_step(float raw, double y);
     void   monitor_switch_to(int ch);       // at the bottom of the ramp
+    int    peer_boost_begin();              // which path this period measures
+    void   peer_boost_end(int mode, double energy, bool gated);
     void process_capture();
     void render();
     void check_output();
@@ -238,6 +242,25 @@ private:
     double  mon_step_ = 0.0;                // gain change per sample while ramping
     int     mon_ramp_ = 0;                  // samples of ramp remaining
     std::vector<float> mon_row_;            // this period's monitor samples
+
+    // ---- the peer boost (audio.md 10.8, Rev 28). render() adds each file's
+    // energy as sent and how long its echo lasts; process_capture() sums the
+    // monitor's source against them on the two paths, own and peer.
+    struct PathSum {
+        double mon = 0.0, file = 0.0;       // energies, monitor and file
+        double n   = 0.0;                   // samples summed
+    };
+    double   file_e_[chan::N_SLOTS + 1] = {};       // since process_capture() took it
+    uint64_t file_until_[chan::N_SLOTS + 1] = {};   // g_ its echo lasts until
+    double   pb_max_lin_ = 1.0, pb_start_lin_ = 1.0;
+    int      pb_src_ = 0;                   // the source the sums are for
+    int      pb_peer_ = 0;                  // its peer, held through flicker
+    uint64_t pb_peer_at_ = 0;               // g_ it was last heard
+    PathSum  pb_own_, pb_other_;
+    bool     pb_measured_ = false;
+    double   pb_lin_ = 1.0;                 // the boost, linear
+    double   pb_target_ = 1.0;              // this period's: pb_lin_ or 1
+    double   pb_g_ = 1.0;                   // eased toward it, per sample
     std::vector<float> line_row_;           // --record-line: output, capture pairs
 
     unsigned clips_ = 0;                    // clipped samples since last report

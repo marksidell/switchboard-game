@@ -1282,9 +1282,78 @@ static void test_aec()
     }
 }
 
+// test_peer_boost()
+//   audio.md 10.8, Rev 28: the monitor follows station 1, patched to station
+//   2. Station 1's file comes back on its own line at 0.5, station 2's
+//   through the cord at 0.1, 14dB lower. Lines alternate, 2 s each: after the
+//   first of each, the boost is measured and the called party is raised to
+//   the caller's level. With no peer heard, nothing is raised.
+static void test_peer_boost()
+{
+    std::printf("the monitor's peer boost (audio.md 10.8, Rev 28)\n");
+    for (int heard = 0; heard < 2; ++heard) {
+        auto sh = std::make_unique<Shared>();
+        AlsaStream st;
+        Engine eng(*sh, st);
+        eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH);
+        Command m; m.verb = Verb::Monitor; m.on = true; m.arg = 0.0f;
+        sh->cmdq.push(m);
+        Command src; src.verb = Verb::MonitorSrc; src.idx = 1;
+        sh->cmdq.push(src);
+        eng.drain_for_test();
+        sh->heard_peer[1].store(heard ? 2 : 0);
+        Talker a(5, -20.0), b(6, -20.0);
+        std::vector<float> sent1, sent2;
+        double lv[4] = { 0, 0, 0, 0 };          // monitor energy, last second of each line
+        const int line_p = 2 * 48000 / 256;
+        for (int line = 0; line < 4; ++line) {
+            const int S = (line % 2 == 0) ? 1 : 2;
+            Command c; c.verb = Verb::Play; c.idx = (int16_t)S; c.buf = new AudioBuffer;
+            Talker& t = (S == 1) ? a : b;
+            for (int i = 0; i < 2 * 48000 - 4800; ++i) c.buf->samples.push_back(t.next());
+            const std::vector<float> file = c.buf->samples;
+            std::snprintf(c.name, sizeof c.name, "line%d", line);
+            sh->cmdq.push(c);
+            for (int per = 0; per < line_p; ++per) {
+                // The line returns what was sent two periods ago: the file
+                // alone, since the pilots are outside the monitor's band.
+                float* cap = eng.capture_row_for_test(1);
+                for (int i = 0; i < 256; ++i) {
+                    const size_t k = sent1.size() + (size_t)i;
+                    cap[i] = k >= 512 ? 0.5f * sent1[k - 512] + 0.1f * sent2[k - 512] : 0.0f;
+                }
+                eng.capture_for_test();
+                eng.drain_for_test();
+                eng.render_for_test();
+                const std::vector<int32_t>& o = eng.playback();
+                for (int i = 0; i < 256; ++i) {
+                    const size_t j = (size_t)per * 256 + (size_t)i;
+                    const float v = j < file.size() ? file[j] : 0.0f;
+                    sent1.push_back(S == 1 ? v : 0.0f);
+                    sent2.push_back(S == 2 ? v : 0.0f);
+                    const double mon = (double)o[(size_t)i * chan::N_PLAY_CH + chan::DIGIFACE_CH_A - 1] / 2147483648.0;
+                    if (per >= line_p / 4 && per < line_p * 3 / 4) lv[line] += mon * mon;
+                }
+                Result r;
+                while (sh->res_audio.pop(r)) if (r.buf) delete r.buf;
+            }
+        }
+        const double caller = 10.0 * std::log10(lv[2] + 1e-20), called = 10.0 * std::log10(lv[3] + 1e-20);
+        std::printf("    peer %s: caller %.1f dB, called %.1f dB, boost %.1f dB\n",
+                    heard ? "heard" : "not heard", caller, called, eng.peer_boost_db_for_test());
+        if (heard) {
+            check(std::fabs(caller - called) < 1.5, "the called party is raised to the caller's level");
+            check(std::fabs(eng.peer_boost_db_for_test() - 14.0) < 1.0, "by the 14 dB between the paths");
+        } else {
+            check(caller - called > 12.0, "no peer heard: the called party is left 14 dB down");
+        }
+    }
+}
+
 int main()
 {
     log_start();
+    test_peer_boost();
     test_pilot_map();
     test_monitor_filter();
     test_monitor_limit();

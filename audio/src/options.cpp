@@ -72,6 +72,9 @@ static void usage(const char* p)
 "  --monitor-gate DB      mute the monitor's source while its line carries more\n"
 "                         than this below 50Hz, dBFS, -90 to -10 (off)\n"
 "  --monitor-gate-hold S  how long it stays muted after, 0.05 to 2 (0.25)\n"
+"  --monitor-peer-max DB  most the source is raised while its peer plays a\n"
+"                         file, 0 to 24, 0 = off (15)\n"
+"  --monitor-peer-start DB  that boost until both paths are measured (6)\n"
 "  --monitor-lp HZ HZ DB  monitor low-pass passband edge, stopband edge,\n"
 "                         stopband dB (3600 5600 70)\n"
 "  --vad-margin DB        speech threshold above floor (10)\n"
@@ -232,6 +235,8 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         else if (a == "--monitor-limit")  { o.monitor_limit_db = atof(nx); ++i; }
         else if (a == "--monitor-gate")   { o.monitor_gate_db = atof(nx); ++i; }
         else if (a == "--monitor-gate-hold"){ o.monitor_gate_hold = atof(nx); ++i; }
+        else if (a == "--monitor-peer-max")  { o.monitor_peer_max_db = atof(nx); ++i; }
+        else if (a == "--monitor-peer-start"){ o.monitor_peer_start_db = atof(nx); ++i; }
         else if (a == "--monitor-lp")     { if (!want(argc, i, 3, "--monitor-lp")) return false;
                                             o.lp_pass = atof(argv[i + 1]);
                                             o.lp_stop = atof(argv[i + 2]);
@@ -298,6 +303,15 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
     }
     if (o.monitor_gate_hold < 0.05 || o.monitor_gate_hold > 2.0) {
         std::fprintf(stderr, "--monitor-gate-hold: %g s is outside 0.05 to 2\n", o.monitor_gate_hold);
+        return false;
+    }
+    if (o.monitor_peer_max_db < 0.0 || o.monitor_peer_max_db > 24.0) {
+        std::fprintf(stderr, "--monitor-peer-max: %g dB is outside 0 to 24\n", o.monitor_peer_max_db);
+        return false;
+    }
+    if (o.monitor_peer_start_db < 0.0 || o.monitor_peer_start_db > o.monitor_peer_max_db) {
+        std::fprintf(stderr, "--monitor-peer-start: %g dB is outside 0 to --monitor-peer-max\n",
+                     o.monitor_peer_start_db);
         return false;
     }
     if (o.lp_stop <= o.lp_pass)           { std::fprintf(stderr, "--monitor-lp: stopband edge must exceed passband edge\n"); return false; }

@@ -75,6 +75,11 @@ struct Options {
     // audio.md 10.5, Rev 17: the line-disturbance gate. Off (0) by default.
     double monitor_gate_db      = 0.0;    // below-50Hz level that shuts it, dBFS
     double monitor_gate_hold    = 0.25;   // seconds it stays shut once that is gone
+    // audio.md 10.8, Rev 28: the peer boost. The most the source is raised
+    // while the circuit it is patched to plays a file (0: off), and what it
+    // is raised by until both paths are measured.
+    double monitor_peer_max_db   = 15.0;
+    double monitor_peer_start_db = 6.0;
     double lp_pass    = 3600.0;         // station 8.8
     double lp_stop    = 5600.0;
     double lp_att     = 70.0;

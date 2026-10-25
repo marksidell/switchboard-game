@@ -189,6 +189,15 @@ struct Shared {
     std::atomic<unsigned> rec_dropped  { 0 };   // periods the recording lost, ring full
     std::atomic<unsigned> play_short   { 0 };   // periods playback ran dry mid-file
 
+    // audio.md 10.8, Rev 28: each circuit's heard peer, by slot, written by
+    // the analysis thread every hop - the one circuit heard, or 0 for idle,
+    // deaf or ambiguous - and read by the audio thread for the peer boost.
+    std::atomic<int> heard_peer[chan::N_SLOTS + 1] {};
+    // The boost in use, for the log: hundredths of a dB, the peer's slot and
+    // whether it is measured, packed by the audio thread as
+    // cdb * 1000 + peer * 10 + measured; -1 for none. Written once a second.
+    std::atomic<int> peer_boost { -1 };
+
     // Output self-check (audio.md 11.4), per playback channel 1-34, element 0
     // unused: periods whose peak exceeded the channel's ceiling, and the
     // highest such peak in hundredths of a dB above -1000dBFS, so that zero

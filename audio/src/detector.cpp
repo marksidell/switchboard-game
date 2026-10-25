@@ -223,6 +223,7 @@ void Detector::analyse(int cap_index)
             !op_[slot].seen);
 
     char value[40];
+    int heard_slot = 0;                    // audio.md 10.8: for the peer boost
     if (own_db < margin) {
         // The local health check: a circuit always hears its own pilot, because
         // the two-wire interface has no hybrid and the signal never leaves the
@@ -245,6 +246,7 @@ void Detector::analyse(int cap_index)
             value[0] = '\0';                       // idle: an empty retained payload
         } else if (n == 1 && chan::is_circuit_slot(heard[0])) {
             chan::circuit_id(heard[0], value, sizeof value);
+            heard_slot = heard[0];
         } else {
             std::snprintf(value, sizeof value, "ambiguous");
         }
@@ -276,6 +278,7 @@ void Detector::analyse(int cap_index)
         }
         amb_prev_[slot] = amb;
     }
+    sh_.heard_peer[slot].store(heard_slot, std::memory_order_relaxed);
     confirm(peer_[slot], Topic::Peer, slot, value, !peer_[slot].seen);
 }
 

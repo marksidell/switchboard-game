@@ -99,6 +99,7 @@ private:
     double            next_try_  = 0.0;      // earliest time to (re)connect
     double            backoff_   = 1.0;      // seconds; doubles to 30 on failure
     double            last_count_report_ = 0.0;
+    int    last_peer_boost_ = -1;      // audio.md 10.8: what the log last said
     bool              birth_pending_ = false;  // state published, online not yet
     unsigned          birth_req_     = 0;      // the publish_req we are waiting on
     double            birth_since_   = 0.0;    // when we started waiting

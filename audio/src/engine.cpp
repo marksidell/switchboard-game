@@ -26,6 +26,11 @@ static constexpr size_t GATE_DELAY = 480;
 // Rev 19: the gate's band, below 50 Hz. At 100 Hz a man's voice, whose
 // fundamental is near 100-130 Hz, reached it within a few dB of the threshold.
 static constexpr double GATE_LP_HZ = 50.0;
+// audio.md 10.8, Rev 28: a file counts as playing until its echo is over,
+// 50ms after its last sample; the source's peer is held through 2s of the
+// detector hearing anything else.
+static constexpr uint64_t PB_ECHO = 2400;
+static constexpr uint64_t PB_HOLD = 96000;
 static const float      MON_CEIL     = (float)std::pow(10.0, MON_LIMIT_DB / 20.0);
 
 // audio.md 8.2. The Bell System tones of the period the 551 belongs to, before
@@ -147,6 +152,13 @@ bool Engine::prepare()
     // to the level of the loudest speech rather than reaching -3dBFS.
     lim_.init(sh_.opt.monitor_limit_db, 0.100, SAMPLE_RATE);
     log_line("monitor: limiter at %.1f dBFS", sh_.opt.monitor_limit_db);
+    // audio.md 10.8, Rev 28.
+    pb_max_lin_   = db_to_lin(sh_.opt.monitor_peer_max_db);
+    pb_start_lin_ = db_to_lin(sh_.opt.monitor_peer_start_db);
+    pb_lin_       = pb_start_lin_;
+    if (sh_.opt.monitor_peer_max_db > 0.0)
+        log_line("monitor: peer boost up to %.1f dB, %.1f dB until measured",
+                 sh_.opt.monitor_peer_max_db, sh_.opt.monitor_peer_start_db);
     // audio.md 10.5, Rev 17. The delay line is allocated whether or not the
     // gate is on, so the chain's latency does not depend on a setting.
     gate_on_     = sh_.opt.monitor_gate_db != 0.0;
@@ -589,12 +601,19 @@ void Engine::process_capture()
         fn = (unsigned)std::min<size_t>(mf.buf->samples.size() - mf.pos, period_);
         fs = mf.buf->samples.data() + mf.pos;
     }
+    const int pb_mode = peer_boost_begin();     // audio.md 10.8
+    double pb_e = 0.0;
+    bool   pb_gated = false;
     if ((int)ncap_ >= mon_src_ch_) {
         const float* src = &capf_[(size_t)(mon_src_ch_ - 1) * period_];
         for (unsigned i = 0; i < period_; ++i) {
             double y = mon_hp_s_.run(mon_hp_, (double)src[i]);
             for (size_t s = 0; s < mon_lp_.size(); ++s) y = mon_lp_s_[s].run(mon_lp_[s], y);
             y = gate_step(src[i], y);
+            pb_e += y * y;
+            if (gate_g_ < 1.0) pb_gated = true;
+            pb_g_ += (pb_target_ - pb_g_) * (1.0 / (0.020 * SAMPLE_RATE));
+            y *= pb_g_;
             double f = (i < fn) ? (double)fs[i] : 0.0;
             for (size_t s = 0; s < mon_lp_.size(); ++s) f = mon_file_lp_s_[s].run(mon_lp_[s], f);
             if (mon_ramp_ > 0) { mon_gain_ += mon_step_; --mon_ramp_; }
@@ -626,6 +645,7 @@ void Engine::process_capture()
     } else {
         std::fill(mon_row_.begin(), mon_row_.end(), 0.0f);
     }
+    peer_boost_end(pb_mode, pb_e, pb_gated);
     if (fs) {
         // As a circuit's file: `play` clears from the period after it ends.
         mf.pos += fn;
@@ -800,6 +820,12 @@ void Engine::render()
             const unsigned n_s = (unsigned)std::min<size_t>(have, period_);
             const float* s = p.buf->samples.data() + p.pos;
             if (slot != chan::TAP_CH) aec_feed(slot, s, n_s);
+            if (chan::is_circuit_slot(slot)) {          // audio.md 10.8
+                double e = 0.0;
+                for (unsigned i = 0; i < n_s; ++i) e += (double)s[i] * s[i];
+                file_e_[slot] += e;
+                file_until_[slot] = g_ + n_s + PB_ECHO;
+            }
             n = pilot_n_;
             for (unsigned i = 0; i < n_s; ++i) {
                 float v = amp * tbl_.at(b * n) + s[i];
@@ -848,6 +874,72 @@ void Engine::render()
 
     pilot_n_ = (pilot_n_ + period_) & (FFT_N - 1);
     g_ += period_;
+}
+
+// peer_boost_begin()                                                   [audio]
+//   audio.md 10.8, Rev 28. Before the monitor's samples: which path this
+//   period's source measures - 1 own, 2 peer, 0 neither - and the boost it
+//   heads for. The peer is the detector's, held through PB_HOLD of anything
+//   else, since a circuit's own playback makes its peer flicker to idle. A
+//   new source or peer starts its sums afresh.
+int Engine::peer_boost_begin()
+{
+    pb_target_ = 1.0;
+    const int src = mon_src_ch_;
+    if (pb_max_lin_ <= 1.0 || !chan::is_circuit_slot(src) || mon_pend_ch_) {
+        pb_src_ = 0;
+        return 0;
+    }
+    if (src != pb_src_) {
+        pb_src_ = src;
+        pb_peer_ = 0;
+        pb_own_ = PathSum();
+        pb_other_ = PathSum();
+    }
+    const int h = sh_.heard_peer[src].load(std::memory_order_relaxed);
+    if (h > 0) {
+        if (h != pb_peer_) { pb_peer_ = h; pb_other_ = PathSum(); }
+        pb_peer_at_ = g_;
+    } else if (pb_peer_ && g_ - pb_peer_at_ > PB_HOLD) {
+        pb_peer_ = 0;
+    }
+    const bool own   = g_ < file_until_[src];
+    const bool other = pb_peer_ && g_ < file_until_[pb_peer_];
+    if (own && !other) return 1;
+    if (other && !own) { pb_target_ = pb_lin_; return 2; }
+    return 0;
+}
+
+// peer_boost_end()                                                     [audio]
+//   After them: this period's source energy, before the boost, against the
+//   file energy render() sent on the path measured, unless the gate shut;
+//   then the boost from the two sums once each holds a second of file. Every
+//   circuit's file energy is consumed here, measured or not.
+void Engine::peer_boost_end(int mode, double energy, bool gated)
+{
+    if (mode && !gated) {
+        PathSum& p = (mode == 1) ? pb_own_ : pb_other_;
+        const double f = file_e_[mode == 1 ? pb_src_ : pb_peer_];
+        if (f > 0.0) {
+            p.mon += energy;
+            p.file += f;
+            p.n += period_;
+            if (p.n > 10.0 * SAMPLE_RATE) { p.mon *= 0.5; p.file *= 0.5; p.n *= 0.5; }
+        }
+    }
+    for (int s = 1; s <= chan::N_SLOTS; ++s) file_e_[s] = 0.0;
+
+    const bool both = pb_own_.n >= SAMPLE_RATE && pb_other_.n >= SAMPLE_RATE &&
+                      pb_own_.file > 0.0 && pb_other_.file > 0.0 &&
+                      pb_own_.mon > 0.0 && pb_other_.mon > 0.0;
+    pb_measured_ = both;
+    if (!both) {
+        pb_lin_ = pb_start_lin_;
+        return;
+    }
+    // Energies: the square root gives the amplitude ratio.
+    const double r = std::sqrt((pb_own_.mon / pb_own_.file) / (pb_other_.mon / pb_other_.file));
+    pb_lin_ = std::min(std::max(r, 1.0), pb_max_lin_);
 }
 
 // aec_feed()                                                           [audio]
@@ -986,6 +1078,10 @@ void Engine::run()
             if (gate_hits_) { sh_.gate_hits.fetch_add(gate_hits_, std::memory_order_relaxed); gate_hits_ = 0; }
             if (rec_lost_) { sh_.rec_dropped.fetch_add(rec_lost_, std::memory_order_relaxed); rec_lost_ = 0; }
             if (play_short_) { sh_.play_short.fetch_add(play_short_, std::memory_order_relaxed); play_short_ = 0; }
+            sh_.peer_boost.store(pb_src_ && pb_peer_
+                                 ? (int)std::lround(2000.0 * std::log10(pb_lin_)) * 1000
+                                   + pb_peer_ * 10 + (pb_measured_ ? 1 : 0)
+                                 : -1, std::memory_order_relaxed);
             const unsigned l = lim_.take_active();
             if (l) sh_.limiter_hits.fetch_add(l, std::memory_order_relaxed);
             for (int ch = 1; ch <= chan::N_PLAY_CH; ++ch) {
