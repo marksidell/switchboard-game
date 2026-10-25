@@ -32,6 +32,7 @@ ExecStart=/usr/local/bin/sbaudio \
     --monitor-file-trim -18 \
     --monitor-limit -18 \
     --monitor-gate -60 \
+    --monitor-peer-max 20 --monitor-peer-start 12 \
     --vad-floor -70 \
     --vad-hangover 0.5
 
