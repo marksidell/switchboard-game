@@ -1,0 +1,87 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Strip 8 Real Phone</title>
+<style>
+@page { size: letter; margin: 0.3in 0.45in; }
+body { font: 8.2pt/1.15 "DejaVu Sans", Arial, sans-serif; color: #000; background: #fff; margin: 0; }
+h1 { font-size: 15pt; margin: 0 0 2px; }
+.sub { font-size: 9pt; color: #333; margin-bottom: 8px; }
+h2 { font-size: 11pt; margin: 5px 0 2px; border-bottom: 1px solid #000; }
+ol, ul { margin: 2px 0 2px 20px; padding: 0; }
+li { margin: 1px 0; }
+.box { display: inline-block; width: 10px; height: 10px; border: 1px solid #000; margin-right: 6px; vertical-align: -1px; }
+ol.check { list-style: none; margin-left: 4px; }
+pre { font: 8pt/1.18 "DejaVu Sans Mono", monospace; border: 1px solid #000; padding: 5px 8px; margin: 4px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 8.2pt; margin: 2px 0; }
+td, th { border: 1px solid #000; padding: 1px 5px; text-align: left; vertical-align: top; }
+th { background: #eee; }
+.blank { display: inline-block; min-width: 70px; border-bottom: 1px solid #000; }
+.warn { font-weight: bold; }
+.note { font-size: 9pt; margin: 4px 0; }
+</style></head><body>
+
+<h1>Station Board 3, Strip 8: Real Phone Line</h1>
+<div class="sub">Board 3 (0x22), strip 8 = parts 9nn, A32 channel 24, expander bit 7 (OFFHOOK_8 / RING_DET_8). Proposal: docs/real_phone.md Rev 1, option B · 2026-10-23. Strips 1–7 unchanged.</div>
+
+<h2>Before you start</h2>
+<ol class="check">
+<li><span class="box"></span>No game running. The audience speaker is already on the Digiface 33/34 (<code>--monitor-ch 33</code>), so A32 output 24 is free.</li>
+<li><span class="box"></span><b>Disconnect the old monitor cable</b> from strip 8: on <b>J106 MONITOR</b> (AOUT±_8), or, if it went in that way, soldered to R910/R911's J2-side pads (J105 pins 1, 14; shield pin 2). Nothing may stay on A32 output 24.</li>
+<li><span class="box"></span>Phone wired across strip 8's line pair at the game box (J7B101 pins 7/8).</li>
+</ol>
+
+<h2>Step 1: measure first (board unchanged; phone on the pair)</h2>
+<table>
+<tr><th>#</th><th>Tip to ring</th><th>Expect / why</th><th>Measured</th></tr>
+<tr><td>1</td><td>Phone on-hook</td><td>about 24 V</td><td><span class="blank"></span> V</td></tr>
+<tr><td>2</td><td>Off-hook, not answered</td><td><b>must be under about 8.5 V</b> for the detector to release</td><td><span class="blank"></span> V</td></tr>
+<tr><td>3</td><td>Off-hook, operator's answer cord in</td><td>under about 8.5 V</td><td><span class="blank"></span> V</td></tr>
+<tr><td>4</td><td>Off-hook, patched to a station</td><td>under about 8.5 V</td><td><span class="blank"></span> V</td></tr>
+<tr><td>5</td><td>Phone on-hook, <b>4.4 kΩ across the pair</b> (2 × 2.2 kΩ)</td><td>lamp stays dark, line relay stays out (the detector will draw about 4.2 mA all the time)</td><td>lamp <span class="blank"></span> relay <span class="blank"></span></td></tr>
+</table>
+<p class="note warn">If 2, 3 or 4 is above about 8.5 V, or 5 lights the lamp: stop, and send me the numbers. The detector values below change.</p>
+
+<h2>Step 2: fit (power off)</h2>
+<table>
+<tr><th>Ref</th><th>Part</th><th>Notes</th><th>Done</th></tr>
+<tr><th colspan="4">Relay and driver</th></tr>
+<tr><td>K901</td><td>CIT J104D2C5VDC.15S</td><td>off-hook relay, DPDT</td><td><span class="box"></span></td></tr>
+<tr><td>Q901</td><td>2N2222A (EBC)</td><td>relay driver</td><td><span class="box"></span></td></tr>
+<tr><td>R901</td><td>1 kΩ</td><td>base, from OFFHOOK_8</td><td><span class="box"></span></td></tr>
+<tr><td>R902</td><td>10 kΩ</td><td>base to GND: holds the relay off until the expander is set up</td><td><span class="box"></span></td></tr>
+<tr><td>D902</td><td>1N4148</td><td>flyback, band to +5 V</td><td><span class="box"></span></td></tr>
+<tr><td>C902</td><td>10 µF 50 V</td><td>5 V reservoir at the coil, mind polarity</td><td><span class="box"></span></td></tr>
+<tr><th colspan="4">Transformer and either side of it</th></tr>
+<tr><td>C901</td><td>0.47 µF 250 V film</td><td>node A to T901 primary; DC block</td><td><span class="box"></span></td></tr>
+<tr><td>T901</td><td>Triad TY-311P</td><td>600:600</td><td><span class="box"></span></td></tr>
+<tr><td>R908, R909</td><td>1 kΩ matched pair</td><td>receive, T901 to A32 in 24</td><td><span class="box"></span></td></tr>
+<tr><td>R910, R911</td><td>1 kΩ matched pair</td><td>transmit, A32 out 24 to T901 (monitor cable off first)</td><td><span class="box"></span></td></tr>
+<tr><td class="warn">R903</td><td class="warn">DO NOT FIT</td><td>330 Ω 2 W loop resistor: the phone carries the line's DC, so the detector can see the hook</td><td><span class="box"></span></td></tr>
+<tr><th colspan="4">Hook detector (the ring-detector footprint)</th></tr>
+<tr><td>U901</td><td>HCPL3700M</td><td>AC input (pins 1, 4), polarity does not matter</td><td><span class="box"></span></td></tr>
+<tr><td>R906, R907</td><td><b>2.2 kΩ 2 W</b> (Vishay PR02)</td><td>not the station's 10 k. Mount a few mm off the board: the operator may ring the phone (about 0.8 W each)</td><td><span class="box"></span></td></tr>
+<tr><td>C903</td><td><b>0 Ω link</b></td><td>not the 1 µF: the detector must see DC</td><td><span class="box"></span></td></tr>
+<tr><td>C904</td><td>0.1 µF ceramic</td><td>U901 supply bypass, at the chip. Required</td><td><span class="box"></span></td></tr>
+<tr><td>R912</td><td>4.7 kΩ</td><td>output pull-up; probably already fitted, check</td><td><span class="box"></span></td></tr>
+<tr><td>D901</td><td>P6KE120CA</td><td>TVS tip–ring, as on every station</td><td><span class="box"></span></td></tr>
+</table>
+
+<pre>
+  TIP_8 --+-- K901 pole A NO -- node A --+-- C901 0.47u -- T901 pri    T901 sec -- R908/R909 -- A32 IN 24
+          |                              |   (R903: NOT FITTED)                 -- R910/R911 -- A32 OUT 24
+          +-- R906 2k2 --+               |
+                         |   RING_8 -- K901 pole B NO -- node B ------ T901 pri
+          (C903 = 0R) R907 2k2
+                         |
+                    U901 pin 1        U901 pin 4 -- RING_8      U901 out -- RING_DET_8 (R912 pull-up)
+  On-hook: about 24 V across the pair, U901 on.  Off-hook: line pulled low, U901 off.
+</pre>
+
+<h2>Step 3: after fitting (results; the firmware does not drive strip 8 yet)</h2>
+<table>
+<tr><th>#</th><th>Check</th><th>Expect</th><th>Result</th></tr>
+<tr><td>6</td><td>U901 output (RING_DET_8) phone on-hook / off-hook, meter or scope</td><td>low on-hook (conducting), high off-hook</td><td><span class="blank"></span></td></tr>
+<tr><td>7</td><td>Same, operator rings the phone</td><td>pulses at 40 Hz; R906/R907 warm, not hot</td><td><span class="blank"></span></td></tr>
+<tr><td>8</td><td>Pull K901 in by hand: jumper R901’s OFFHOOK_8 end to +3.3 V, phone off-hook. Phone still works, audio OK; remove the jumper after</td><td>slight level drop from T901 bridging</td><td><span class="blank"></span></td></tr>
+</table>
+
+</body></html>

@@ -1,0 +1,82 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Trunk 8 Grandstream Mod</title>
+<style>
+@page { size: letter; margin: 0.4in 0.55in; }
+body { font: 9pt/1.22 "DejaVu Sans", Arial, sans-serif; color: #000; background: #fff; margin: 0; }
+h1 { font-size: 15pt; margin: 0 0 2px; }
+.sub { font-size: 9pt; color: #333; margin-bottom: 10px; }
+h2 { font-size: 11.5pt; margin: 7px 0 3px; border-bottom: 1px solid #000; }
+ol, ul { margin: 2px 0 2px 20px; padding: 0; }
+li { margin: 1px 0; }
+.box { display: inline-block; width: 10px; height: 10px; border: 1px solid #000; margin-right: 6px; vertical-align: -1px; }
+ol.check { list-style: none; margin-left: 4px; }
+pre { font: 8.8pt/1.25 "DejaVu Sans Mono", monospace; border: 1px solid #000; padding: 6px 8px; margin: 4px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 9pt; margin: 3px 0; }
+td, th { border: 1px solid #000; padding: 2px 5px; text-align: left; vertical-align: top; }
+th { background: #eee; }
+.blank { display: inline-block; min-width: 70px; border-bottom: 1px solid #000; }
+.warn { font-weight: bold; }
+.note { font-size: 9pt; }
+</style></head><body>
+
+<h1>Trunk 8: Feed from the Grandstream ATA</h1>
+<div class="sub">Trunk board rev 2, trunk 8 only (sheet 9, parts 9nn). Spec: trunk_circuit.md §4.5, Rev 5.53 · 2026-10-22. Trunks 1–7 are unchanged.</div>
+
+<h2>Before you start</h2>
+<ol class="check">
+<li><span class="box"></span>No game running. Take trunk 8 out of service in <code>host/etc/sbgame/game.toml</code>. It stays out until the game knows trunk 8 is the outside line.</li>
+<li><span class="box"></span>Power off. Check the current values: R906 220 Ω 2 W 1%, R907 150 Ω.</li>
+<li><span class="box"></span>Parts: one <b>330 Ω, ≥0.5 W, 5% is fine</b> (for R906), plus hookup wire: two short jumpers and two leads to the ATA.</li>
+</ol>
+
+<h2>Changes</h2>
+<ol class="check">
+<li><span class="box"></span><b>Pull K901</b> (relay). Then jumper <b>pole 1 COM to pole 1 NC</b> (TIP to node A) <span class="box"></span> and <b>pole 2 COM to pole 2 NC</b> (RING to node B) <span class="box"></span>. Leave the NO holes empty: they go to the ring bus. Pin numbers are on the J104D2C5VDC datasheet or the silkscreen.</li>
+<li><span class="box"></span><b>Remove D903</b> (1N4007). This takes the board's current source off the line.</li>
+<li><span class="box"></span><b>R906: replace the 220 Ω with 330 Ω, with the GND leg lifted.</b> The node B leg stays in its pad. The other leg goes to the <b>ATA's ring</b>, not to GND.</li>
+<li><span class="box"></span><b>ATA's tip</b> into the <b>K901 pole 1 NC hole</b> (node A).</li>
+<li><span class="box"></span><b>U901 to its AC input:</b>
+  <ul>
+  <li><span class="box"></span>Lift <b>pin 2</b> (DC+) and <b>pin 3</b> (DC−) clear of their pads. Both <b>must be open</b>.</li>
+  <li><span class="box"></span><b>Pin 1</b> to R907's free end (the end that went to pin 2).</li>
+  <li><span class="box"></span><b>Pin 4</b> to R906's lifted leg (the ATA ring).</li>
+  <li>Pins 5, 6 and 8 stay as they are.</li>
+  </ul>
+  <span class="warn">Don't leave pin 2 soldered with pin 1 jumpered to it.</span> That shorts one diode of the bridge, and one polarity then misses the detector.</li>
+</ol>
+
+<pre>
+  ATA tip  ------------- K901 pole 1 NC hole ===jumper=== pole 1 COM --- TIP  ---+
+                                                                                 | 551 switchboard
+  ATA ring --+-- R906 330R --- node B (pole 2 NC) ==jumper== pole 2 COM --- RING +
+             |                   |
+             |                R907 150R
+             |                   |
+             +--- U901 pin 4 U901 pin 1      U901 pins 2, 3: OPEN (lifted)
+                                              nothing in the loop goes to GND
+</pre>
+
+<h2>ATA settings</h2>
+<table>
+<tr><th>Setting</th><th>Value</th><th>Why</th><th>Done</th></tr>
+<tr><td>Polarity reversal</td><td>No</td><td>keeps the feed steady on answer</td><td><span class="box"></span></td></tr>
+<tr><td>Ring voltage</td><td>55 Vrms (ATA max)</td><td>45 did not trip the 551 relay; 55 peaks at 126 V on the feed, under the 128 V TVS (Dx01) standoff</td><td><span class="box"></span></td></tr>
+<tr><td>Codecs</td><td>G.711 only (PCMU/PCMA)</td><td>no compressed codec on the line</td><td><span class="box"></span></td></tr>
+<tr><td>Loop current disconnect</td><td>On, ≥ 1.5 s</td><td>ATA hangs up when the cord is pulled</td><td><span class="box"></span></td></tr>
+</table>
+
+<h2>Bench checks (fill in)</h2>
+<table>
+<tr><th>#</th><th>Check</th><th>Expect</th><th>Measured</th></tr>
+<tr><td>1</td><td>Meter in series, cord in trunk jack 8</td><td>30 mA (detects above about 22 mA)</td><td><span class="blank"></span> mA</td></tr>
+<tr><td>2</td><td>Tip to ring, cord in</td><td>about 38 V (was 28 V before R906)</td><td><span class="blank"></span> V</td></tr>
+<tr><td>3</td><td>trunk/8/seize on cord in, off on cord out</td><td>clean, every time</td><td><span class="blank"></span></td></tr>
+<tr><td>4</td><td>Trunk 8 lamp and relay: latches when the ATA rings in</td><td>as on the bare jack</td><td><span class="blank"></span></td></tr>
+<tr><td>5</td><td>Does U901 see the ATA's ring? (trunk/8/fault during ring)</td><td>unknown</td><td><span class="blank"></span></td></tr>
+<tr><td>6</td><td><code>op</code> and <code>peer</code> on trunk 8, call up</td><td>a few dB down; still detected?</td><td><span class="blank"></span></td></tr>
+<tr><td>7</td><td>Call from a phone: audio both ways, on the loudspeaker too</td><td>clean</td><td><span class="blank"></span></td></tr>
+</table>
+
+<p class="note"><b>Don't:</b> ring trunk 8 with the switchboard's ring key. That puts about 90 Vrms into the ATA's FXS port, and nobody knows whether it survives (hence the spare). With K901 pulled the board cannot ring trunk 8. The game must never ring, tone or play files on trunk 8.</p>
+
+</body></html>
