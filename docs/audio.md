@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 26 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on the Digiface's Analog Output from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, a Recording of the Loudspeaker to WAV and MP3 and Its Playback, a Shorter Wait After the Operator Speaks, All Commanded and Reported over MQTT, Station 24 a Real Telephone, One Circuit's Output and Capture Recorded Raw for the Bench, an Echo Canceller So a Caller Talking Over a File Is Heard*
+*Rev 27 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on the Digiface's Analog Output from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, a Recording of the Loudspeaker to WAV and MP3 and Its Playback, a Shorter Wait After the Operator Speaks, All Commanded and Reported over MQTT, Station 24 a Real Telephone, One Circuit's Output and Capture Recorded Raw for the Bench, an Echo Canceller So a Caller Talking Over a File Is Heard*
 
 # 1. Overview
 
@@ -174,6 +174,12 @@ Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout t
 — The speech detector's low-pass is sixth-order, and the installation's `--vad-floor` is −70dBFS (§9.2). Found on the switchboard, 2026-10-16: the detector heard the operator only when she spoke loudly. Bridged onto station 13 and counting one to ten at a normal level, she was not heard in a 30s listen. A recording of the line put her voice at −55 to −65dBFS in the detector's band, peaks −47, against a threshold of −50, the absolute bound, which no word cleared for the 200ms of 300 a start needs. Lowering the bound alone does not do: through one low-pass section the station's own pilot, measured at −58.4dBFS on the line, arrives at −71.5 and sets the floor, so floor + 10dB is −61, still above most of her voice. With three sections the pilot is at −97, under the line's own noise near −91, and with the bound at −70 the recording declares speech one second into the count, with no frame above −70 in the quiet before it. Her voice is about 30dB below the authored speech on the line; a stronger transmitter would give more margin, and the electret headset (kicad/electret) is the way to it.
 
 — Code consequence, made the same day: `butter_lowpass6()` in `dsp.cpp`, the detector's three sections, and the tests. `sbaudio.service` gains `--vad-floor -70`.
+
+## 1.27 Changes in Rev 27
+
+— The installation's line-disturbance gate threshold goes from −70dBFS to −60 (§10.5), 2026-10-24. Mark heard a caller cut in and out on the loudspeaker in play (crane-stoneburner, station 22 as the monitor source, headset not keyed): the gate shut 1, 3 and 4 times in the call's three 10s windows with no xrun, no lost period and no cord moving, the 2026-10-19 symptom on the V16 salesman again. The live test of 2026-10-19 was never run; −60 is a step back toward Rev 17's figure, not a measurement. It lets about 10dB more LF through before the gate shuts, so a switch flip or a ring may now be heard faintly on the loudspeaker; if it is, the threshold is between the two and wants the recording.
+
+— Code consequence: none in the program; `sbaudio.service` sets `--monitor-gate -60`.
 
 ## 1.26 Changes in Rev 26
 
@@ -489,7 +495,7 @@ Rev 17. A switch moved on the line the monitor follows, or ringing on or near it
 
 Only the source is gated. A file on the monitor (§10.4) is summed in after the gate and plays on through it: the tutor is not cut off because a phone is ringing. The log's counters line reports how many times the gate shut in each ten seconds, `gate N`, so a threshold low enough to catch the operator's own voice shows up there.
 
-Off unless `--monitor-gate` is given. The installation sets −70dBFS, from a recording of the switchboard, 2026-10-16: the gate at 50Hz and −70 brings the worst switch flip or ring at the output, at −12dB monitor gain, from −10.5dBFS to −44.5, below speech, as Rev 17's 100Hz and −60 did; and the loudest authored line reaches it at about −84dBFS on its own line, and the operator's live voice at −99.
+Off unless `--monitor-gate` is given. The installation sets −60dBFS since Rev 27, after the gate at −70 cut speech on the loudspeaker in play. Rev 19 had set −70 from a recording of the switchboard, 2026-10-16: the gate at 50Hz and −70 brings the worst switch flip or ring at the output, at −12dB monitor gain, from −10.5dBFS to −44.5, below speech, as Rev 17's 100Hz and −60 did; and the loudest authored line reaches it at about −84dBFS on its own line, and the operator's live voice at −99.
 
 ## 10.6 Recording the Loudspeaker
 
