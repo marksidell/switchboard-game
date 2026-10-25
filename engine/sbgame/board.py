@@ -86,6 +86,7 @@ class Board:
         self._frozen: dict[str, str] | None = None        # key -> latest, during a cut
         self._thaw: asyncio.TimerHandle | None = None
         self._seen: dict[str, set[str]] = {}               # key -> values since expect()
+        self._changed: dict[str, float] = {}               # key -> monotonic time of its last change
 
         self.broker_up = False
         self._control_status = ""  # retained sbgame/ctl/status
@@ -101,6 +102,10 @@ class Board:
 
     def on(self, key: str) -> bool:
         return self._v.get(key) == "on"
+
+    def changed_at(self, key: str) -> float:
+        """time.monotonic() of the key's last change; 0.0 if it never has."""
+        return self._changed.get(key, 0.0)
 
     def dialled(self, trunk: int) -> str:
         """Digits dialled on this trunk since it was last seized."""
@@ -260,6 +265,7 @@ class Board:
             self._v.pop(key, None)
         if key in self._seen:
             self._seen[key].add(value)
+        self._changed[key] = time.monotonic()
         self._emit(key, old, value)
         return True
 

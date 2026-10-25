@@ -717,15 +717,19 @@ class Game:
         await self._publish_pacing()
 
     def _free_trunk(self) -> int | None:
-        """A trunk fitted and in service (§6.5), idle, and not under test (§7.5)."""
+        """A trunk fitted and in service (§6.5), idle, and not under test (§7.5);
+        of those, the one whose seizure changed longest ago (Rev 85). A trunk
+        whose station has just hung up reads idle with the operator's cord still
+        in its jack, since the game cannot see a cord without a loop."""
         tested = self.diag.circuits() if self.diag is not None else set()
+        free = []
         for n in self.cfg.working_trunks():
             if f"trunk/{n}" in tested:
                 continue
             if not self.b.on(f"trunk/{n}/seize") and not self.b.on(f"trunk/{n}/ring"):
                 if not any(c.trunk == f"trunk/{n}" for c in (self.slots if self.slots is not None else ())):
-                    return n
-        return None
+                    free.append(n)
+        return min(free, key=lambda n: self.b.changed_at(f"trunk/{n}/seize"), default=None)
 
     async def _start_call(self, asked: bool = False, scene: SceneDef | None = None) -> None:
         """Deal a scene and run it, or say why not."""

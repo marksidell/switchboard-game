@@ -335,6 +335,12 @@ async def main() -> int:
         check(link.state_v.get("game/stations") == "5" and link.state_v.get("game/trunks") == "2",
               "stations and trunks published at birth")
         check(g._free_trunk() in (1, 2), "a trunk is picked from the fitted ones")
+        await b.update("trunk/1/seize", "on")
+        await b.update("trunk/1/seize", "off")         # a station hung up, cord left in
+        check(g._free_trunk() == 2, "the trunk just released is passed over (Rev 85)")
+        await b.update("trunk/2/seize", "on")
+        await b.update("trunk/2/seize", "off")
+        check(g._free_trunk() == 1, "and the one released longest ago is taken")
 
         print("\n== trunks out of service (§6.5, Rev 36)")
         oos = {"trunks": {"6": "jack 6's lamp does not latch", "8": "lamp out"}}
