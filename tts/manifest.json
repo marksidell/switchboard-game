@@ -10408,6 +10408,27 @@
     "text_sha": "79ebcac077865b54",
     "voice_sha": "8b4ed5260dcb435d"
   },
+  "tutor.rang-caller": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "baade66524344abf",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "tutor.rang-outside": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "f9a46469271ac478",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "tutor.rang-trunk": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "bd746d3a607fde11",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
   "tutor.ready-manual": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
