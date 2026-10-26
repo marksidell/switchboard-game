@@ -104,3 +104,25 @@ on the tap channel, and `optone` and `op` detection with the operator bridged.
 
 No specification in `docs/` yet. R11 is selected on the bench to match the carbon
 element's level on the tap channel. Untested.
+
+## The same filter in the station 24 500 set
+
+The receiver low-pass, built as on the sheet, also goes inside the 500 set on station 24
+(jack 18), which has no dial and room for the board (Mark, 2026-10-26). J3 to the network's
+receiver terminals, J4 to the handset's receiver leads; no DC flows there. Transmitter half
+unstuffed.
+
+Measured 2026-10-26, AD3 impedance adapter on portland, 1 kΩ, 100 mV, short-compensated:
+`500set_receiver_on_ear.txt` (the load: receiver leads off the network, handset on the
+ear) and `500set_source.txt` (the source: the network's receiver terminals, phone off hook
+on jack 18, `sbaudio` stopped), with `500set_short_nocap.txt`. With those, the values on
+the sheet give 300 Hz–3.4 kHz within 1.5 dB (−1.3 to −1.5 dB below 1 kHz, the inductors'
+21 Ω against a ~100 Ω receiver), ≥ 40.4 dB down at 6.0–9.14 kHz; source ×0.5–×3 ≥ 37.7 dB;
+L ±10 %, C ±5 % ≥ 30.2 dB in 99 % of 2000 trials. Changing only C10/C12 does not help.
+
+Also measured, for the rejected alternative of a filter in the line (loop current through
+the inductors would lift the line ~1.6 V at the hook detector, real_phone.md §3.1):
+`500set_offhook.txt` (phone off hook at 59 mA, 24 V via 2 × 150 Ω, 10 µF DC block),
+`500set_feed.txt` (the feed alone), `500set_short.txt` (the 10 µF alone) and
+`500set_phone.txt`, the phone alone computed from them: about 500 Ω at 1 kHz, 720–750 Ω
+at +17° across 6–9 kHz.
