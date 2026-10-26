@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 29 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on the Digiface's Analog Output from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, a Recording of the Loudspeaker to WAV and MP3 and Its Playback, a Shorter Wait After the Operator Speaks, All Commanded and Reported over MQTT, Station 24 a Real Telephone, One Circuit's Output and Capture Recorded Raw for the Bench, an Echo Canceller So a Caller Talking Over a File Is Heard*
+*Rev 30 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on the Digiface's Analog Output from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, a Recording of the Loudspeaker to WAV and MP3 and Its Playback, a Shorter Wait After the Operator Speaks, All Commanded and Reported over MQTT, Station 24 a Real Telephone, One Circuit's Output and Capture Recorded Raw for the Bench, an Echo Canceller So a Caller Talking Over a File Is Heard, Ring Heard on an Off-Hook Station*
 
 # 1. Overview
 
@@ -174,6 +174,12 @@ Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout t
 — The speech detector's low-pass is sixth-order, and the installation's `--vad-floor` is −70dBFS (§9.2). Found on the switchboard, 2026-10-16: the detector heard the operator only when she spoke loudly. Bridged onto station 13 and counting one to ten at a normal level, she was not heard in a 30s listen. A recording of the line put her voice at −55 to −65dBFS in the detector's band, peaks −47, against a threshold of −50, the absolute bound, which no word cleared for the 200ms of 300 a start needs. Lowering the bound alone does not do: through one low-pass section the station's own pilot, measured at −58.4dBFS on the line, arrives at −71.5 and sets the floor, so floor + 10dB is −61, still above most of her voice. With three sections the pilot is at −97, under the line's own noise near −91, and with the bound at −70 the recording declares speech one second into the count, with no frame above −70 in the quiet before it. Her voice is about 30dB below the authored speech on the line; a stronger transmitter would give more margin, and the electret headset (kicad/electret) is the way to it.
 
 — Code consequence, made the same day: `butter_lowpass6()` in `dsp.cpp`, the detector's three sections, and the tests. `sbaudio.service` gains `--vad-floor -70`.
+
+## 1.30 Changes in Rev 30
+
+— Ring heard on an off-hook station (new §9.5, §12, §13.1), Mark's request, 2026-10-26: `sbgame/station/<n>/ringing`, `"on"` or `"off"` (mqtt.md Rev 46). The station board's ring detector does not see ring on a station held off-hook: the board's loop load pulls the line from 80V to 17V AC on the front desk (Mark's meter), below the detector's turn-on, and `station/1/ring` stayed off through three rings. The ring reaches the station's capture channel through Tx01 all the same: in a raw capture of station 1 the same afternoon, 20Hz at −25.4dBFS during each ring against −85 to −123dBFS without one, its third harmonic at −38dBFS. The game program needs it to tell the player she has rung the caller (game_control.md §6.7, Rev 89).
+
+— Code consequence: a 20Hz Goertzel per station in `process_capture()`; `Topic::Ringing`; the `"off"` publish at start and at shutdown; `ctest`.
 
 ## 1.29 Changes in Rev 29
 
@@ -451,6 +457,14 @@ Rev 26. While a circuit plays a file, a line echo canceller learns the file's ec
 
 **Bench.** On the station 21 recording of 2026-10-24, 16 lines: the canceller took 27–34dB off each line Mark did not talk over, and no window there reached more than 13 frames of 30 above threshold; the lines he talked over showed 11–19dB, the residual being him, and those he talked over for longer than the window were heard. `aec_check FILE.lineN.wav` runs the canceller over a `--record-line` recording and prints each frame.
 
+## 9.5 Ring Heard on a Station
+
+Rev 30. The station board's ring detector is across the line ahead of the relay (station §7.2), and it does not see ring on a station that is off-hook: the board's own loop load pulls the ring down from about 80V to 17V AC, below its turn-on. Ring on an off-hook station is what the player sends when she rings the wrong cord of a call from that room (game_control.md §6.7). It reaches the station's capture channel through Tx01, at about −25dBFS of 20Hz; without it the 20Hz band is below −85dBFS (Rev 30 measurements).
+
+So on every station's capture channel, 1–22 and 24, at all times: a 20Hz Goertzel over blocks of 4800 samples (100ms, exactly two cycles, so DC and 60Hz fall on the window's nulls), under a Hann window, which keeps a file returning at full strength on the same channel from leaking into the band. The block's 20Hz amplitude, in dBFS of a sine's peak, is compared with −50dBFS. Two blocks in a row at or above it (200ms) set `ringing` `"on"`; three in a row below it (300ms) set `"off"`. Published on `sbgame/station/<n>/ringing` on change only, retained.
+
+It is heard whether the station is on- or off-hook, but on-hook the relay has lifted Tx01 from the line and nothing reaches the channel, so in practice it reports off-hook ringing only. The ESP32's `station/<n>/ring` remains the report of a ringing on-hook station. Trunks are not watched: ringing a trunk is reported by the controller (control.md §8.3).
+
 # 10. Audience Monitor
 
 ## 10.1 Chain
@@ -598,7 +612,7 @@ Station n is validated 1–22 or 24 (Rev 24) and trunk n 1–8; a topic outside 
 
 Every command is acknowledged by its state topic changing, retained, from the audio thread after it has taken effect — `record/set` and `playback/set` from the MQTT thread, which carries them out (§10.6, §10.7) — — the same convention as the ESP32's `hook` echoing `hook/set` (mqtt.md §3). A command that arrives while the program is running and produces no change in the state topic was not acted on, and the log says why.
 
-Published state at start, before the birth message, so that a subscriber that sees `audio_status` go `online` already has consistent values: `play`, `tone` and `listen` empty for every circuit, `monitor`, `monitor/source` and `monitor/peer` as started, `test/<ch>` off for every channel, `record`, `recordings` and `playback` as they are (Rev 22), then `peer`, `op` and `optone` from the analysis thread's first pass — the MQTT thread raises a flag asking for a full publish and waits for the analysis thread to report that pass done. Only then `sbgame/ctl/audio_status` = `"online"`. The same sequence runs on every reconnect. The values republished are what the program is doing at that moment, not the last values that reached the broker, so a change made while disconnected is what reconnect announces (Rev 9). (Rev 2's program published `online` first and let the detector topics follow up to a hop later — Rev 3 code consequence 3.)
+Published state at start, before the birth message, so that a subscriber that sees `audio_status` go `online` already has consistent values: `play`, `tone` and `listen` empty for every circuit, `monitor`, `monitor/source` and `monitor/peer` as started, `test/<ch>` off for every channel, `record`, `recordings` and `playback` as they are (Rev 22), `ringing` off for every station (Rev 30), then `peer`, `op` and `optone` from the analysis thread's first pass — the MQTT thread raises a flag asking for a full publish and waits for the analysis thread to report that pass done. Only then `sbgame/ctl/audio_status` = `"online"`. The same sequence runs on every reconnect. The values republished are what the program is doing at that moment, not the last values that reached the broker, so a change made while disconnected is what reconnect announces (Rev 9). (Rev 2's program published `online` first and let the detector topics follow up to a hop later — Rev 3 code consequence 3.)
 
 # 13. Startup, Shutdown and Failure
 
@@ -606,7 +620,7 @@ Published state at start, before the birth message, so that a subscriber that se
 
 Parse options → open and configure both ALSA handles, link, allocate every buffer, lock memory → compute filter coefficients and FFT plan → start the audio thread and the stream, pilots and operator tone on from the first period → start the analysis thread → connect to the broker with the LWT, subscribe, publish the initial state (§12), publish the birth message. Audio starts before MQTT deliberately: the pilots and the operator tone are part of the switchboard's electrical environment and nothing about them depends on the broker.
 
-SIGTERM or SIGINT: stop every program source and the test tones, clear their state topics, close a recording, unconverted (§10.6), with `record` `"off"`, stop a playback, publish `audio_status` = `"offline"` cleanly so the broker does not fire the will, disconnect, stop the stream, exit. The pilots stop with the stream, and every `peer` on the broker goes stale at that moment — which is why `audio_status` exists (mqtt.md §8.1).
+SIGTERM or SIGINT: stop every program source and the test tones, clear their state topics, `ringing` off for every station (Rev 30), close a recording, unconverted (§10.6), with `record` `"off"`, stop a playback, publish `audio_status` = `"offline"` cleanly so the broker does not fire the will, disconnect, stop the stream, exit. The pilots stop with the stream, and every `peer` on the broker goes stale at that moment — which is why `audio_status` exists (mqtt.md §8.1).
 
 ## 13.2 Losing the Game or the Broker
 

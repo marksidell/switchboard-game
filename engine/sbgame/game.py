@@ -54,7 +54,7 @@ from .tutor import INTRO, NO_LIMIT, Tutor
 # trunk's seize), a digit dialled, a station rung. Not `hook`, which the game
 # itself drives, nor anything of the game's own.
 _TRUNK_FAULT = re.compile(r"^trunk/(\d+)/fault$")     # §6.7, Rev 88
-_STATION_RING = re.compile(r"^station/(\d+)/ring$")
+_STATION_RINGING = re.compile(r"^station/(\d+)/ringing$")   # heard by sbaudio, Rev 89
 PLAYER = re.compile(r"^(?:station|trunk)/\d+/(?:peer|op|seize|dialled|digit)$|^station/\d+/ring$")
 
 log = logging.getLogger("game")
@@ -1111,7 +1111,7 @@ class Game:
                 c, shape = out[0]
             key = {Shape.OUTSIDE_TO_STATION: "rang-trunk",
                    Shape.STATION_TO_OUTSIDE: "rang-outside"}.get(shape)
-        elif m := _STATION_RING.match(ch.key):
+        elif m := _STATION_RINGING.match(ch.key):
             if ch.old != "on" or ch.new == "on":
                 return None
             n = int(m[1])

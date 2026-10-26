@@ -1137,7 +1137,8 @@ tutor:
         switch toward you.
     # A call out, its front cord in the trunk:
     rang-outside: >
-        Outside lines are dialled, not rung. Wait for dial tone, and dial.
+        Outside lines are dialled, not rung. Push the switch away from you,
+        wait for dial tone, and dial.
     # A call between stations, its rear cord in the caller's jack:
     rang-caller: >
         You rang the person who called you. Ring the front cord instead: pull

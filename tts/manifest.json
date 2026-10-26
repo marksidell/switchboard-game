@@ -10419,7 +10419,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "f9a46469271ac478",
+    "text_sha": "1dd500a561de3f03",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.rang-trunk": {

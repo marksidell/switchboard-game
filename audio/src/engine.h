@@ -120,6 +120,16 @@ private:
         Listener    lis;                    // history, floor, window, phases
     };
 
+    // RingDet - ring heard on one station's capture channel (audio.md 9.5).
+    // A 20Hz Goertzel over 100ms Hann-windowed blocks; the state is only the
+    // filter's two delays and the debounce counts. One per slot, in ring_det_[];
+    // trunks and the tap are skipped.
+    struct RingDet {
+        double s1 = 0.0, s2 = 0.0;          // Goertzel delays
+        int    above = 0, below = 0;        // consecutive blocks either side
+        bool   on = false;                  // last value posted
+    };
+
     // Per-period steps of run(). Each is described where it is defined.
     void drain_commands();
 
@@ -132,6 +142,7 @@ private:
     int    peer_boost_begin();              // which path this period measures
     void   peer_boost_end(int mode, double energy, bool gated);
     void process_capture();
+    void ring_step(int ncirc);
     void render();
     void check_output();
     void aec_feed(int slot, const float* s, unsigned n);
@@ -188,6 +199,10 @@ private:
     Prog prog_[chan::N_SLOTS + 1];
     Vad  vad_[chan::N_SLOTS + 1];           // Listener holds 400 bytes of history;
                                             // 33 of them, allocated with Engine
+    RingDet ring_det_[chan::N_SLOTS + 1];
+    std::vector<float> ring_win_;           // Hann window, RING_BLOCK samples
+    unsigned ring_n_ = 0;                   // samples into the current block,
+                                            // the same for every station
 
     // ---- the echo canceller (audio.md 9.4, Rev 26), one per slot, on the
     // heap: 3 KB each. Its reference, the file, through the detector's band-

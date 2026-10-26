@@ -64,6 +64,18 @@ static const char* TONE_NAME[] = { "", "dial", "ringback", "busy", "reorder" };
 // Speech detection runs on 10ms frames (audio.md 9.2); the decisions and their
 // constants are in vad.h.
 static const int VAD_FRAME = Listener::FRAME_SAMPLES;          // 480 samples
+
+// audio.md 9.5: 20Hz ring heard on a station. 4800 samples is 100ms and two
+// cycles, so the Goertzel's frequency is bin 2 exactly and DC and 60Hz fall on
+// the Hann window's nulls. The amplitude of a sine through the window is
+// 4|X|/N.
+static const unsigned RING_BLOCK    = 4800;
+static const double   RING_HZ       = 20.0;
+static const double   RING_ON_DBFS  = -50.0;
+static const int      RING_ON_BLOCKS  = 2;                     // 200 ms
+static const int      RING_OFF_BLOCKS = 3;                     // 300 ms
+static_assert(SAMPLE_RATE % (RING_BLOCK / 2) == 0 && SAMPLE_RATE / (RING_BLOCK / 2) == 20,
+              "RING_BLOCK must be two cycles of 20Hz");
 static_assert(VAD_FRAME * Listener::FRAMES_PER_S == SAMPLE_RATE,
               "a speech frame is 10 ms");
 
@@ -87,6 +99,9 @@ bool Engine::prepare()
     mon_row_.assign(period_, 0.0f);
     line_row_.assign((size_t)period_ * 2 * sh_.opt.record_line.size(), 0.0f);
     aec_.assign(chan::N_SLOTS + 1, EchoCanceller());
+    ring_win_.assign(RING_BLOCK, 0.0f);
+    for (unsigned i = 0; i < RING_BLOCK; ++i)
+        ring_win_[i] = (float)(0.5 - 0.5 * std::cos(2.0 * M_PI * i / RING_BLOCK));
     for (auto& a : aec_) a.configure((int)std::lround(sh_.opt.aec_delay * 8.0));
 
     for (int i = 0; i < 2; ++i) {
@@ -522,6 +537,39 @@ void Engine::drain_commands()
 //       keeps the history and reports speech, silence or timeout;
 //   then run the tap channel (23) through the monitor chain into mon_row_,
 //   advance the ring position, and take a snapshot if a hop is due.
+// ring_step()                                                          [audio]
+//   audio.md 9.5: one period of every station's capture through its 20Hz
+//   Goertzel. At the end of each 100ms block the 20Hz amplitude is judged
+//   against RING_ON_DBFS, and `ringing` posted when the debounce turns. The
+//   block boundary is shared by every station, so one counter serves them all.
+void Engine::ring_step(int ncirc)
+{
+    const double coeff = 2.0 * std::cos(2.0 * M_PI * RING_HZ / SAMPLE_RATE);
+    unsigned n = ring_n_;
+    for (int slot = 1; slot <= ncirc; ++slot) {
+        if (chan::slot_circuit(slot).kind != chan::Kind::Station) continue;
+        const float* src = &capf_[(size_t)(slot - 1) * period_];
+        RingDet& r = ring_det_[slot];
+        n = ring_n_;
+        for (unsigned i = 0; i < period_; ++i) {
+            const double s0 = (double)(src[i] * ring_win_[n]) + coeff * r.s1 - r.s2;
+            r.s2 = r.s1;
+            r.s1 = s0;
+            if (++n < RING_BLOCK) continue;
+            n = 0;
+
+            const double mag2 = r.s1 * r.s1 + r.s2 * r.s2 - coeff * r.s1 * r.s2;
+            const double amp  = 4.0 * std::sqrt(std::max(mag2, 0.0)) / RING_BLOCK;
+            r.s1 = r.s2 = 0.0;
+            if (lin_to_db(amp) >= RING_ON_DBFS) { r.below = 0; if (r.above < RING_ON_BLOCKS) ++r.above; }
+            else                                { r.above = 0; if (r.below < RING_OFF_BLOCKS) ++r.below; }
+            if (!r.on && r.above >= RING_ON_BLOCKS) { r.on = true;  post(Topic::Ringing, slot, "on"); }
+            if (r.on && r.below >= RING_OFF_BLOCKS) { r.on = false; post(Topic::Ringing, slot, "off"); }
+        }
+    }
+    ring_n_ = (ring_n_ + period_) % RING_BLOCK;
+}
+
 void Engine::process_capture()
 {
     const int ncirc = (int)std::min<unsigned>(ncap_, chan::N_CAP_CH);
@@ -600,6 +648,8 @@ void Engine::process_capture()
             }
         }
     }
+
+    ring_step(ncirc);
 
     // Monitor: the source's receive channel through the chain of audio.md 10.1,
     // which is the tap unless monitor/source/set has named a circuit (10.3).

@@ -941,9 +941,11 @@ async def main() -> int:
         check(ended("trunk/3/fault") is None, "once a call")
         check(ended("trunk/5/fault") == (c2, "rang-outside"),
               "another trunk, a call out with none yet: rang-outside")
-        r = ended(f"station/{s2s.from_station}/ring", "on")
-        check(r == (c3, "rang-caller"), f"the calling room: rang-caller, got {r}")
-        check(ended(f"station/{s2s.to_station}/ring", "on") is None
+        check(ended(f"station/{s2s.from_station}/ring", "on") is None,
+              "the board's ring detector: not what is watched (Rev 89)")
+        r = ended(f"station/{s2s.from_station}/ringing", "on")
+        check(r == (c3, "rang-caller"), f"the calling room heard ringing: rang-caller, got {r}")
+        check(ended(f"station/{s2s.to_station}/ringing", "on") is None
               if s2s.to_station is not None and s2s.to_station != s2s.from_station else True,
               "the called room rung: nothing")
         check(not any("rang-" in m for m in g.gs.tutor_missing),
