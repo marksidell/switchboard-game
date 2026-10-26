@@ -18,6 +18,7 @@ import tempfile
 from pathlib import Path
 
 from sbgame.board import Board
+from sbgame.calls import Call
 from sbgame.config import Config
 from sbgame.game import Game
 from sbgame.pacing import Pacing
@@ -916,6 +917,38 @@ async def main() -> int:
         pause = db.execute("SELECT pause FROM sessions ORDER BY id DESC").fetchone()[0]
         check(pause == 3.0, f"pause recorded with the pacing values (Rev 17): {pause}")
         db.close()
+
+        print("\n== the wrong cord rung (§6.7, Rev 88)")
+        b, link, g, sess = await build_game(tmp)
+        from sbgame.board import Change
+        from sbgame.script_data import Shape
+        def scene_of(shape):
+            return next(s for s in g.gs.scenes.values() if s.shape == shape
+                        and (shape != Shape.STATION_TO_STATION or s.from_station is not None))
+        inn, out, s2s = (scene_of(Shape.OUTSIDE_TO_STATION), scene_of(Shape.STATION_TO_OUTSIDE),
+                         scene_of(Shape.STATION_TO_STATION))
+        g.running = True
+        c1 = Call(slot=1, number=1, scene=inn.id, from_line="x", to_line="y", trunk="trunk/3")
+        c2 = Call(slot=2, number=2, scene=out.id, from_line="x", to_line="y")
+        c3 = Call(slot=3, number=3, scene=s2s.id, from_line="x", to_line="y")
+        for c in (c1, c2, c3):
+            await g.slots.open(c)
+        def ended(key, was="ring_on_trunk"):
+            return g._wrong_ring(Change(key, was, "", 0.0))
+        check(g._wrong_ring(Change("trunk/3/fault", "", "ring_on_trunk", 0.0)) is None,
+              "nothing while the trunk is still being rung")
+        check(ended("trunk/3/fault") == (c1, "rang-trunk"), "the trunk a call came in on: rang-trunk")
+        check(ended("trunk/3/fault") is None, "once a call")
+        check(ended("trunk/5/fault") == (c2, "rang-outside"),
+              "another trunk, a call out with none yet: rang-outside")
+        r = ended(f"station/{s2s.from_station}/ring", "on")
+        check(r == (c3, "rang-caller"), f"the calling room: rang-caller, got {r}")
+        check(ended(f"station/{s2s.to_station}/ring", "on") is None
+              if s2s.to_station is not None and s2s.to_station != s2s.from_station else True,
+              "the called room rung: nothing")
+        check(not any("rang-" in m for m in g.gs.tutor_missing),
+              "not rendered: no bar to tutor mode")
+        g.running = False
 
         print("\n== the simulator hands out each trunk once (no broker needed)")
         from sbgame.config import Config as C

@@ -34,7 +34,7 @@ import re
 import time
 from dataclasses import dataclass
 
-from .board import Board, LIVE_AUDIO, LIVE_CONTROL, Offline
+from .board import Abandoned, Board, Change, LIVE_AUDIO, LIVE_CONTROL, Offline
 from .calls import Call, N_SLOTS, Reason, Slots, Stage, Tallies
 from .config import Config
 from .deck import Deck, Holding
@@ -44,6 +44,7 @@ from .freecall import FreeCalls
 from .gamelog import GameLog
 from .pacing import PACES
 from .link import Hw, Link
+from .scenes import say
 from .script_data import GameScript, SceneDef, Shape
 from .session import SessionLog
 from . import sweep
@@ -52,6 +53,8 @@ from .tutor import INTRO, NO_LIMIT, Tutor
 # What the player does at the board (Rev 57): a cord in or out (peer, op, a
 # trunk's seize), a digit dialled, a station rung. Not `hook`, which the game
 # itself drives, nor anything of the game's own.
+_TRUNK_FAULT = re.compile(r"^trunk/(\d+)/fault$")     # §6.7, Rev 88
+_STATION_RING = re.compile(r"^station/(\d+)/ring$")
 PLAYER = re.compile(r"^(?:station|trunk)/\d+/(?:peer|op|seize|dialled|digit)$|^station/\d+/ring$")
 
 log = logging.getLogger("game")
@@ -92,6 +95,7 @@ class Game:
             self.pacing.pace = "manual"
 
         self._flows: dict[int, asyncio.Task] = {}       # slot -> task
+        self._hinted: set[tuple[int, str]] = set()      # (call, line) told, §6.7
         self._afters: dict[str, asyncio.Task] = {}      # scene id -> timer task
         self._pending_after: dict[str, Holding] = {}    # what a waiting after holds
         self._scheduler: asyncio.Task | None = None
@@ -524,6 +528,7 @@ class Game:
         self.running = True
         self._active_at = time.time()
         self._disarm_idle()
+        self._hinted.clear()
         self.tallies.zero()
         self.next_number = 1
         self.pacing.connected = 0
@@ -1085,12 +1090,63 @@ class Game:
 
     # ---- losing a client (§3) -------------------------------------------
 
+    def _wrong_ring(self, ch: Change) -> tuple[Call, str] | None:
+        """The call and her line, when a ring just ended on the wrong cord of
+        a call in progress, not yet told this call (§6.7, Rev 88)."""
+        if self.slots is None:
+            return None
+        if m := _TRUNK_FAULT.match(ch.key):
+            if ch.old != "ring_on_trunk" or ch.new == "ring_on_trunk":
+                return None
+            trunk = f"trunk/{m[1]}"
+            calls = [(c, self.gs.scenes[c.scene].shape) for c in self.slots]
+            held = [(c, s) for c, s in calls if c.trunk == trunk]
+            if held:
+                c, shape = held[0]
+            else:                       # a call out whose trunk is not yet known
+                out = [(c, s) for c, s in calls
+                       if s == Shape.STATION_TO_OUTSIDE and not c.trunk]
+                if not out:
+                    return None
+                c, shape = out[0]
+            key = {Shape.OUTSIDE_TO_STATION: "rang-trunk",
+                   Shape.STATION_TO_OUTSIDE: "rang-outside"}.get(shape)
+        elif m := _STATION_RING.match(ch.key):
+            if ch.old != "on" or ch.new == "on":
+                return None
+            n = int(m[1])
+            found = [c for c in self.slots
+                     if (sc := self.gs.scenes[c.scene]).from_station == n
+                     and sc.shape == Shape.STATION_TO_STATION]
+            if not found:
+                return None
+            c, key = found[0], "rang-caller"
+        else:
+            return None
+        if key is None or (c.number, key) in self._hinted:
+            return None
+        self._hinted.add((c.number, key))
+        return c, key
+
+    async def _hint(self, call: Call, key: str) -> None:
+        """Her line for a wrong cord, on the monitor, in any pacing (§6.7)."""
+        await self._say(f"wrong cord: {key}", call.number)
+        sp = self.gs.tutor.get(key)
+        if sp is None or self.hw is None:
+            return
+        try:
+            await say(self.b, self.hw, "audio/monitor", sp.name, sp.seconds)
+        except (Offline, Abandoned, FileNotFoundError, TimeoutError) as e:   # a stop, a lost client
+            log.info("wrong cord: %s not said: %s", key, e)
+
     async def watch_clients(self) -> None:
         """Stop the game if the controller or the audio program goes away;
         and note the player's acts on the board, for idle_stop (Rev 57)."""
         async for ch in self.b.watch():
             if PLAYER.match(ch.key):
                 self._active_at = time.time()
+            if self.running and (key := self._wrong_ring(ch)):
+                asyncio.create_task(self._hint(*key), name="wrong-cord")
             if ch.key in (LIVE_CONTROL, LIVE_AUDIO) and ch.new == "off":
                 if self.running:
                     who = "controller" if ch.key == LIVE_CONTROL else "audio program"

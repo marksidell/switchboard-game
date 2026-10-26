@@ -335,8 +335,9 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
             tutor[key] = Speech(u.name, _wav_seconds(wav, u.name), "tutor")
         except (OSError, EOFError, wave.Error):
             # A short form not rendered yet (Rev 55) is no gap: she says
-            # the full line in its place.
-            if not key.startswith(BRIEF_PREFIX):
+            # the full line in its place. Nor is a wrong-cord line (§6.7,
+            # Rev 88), said in every pacing and simply not said without it.
+            if not key.startswith((BRIEF_PREFIX, "rang-")):
                 missing.append(u.name)
 
     return GameScript(script=s, scenes=scenes, people=people, jacks=_jacks(s),
