@@ -96,6 +96,7 @@ class Game:
 
         self._flows: dict[int, asyncio.Task] = {}       # slot -> task
         self._hinted: set[tuple[int, str]] = set()      # (call, line) told, §6.7
+        self._hint_end: dict[int, float] = {}            # call -> its line's end, Rev 91
         self._afters: dict[str, asyncio.Task] = {}      # scene id -> timer task
         self._pending_after: dict[str, Holding] = {}    # what a waiting after holds
         self._scheduler: asyncio.Task | None = None
@@ -529,6 +530,7 @@ class Game:
         self._active_at = time.time()
         self._disarm_idle()
         self._hinted.clear()
+        self._hint_end.clear()
         self.tallies.zero()
         self.next_number = 1
         self.pacing.connected = 0
@@ -870,7 +872,8 @@ class Game:
                   reaction=self.gs.reaction,
                   occupant=lambda n: self.gs.occupants.get(n, ""),
                   free_callers=self.free.callers, free_routing=self.free.routing,
-                  public_trunk=self.cfg.public_trunk)
+                  public_trunk=self.cfg.public_trunk,
+                  hint_end=lambda n=call.number: self._hint_end.get(n, 0.0))
         outcome = Outcome(False, "cancelled")
         try:
             if scene.shape == Shape.OUTSIDE_TO_STATION:
@@ -1134,6 +1137,7 @@ class Game:
         sp = self.gs.tutor.get(key)
         if sp is None or self.hw is None:
             return
+        self._hint_end[call.number] = time.time() + sp.seconds
         try:
             await say(self.b, self.hw, "audio/monitor", sp.name, sp.seconds)
         except (Offline, Abandoned, FileNotFoundError, TimeoutError) as e:   # a stop, a lost client

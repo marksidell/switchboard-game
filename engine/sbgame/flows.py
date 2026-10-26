@@ -117,6 +117,9 @@ class Ctx:
     free_callers: Callable[[], set[str]] = lambda: set()
     free_routing: Callable[[], bool] = lambda: False
     public_trunk: int = 0
+    # Rev 91: when the tutor's last wrong-cord line for this call ends (§6.7),
+    # from which a caller left alone waits afresh.
+    hint_end: Callable[[], float] = lambda: 0.0
 
     @property
     def b(self) -> Board:
@@ -421,10 +424,16 @@ async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
         while True:
             await ctx.b.wait_until(lost, None)
             wait = ABANDON_MISDIALLED if ctx.misdialled else ABANDON
-            try:
-                await ctx.b.wait_until(lambda b: not lost(b), wait)
-            except TimeoutError:
-                return
+            until = time.time() + wait
+            while True:
+                try:
+                    await ctx.b.wait_until(lambda b: not lost(b), max(0.0, until - time.time()))
+                    break
+                except TimeoutError:
+                    # Rev 91: a wrong-cord line restarts the wait from its end.
+                    until = ctx.hint_end() + wait
+                    if until <= time.time():
+                        return
 
     task = asyncio.ensure_future(work)
     watcher = asyncio.ensure_future(watch())

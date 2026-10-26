@@ -10,6 +10,7 @@ the failure cases are operators who do the wrong thing, or nothing.
 """
 
 import asyncio
+import time
 import dataclasses
 import logging
 import sys
@@ -452,6 +453,18 @@ async def main() -> int:
         check(not r.ok and r.reason == Reason.CUT_OFF, "after a wrong number too")
         check(took < patient - D * 5,
               f"and sooner: {took:.2f}s against {patient:.2f}s")
+        # Rev 91: the tutor's wrong-cord line, ending while the caller is alone,
+        # restarts the wait.
+        h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
+                          dial="275-4101"))
+        said = time.time() + patient - D * 2
+        h.ctx.hint_end = lambda: said
+        t0 = asyncio.get_running_loop().time()
+        r = await h.run(station_to_outside, pulls_the_cord_before_routing)
+        took = asyncio.get_running_loop().time() - t0
+        check(not r.ok and r.reason == Reason.CUT_OFF, "after a wrong-cord line too")
+        check(took > patient + D * 5,
+              f"but waiting afresh from its end: {took:.2f}s against {patient:.2f}s")
     finally:
         flows.ABANDON, flows.ABANDON_MISDIALLED = was
 
