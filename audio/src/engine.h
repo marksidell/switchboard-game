@@ -121,11 +121,13 @@ private:
     };
 
     // RingDet - ring heard on one station's capture channel (audio.md 9.5).
-    // A 20Hz Goertzel over 100ms Hann-windowed blocks; the state is only the
+    // A 20Hz Goertzel over 100ms Hann-windowed blocks, and one at 40Hz to tell
+    // ring from a plug's click (Rev 31); the state is only the
     // filter's two delays and the debounce counts. One per slot, in ring_det_[];
     // trunks and the tap are skipped.
     struct RingDet {
-        double s1 = 0.0, s2 = 0.0;          // Goertzel delays
+        double s1 = 0.0, s2 = 0.0;          // 20Hz Goertzel delays
+        double h1 = 0.0, h2 = 0.0;          // 40Hz, its absent second harmonic
         int    above = 0, below = 0;        // consecutive blocks either side
         bool   on = false;                  // last value posted
     };

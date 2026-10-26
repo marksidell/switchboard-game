@@ -1368,7 +1368,8 @@ static void test_ringing()
     eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH);
     // Station 1 rung at the level measured on the switchboard, -25 dBFS rms;
     // station 2 carrying loud speech-band tone and hum, which must not count;
-    // trunk 1 rung too, which is not watched.
+    // trunk 1 rung too, which is not watched; station 3 a plug's contact
+    // bouncing, steps that decay through the transformer (Rev 31).
     const double ring = 0.056 * M_SQRT2;
     double ph = 0.0;
     std::vector<std::string> seen;
@@ -1379,11 +1380,16 @@ static void test_ringing()
         float* s1 = eng.capture_row_for_test(1);
         float* s2 = eng.capture_row_for_test(2);
         float* t1 = eng.capture_row_for_test(chan::trunk_slot(1));
+        float* s3 = eng.capture_row_for_test(3);
         for (int i = 0; i < 256; ++i, ph += 1.0 / 48000.0) {
             const float r = ringing ? (float)(ring * std::sin(2 * M_PI * 20.0 * ph)) : 0.0f;
             s1[i] = r + 0.001f;                                 // and a little DC
             s2[i] = (float)(0.5 * std::sin(2 * M_PI * 300.0 * ph) + 0.01 * std::sin(2 * M_PI * 60.0 * ph));
             t1[i] = r;
+            // mid-block, every block, sign alternating: a contact bouncing for 1.5 s
+            const double tc = std::fmod(ph + 0.05, 0.1);
+            const double sg = std::fmod(ph + 0.05, 0.2) >= 0.1 ? -1.0 : 1.0;
+            s3[i] = ph >= 0.5 && ph < 2.0 ? (float)(0.3 * sg * std::exp(-tc / 0.02)) : 0.0f;
         }
         eng.capture_for_test();
         Result r;
@@ -1399,7 +1405,7 @@ static void test_ringing()
     for (const auto& x : seen) std::printf("    %s\n", x.c_str());
     std::printf("    on at %.2f s, off at %.2f s\n", t_on, t_off);
     check(seen.size() == 2 && seen[0] == "1 on" && seen[1] == "1 off", "station 1 on then off, nothing else");
-    check(t_on > 0.5 && t_on < 0.85, "on within 350 ms of the ring starting");
+    check(t_on > 0.5 && t_on < 0.95, "on within 450 ms of the ring starting");
     check(t_off > 2.0 && t_off < 2.45, "off within 450 ms of it stopping");
 }
 

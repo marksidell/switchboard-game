@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 30 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on the Digiface's Analog Output from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, a Recording of the Loudspeaker to WAV and MP3 and Its Playback, a Shorter Wait After the Operator Speaks, All Commanded and Reported over MQTT, Station 24 a Real Telephone, One Circuit's Output and Capture Recorded Raw for the Bench, an Echo Canceller So a Caller Talking Over a File Is Heard, Ring Heard on an Off-Hook Station*
+*Rev 31 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on the Digiface's Analog Output from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, a Recording of the Loudspeaker to WAV and MP3 and Its Playback, a Shorter Wait After the Operator Speaks, All Commanded and Reported over MQTT, Station 24 a Real Telephone, One Circuit's Output and Capture Recorded Raw for the Bench, an Echo Canceller So a Caller Talking Over a File Is Heard, Ring Heard on an Off-Hook Station*
 
 # 1. Overview
 
@@ -174,6 +174,12 @@ Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout t
 — The speech detector's low-pass is sixth-order, and the installation's `--vad-floor` is −70dBFS (§9.2). Found on the switchboard, 2026-10-16: the detector heard the operator only when she spoke loudly. Bridged onto station 13 and counting one to ten at a normal level, she was not heard in a 30s listen. A recording of the line put her voice at −55 to −65dBFS in the detector's band, peaks −47, against a threshold of −50, the absolute bound, which no word cleared for the 200ms of 300 a start needs. Lowering the bound alone does not do: through one low-pass section the station's own pilot, measured at −58.4dBFS on the line, arrives at −71.5 and sets the floor, so floor + 10dB is −61, still above most of her voice. With three sections the pilot is at −97, under the line's own noise near −91, and with the bound at −70 the recording declares speech one second into the count, with no frame above −70 in the quiet before it. Her voice is about 30dB below the authored speech on the line; a stronger transmitter would give more margin, and the electret headset (kicad/electret) is the way to it.
 
 — Code consequence, made the same day: `butter_lowpass6()` in `dsp.cpp`, the detector's three sections, and the tests. `sbaudio.service` gains `--vad-floor -70`.
+
+## 1.31 Changes in Rev 31
+
+— A plug's click is not ring (§9.5), 2026-10-26. In play the same afternoon, plugging the rear cord into the called room's jack set `station/1/ringing` on the caller for 300ms (two blocks, the least that passed), and the game told the player she had rung the caller. Ring is nearly free of even harmonics, a click is not: each block's 40Hz amplitude must now be 20dB below its 20Hz as well, and three blocks in a row are needed, not two. In the Rev 30 capture the ring's 20Hz stood a median 53dB above its 40Hz, and 88 of its 94 blocks pass both tests; the six that do not are the edges of the three rings.
+
+— Code consequence: a second Goertzel at 40Hz in `ring_step()`; `RING_ON_BLOCKS` 3; the click in `ctest`.
 
 ## 1.30 Changes in Rev 30
 
@@ -461,7 +467,7 @@ Rev 26. While a circuit plays a file, a line echo canceller learns the file's ec
 
 Rev 30. The station board's ring detector is across the line ahead of the relay (station §7.2), and it does not see ring on a station that is off-hook: the board's own loop load pulls the ring down from about 80V to 17V AC, below its turn-on. Ring on an off-hook station is what the player sends when she rings the wrong cord of a call from that room (game_control.md §6.7). It reaches the station's capture channel through Tx01, at about −25dBFS of 20Hz; without it the 20Hz band is below −85dBFS (Rev 30 measurements).
 
-So on every station's capture channel, 1–22 and 24, at all times: a 20Hz Goertzel over blocks of 4800 samples (100ms, exactly two cycles, so DC and 60Hz fall on the window's nulls), under a Hann window, which keeps a file returning at full strength on the same channel from leaking into the band. The block's 20Hz amplitude, in dBFS of a sine's peak, is compared with −50dBFS. Two blocks in a row at or above it (200ms) set `ringing` `"on"`; three in a row below it (300ms) set `"off"`. Published on `sbgame/station/<n>/ringing` on change only, retained.
+So on every station's capture channel, 1–22 and 24, at all times: a 20Hz Goertzel over blocks of 4800 samples (100ms, exactly two cycles, so DC and 60Hz fall on the window's nulls), under a Hann window, which keeps a file returning at full strength on the same channel from leaking into the band. The block's 20Hz amplitude, in dBFS of a sine's peak, is compared with −50dBFS, and its 40Hz amplitude, from a second Goertzel, must be at least 20dB below the 20Hz (Rev 31): ring has almost no second harmonic, while a plug's click or a contact's bounce spreads across the low band. Three blocks in a row passing both (300ms) set `ringing` `"on"`; three in a row below it (300ms) set `"off"`. Published on `sbgame/station/<n>/ringing` on change only, retained.
 
 It is heard whether the station is on- or off-hook, but on-hook the relay has lifted Tx01 from the line and nothing reaches the channel, so in practice it reports off-hook ringing only. The ESP32's `station/<n>/ring` remains the report of a ringing on-hook station. Trunks are not watched: ringing a trunk is reported by the controller (control.md §8.3).
 

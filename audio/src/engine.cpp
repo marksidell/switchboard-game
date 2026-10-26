@@ -68,11 +68,13 @@ static const int VAD_FRAME = Listener::FRAME_SAMPLES;          // 480 samples
 // audio.md 9.5: 20Hz ring heard on a station. 4800 samples is 100ms and two
 // cycles, so the Goertzel's frequency is bin 2 exactly and DC and 60Hz fall on
 // the Hann window's nulls. The amplitude of a sine through the window is
-// 4|X|/N.
+// 4|X|/N. Ring is nearly free of even harmonics, a click is not, so 40Hz
+// (bin 4) must be RING_PURE_DB below 20Hz as well (Rev 31).
 static const unsigned RING_BLOCK    = 4800;
 static const double   RING_HZ       = 20.0;
 static const double   RING_ON_DBFS  = -50.0;
-static const int      RING_ON_BLOCKS  = 2;                     // 200 ms
+static const double   RING_PURE_DB  = 20.0;
+static const int      RING_ON_BLOCKS  = 3;                     // 300 ms
 static const int      RING_OFF_BLOCKS = 3;                     // 300 ms
 static_assert(SAMPLE_RATE % (RING_BLOCK / 2) == 0 && SAMPLE_RATE / (RING_BLOCK / 2) == 20,
               "RING_BLOCK must be two cycles of 20Hz");
@@ -544,7 +546,8 @@ void Engine::drain_commands()
 //   block boundary is shared by every station, so one counter serves them all.
 void Engine::ring_step(int ncirc)
 {
-    const double coeff = 2.0 * std::cos(2.0 * M_PI * RING_HZ / SAMPLE_RATE);
+    const double coeff  = 2.0 * std::cos(2.0 * M_PI * RING_HZ / SAMPLE_RATE);
+    const double coeff2 = 2.0 * std::cos(2.0 * M_PI * 2.0 * RING_HZ / SAMPLE_RATE);
     unsigned n = ring_n_;
     for (int slot = 1; slot <= ncirc; ++slot) {
         if (chan::slot_circuit(slot).kind != chan::Kind::Station) continue;
@@ -552,16 +555,23 @@ void Engine::ring_step(int ncirc)
         RingDet& r = ring_det_[slot];
         n = ring_n_;
         for (unsigned i = 0; i < period_; ++i) {
-            const double s0 = (double)(src[i] * ring_win_[n]) + coeff * r.s1 - r.s2;
+            const double x  = (double)(src[i] * ring_win_[n]);
+            const double s0 = x + coeff * r.s1 - r.s2;
             r.s2 = r.s1;
             r.s1 = s0;
+            const double h0 = x + coeff2 * r.h1 - r.h2;
+            r.h2 = r.h1;
+            r.h1 = h0;
             if (++n < RING_BLOCK) continue;
             n = 0;
 
             const double mag2 = r.s1 * r.s1 + r.s2 * r.s2 - coeff * r.s1 * r.s2;
+            const double hag2 = r.h1 * r.h1 + r.h2 * r.h2 - coeff2 * r.h1 * r.h2;
             const double amp  = 4.0 * std::sqrt(std::max(mag2, 0.0)) / RING_BLOCK;
-            r.s1 = r.s2 = 0.0;
-            if (lin_to_db(amp) >= RING_ON_DBFS) { r.below = 0; if (r.above < RING_ON_BLOCKS) ++r.above; }
+            const double amp2 = 4.0 * std::sqrt(std::max(hag2, 0.0)) / RING_BLOCK;
+            r.s1 = r.s2 = r.h1 = r.h2 = 0.0;
+            const double db = lin_to_db(amp);
+            if (db >= RING_ON_DBFS && db - lin_to_db(amp2) >= RING_PURE_DB) { r.below = 0; if (r.above < RING_ON_BLOCKS) ++r.above; }
             else                                { r.above = 0; if (r.below < RING_OFF_BLOCKS) ++r.below; }
             if (!r.on && r.above >= RING_ON_BLOCKS) { r.on = true;  post(Topic::Ringing, slot, "on"); }
             if (r.on && r.below >= RING_OFF_BLOCKS) { r.on = false; post(Topic::Ringing, slot, "off"); }
