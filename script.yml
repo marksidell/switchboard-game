@@ -1141,8 +1141,8 @@ tutor:
         wait for dial tone, and dial.
     # A call between stations, its rear cord in the caller's jack:
     rang-caller: >
-        You rang the person who called you. Ring the front cord instead: pull
-        the near switch toward you.
+        You rang the person who called you. Ring the other cord instead, the
+        one in the jack of the person they're calling.
 
     # Placing a call to the city.
     trunk-front: >
