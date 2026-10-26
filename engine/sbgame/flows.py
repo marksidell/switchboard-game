@@ -412,6 +412,7 @@ async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
     she may be dialling out for it. The game cannot see a cord go into or out
     of a station jack, so a pulled answering cord and a switch centred before
     the front cord goes in look the same; the wait is what tells them apart.
+    Not in tutor pacing (Rev 92).
     """
     def lost(b: Board) -> bool:
         if b.on(f"{caller}/op") or b.get(f"{caller}/peer"):
@@ -430,6 +431,11 @@ async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
                     await ctx.b.wait_until(lambda b: not lost(b), max(0.0, until - time.time()))
                     break
                 except TimeoutError:
+                    # Rev 92: in tutor pacing nobody hangs up; checked here, at
+                    # each expiry, so a change of pacing mid-call is followed.
+                    if _tutoring(ctx) is not None:
+                        until = time.time() + wait
+                        continue
                     # Rev 91: a wrong-cord line restarts the wait from its end.
                     until = ctx.hint_end() + wait
                     if until <= time.time():

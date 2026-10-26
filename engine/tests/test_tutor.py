@@ -105,6 +105,23 @@ async def tutored_station_operator(h: Harness) -> None:
     await h.b.update(f"station/{want}/peer", c)
 
 
+async def tutored_slow_station_operator(h: Harness) -> None:
+    """She answers, hears the request and her line, takes her key off the
+    caller and leaves the caller alone well past ABANDON before ringing."""
+    c, want = "station/12", 2
+    await heard_tutor(h, "answer-station")
+    await answers(h, c)
+    await request_heard(h, c)
+    await heard_tutor(h, "ring-front-b")
+    await h.b.update(f"{c}/op", "off")
+    await asyncio.sleep(flows.ABANDON * 3)
+    await h.b.update(f"station/{want}/ring", "on")
+    await h.b.wait_until(lambda b: b.on(f"station/{want}/hook"), 5)
+    await h.b.update(f"station/{want}/ring", "off")
+    await h.b.update(f"{c}/peer", f"station/{want}")
+    await h.b.update(f"station/{want}/peer", c)
+
+
 async def tutored_trunk_operator(h: Harness) -> None:
     c, want = "trunk/3", 2
     await heard_tutor(h, "answer-trunk")
@@ -400,6 +417,16 @@ async def main() -> int:
     check(("audio/monitor/play/set", "stop") in h.link.sent, "the file is stopped")
     check(t.repeat_key == "" and t._again is None, "nothing left to repeat, and no repeats")
     await t.stop()
+
+    print("\n== a caller left alone does not hang up in tutor pacing (Rev 92)")
+    was = flows.ABANDON
+    flows.ABANDON = D * 10
+    try:
+        h = tutored(scene(Shape.STATION_TO_STATION))
+        out = await run(h, station_to_station, tutored_slow_station_operator)
+        check(out.ok, f"success after {flows.ABANDON * 3:.2f}s alone: {out.reason!r}")
+    finally:
+        flows.ABANDON = was
 
     print("\n== a call in on a trunk, tutored")
     h = tutored(scene(Shape.OUTSIDE_TO_STATION, from_station=None, from_line="pizza"))
