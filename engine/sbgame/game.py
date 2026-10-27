@@ -55,6 +55,10 @@ from .tutor import INTRO, NO_LIMIT, Tutor
 # itself drives, nor anything of the game's own.
 _TRUNK_FAULT = re.compile(r"^trunk/(\d+)/fault$")     # §6.7, Rev 88
 _STATION_RINGING = re.compile(r"^station/(\d+)/ringing$")   # heard by sbaudio, Rev 89
+_TRUNK_OP_SEIZE = re.compile(r"^trunk/(\d+)/(?:op|seize)$")   # a rear cord in it, Rev 93
+# s of op on and seize off together before it counts, beyond the board's hold
+# on op going off, which outlasts a pulled front cord's seizure (§6.7, Rev 93)
+REAR_HOLD = 1.0
 PLAYER = re.compile(r"^(?:station|trunk)/\d+/(?:peer|op|seize|dialled|digit)$|^station/\d+/ring$")
 
 log = logging.getLogger("game")
@@ -97,6 +101,7 @@ class Game:
         self._flows: dict[int, asyncio.Task] = {}       # slot -> task
         self._hinted: set[tuple[int, str]] = set()      # (call, line) told, §6.7
         self._hint_end: dict[int, float] = {}            # call -> its line's end, Rev 91
+        self._rear_since: dict[int, float] = {}          # trunk -> op on, seize off since, Rev 93
         self._afters: dict[str, asyncio.Task] = {}      # scene id -> timer task
         self._pending_after: dict[str, Holding] = {}    # what a waiting after holds
         self._scheduler: asyncio.Task | None = None
@@ -531,6 +536,7 @@ class Game:
         self._disarm_idle()
         self._hinted.clear()
         self._hint_end.clear()
+        self._rear_since.clear()
         self.tallies.zero()
         self.next_number = 1
         self.pacing.connected = 0
@@ -1101,17 +1107,9 @@ class Game:
         if m := _TRUNK_FAULT.match(ch.key):
             if ch.old != "ring_on_trunk" or ch.new == "ring_on_trunk":
                 return None
-            trunk = f"trunk/{m[1]}"
-            calls = [(c, self.gs.scenes[c.scene].shape) for c in self.slots]
-            held = [(c, s) for c, s in calls if c.trunk == trunk]
-            if held:
-                c, shape = held[0]
-            else:                       # a call out whose trunk is not yet known
-                out = [(c, s) for c, s in calls
-                       if s == Shape.STATION_TO_OUTSIDE and not c.trunk]
-                if not out:
-                    return None
-                c, shape = out[0]
+            if (found := self._trunk_call(f"trunk/{m[1]}")) is None:
+                return None
+            c, shape = found
             key = {Shape.OUTSIDE_TO_STATION: "rang-trunk",
                    Shape.STATION_TO_OUTSIDE: "rang-outside"}.get(shape)
         elif m := _STATION_RINGING.match(ch.key):
@@ -1130,6 +1128,42 @@ class Game:
             return None
         self._hinted.add((c.number, key))
         return c, key
+
+    def _trunk_call(self, trunk: str) -> tuple[Call, Shape] | None:
+        """The call holding this trunk, else a call out whose trunk is not
+        yet known (§6.7)."""
+        assert self.slots is not None
+        calls = [(c, self.gs.scenes[c.scene].shape) for c in self.slots]
+        held = [(c, s) for c, s in calls if c.trunk == trunk]
+        if held:
+            return held[0]
+        out = [(c, s) for c, s in calls if s == Shape.STATION_TO_OUTSIDE and not c.trunk]
+        return out[0] if out else None
+
+    def _rear_check(self, ch: Change) -> None:
+        """Start the wait when a trunk hears the operator unseized, which
+        only a rear cord in it does (§6.7, Rev 93); any change ends it."""
+        if not (m := _TRUNK_OP_SEIZE.match(ch.key)):
+            return
+        n = int(m[1])
+        if self.b.get(f"trunk/{n}/op") == "on" and self.b.get(f"trunk/{n}/seize") != "on":
+            if n not in self._rear_since:
+                self._rear_since[n] = since = time.time()
+                asyncio.create_task(self._rear_hint(n, since), name="rear-in-trunk")
+        else:
+            self._rear_since.pop(n, None)
+
+    async def _rear_hint(self, n: int, since: float) -> None:
+        await asyncio.sleep(self.b.hold + REAR_HOLD)
+        if self._rear_since.get(n) != since or not self.running or self.slots is None:
+            return
+        if (found := self._trunk_call(f"trunk/{n}")) is None:
+            return
+        c = found[0]
+        if c.connected or (c.number, "rear-in-trunk") in self._hinted:   # a hang-up drops seize
+            return
+        self._hinted.add((c.number, "rear-in-trunk"))
+        await self._hint(c, "rear-in-trunk")
 
     async def _hint(self, call: Call, key: str) -> None:
         """Her line for a wrong cord, on the monitor, in any pacing (§6.7)."""
@@ -1151,6 +1185,8 @@ class Game:
                 self._active_at = time.time()
             if self.running and (key := self._wrong_ring(ch)):
                 asyncio.create_task(self._hint(*key), name="wrong-cord")
+            if self.running:
+                self._rear_check(ch)
             if ch.key in (LIVE_CONTROL, LIVE_AUDIO) and ch.new == "off":
                 if self.running:
                     who = "controller" if ch.key == LIVE_CONTROL else "audio program"

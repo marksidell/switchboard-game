@@ -73,6 +73,7 @@ TUTOR_KEYS: dict[str, str | None] = {
     "hangup-pair": None, "hangup-one": None, "ready-manual": None,
     # Ringing the wrong cord, in every pacing (game_control.md 6.7, Rev 88).
     "rang-trunk": None, "rang-outside": None, "rang-caller": None,
+    "rear-in-trunk": None,                      # Rev 93
 }
 # What a party says when the operator leaves them hanging (game_control.md
 # 5, Rev 60), under a top-level reactions:, one text each, rendered in every
@@ -97,7 +98,7 @@ FREE_KEYS = ("greeting", "lines", "loop")
 BRIEF = "brief"
 BRIEF_PREFIX = "brief-"
 BRIEF_KEYS = tuple(k for k in TUTOR_KEYS
-                   if not k.startswith(("intro-", "rang-"))
+                   if not k.startswith(("intro-", "rang-", "rear-"))
                    and k not in ("say", "greet", "respond", "stuck"))
 # The 1958 exchanges, for saying a number as the operator's card prints it
 # (hardcopy/cards.py reads the same file). Not installed on the host, where

@@ -950,6 +950,46 @@ async def main() -> int:
               "the called room rung: nothing")
         check(not any("rang-" in m for m in g.gs.tutor_missing),
               "not rendered: no bar to tutor mode")
+
+        print("\n== a rear cord in a trunk (§6.7, Rev 93)")
+        import sbgame.game as game_mod
+        game_mod.REAR_HOLD = b.hold                  # 1s and 1s, as on the board
+        watcher = asyncio.create_task(g.watch_clients())   # the held op off comes through it
+        await asyncio.sleep(0)
+        async def trunk(n, **kv):
+            for k, v in kv.items():
+                await b.update(f"trunk/{n}/{k}", v)
+        wait = b.hold + game_mod.REAR_HOLD
+        await trunk(5, seize="off", op="on")          # op on unseized, gone in time
+        await asyncio.sleep(0.3 * b.hold)
+        await trunk(5, op="off")                      # held b.hold, then off
+        await asyncio.sleep(wait + b.hold)
+        check((c2.number, "rear-in-trunk") not in g._hinted, "op on unseized, not for long: nothing")
+        await trunk(4, op="on", seize="on")           # a front cord, the operator in
+        await asyncio.sleep(wait / 2)
+        await trunk(4, seize="off")                   # pulled: op outlasts it by the hold
+        await asyncio.sleep(0.3 * b.hold)             # the detector's lag
+        await trunk(4, op="off")
+        await asyncio.sleep(wait + b.hold)
+        check((c2.number, "rear-in-trunk") not in g._hinted, "a front cord pulled, operator in: nothing")
+        await trunk(3, seize="off", op="on")          # the trunk c1 came in on
+        await asyncio.sleep(wait / 2)
+        await trunk(3, op="on")                       # a repeat changes nothing
+        await asyncio.sleep(wait)
+        check((c1.number, "rear-in-trunk") in g._hinted, "the call's own trunk, held: rear-in-trunk")
+        check("wrong cord: rear-in-trunk" in link.state_v.get("game/log", ""), "and logged")
+        await trunk(6, seize="off", op="on")          # the call out, no trunk yet
+        await asyncio.sleep(wait * 1.2)
+        check((c2.number, "rear-in-trunk") in g._hinted, "a call out with no trunk: rear-in-trunk")
+        c1b = Call(slot=4, number=4, scene=inn.id, from_line="x", to_line="y", trunk="trunk/7",
+                   connected=True)
+        await g.slots.open(c1b)
+        await trunk(7, seize="off", op="on")          # its room hung up, the operator in
+        await asyncio.sleep(wait * 1.2)
+        check((c1b.number, "rear-in-trunk") not in g._hinted, "a connected call: nothing")
+        check(not any("rear-" in m for m in g.gs.tutor_missing),
+              "not rendered: no bar to tutor mode")
+        watcher.cancel()
         g.running = False
 
         print("\n== the simulator hands out each trunk once (no broker needed)")

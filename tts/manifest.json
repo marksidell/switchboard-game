@@ -10436,6 +10436,13 @@
     "text_sha": "ed9ddf8be97d2b06",
     "voice_sha": "8b4ed5260dcb435d"
   },
+  "tutor.rear-in-trunk": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "5f03606209e0819c",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
   "tutor.respond": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,

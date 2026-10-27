@@ -1143,6 +1143,10 @@ tutor:
     rang-caller: >
         You rang the person who called you. Ring the other cord instead, the
         one in the jack of the person they're calling.
+    # Not rung: a rear cord in a trunk, heard by the operator unseized (Rev 93).
+    rear-in-trunk: >
+        You have plugged a back cord into an outside trunk. Pull the cord out
+        of the trunk jack and use the front cord instead.
 
     # Placing a call to the city.
     trunk-front: >
