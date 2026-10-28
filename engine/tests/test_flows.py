@@ -108,6 +108,8 @@ async def answers(h: Harness, circuit: str) -> None:
     else:
         await h.b.wait_until(lambda b: b.on(f"{circuit}/ring"), 5)
     await asyncio.sleep(D)
+    if circuit.startswith("trunk"):
+        await h.b.update(f"{circuit}/seize", "on")      # the front cord in it
     await h.b.update(f"{circuit}/op", "on")
 
 
@@ -239,6 +241,23 @@ async def speaks_when_asked(h: Harness) -> None:
     # so there is nothing more for the operator to do.
     await asyncio.sleep(60)
 
+
+async def rear_then_front(h: Harness) -> None:
+    """A call in on trunk 3: the rear cord first, heard but not seizing it,
+    then the front cord, and on as incoming_operator (§6.4, Rev 94)."""
+    c, want = "trunk/3", 2
+    await h.b.wait_until(lambda b: b.on(f"{c}/ring"), 5)
+    await asyncio.sleep(D)
+    await h.b.update(f"{c}/op", "on")
+    await asyncio.sleep(4 * D)
+    h.rear = (list(h.monitor), h.b.get(f"{c}/play"))
+    await h.b.update(f"{c}/seize", "on")
+    await request_heard(h, c)
+    await h.b.update(f"station/{want}/ring", "on")
+    await h.b.wait_until(lambda b: b.on(f"station/{want}/hook"), 5)
+    await h.b.update(f"station/{want}/ring", "off")
+    await h.b.update(f"{c}/peer", f"station/{want}")
+    await h.b.update(f"station/{want}/peer", c)
 
 async def answers_the_trunk(h: Harness) -> None:
     """A call to the operator rung in on trunk 3: she answers and waits."""
@@ -567,6 +586,13 @@ async def main() -> int:
     check(r.ok, f"succeeds once the pair is patched and it is rung again: {r.reason!r}")
     check(played(h, "station/2")[:1] == ["hello.v2"], f"'Hello?' from the room: {played(h, 'station/2')}")
     check(any("nobody on the line" in e for e in h.events), "it hung up, logged")
+
+    print("\n== a rear cord in the trunk of a call in is not an answer (§6.4, Rev 94)")
+    h = Harness(scene(Shape.OUTSIDE_TO_STATION, from_line="operator", from_station=None,
+                      to_line="room105", to_station=2))
+    r = await h.run(outside_to_station, rear_then_front, 3)
+    check(h.rear == ([], ""), f"heard unseized: not answered, the caller waits {h.rear}")
+    check(r.ok and h.monitor[:1] == ["trunk/3"], f"then the front cord: succeeds ({h.monitor})")
 
     print("\n== a trunk left up from an earlier call is not this call's (Rev 60)")
     h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,

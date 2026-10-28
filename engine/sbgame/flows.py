@@ -221,13 +221,17 @@ async def _answer(ctx: Ctx, caller: str) -> None:
     deadline = time.time() + ctx.cfg.answer_timeout
     await ctx.slots.set_stage(ctx.call, Stage.SIGNALLING, deadline)
     op = lambda b: b.on(f"{caller}/op")
+    if caller.startswith("trunk/"):
+        # Only a front cord seizes a trunk: the operator heard through a
+        # rear cord has not answered (§6.4, Rev 94).
+        op = lambda b: b.on(f"{caller}/op") and b.on(f"{caller}/seize")
     # tutor: from a room the game cannot see the cord go in, so both steps
     # are one line; a trunk is seized by the cord, so they are two (§4.9).
     if _tutoring(ctx) is not None:
         if caller.startswith("station/"):
             await _tut(ctx, "answer-station", until=op)
         else:
-            seized = lambda b: b.on(f"{caller}/seize") or b.on(f"{caller}/op")
+            seized = lambda b: b.on(f"{caller}/seize")
             await _tut(ctx, "answer-trunk", until=seized)
             await ctx.b.wait_until(seized, ctx.left(deadline))
             await _tut(ctx, "talk", until=op)

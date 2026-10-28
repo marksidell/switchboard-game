@@ -40,6 +40,13 @@ public:
     static constexpr int WIN           = 30;    // frames in the decision window
     static constexpr int START_NEEDED  = 20;    // of 30 above threshold: speech
     static constexpr int END_ALLOWED   = 2;     // of 30 above threshold: quiet
+    // A steady level is noise, not speech (audio.md 9.2, Rev 32): frames that
+    // all lie within STEADY_DB of each other. Over STEADY_FRAMES it becomes
+    // the floor; over the 30-frame window it cannot start speech. Only at or
+    // below STEADY_MAX_DB: louder than that, steady or not, is a talker.
+    static constexpr int    STEADY_FRAMES = 50;
+    static constexpr double STEADY_DB     = 3.0;
+    static constexpr double STEADY_MAX_DB = -55.0;
 
     enum class Phase : uint8_t { Off, Waiting, Speaking };
     enum class Event : uint8_t { None, Speech, Silence, Timeout };
@@ -74,6 +81,7 @@ public:
 private:
     void   clear_window() { win_ = 0; win_n_ = 0; quiet_ = 0; }
     double history_p10() const;
+    bool   steady(int n, double& top) const;
 
     // ---- always running: one second of frame levels, for the floor
     float    hist_[100] = { 0 };    // ring of the last 100 valid frames, dBFS

@@ -20,6 +20,24 @@ double Listener::history_p10() const
     return tmp[k];
 }
 
+// steady()                                                             [audio]
+//   Whether the last n frames of the history all lie within STEADY_DB of each
+//   other, and the highest of them in `top`. False with fewer than n, and
+//   false above STEADY_MAX_DB: a held vowel is steady too, but 40 dB louder
+//   than any line's noise.
+bool Listener::steady(int n, double& top) const
+{
+    if (hist_n_ < n) return false;
+    float lo = 1e9f, hi = -1e9f;
+    for (int i = 1; i <= n; ++i) {
+        const float v = hist_[(hist_w_ - i + 100) % 100];
+        lo = std::min(lo, v);
+        hi = std::max(hi, v);
+    }
+    top = hi;
+    return hi - lo <= STEADY_DB && hi <= STEADY_MAX_DB;
+}
+
 // start()                                                              [audio]
 //   The floor is the 10th percentile of the second before the command, which
 //   is why the history runs at all times. The timeout is counted in frames and
@@ -65,6 +83,17 @@ Listener::Event Listener::frame(float db, bool valid, const VadParams& p, bool k
         // does not lower the bar.
         const double cand = history_p10();
         if (cand > floor_db_) floor_db_ = std::min(cand, floor_db_ + 0.01);
+        // Rev 32: but a line that steps up to a new steady noise - a trunk
+        // seized as the listen starts, 38 dB louder than before - takes it as
+        // the floor at once, and the window starts again. Only a step: a
+        // level wandering within STEADY_DB of the floor is left to the creep,
+        // or each new high would restart the window. Speech is never
+        // that steady for half a second; a word varies 10 dB frame to frame.
+        double top;
+        if (keep && steady(STEADY_FRAMES, top) && top > floor_db_ + STEADY_DB) {
+            floor_db_ = top;
+            clear_window();
+        }
 
         const double thr = std::max({ floor_db_ + p.margin_db, p.abs_floor_db, min_db });
         win_ = ((win_ << 1) | (db >= thr ? 1u : 0u)) & ((1u << WIN) - 1u);
@@ -77,9 +106,12 @@ Listener::Event Listener::frame(float db, bool valid, const VadParams& p, bool k
     const int  above = __builtin_popcount(win_);
 
     if (phase_ == Phase::Waiting) {
-        if (valid && full && above >= START_NEEDED) {
+        double top;
+        if (valid && full && above >= START_NEEDED && !steady(WIN, top)) {
             // 200 ms of 300 above threshold. A click or a relay is a frame or
-            // two; a word is many. The maximum speech time runs from here.
+            // two; a word is many. Not a steady level, which is noise waiting
+            // to become the floor (Rev 32). The maximum speech time runs from
+            // here.
             phase_   = Phase::Speaking;
             elapsed_ = 0;
             quiet_   = 0;

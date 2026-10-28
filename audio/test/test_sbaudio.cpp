@@ -458,6 +458,8 @@ static void test_hf_meter()
 
 // ---------------------------------------------------------------- listener
 
+static const float TALK_MIN = -45.0f;    // levels from here up are a talker
+
 // A synthetic caller, one 10 ms frame at a time. Levels: the room at -70 dBFS,
 // so the threshold is the absolute -50 (floor + 10 = -60 is below it), and
 // speech at -30. Every expected frame number below is worked out from the
@@ -468,10 +470,15 @@ struct Script {
     int       t = 0;                    // frames since start() was called
     int       speech = -1, silence = -1, timeout = -1, events = 0;
 
-    void run(float db, int n, bool valid = true)
+    // A talker's level varies from frame to frame - 8 dB here, all of it
+    // above the threshold - or the detector takes it for a steady noise
+    // (Rev 32). Anything else, or a talker run with held, is run as given.
+    void run(float db, int n, bool valid = true, bool held = false)
     {
+        static const float syllable[4] = { 0.0f, -4.0f, -8.0f, -3.0f };
         for (int i = 0; i < n; ++i) {
-            const Listener::Event e = lis.frame(db, valid, p);
+            const float lv = db >= TALK_MIN && !held ? db + syllable[i % 4] : db;
+            const Listener::Event e = lis.frame(lv, valid, p);
             if (lis.active() || e != Listener::Event::None) ++t;
             if (e == Listener::Event::None) continue;
             ++events;
@@ -552,6 +559,46 @@ static void test_listener()
         Script s; s.run(ROOM, 100); s.start(5.0); s.run(ROOM, 10);
         s.lis.cancel(); s.run(TALK, 300);
         check(s.events == 0 && !s.lis.active(), "a cancelled listen reports nothing");
+    }
+    {   // Rev 32, as captured on trunk 1, 2026-10-27, with the installation's
+        // -70 bound and 0.5 s hangover: -108 unseized, then seized with the
+        // operator's key already in, -69.2 and steady, a listen started at
+        // once. The floor from before is -108 and the bar -70, under the
+        // noise; the steady level takes the floor at its 50th frame.
+        Script s; s.p.abs_floor_db = -70.0; s.p.hangover_frames = 50;
+        s.run(-108.0f, 100); s.start(6.0);
+        for (int i = 0; i < 300; ++i) s.run(-69.2f + 0.3f * (float)((i * 7) % 3 - 1), 1);
+        check(s.speech < 0, "a trunk seized as the listen starts: its noise is not speech");
+        check(s.lis.floor_db() > -70.0, "and becomes the floor");
+        const int at = s.t;
+        s.run(-40.0f, 100);                 // "Number, please"
+        check(s.speech > at && s.speech <= at + 30, "then she is heard");
+        const int end = s.t;
+        for (int i = 0; i < 200; ++i) s.run(-69.2f + 0.3f * (float)((i * 7) % 3 - 1), 1);
+        check(s.silence == end + 28 + 49, "and her end, on the seized line");
+    }
+    {   // The same, and she speaks the moment the trunk is seized: speech
+        // when the window fills, the noise before her counting as above the
+        // bar. Her end: 50 steady frames take the floor and restart the
+        // window, 29 more fill it, and the hangover runs from there.
+        Script s; s.p.abs_floor_db = -70.0; s.p.hangover_frames = 50;
+        s.run(-108.0f, 100); s.start(6.0);
+        s.run(-69.2f, 5); s.run(-40.0f, 100);
+        check(s.speech == 30, "she speaks at once on a fresh seizure: heard");
+        const int end = s.t;
+        s.run(-69.2f, 300);
+        check(s.silence == end + 50 + 29 + 49, "her end: 50 steady frames take the floor, then the hangover");
+    }
+    {   // A held vowel is steady, but at -30 it is far above any line's noise
+        // (STEADY_MAX_DB): it starts speech, and a second of it inside a
+        // sentence does not become the floor and end it.
+        Script s; s.run(ROOM, 100); s.start(5.0);
+        s.run(TALK, 100, true, true);
+        check(s.speech == 30, "a held vowel at once: speech when the window fills");
+        s.run(TALK, 100); s.run(TALK, 100, true, true); s.run(TALK, 50);
+        const int end = s.t;
+        s.run(ROOM, 400);
+        check(s.silence == end + 177, "a held vowel mid-sentence does not end it");
     }
     {   // --vad-hangover reaches the rule: 0.5 s is 50 frames.
         Script s; s.p.hangover_frames = 50; s.run(ROOM, 100); s.start(5.0);
