@@ -738,7 +738,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "lucinda",
-    "text_sha": "0b129b8380ffe7d9",
+    "text_sha": "d7e5ce76006732d1",
     "voice_sha": "2569df73cdf5ae2f"
   },
   "beaumont-sister.7": {
@@ -5330,7 +5330,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "valerian",
-    "text_sha": "00f81fa0e24e4829",
+    "text_sha": "1fd85ddd8200faff",
     "voice_sha": "34370347109da091"
   },
   "free.valerian.8": {

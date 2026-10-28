@@ -627,7 +627,7 @@ freecall:
             - Of course. Everybody says that. And then they change their minds.
             - I am afraid I did not catch that. The lobby is so very noisy.
             - Mm. And who else knows that you are calling?
-            - We met once before, I think. You do not remember? I do.
+            - We met once before, I think. You do not remember? I do. You were drunk and nearly drove off a cliff.
             - That is a very reasonable proposal. We will discuss it in person.
             - Yes. Yes. And where are you now, exactly?
     hostess:
@@ -4743,7 +4743,7 @@ scenes:
                 called: Miss Lucinda Beaumont? Seattle, Washington, calling. Go ahead, please.
                 person: operator
             -   id: 6
-                called: Augustus? Is that you? You sound as if you're at the bottom of a well.
+                called: Augustus? Is that you? Why are you spending all your money on a call to your sister?
                 person: lucinda
             -   id: 7
                 caller: I am in Seattle, Lucinda. It is raining. It has been raining since Tuesday.
