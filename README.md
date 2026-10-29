@@ -27,7 +27,7 @@ connected, the parties have a brief conversation.
 People watching the game can hear
 everything over an audience loudspeaker.
 
-The game has sixty characters, each with their own voice, who perform in
+The game has sixty characters, each with a unique voice, who perform in
 over a hundred simulated call scenes. The game presents the scenes to
 the player at random. The player can choose one of four modes:
 
