@@ -15,13 +15,13 @@ In the game, the player is the operator at the Hotel Ballard in 1958
 (the year Seattle converted from six- to seven-digit phone numbers).
 Simulated calls arrive from various parties both inside and outside the
 hotel, and the operator connects the calls as requested. The operator
-answers a call by plugging in a cord, asks the caller what they want,
-plugs the other cord of the pair into the jack for the station or line
-wanted, rings the called party or dials the number, and pulls both
+answers a call by plugging in a cord, asks what the caller wants,
+plugs the other cord of the pair into the jack for the desired station or line,
+rings the called party or dials the number, and pulls both
 cords when the call is over.
 
 There are calls within the hotel, calls from guests to local businesses (which
-the operator must dial), outbound long distance calls, and calls from various
+the operator must dial), outbound long-distance calls, and calls from various
 outside locations to guests at the hotel. After a call has been
 connected, the parties have a brief conversation.
 People watching the game can hear
@@ -57,7 +57,7 @@ see the game in action.
 
 I built the game around a model 551 switchboard, which Western
 Electric began producing in 1927. You could find these switchboards in
-small businesses, hotels, schools, and other small establishments.
+small businesses, hotels, schools, and similar establishments.
 
 My switchboard lived at the Southern California Edison office in Los
 Angeles. The longtime operator there was Marie Bell. When she retired,
@@ -110,7 +110,7 @@ unused.) A lamp below each trunk jack illuminates when a call arrives
 from outside.
 
 Below the jacks are ten pairs of cords the operator uses to connect
-calls. Each pair has a front and rear cord.
+calls. Each pair has a front and a rear cord.
 She plugs one cord into a jack to answer an incoming call and
 then plugs the other cord into the desired destination.
 With ten cord pairs, the switchboard can handle at most ten calls at
@@ -239,7 +239,8 @@ Sleeve is used on a switchboard for control.
 
 The trunk board's eight circuits must do the following:
 
-- Power the DC loop. The standard way to do this is to provide a constant 30 mA current.
+- Power the DC loop. A traditional CO feeds -48 V through a resistance;
+I used a constant 30 mA current instead, as modern line cards do.
 - Ring the station by temporarily applying the 80 V ring voltage to the loop.
 - Detect when the station goes offhook and the loop is *seized*.
 - Provide a path for the audio signal to and from the Ferrofish analog converter.
@@ -248,7 +249,7 @@ The schematic below shows one of the eight trunk circuits.
 
 [trunk schematic]
 
-The two transistors and associated components in the upper left comprise a 28 mA
+The two transistors and associated components in the upper left make up a 28 mA
 constant-current source, which is close enough to the nominal 30 mA.
 
 The AC-coupled 600 &Omega; transformer in the upper right connects the circuit to the
@@ -285,7 +286,7 @@ The following schematic shows the common section of the trunk board.
 
 [trunks common schematic]
 
-The ESP32 controls and monitors all trunk circuits via an MCP23017 I2C interface.
+The ESP32 controls and monitors all trunk circuits via an MCP23017 I2C I/O expander.
 Each trunk has a control output to activate the ring relay and a sense input
 to signal offhook.
 
@@ -304,7 +305,7 @@ output and align it with the station toggles.
 The test showed that the trunk missed up to 27 of 100 offhooks with full loop current flowing.
 Measuring it, I found that the optoisolator's input sat at 3.28 V and 1.9 mA, inside its
 hysteresis band. That's above the voltage at which it turns off but
-below the one at which it turns on, so its output stayed wherever the
+below the one at which it turns on.  The output stayed wherever the
 relay's contact bounce left it. I fixed the problem by adjusting the
 values of the resistors in front of the optoisolator input.
 
@@ -351,7 +352,7 @@ The following schematic shows the common section of the station board.
 
 [stations common schematic]
 
-The ESP32 controls and monitors all station circuits via an MCP23017 I2C interface.
+The ESP32 controls and monitors all station circuits via an MCP23017 I2C I/O expander.
 Each station has a control output to activate the offhook relay and a sense input
 to signal ring detected.
 
@@ -374,15 +375,17 @@ Claude Code wrote most of the code
 and, equally important, maintained the specifications. Claude is a much better
 note-taker than I. Every step of the process, every design decision, every misstep,
 every bug, every hardware test, everything, is documented. After five weeks of
-development, the game's specification is at its 94th revision.
+development, the game's
+[specification](docs/game_control.md) is at its 94th revision.
 When there were problems that spanned hardware and software, I was able to work
 with Claude to devise tests incorporating the Analog Discovery 3, game logs,
 and one-off test programs, which turned out to be far more useful than the debugging tools
 I'd built into the iPad display.
 
 I'm also thrilled to be able to work on the project anywhere I have my iPhone or
-iPad. I woke up at 4 a.m. recently and wondered about the fact that many players
-will accidentally ring the wrong cord. Lying in bed, I described the problem.
+iPad. I woke up at 4 a.m. recently and 
+got to wondering how often players ring the wrong cord.
+Lying in bed, I described the problem.
 Claude confirmed from the logs that, indeed, a player (likely me!) had rung
 the wrong cord into a trunk twenty times in the past week.
 We then quickly devised a way for the game to detect the error and have the 
@@ -420,26 +423,28 @@ and starts working on a fix.
 
 ### Who's on First
 
-When first designing the game, a problem I needed to solve was
-how the game would know which trunk and station channels are connected to
-each other by switchboard cord pairs and which channels the operator
+When I began designing the game, I needed to solve a problem:
+how would the game know which trunk and station channels are connected to
+each other by cord pairs and which channels the operator
 is keyed to. Without this knowledge the game wouldn't be able to
 monitor and progress through play.
 
 The solution I devised is to have pilot tones constantly play on all
 channels, including on a tap on the operator headset, and to run an
 FFT on every channel. When a cord connects two lines, each one hears
-the other's tone, so the channel reports which line it's patched
-to; hearing the 9 kHz operator tone means she's keyed in.
+the other's tone and reports which line it's patched
+to. The operator tap plays a 9 kHz pilot tone. When other channels
+hear the tone, they know the operator is keyed in.
+The tap also feeds the operator's voice to the audience loudspeaker when no call is in play.
 
 This solution was the key to making the game actually work
-while maintaining my primary directive: not modifying the switchboard.
+while maintaining my prime directive: not modifying the switchboard.
 A nice side benefit is that each channel can report an error when
 it cannot hear its own tone, as a `deaf` message. When a channel
 hears more than one tone, it reports `ambiguous`, which means
 a cord fault or crosstalk.
 
-The pilot tones start at 6 kHz, above the nominal 3.5 kHz telephone
+The pilot tones start at 6 kHz, above the nominal 3.4 kHz telephone
 audio band, and go up to about 9 kHz. The frequencies are calibrated
 to fall in the middle of the FFT bins.
 A 4096-point FFT at 48 kHz gives 11.72 Hz bins. The tones are spaced
@@ -477,7 +482,7 @@ These are the functions performed by the firmware:
 - Generate the ring PWM signals that drive the H-bridge. The firmware
 outputs two digital signals,
 one for each half of the bridge, one pulsed during positive half-cycles and the other during negative.
-A transformer driven from a zero crossing swings to twice its normal
+A transformer driven from a zero crossing swings to nearly twice its normal
 flux on the first half-cycle, enough to saturate this core, so the
 firmware starts at a peak.
 - Detect and report dial pulses on the trunks. The software is tolerant
@@ -510,8 +515,8 @@ filtered to remove the channel pilot tones.
 recorded sessions. Buttons on the iPad control this feature.
 - Listen for and detect speech on other channels. I added this
 capability to support calls from real people on the local telephone
-or via the dial-in number. Because the person is prone to speak
-over recorded speech being played, this feature required adding an adaptive echo
+or via the dial-in number. Because people tend to talk
+over recorded speech, this feature required adding an adaptive echo
 cancellation filter so that the software could detect speech while
 playing a recorded utterance.
 - Play telephone company tones on command: dial tone, ringback,
@@ -548,8 +553,10 @@ Dials at the bottom of the deck control the call rate for automatic mode:
 
 Here's how the next call is timed in automatic mode:
 
-- The clock starts when the latest call is connected or ends, whichever comes first. *Connected* means the operator's routing work is done, for example when the called room answers. The clock doesn't start from when the call arrived.
-Thus, only one call is ever waiting for the operator. Calls do overlap: a new one rings while the last is still talking, but the player is never asked to route two calls at once.
+- The clock starts when the latest call is connected or ends, whichever comes first. *Connected* means the operator's work is done,
+for example when a called room answers.
+The logic means that only one call is ever waiting for the operator. Calls do overlap,
+but the game never asks the player to handle two calls at once.
 - The gap shrinks as the game progresses: `gap_now = max(floor, gap - ramp x connected_calls)`.
 With ramp 0, the rate is constant.
 - Jitter makes the timing feel less mechanical. The actual wait is drawn evenly from `gap_now` +/- `jitter` percent.
@@ -602,6 +609,11 @@ version twice.
 and the speech detector tells it when the operator speaks.
 A call succeeds when the right parties end up talking, and fails on a timeout or a cut-off.
 
+Before I'd even gotten the PCBs back from China, I needed a way to test the engine.
+The `run-sim` program stands in for the ESP32 and `sbaudio`, and with `-o` it even plays
+the operator, answering and connecting calls. The whole game runs,
+iPad and Stream Deck included, without a switchboard.
+
 ### Generating the Speech
 
 The Hotel Ballard acting troupe has 60 players who say 1717 pre-recorded utterances.
@@ -617,7 +629,7 @@ I audition the samples and choose
 the one I prefer. That sample becomes a reference clip.
 Next, the software uses the Qwen3 Base model to clone each voice and render all of the utterances.
 
-The software downloads and stores the speech as wav files.
+The software downloads and stores the speech as WAV files.
 It then filters the speech to the telephone band, 300-3400 Hz,
 to make the studio-quality recordings sound more like they're on a 1950s phone line.
 The low-pass filter also keeps the speech clear of the 6-9 kHz pilot tones.
@@ -736,7 +748,7 @@ it:
 polarity doesn't matter, and raised its resistor to 330 &Omega; for the ATA's 30 mA.
 - I kept the analog connection to the A32.
 
-After testing, I found that one tweak was required to the trunk circuit.
+After testing, I found that the trunk circuit required one tweak.
 Even at its maximum ring voltage, 55 V RMS, the ATA couldn't trip the switchboard's trunk ring relay
 because the loop detector's resistor took too much of the voltage.
 The fix was to put back-to-back 220 &micro;F electrolytic capacitors
