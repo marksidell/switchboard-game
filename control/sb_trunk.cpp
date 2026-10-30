@@ -7,9 +7,9 @@
 
 /* A ring pattern is declared on two consecutive break-to-break gaps of 60ms or
  * less, not one. control.md 8.1 specifies the 60ms threshold and the two signals
- * it separates - 50ms for 20Hz ring against 67-125ms for an 8-15 pps dial - but
+ * it separates - 50ms for 20Hz ring against 83-125ms for an 8-12 pps dial - but
  * a single interval measured at 5ms granularity sits only one sample clear of a
- * fast dial. Two consecutive gaps costs 50ms of latency on a fault report and
+ * 15 pps dial, 67ms. Two consecutive gaps costs 50ms of latency on a fault report and
  * cannot be produced by any dial in the 8.2 table. */
 static constexpr uint8_t  RING_SHORT_GAPS_TO_DECLARE = 2;
 

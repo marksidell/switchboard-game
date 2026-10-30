@@ -16,7 +16,7 @@
  * document whenever a revision has a firmware consequence. The commit and the
  * build time come from sb_version.h, which control/compile writes before it
  * compiles; a build without it says "unknown". Published on ctl/firmware. */
-static constexpr unsigned FIRMWARE_SPEC_REV = 38;
+static constexpr unsigned FIRMWARE_SPEC_REV = 40;
 
 /* Milliseconds from `since` to `now`, never wrapping (control.md 6.3, Rev 21).
  * The loop reads millis() once a pass, and a command handled in that pass
@@ -71,7 +71,7 @@ static constexpr int PIN_POWER_CUT = 15;    // switchboard power cut, 5.4 (Rev 3
                                             // an input until setup() claims it.
 
 /* ---- Poll rate (control.md 6.3) -------------------------------------------
- * 200Hz. Five samples per half-cycle of the 40Hz station ring pulse train, and
+ * 200Hz. Five samples per cycle of the 40Hz station ring pulse train, and
  * 5ms granularity for every threshold in 8.1 and 8.2. Everything in the station
  * and trunk logic runs from this sample stream; nothing samples independently.
  * ------------------------------------------------------------------------- */

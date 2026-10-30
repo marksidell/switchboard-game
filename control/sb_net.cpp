@@ -288,11 +288,23 @@ static void onConnected() {
   Serial.printf("mqtt: connected to %s as %s\n", MQTT_BROKER_HOST, MQTT_CLIENT_ID);
 }
 
+static bool was_connected = false;
+static void (*on_lost)() = nullptr;
+
+void netOnLost(void (*fn)()) { on_lost = fn; }
+
 void netService(uint32_t now_ms) {
   mqtt.loop();                       // sends the keepalive and dispatches messages
   runCommands();                     // outside loop(): they publish (Rev 22)
 
-  if (mqtt.connected()) return;
+  if (mqtt.connected()) { was_connected = true; return; }
+
+  /* Rev 40: before the connect below, which blocks and may succeed, so a
+   * connection back within this pass still releases the relays. */
+  if (was_connected) {
+    was_connected = false;
+    if (on_lost) on_lost();
+  }
 
   /* Nothing to attempt until the PHY has a link and an address. */
   if (!ETH.linkUp()) { eth_up_logged = false; return; }

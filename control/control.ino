@@ -37,7 +37,7 @@
  * serial monitor reattaches - and reattaching resets the board anyway, because
  * opening the port toggles DTR/RTS. A console that shows nothing after an
  * upload therefore looks exactly like a board that never started. So the
- * banner is available on demand: send any character and printBanner() repeats
+ * banner is available on demand: press Enter and printBanner() repeats
  * it, configuration and live state together, including the tick counter that
  * says whether the step timer is really dispatching.
  *
@@ -49,7 +49,7 @@
  *   is done by the trunk board's relays (control.md 8.4), not here.
  *
  * POLARITY (section 5.1/5.2)
- *   IN1 = GPIO32,  IN2 = GPIO33,  SD = GPIO14.  All non-inverting.
+ *   IN2 = GPIO32,  IN1 = GPIO33,  SD = GPIO14.  All non-inverting.
  *
  *   Doc Rev 44 replaced the 74HCT02 with a 74HCT04 hex inverter and routed
  *   each signal through two gates. The pins are now ACTIVE HIGH and duty is
@@ -176,8 +176,8 @@ static bool pwmBegin() {
 
 /* ---- Duty tables ---------------------------------------------------------
  * Precomputed register values in the direct form of control.md 3: the 74HCT04
- * routes every signal through two of its gates - 1-2 for PWM A, 3-4 for PWM B,
- * 5-6 for SD - so each path is non-inverting end to end, duty is written as
+ * routes every signal through two of its gates - 2+5 for PWM A, 1+6 for PWM B,
+ * 3+4 for SD - so each path is non-inverting end to end, duty is written as
  * is, and the parked leg is 0. One leg modulates at duty d while the other is
  * parked at 0, its low side on, tied to ground. The differential across T1 is
  * then +/-24V peak and 48 Vpp at G_AMPLITUDE = 1.0 - the figure section 9.1
@@ -211,11 +211,11 @@ static void buildDutyTables(float g) {
     if (d < 0)                    d = 0;
     if (d > (long)DUTY_MAX)       d = (long)DUTY_MAX;
 
-    if (s >= 0.0f) {                                   // left leg switches
+    if (s >= 0.0f) {                                   // right leg switches
       duty_a[k] = (uint16_t)d;
-      duty_b[k] = 0;                                   // right leg tied to GND
-    } else {                                           // right leg switches
-      duty_a[k] = 0;                                   // left leg tied to GND
+      duty_b[k] = 0;                                   // left leg tied to GND
+    } else {                                           // left leg switches
+      duty_a[k] = 0;                                   // right leg tied to GND
       duty_b[k] = (uint16_t)d;
     }
   }
@@ -461,19 +461,19 @@ static bool ota_in_progress = false;      // past the start callback
 /* ---- setup / loop -------------------------------------------------------- */
 
 /* Configuration and live state, on demand. Called once from setup() and again
- * whenever a character arrives on the console, so the question "what is this
+ * whenever Enter arrives on the console, so the question "what is this
  * board actually running" has an answer at any moment rather than only in the
  * first half second after a reset - which is exactly when nothing is attached
  * to read it. peak is recomputed here rather than cached; it is 250 iterations
  * and this is not a hot path. */
 /* ---- The spread state republish (control.md 9.2) --------------------------
- * A full republish is 68 retained QoS 1 messages, and with this client each
+ * A full republish is 93 retained QoS 1 messages, and with this client each
  * QoS 1 publish blocks until its PUBACK arrives. Sent as one burst it would
  * hold the 200Hz loop for 100-300ms - longer than a ringing station's 100ms
  * quiet rule (7.1) and longer than a dial pulse (8.2) - so a ringing station
  * would flicker off/on every 30s and a digit under way would be spoiled or
  * split. Instead every full republish walks the channel table one circuit per
- * poll tick: each tick pays for two or three round trips, and all 31 circuits
+ * poll tick: each tick pays for three round trips, and all 31 circuits
  * are refreshed in 31 ticks, about 155ms.
  *
  * requestRepublish() (re)starts the walk from row 0; republishStep() does one
@@ -654,6 +654,7 @@ void setup() {
   Serial.println("Starting");
 
   /* ---- 4.2 step 3: Ethernet, and the MQTT client configured ---------- */
+  netOnLost([]() { releaseAllRelays("MQTT connection lost"); });
   netInit();
 
   /* ---- 4.2 step 4: expander /RESET ----------------------------------- */
@@ -697,8 +698,8 @@ void setup() {
 
   /* ---- 4.2 step 8: LEDC, both channels at duty 0 ---------------------
    * Duty 0 with SD low is the hardware's own park state - the peripheral comes
-   * up that way - so this is not arming anything. Steps 9 to 11 are
-   * startWaveform(), which the enable input reaches through serviceEnable(). */
+   * up that way - so this is not arming anything. Step 9 is nothing to do, and
+   * steps 10 and 11 are startWaveform(), which the enable input reaches through serviceEnable(). */
   buildDutyTables(G_AMPLITUDE);
 
   if (!pwmBegin()) {
@@ -728,7 +729,7 @@ void setup() {
 
 /* The console is silent unless something happens: RUN and IDLE are announced
  * by startWaveform()/stopWaveform() as they occur, and anything else is had by
- * asking. Send any character and printBanner() reports the configuration and
+ * asking. Press Enter and printBanner() reports the configuration and
  * the live state together. A once-a-second heartbeat lived here while the
  * board was first being brought up; it had served its purpose and only made
  * captured logs harder to read. */
@@ -745,7 +746,6 @@ void setup() {
  *                             interrupts
  * ------------------------------------------------------------------------- */
 
-static bool     mqtt_was_up       = false;
 static bool     game_was_up       = false;
 static uint32_t last_poll_ms      = 0;
 static uint32_t last_republish_ms = 0;
@@ -817,17 +817,14 @@ static void serviceOta() {
 }
 
 static void serviceFailsafes(uint32_t now) {
-  const bool mqtt_up = netConnected();
   const bool game_up = netGameAlive(now);
 
   /* Edge-triggered. A command arriving while the game heartbeat is missing is
    * still acted on (9.4) - the heartbeat's return is the recovery signal and
    * the command is evidence of it - so holding the relays down continuously
    * would fight the specified behaviour. */
-  if (mqtt_was_up && !mqtt_up) releaseAllRelays("MQTT connection lost");
   if (game_was_up && !game_up) releaseAllRelays("game heartbeat missed twice");
   if (!game_was_up && game_up) Serial.println("game heartbeat returned");
-  mqtt_was_up = mqtt_up;
   game_was_up = game_up;
 
   /* ---- I2C recovery (control.md 10) --------------------------------------

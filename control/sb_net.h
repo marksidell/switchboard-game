@@ -28,6 +28,10 @@ void netInit();                       // ETH.begin() and client setup
  * sends the keepalive ping and dispatches incoming commands. */
 void netService(uint32_t now_ms);
 
+/* Called once when the connection is found gone, before any attempt to
+ * reconnect (control.md 10, Rev 40). */
+void netOnLost(void (*fn)());
+
 bool netConnected();
 
 /* Ethernet has a link and an address. The OTA listener (control.md 2.1) waits
