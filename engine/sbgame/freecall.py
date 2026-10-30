@@ -35,8 +35,8 @@ PHONE = f"station/{PHONE_STATION}"
 LISTEN = 3.0          # s after a line for the caller to start talking before "Hello?" (Rev 78)
 LISTEN_AGAIN = 7.0    # s after a "Hello?" before the next one
 TURN_END = 0.4        # s more of silence before it is the answerer's turn (Rev 76)
-PATCH_WAIT = 8.0      # s for the cord to join a room that answered (§5, Rev 60)
-DIAL_DELAY = 1.0      # s from seizure to dial tone (§5, Rev 46)
+PATCH_WAIT = 8.0      # s for the cord to join a room that answered (§3.5, Rev 60)
+DIAL_DELAY = 1.0      # s from seizure to dial tone (§3.5, Rev 46)
 DIAL_FIRST = 15.0     # s for the first digit
 DIAL_PAUSE = 10.0     # s with no new digit, short of a number: fast busy (Rev 80)
 DIAL_SETTLE = 3.0     # s after the last digit a number needs, before it rings (Rev 80)
@@ -87,7 +87,7 @@ class FreeCall:
                 return
             self.answered = True
             await self.fc.say(f"free call: {self.name} answered")
-            await self.fc.game._monitor(self.caller, str(FREE_PEER_DB))  # §6.4: at the answer
+            await self.fc.game._monitor(self.caller, str(FREE_PEER_DB))  # §9.1: at the answer
             while not self.gone(self.b):
                 target = await self._route()
                 if target is None:
@@ -152,7 +152,7 @@ class FreeCall:
 
     async def _patched(self, c: str) -> bool:
         """The room off-hook waits for the cord; "Hello?" at PATCH_WAIT, and
-        it hangs up at twice that (§5, Rev 60)."""
+        it hangs up at twice that (§3.5, Rev 60)."""
         joined = lambda b: self.gone(b) or b.get(f"{c}/peer") == self.caller
         hello = self.fc.game.gs.reaction("hello", self.who)
         for step in ("hello", "hang up"):
@@ -192,7 +192,7 @@ class FreeCall:
             if digits is None:
                 return
             if digits in ("short", "long"):
-                # Fast busy, as a game call's misdial gets (§5, Rev 56), until
+                # Fast busy, as a game call's misdial gets (§3.5, Rev 56), until
                 # she releases the trunk or the caller goes.
                 got = self.b.dialled(k)
                 await self.fc.say(f"free call: {self.name} dialled {got}: too "
@@ -329,7 +329,7 @@ class FreeCalls:
         return any(fc.answered and not fc.callee for fc in self.calls.values())
 
     def holdings(self) -> list[Holding]:
-        """What the free calls hold for dealing (§4.4): the caller's line, and
+        """What the free calls hold for dealing (§6.1): the caller's line, and
         the answerer's line and person."""
         out = []
         for fc in self.calls.values():

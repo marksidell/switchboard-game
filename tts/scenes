@@ -8,7 +8,7 @@ played again, or a scene id to play that one. Wherever the game would wait
 for the operator — to answer, to ring or dial, or to speak before a wait:
 line, a call to the operator's line or a busy scene's line — it asks for
 <enter> instead, showing the operator: line the script gives for that point
-(game_control.md 4.7). Ctrl-C stops the scene and goes back to the prompt.
+(game_control.md 6.3). Ctrl-C stops the scene and goes back to the prompt.
 
 --batch plays nothing. It writes each scene, active or not, to
 <out>/<scene>.mp3: the same steps, with the operator's own lines — rendered in
@@ -131,7 +131,7 @@ Step = tuple
 def steps(raw: dict, lines: list[Utterance], script: Script,
           tutor: bool = False) -> Iterator[Step]:
     """The scene's steps; with `tutor`, her lines where tutor mode says them
-    (game_control.md 4.9, as engine/sbgame/flows.py places them)."""
+    (game_control.md 7, as engine/sbgame/flows.py places them)."""
     stations, outside = script.stations, script.outside
     ops = script.by_name()
     calling, called = raw["calling"], raw.get("called")
@@ -346,7 +346,7 @@ def main() -> int:
     ap.add_argument("--only", default="", metavar="SCENES",
                     help="--batch: comma-separated scene ids, active or not (default every scene)")
     ap.add_argument("--tutor", action="store_true",
-                    help="--batch: tutor mode (game_control.md 4.9): her lines in their places, "
+                    help="--batch: tutor mode (game_control.md 7): her lines in their places, "
                          "the scenes of tutor: lessons: unless --only, plus intro.mp3 and demo.mp3 "
                          "(the introduction and the first scene of each lesson group); "
                          "default --out mp3/tutor/")

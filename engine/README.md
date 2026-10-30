@@ -136,7 +136,7 @@ Then:
 cd engine && PYTHONPATH=.:tests ./.venv/bin/python tests/test_flows.py
 ```
 
-`test_streamdeck.py` checks every rule of §7.4 — keys, Stop's second press,
+`test_streamdeck.py` checks every rule of §10 — keys, Stop's second press,
 Next Call's guard, the dials' target, errors, staleness — and draws each state
 once. `test_sim.py` is the delivered harness. `test_flows.py` covers every scene
 shape and every failure reason. `test_game.py` drives whole games against the

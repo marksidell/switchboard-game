@@ -25,12 +25,12 @@
 #     The conversation holds only caller lines. Each one plays after the
 #     operator has spoken and stopped (listen: speech, then silence).
 #
-# Waiting for the operator mid-conversation (game_control.md 4.6):
+# Waiting for the operator mid-conversation (game_control.md 6.2):
 #     wait: true on a conversation line means it plays only after the
 #     operator has spoken on that side of the call and stopped. Not allowed
 #     in a call to the operator or a busy scene, where every line waits.
 #
-# Someone else on the line (game_control.md 4.6):
+# Someone else on the line (game_control.md 6.2):
 #     person: <cast member> on a conversation line means that person says it,
 #     on the same side of the call, in place of the scene's party there.
 #
@@ -53,19 +53,19 @@
 #     the time and charges so the room can be billed: a following scene, a
 #     call to the operator from outside line operator whose request is the
 #     room, the time and the charge, said once, with no conversation, so she
-#     hangs up without waiting (game_control.md 4.6, Rev 24). Not for collect
+#     hangs up without waiting (game_control.md 3.4, Rev 24). Not for collect
 #     calls, or calls placed to a guest from outside.
 #     When the circuits are busy she calls back: a following scene rings the
 #     hotel on a trunk from outside line operator, and the hotel operator puts
 #     the call through to the room. A call coming in from long distance is heard
 #     from the last operator on its route only.
 #
-# A beat before a line (game_control.md 4.6):
+# A beat before a line (game_control.md 6.2):
 #     pause: <seconds> is silence before the line plays; ringback: <seconds>
 #     is ringback tone on the trunk before it, only on a called: line of a
 #     call to an outside line. Both come after any wait:, pause first.
 #
-# What the operator says (game_control.md 4.7):
+# What the operator says (game_control.md 6.3):
 #     operator: on a line is what the player says before it, wherever the
 #     game waits for her: the request, a wait: line, and every line of a call
 #     to the operator or a busy call. It is the name of a line under
@@ -86,7 +86,7 @@
 #     goes back to the caller and tells them.
 #     if_busy: on a call from a room to a room is a list of caller lines for
 #     when the called station is already on another call: each plays after
-#     the operator has spoken, and the caller hangs up (game_control.md 4.11).
+#     the operator has spoken, and the caller hangs up (game_control.md 6.6).
 #     Otherwise the call goes through and they are not heard.
 #
 # Order:
@@ -99,11 +99,11 @@
 #     number of calls. Each scene has at most one follower.
 #     mode: concurrent on an after: scene starts it delay seconds after the
 #     named scene *starts*, connected or not, so calls arrive almost together
-#     (game_control.md 4.4, Rev 39). delay may be a range, [2, 5], drawn at
+#     (game_control.md 6.1, Rev 39). delay may be a range, [2, 5], drawn at
 #     random. A concurrent scene waits for a free call slot rather than
 #     being dropped.
 #
-# A scenario (game_control.md 4.10):
+# A scenario (game_control.md 6.5):
 #     after_handled: <n> on a scene with no after: keeps it out of the deck.
 #     It is dealt once a game, as the next call once n calls have been
 #     handled, never in tutor or listen pacing; its concurrent followers are
@@ -144,7 +144,7 @@ cast:
         sex: female
         accent: generic American, warm and crisp
         description: the Hotel Ballard's switchboard operator, a young woman, courteous and efficient
-    # The voice of tutor mode (game_control.md 4.9): a senior operator who
+    # The voice of tutor mode (game_control.md 7): a senior operator who
     # talks the player through each call over the loudspeaker. Her lines
     # are under tutor: below, not in any scene.
     # Her voice is cloned from a public-domain Bell System training film
@@ -462,14 +462,14 @@ cast:
 
     # Sergeant Riley, back (2026-10-23): he left with the cut Thornhill
     # scenes on 2026-09-28; now he answers the police in free calls
-    # (game_control.md 4.12). His chosen voice is restored, take 2.
+    # (game_control.md 8). His chosen voice is restored, take 2.
     sergeant:
         sex: male
         accent: Irish American, weary
         description: desk sergeant at the Seattle Police
         sample: Police department, Sergeant Riley speaking. All right, slow down, mister. Start from the beginning and tell me what happened.
 
-    # The real Lenny (game_control.md 4.12, Rev 74): his sixteen recordings,
+    # The real Lenny (game_control.md 8, Rev 74): his sixteen recordings,
     # released freely on the internet in 2013, answer a number the game does
     # not know. His lines are under freecall:, his takes in tts/recorded/.
     lenny:
@@ -478,7 +478,7 @@ cast:
         description: Lenny, an old man who keeps telemarketers talking
         recorded: Lenny (the public recordings of 2013)
 
-# What the player says (game_control.md 4.7).
+# What the player says (game_control.md 6.3).
 #     The game never plays these: the person at the board speaks them. They
 #     are rendered in hotel_operator's voice, as operator.<id>, so that a
 #     whole scene can be recorded with both halves of it (tts/scenes --batch).
@@ -510,7 +510,7 @@ operator_lines:
         id: 8
         text: I'm sorry, the valet is busy just now. Please try again in a few minutes.
 
-# What the tutor says (game_control.md 4.9). Tutor mode is switched on from
+# What the tutor says (game_control.md 7). Tutor mode is switched on from
 # the Stream Deck; the tutor speaks on the loudspeaker at each step of a call
 # and the game waits for her to finish before it goes on.
 #
@@ -529,7 +529,7 @@ operator_lines:
 #                            as tutor.say-operator.1.
 # Every other entry is said as written, but lessons:, which is not a line.
 #
-# What a party says when the operator leaves them hanging (game_control.md 5,
+# What a party says when the operator leaves them hanging (game_control.md 4,
 # Rev 60), each rendered in every cast member's voice but the operator's and
 # the tutor's, as <kind>.<speaker>. The game plays them; they are in no scene.
 reactions:
@@ -541,7 +541,7 @@ reactions:
     # She has put the caller through to the wrong party.
     wrong: Operator, that's not who I asked for.
 
-# Free calls, Lenny mode (game_control.md 4.12, Rev 74). A real person on
+# Free calls, Lenny mode (game_control.md 8, Rev 74). A real person on
 # station 24 or the public trunk is put through to a room or an outside
 # number, and whoever is there answers with their greeting:, then says one
 # line at each pause in the caller's talk: the lines: once each in order,
@@ -1035,7 +1035,7 @@ freecall:
             - Mm hm. And your name?
             - Doctor Hollis is in surgery. Would you care to leave a message?
             - Yes. Yes. I'll make a note.
-    # The real Lenny, recorded (game_control.md 4.12): the transcripts of his
+    # The real Lenny, recorded (game_control.md 8): the transcripts of his
     # sixteen public recordings, close but not exact. His takes are in
     # tts/recorded/; the 16th is the plain one, not the one with the song.
     lenny:
@@ -1059,7 +1059,7 @@ freecall:
             - Well, that does sound good. You have been very patient with an old man here. It's something that I've been told I should be looking at. My third eldest, Larissa, I think I mentioned Larissa before, she says I should be going for something like this. Sorry, could you just hang on for one second here? Hang on. Sorry about that. What were you saying there again?
 
 tutor:
-    # The introduction, in three parts (game_control.md 4.9, Rev 31). After
+    # The introduction, in three parts (game_control.md 7, Rev 31). After
     # each but the last the game waits for More Help or Next Call on the
     # Stream Deck; after the last, for Next Call.
     intro-jacks: >
@@ -1130,7 +1130,7 @@ tutor:
         When the room answers, return the near switch to its center position,
         so that the two of them can talk.
 
-    # The wrong cord rung, said in every pacing (game_control.md 6.7, Rev 88).
+    # The wrong cord rung, said in every pacing (game_control.md 7.7, Rev 88).
     # A call in from a trunk, its front cord in the trunk:
     rang-trunk: >
         You rang the outside line. Ring the rear cord instead: pull the far
@@ -1177,7 +1177,7 @@ tutor:
     ready-manual: Press Next Call when you are ready for another.
 
     # The same steps said shortly, once she has said each in full twice
-    # (game_control.md 4.9, Rev 55). More Help says the full line above. A
+    # (game_control.md 7, Rev 55). More Help says the full line above. A
     # line not given here is said in full every time; the introduction and
     # the prompts before the operator speaks have no short form.
     brief:
@@ -1201,7 +1201,7 @@ tutor:
         for-you: This call is for you.
 
     # The first calls of a game in tutor mode, one of each kind in this
-    # order (game_control.md 4.9, Rev 30): each game picks one scene from
+    # order (game_control.md 7, Rev 30): each game picks one scene from
     # each group at random, so a restart does not repeat the last. Then the
     # deck deals as usual. Every scene in a group is the same kind of call,
     # active, and not an after: scene.
@@ -1265,7 +1265,7 @@ outside:
     police:
         number: "623-2111"
         description: Seattle Police
-        # Who answers it, since no scene does: a free call (game_control.md 4.12).
+        # Who answers it, since no scene does: a free call (game_control.md 8).
         person: sergeant
     swedish:
         number: "322-5100"
@@ -1324,7 +1324,7 @@ stations:
     phone:
         number: 24              # the real telephone on board 3 strip 8 (real_phone.md)
 
-# The switchboard's 30 station jacks, as the page draws them (game_control.md 6.3).
+# The switchboard's 30 station jacks, as the page draws them (game_control.md 12.1).
 # Listed top row first: the board's rows run 21-30, 11-20, 1-10 from the top.
 #     jack:    the jack number on the board, 1..30
 #     label:   the text on the board's designation strip at that jack
@@ -1801,7 +1801,7 @@ scenes:
                 called: Very well, Mrs. Albright. I'll ring you in an hour.
                 person: operator
 
-    # Long distance calls back when it has the party (game_control.md 4.4):
+    # Long distance calls back when it has the party (game_control.md 6.1):
     # the operator rings the hotel on a trunk and the hotel operator puts the
     # call through to the room.
     portland-callback:
@@ -1840,7 +1840,7 @@ scenes:
                 called: Goodbye, Ruth.
 
     # The long-distance operator rings back with the time and charges, once,
-    # and hangs up (game_control.md 4.6, Rev 24).
+    # and hangs up (game_control.md 3.4, Rev 24).
     tc-albright:
         active: true
         after: portland-callback
@@ -2470,7 +2470,7 @@ scenes:
                 person: mabel_dobbs
 
     # The long-distance operator rings back with the time and charges, once,
-    # and hangs up (game_control.md 4.6, Rev 24).
+    # and hangs up (game_control.md 3.4, Rev 24).
     tc-dobbs:
         active: true
         after: dobbs-callback
@@ -2956,7 +2956,7 @@ scenes:
                 person: mrs_dunn
 
     # The long-distance operator rings back with the time and charges, once,
-    # and hangs up (game_control.md 4.6, Rev 24).
+    # and hangs up (game_control.md 3.4, Rev 24).
     tc-hale:
         active: true
         after: hale-mother
@@ -3746,7 +3746,7 @@ scenes:
             -   id: 7
                 caller: Yes, ma'am. I'll tell her.
 
-    # Martha loose in the hotel (game_control.md 4.10, Rev 39): Beth's story,
+    # Martha loose in the hotel (game_control.md 6.5, Rev 39): Beth's story,
     # Remco's board lit up like a Christmas tree. panic is dealt once, after
     # the tenth call handled; each scene after it starts four to eight seconds
     # after the one before has started, so the calls arrive almost together.
@@ -4764,7 +4764,7 @@ scenes:
                 caller: Two dollars and forty cents, and just to be told I am old. Carry on.
 
     # The long-distance operator rings back with the time and charges, once,
-    # and hangs up (game_control.md 4.6, Rev 24).
+    # and hangs up (game_control.md 3.4, Rev 24).
     tc-beaumont:
         active: true
         after: beaumont-sister
@@ -5003,7 +5003,7 @@ scenes:
                 caller: Ninety-five cents to be told I'm normal. Edna was right.
 
     # The long-distance operator rings back with the time and charges, once,
-    # and hangs up (game_control.md 4.6, Rev 24).
+    # and hangs up (game_control.md 3.4, Rev 24).
     tc-finch:
         active: true
         after: finch-wife

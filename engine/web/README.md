@@ -30,7 +30,7 @@ match also catches `/mqtt.min.js` and proxies the page's own copy of MQTT.js to
 Mosquitto, which is not a web server. The symptom is a 502 for that one file
 and a page that loads with its library missing.
 
-**The page shows echoes, never its own requests** (§7.2). A tap publishes a
+**The page shows echoes, never its own requests** (§11.2). A tap publishes a
 `/set` and changes nothing on screen; the display moves when the game
 program's state topic moves. There is deliberately no local model of the game
 here — only a map of retained topic values and a render that reads it.

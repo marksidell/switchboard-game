@@ -1,5 +1,5 @@
 [Unit]
-Description=551 Switchboard Simulator Stream Deck (game_control.md 7.4)
+Description=551 Switchboard Simulator Stream Deck (game_control.md 10)
 Documentation=file:///home/sidell/s/sbgame/engine/README.md
 # Only the broker; it retries forever if the broker is not up yet, and runs
 # with no deck plugged in, looking for one every 2s.

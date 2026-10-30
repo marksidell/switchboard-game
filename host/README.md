@@ -73,7 +73,7 @@ would leave the account and the plugin out of step with it.
 
 ## The Stream Deck
 
-`sbgame-streamdeck` drives the Stream Deck+ (`game_control.md` §7.4). It runs
+`sbgame-streamdeck` drives the Stream Deck+ (`game_control.md` §10). It runs
 as its own system user, `sbgame-deck`, which the udev rule gives the deck and
 the access list gives the page's rights. Once:
 

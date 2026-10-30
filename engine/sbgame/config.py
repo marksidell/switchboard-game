@@ -2,11 +2,11 @@
 
 Two kinds live here, and the difference matters.
 
-**Starting values** for things the page can change — pacing (§4.3). They are
+**Starting values** for things the page can change — pacing (§5.4). They are
 what a restart returns to; while the program runs the page owns them, and a
 change from the page is not written back here.
 
-**Timeouts and limits** the page never sees (§5). They are play-testing
+**Timeouts and limits** the page never sees (§4). They are play-testing
 values: Mark will move them once he has run games, and moving them must not
 mean editing code, which is why they are here and not constants in scenes.py.
 
@@ -54,7 +54,7 @@ class Config:
     # The loudspeaker plays ringback while a station reports ring (Rev 51).
     ring_cue: bool = True
 
-    # ---- timeouts (§5), all play-testing values ------------------------
+    # ---- timeouts (§4), all play-testing values ------------------------
     answer_timeout: float = 60.0   # operator to answer a lamp
     connect_timeout: float = 90.0  # to connect, after the request has played
     speak_timeout: float = 30.0    # operator to speak when a line waits
@@ -78,17 +78,17 @@ class Config:
     # and [out_of_service.stations] (Rev 43), station number -> reason: no
     # scene calling from or to one is played.
     out_of_service: dict = field(default_factory=dict)
-    # The public line (§4.12, Rev 74): the trunk the Grandstream ATA feeds
+    # The public line (§8, Rev 74): the trunk the Grandstream ATA feeds
     # (trunk_circuit.md 4.5). No scene takes, rings or dials on it; outside
     # free calls come in on it. 0 for none.
     public_trunk: int = 8
 
     def stations_out(self) -> frozenset[int]:
-        """The fitted stations no scene may use (§6.5, Rev 43)."""
+        """The fitted stations no scene may use (§12.2, Rev 43)."""
         return frozenset(int(k) for k in (self.out_of_service.get("stations") or {}))
 
     def working_trunks(self) -> list[int]:
-        """The fitted trunks a call may ring in on (§6.5)."""
+        """The fitted trunks a call may ring in on (§12.2)."""
         out = {int(k) for k in (self.out_of_service.get("trunks") or {})}
         return [n for n in range(1, self.trunks + 1) if n not in out and n != self.public_trunk]
 
@@ -119,7 +119,7 @@ class Config:
         from .pacing import PACES
         if self.pace not in PACES:
             bad.append(f"pace must be tutor, manual, auto or listen, not {self.pace!r}")
-        # The page's own ranges, §4.3. Applied here too: a configuration file
+        # The page's own ranges, §5.4. Applied here too: a configuration file
         # is not the page and is not clamped, it is refused.
         if not 0 <= self.gap <= 600:
             bad.append(f"gap {self.gap} outside 0-600")

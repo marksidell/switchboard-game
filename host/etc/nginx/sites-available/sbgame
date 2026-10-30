@@ -1,4 +1,4 @@
-# 551 Switchboard Simulator status page. game_control.md 2, mqtt.md 9.
+# 551 Switchboard Simulator status page. game_control.md 13.1, mqtt.md 9.
 #
 # nginx terminates TLS for game.kr3am.org on 443, serves the page's files, and
 # reverse-proxies the page's MQTT socket to Mosquitto's loopback WebSockets

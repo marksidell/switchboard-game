@@ -1,4 +1,4 @@
-# The game program's configuration (game_control.md §4.3, §5).
+# The game program's configuration (game_control.md §5.4, §4).
 #
 # Everything here has a default in sbgame/config.py; a setting left out keeps
 # it. The two kinds are different in kind, not just in value:
@@ -20,7 +20,7 @@ password_file = "/etc/sbgame/mqtt-game.pass"
 # Installed copies, not the originals: the daemon runs as sbgame and cannot
 # traverse /home/sidell, which is 0750. `make -C host sbgame-data` puts them
 # here. A change to script.yml therefore needs that and a restart, which
-# extends game_control.md 6.3's "takes effect when the game program restarts".
+# extends game_control.md 12.1's "takes effect when the game program restarts".
 script = "/srv/sbgame/script.yml"
 wav_dir = "/srv/sbgame/wav"
 
@@ -47,13 +47,13 @@ speak_timeout = 30.0     # the operator to speak when a line is waiting
 max_speech = 20.0
 audio_margin = 3.0
 
-# The circuits fitted (game_control.md 6.5, Rev 25): the first `stations` of
+# The circuits fitted (game_control.md 12.2, Rev 25): the first `stations` of
 # 1-22 and the first `trunks` of 1-8. A scene needing more is left out. The
 # command line's --stations and --trunks override these.
 stations = 22
 trunks = 8
 
-# Trunks fitted but out of service (game_control.md 6.5, Rev 36): no call is
+# Trunks fitted but out of service (game_control.md 12.2, Rev 36): no call is
 # rung in on them. Each with why. Remove a line when the trunk is fixed.
 [out_of_service.trunks]
 6 = "switchboard trunk jack 6's ring relay does not latch (2026-10-10)"

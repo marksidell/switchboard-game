@@ -229,7 +229,7 @@ sbgame-web:
 ##
 ## Until the boards arrive the game program starts, deals a call and stops at
 ## once: every scene wait fails while ctl/status and ctl/audio_status are down
-## (game_control.md 3). This plays both parts on the real broker so the page
+## (game_control.md 2). This plays both parts on the real broker so the page
 ## can be used. Foreground, ^C to stop; it is a tool, not a service.
 ##
 ##   make -C host sim              hardware only; you are the operator

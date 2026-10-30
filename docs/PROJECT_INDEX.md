@@ -17,7 +17,7 @@ of this file.
 | `mqtt.md` | **47** | The MQTT design: broker, clients, topic naming, every message by publisher, QoS and retention, liveness, broker configuration and access list. |
 | `control.md` | **39** | The firmware specification: startup order, ring generation, I²C map, station and trunk behaviour, dial pulse timing, failsafes. |
 | `audio.md` | **33** | The audio program specification: channel plan, output mixer, detector scheduling, file playback, trunk tones, speech detection, audience monitor, MQTT interface. |
-| `game_control.md` | **98** | The game program, status page and Stream Deck: what a game is, call pacing, the deck of scenes, tallies, call slots, the log, the jack map. |
+| `game_control.md` | **99** | The game program, status page and Stream Deck: what a game is, call pacing, the deck of scenes, tallies, call slots, the log, the jack map. |
 | `pilot-map.md` | — | Slot ↔ bin ↔ circuit assignment and the detector constants. Authoritative. |
 | `audio-io.md` | — | Channel map, measured reference levels, bench tools. |
 | `protocol.md` | — | Socket and shared-memory design. A skeleton, not implemented: the programs talk over MQTT. |
@@ -39,7 +39,7 @@ of this file.
 |---|---|---|
 | `real_phone.md` | **4** | The proposal for a real telephone on the board, adopted 2026-10-23, and how the decision was reached. |
 | `grandstream_trunk.md` | **5** | Bench notes on a Grandstream HT80x V2 ATA on a trunk jack. The design is `trunk_circuit.md` §4.5. |
-| `lenny-spec.txt` | — | Mark's spec for Lenny mode, as he wrote it. The design is `game_control.md` §4.12. |
+| `lenny-spec.txt` | — | Mark's spec for Lenny mode, as he wrote it. The design is `game_control.md` §8. |
 
 ## Task briefs
 
@@ -102,7 +102,7 @@ and items the built boards settled have been removed; some of what remains may b
 - Protection for that run. As drawn it is unfused and the LRS-150-24 will source 6.5A into a
   damaged cable. Wants a fuse at the PSU end; not yet sized
 - Calls arriving before the operator has connected the current one — deferred by Mark
-  (`game_control.md` §4.5); and the rest of that document's §10
+  (`game_control.md` §5.5); and the rest of that document's §14
 
 ## Things that have bitten before
 

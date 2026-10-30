@@ -4,7 +4,7 @@ A check of the cabling after a recabling, with no game running: `trunks`
 gives each trunk one short ring in turn, so its lamp latches on the
 switchboard, and `stations` takes each station off-hook briefly in turn, in
 jack order — the switchboard's rows from the top, 21-30, 11-20, 1-10, each
-left to right (§7.1) — so its lamp lights in the order the eye reads the board.
+left to right (§11.1) — so its lamp lights in the order the eye reads the board.
 Each step is put on the game log, so the page shows where the sweep has got to,
 and the hardware's own echoes light the tiles.
 
@@ -25,7 +25,7 @@ from .script_data import PHONE_STATION, Jack, fitted_stations
 log = logging.getLogger("sweep")
 
 KINDS = ("trunks", "stations")
-ROWS = (range(21, 31), range(11, 21), range(1, 11))   # top row first (§7.1)
+ROWS = (range(21, 31), range(11, 21), range(1, 11))   # top row first (§11.1)
 
 BURST = 1.0          # s: the controller's short ring (control.md §8.4, Rev 30)
 OFF_HOOK = 1.0       # s a station is held off-hook
@@ -51,7 +51,7 @@ async def run(kind: str, hw: Hw, jacks: Iterable[Jack], stations: int, trunks: i
               busy: Callable[[], set[str]], say: Callable[[str], Awaitable[None]],
               out_of_service: Callable[[str], bool], public_trunk: int = 0) -> None:
     """One sweep, to its end. Cancelling it puts the current circuit back.
-    Not the public line nor station 24, the real telephone (§4.12, Rev 74):
+    Not the public line nor station 24, the real telephone (§8, Rev 74):
     the game never rings the one, and the other's relay lights nothing."""
     if kind == "trunks":
         steps = [(f"trunk/{n}", f"trunk {n}") for n in range(1, trunks + 1)

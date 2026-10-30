@@ -9,13 +9,13 @@ to publish.
 Three shapes of task run under it:
 
   `_scheduler`   one, for the life of the program: starts a call when the
-                 automatic gap has elapsed (§4.2).
+                 automatic gap has elapsed (§5.2).
   a flow task    one per call in progress, cancelled by Stop.
-  an after timer one per waiting `after:` scene, cancelled by Stop (§4.4):
+  an after timer one per waiting `after:` scene, cancelled by Stop (§6.1):
                  from the end of the scene it follows, or for `mode:
                  concurrent` from its start, which is how a scenario puts
-                 its calls on the board almost together (§4.10).
-  a tutor task   in tutor mode (§4.9), the introduction after Start, or the
+                 its calls on the board almost together (§6.5).
+  a tutor task   in tutor mode (§7), the introduction after Start, or the
                  end of a call: her line, then Next Call (Rev 70).
                  While it runs no call is dealt.
 
@@ -53,11 +53,11 @@ from .tutor import INTRO, NO_LIMIT, Tutor
 # What the player does at the board (Rev 57): a cord in or out (peer, op, a
 # trunk's seize), a digit dialled, a station rung. Not `hook`, which the game
 # itself drives, nor anything of the game's own.
-_TRUNK_FAULT = re.compile(r"^trunk/(\d+)/fault$")     # §6.7, Rev 88
+_TRUNK_FAULT = re.compile(r"^trunk/(\d+)/fault$")     # §7.7, Rev 88
 _STATION_RINGING = re.compile(r"^station/(\d+)/ringing$")   # heard by sbaudio, Rev 89
 _TRUNK_OP_SEIZE = re.compile(r"^trunk/(\d+)/(?:op|seize)$")   # a rear cord in it, Rev 93
 # s of op on and seize off together before it counts, beyond the board's hold
-# on op going off, which outlasts a pulled front cord's seizure (§6.7, Rev 93)
+# on op going off, which outlasts a pulled front cord's seizure (§7.7, Rev 93)
 REAR_HOLD = 1.0
 PLAYER = re.compile(r"^(?:station|trunk)/\d+/(?:peer|op|seize|dialled|digit)$|^station/\d+/ring$")
 
@@ -66,7 +66,7 @@ log = logging.getLogger("game")
 
 
 def pick_lessons(groups, seed: int) -> list[str]:
-    """One scene from each group, in order, from the game's seed (§4.9, Rev 30)."""
+    """One scene from each group, in order, from the game's seed (§7, Rev 30)."""
     rng = random.Random(f"lessons {seed}")
     return [rng.choice(g) for g in groups]
 
@@ -89,7 +89,7 @@ class Game:
         self.deck: Deck | None = None
         self.next_number = 1
         # Set from the configuration at start-up and owned by the page after
-        # that; a restart returns to the configured values (§4.3).
+        # that; a restart returns to the configured values (§5.4).
         from .pacing import Pacing
         self.pacing = Pacing(pace=cfg.pace, gap=cfg.gap, ramp=cfg.ramp, floor=cfg.floor,
                              jitter=cfg.jitter, pause=cfg.pause)
@@ -99,7 +99,7 @@ class Game:
             self.pacing.pace = "manual"
 
         self._flows: dict[int, asyncio.Task] = {}       # slot -> task
-        self._hinted: set[tuple[int, str]] = set()      # (call, line) told, §6.7
+        self._hinted: set[tuple[int, str]] = set()      # (call, line) told, §7.7
         self._hint_end: dict[int, float] = {}            # call -> its line's end, Rev 91
         self._rear_since: dict[int, float] = {}          # trunk -> op on, seize off since, Rev 93
         self._afters: dict[str, asyncio.Task] = {}      # scene id -> timer task
@@ -107,11 +107,11 @@ class Game:
         self._scheduler: asyncio.Task | None = None
         self._decks_recorded = 0        # how many of deck.orders are in SQLite
         self.diag: Diagnostics | None = None
-        self.free = FreeCalls(self)           # §4.12, Rev 74
-        self.queued = ""                # the chosen next scene (§4.8)
-        self._scenarios_dealt: set[str] = set()   # once a game each (§4.10)
-        self._delays = random.Random()  # drawn `delay` ranges, from the seed (§4.4)
-        # Tutor mode (§4.9), the pacing `tutor` since Rev 32: `tutor` is her,
+        self.free = FreeCalls(self)           # §8, Rev 74
+        self.queued = ""                # the chosen next scene (§6.4)
+        self._scenarios_dealt: set[str] = set()   # once a game each (§6.5)
+        self._delays = random.Random()  # drawn `delay` ranges, from the seed (§6.1)
+        # Tutor mode (§7), the pacing `tutor` since Rev 32: `tutor` is her,
         # while a game runs in it.
         self.tutor: Tutor | None = None
         self._tutor_task: asyncio.Task | None = None
@@ -122,10 +122,10 @@ class Game:
         self._lessons: list[str] = []   # the scenes a tutored game starts with
         self._to_tutor: asyncio.Task | None = None    # back to tutor when stopped (Rev 44)
         self._active_at = time.time()                 # the player's last act (Rev 57)
-        self._sweep: asyncio.Task | None = None       # a board sweep (§7.6, Rev 50)
+        self._sweep: asyncio.Task | None = None       # a board sweep (§11.5, Rev 50)
         self._sweep_kind = ""
         # Station numbers to the script's line names, for holding a station
-        # under test out of dealing (§7.5).
+        # under test out of dealing (§11.4).
         self._station_lines: dict[int, frozenset[str]] = {}
         for line, st in gs.script.stations.items():
             n = (st or {}).get("number")
@@ -151,7 +151,7 @@ class Game:
 
         On a first connect that is a stopped game. On a reconnect it is the
         state as it stands, which after a broker loss is also a stopped game,
-        because losing the broker stops it (§3).
+        because losing the broker stops it (§2).
         """
         self.attach(link)
         assert self.slots is not None and self.log is not None
@@ -166,7 +166,7 @@ class Game:
         for j in self.gs.jacks:
             await link.state(f"board/{j.kind}/{j.number}/label", j.label)
             await link.state(f"board/{j.kind}/{j.number}/circuit", j.circuit)
-        # §4.8, §6.5, §7.5 (Rev 25).
+        # §6.4, §12.2, §11.4 (Rev 25).
         await link.state("game/scenes", "\n".join(self.gs.choosable()))
         await link.state("game/queue", self.queued)
         await link.state("game/tutor/intro", "")
@@ -212,7 +212,7 @@ class Game:
         log.warning("page: %s", text)
         await self.link.state("game/error", text)
 
-    # ---- page commands (§8) ---------------------------------------------
+    # ---- page commands (§13.2) ---------------------------------------------
 
     async def on_command(self, name: str, payload: str) -> None:
         """Quick by design: validate, echo, start or cancel, return."""
@@ -232,7 +232,7 @@ class Game:
                 return
 
             if name == "power_cut":
-                # §7.4, Rev 63: the switchboard reset by hand, "on"; §7.8,
+                # §10, Rev 63: the switchboard reset by hand, "on"; §11.7,
                 # Rev 65: switched off from the page, "hold", and on again,
                 # "off". Not held off during a game: it could not be played on
                 # a dark board. The reset is allowed in one (Rev 66): the
@@ -253,7 +253,7 @@ class Game:
                 return
 
             if name == "playback":
-                # §7.7, Rev 61: a recording on the loudspeaker, passed to the
+                # §11.6, Rev 61: a recording on the loudspeaker, passed to the
                 # audio program, which echoes audio/playback. Not during a
                 # game: it would play over the calls.
                 if not payload:
@@ -276,7 +276,7 @@ class Game:
                 return
 
             if name == "record":
-                # §7.7, Rev 61: the loudspeaker recording, passed to the audio
+                # §11.6, Rev 61: the loudspeaker recording, passed to the audio
                 # program, which owns the file and echoes audio/record. Not
                 # game state: it runs with or without a game, and Stop and
                 # Start leave it alone.
@@ -312,7 +312,7 @@ class Game:
                 return
 
             if name == "repeat":
-                # §4.9, Rev 34: the line she just finished, again. An event.
+                # §7, Rev 34: the line she just finished, again. An event.
                 if self.tutor is None or not self.tutor.repeat():
                     await self._error("repeat: nothing to repeat now, or the operator is speaking")
                     return
@@ -320,7 +320,7 @@ class Game:
                 return
 
             if name == "more":
-                # §4.9, Rev 31: the next part of her introduction. An event, as
+                # §7, Rev 31: the next part of her introduction. An event, as
                 # next is; a press with no further part is ignored. Rev 55: in
                 # a call, the full form of the short line she last said.
                 if self._more is not None:
@@ -336,7 +336,7 @@ class Game:
                     await self._error("next: no game is running")
                     return
                 if self._tutor_task is not None and (self._intro or self._unseen):
-                    # §4.9: Next during the introduction cuts it short, and
+                    # §7: Next during the introduction cuts it short, and
                     # during her line at the end of a call (Rev 70).
                     self._tutor_task.cancel()
                     await asyncio.gather(self._tutor_task, return_exceptions=True)
@@ -360,7 +360,7 @@ class Game:
                 self.pacing.pace = payload
                 await self._say(f"page: pace {payload}")
                 if self.running and payload == "tutor" and was != "tutor":
-                    # §4.9: she tutors from the next call; the introduction
+                    # §7: she tutors from the next call; the introduction
                     # and the lessons come only with Start.
                     self.tutor = self._new_tutor()
                     assert self.slots is not None
@@ -402,17 +402,17 @@ class Game:
                      on_more=self._more_state)
 
     async def _more_state(self, key: str) -> None:
-        """game/tutor/more (§4.9, Rev 55): the full line More Help would say."""
+        """game/tutor/more (§7, Rev 55): the full line More Help would say."""
         if self.link is not None:
             await self.link.state("game/tutor/more", key)
 
     async def _repeat_state(self, key: str) -> None:
-        """game/tutor/repeat (§4.9, Rev 34): the line Repeat Help would say."""
+        """game/tutor/repeat (§7, Rev 34): the line Repeat Help would say."""
         if self.link is not None:
             await self.link.state("game/tutor/repeat", key)
 
     async def _end_tutor(self) -> None:
-        """Her task cancelled, and her voice stopped (§4.9)."""
+        """Her task cancelled, and her voice stopped (§7)."""
         t, self._tutor_task = self._tutor_task, None
         if t is not None:
             t.cancel()
@@ -427,7 +427,7 @@ class Game:
             self.slots.timeless = False
 
     async def _diag_command(self, sub: str, payload: str) -> None:
-        """game/diag/<target>/<test>/set (§7.5, Rev 25)."""
+        """game/diag/<target>/<test>/set (§11.4, Rev 25)."""
         assert self.diag is not None
         target, _, test = sub.rpartition("/")
         if payload not in ("on", "off"):
@@ -449,7 +449,7 @@ class Game:
         await self.link.state("game/error", "")
 
     async def _sweep_command(self, payload: str) -> None:
-        """game/sweep/set: "trunks", "stations" or "off" (§7.6, Rev 50)."""
+        """game/sweep/set: "trunks", "stations" or "off" (§11.5, Rev 50)."""
         if payload not in (*sweep.KINDS, "off"):
             await self._error(f"sweep: {payload!r} is not trunks, stations or off")
             return
@@ -506,7 +506,7 @@ class Game:
 
     def _circuits_in_calls(self, free: bool = True) -> set[str]:
         """Every station and trunk a call in progress is using; and, unless
-        free is false, every one a free call is using (§4.12)."""
+        free is false, every one a free call is using (§8)."""
         out: set[str] = self.free.circuits() if free else set()
         assert self.slots is not None
         for call in self.slots:
@@ -519,18 +519,18 @@ class Game:
                 out.add(call.trunk)
         return out
 
-    # ---- start and stop (§3) --------------------------------------------
+    # ---- start and stop (§2) --------------------------------------------
 
     async def start(self) -> None:
         if self.running:
-            return                                  # ignored while running (§3)
+            return                                  # ignored while running (§2)
         assert self.link is not None and self.slots is not None and self.log is not None
-        await self._end_sweep()                     # §7.6: a game takes the board
+        await self._end_sweep()                     # §11.5: a game takes the board
         if self.b.get("ctl/power_cut") == "hold" and self.b.control_up and self.hw is not None:
-            await self.hw.power_cut("off")          # §3, Rev 65: and its power
+            await self.hw.power_cut("off")          # §2, Rev 65: and its power
             await self._say("switchboard powered for the game")
         if self.b.get("audio/playback") not in ("", "missing") and self.hw is not None:
-            await self.hw.playback("stop")          # §7.7: and the loudspeaker
+            await self.hw.playback("stop")          # §11.6: and the loudspeaker
         self.running = True
         self._active_at = time.time()
         self._disarm_idle()
@@ -540,7 +540,7 @@ class Game:
         self.tallies.zero()
         self.next_number = 1
         self.pacing.connected = 0
-        self.pacing.gap = self.cfg.gap              # the gap returns to configured (§3)
+        self.pacing.gap = self.cfg.gap              # the gap returns to configured (§2)
         self.deck = Deck(self.gs)
         self.pacing.seed(self.deck.seed)
         self._delays = random.Random(f"delays {self.deck.seed}")
@@ -553,17 +553,17 @@ class Game:
         self._decks_recorded = 1
         await self.log.clear()
         await self._say("game started")
-        await self._monitor("tap")                  # §6.4
+        await self._monitor("tap")                  # §9.1
         await self.link.state("game/run", "on")
         await self.link.state("game/error", "")
         await self._publish_tallies()
         self.pacing.next_at = None
         if self.pacing.pace == "tutor":
-            # §4.9: she introduces the board first, and the first call waits
+            # §7: she introduces the board first, and the first call waits
             # for Next Call, in every pacing (Rev 31).
             self.tutor = self._new_tutor()
             self.slots.timeless = True
-            # §4.9, Rev 30: one scene of each kind first, picked from the
+            # §7, Rev 30: one scene of each kind first, picked from the
             # game's seed apart from the deck's own shuffle, so a replay
             # picks the same and a restart most likely does not.
             self._lessons = pick_lessons(self.gs.lessons, self.deck.seed)
@@ -572,22 +572,22 @@ class Game:
             self._intro = True
             self._tutor_task = asyncio.create_task(self._tutor_intro(), name="tutor-intro")
         elif self.pacing.automatic:
-            await self._start_call()                # the first call at once (§3)
+            await self._start_call()                # the first call at once (§2)
         await self._publish_pacing()
 
     async def stop(self, why: str) -> None:
-        """Tear every call down at once. The tallies stay (§3)."""
+        """Tear every call down at once. The tallies stay (§2)."""
         if self.diag is not None:
-            await self.diag.end_all()               # every diagnostic (§7.5)
-        await self._end_sweep()                     # and a sweep (§7.6)
+            await self.diag.end_all()               # every diagnostic (§11.4)
+        await self._end_sweep()                     # and a sweep (§11.5)
         if self.queued and self.link is not None:
-            self.queued = ""                        # §4.8: Stop forgets it
+            self.queued = ""                        # §6.4: Stop forgets it
             await self.link.state("game/queue", "")
         if not self.running:
             return
         assert self.link is not None and self.slots is not None
         self.running = False
-        await self._end_tutor()                     # §4.9
+        await self._end_tutor()                     # §7
         for t in list(self._flows.values()):
             t.cancel()
         for t in list(self._afters.values()):
@@ -600,10 +600,10 @@ class Game:
         self._pending_after.clear()
         await self.slots.clear_all()
         self.pacing.next_at = None
-        await self._monitor("tap")                  # §6.4
+        await self._monitor("tap")                  # §9.1
         await self._say(f"game stopped: {why}" if why != "stop" else "game stopped")
         if self.b.control_up and self.hw is not None:
-            # §3, Rev 63: a trunk rung in holds its lamp and buzzer on the
+            # §2, Rev 63: a trunk rung in holds its lamp and buzzer on the
             # switchboard's own battery until a cord goes in; only the cut
             # clears it. Not waited for.
             await self.hw.power_cut()
@@ -614,7 +614,7 @@ class Game:
         await self._publish_pacing()
         self._arm_idle()
 
-    # ---- back to tutor when stopped (§4.9, Rev 44) ------------------------
+    # ---- back to tutor when stopped (§7, Rev 44) ------------------------
 
     def _disarm_idle(self) -> None:
         if self._to_tutor is not None and self._to_tutor is not asyncio.current_task():
@@ -645,7 +645,7 @@ class Game:
                 self._to_tutor = None
 
     async def _monitor(self, source: str, peer: str = "auto") -> None:
-        """The game moving the loudspeaker (§6.4), with the peer boost.
+        """The game moving the loudspeaker (§9.1), with the peer boost.
         That ends a monitor test."""
         if self.hw is None:
             return
@@ -660,9 +660,9 @@ class Game:
 
     def _held(self) -> list[Holding]:
         """What every call in progress and every waiting `after:` occupies,
-        and every free call (§4.12)."""
+        and every free call (§8)."""
         out = list(self._pending_after.values()) + self.free.holdings()
-        # A station under test is busy for dealing (§7.5).
+        # A station under test is busy for dealing (§11.4).
         if self.diag is not None:
             for c in self.diag.circuits():
                 kind, n = c.split("/")
@@ -676,7 +676,7 @@ class Game:
         return out
 
     def _wanted_stations(self) -> set[int]:
-        """The rooms the game calls not yet connected are to ring (§4.12):
+        """The rooms the game calls not yet connected are to ring (§8):
         a ring on one of them is that call's, not a free call's."""
         out: set[int] = set()
         for call in (self.slots if self.slots is not None else ()):
@@ -690,22 +690,22 @@ class Game:
         return any(not c.connected for c in self.slots)
 
     def _scenario_on_board(self) -> bool:
-        """Any call of a scenario in progress, or any of its scenes waiting (§4.10)."""
+        """Any call of a scenario in progress, or any of its scenes waiting (§6.5)."""
         assert self.slots is not None
         return (any(self.gs.in_scenario(c.scene) for c in self.slots)
                 or any(self.gs.in_scenario(i) for i in self._pending_after))
 
     def _scenario_allowed(self) -> bool:
-        """A scenario is never dealt in tutor mode or listen (§4.10)."""
+        """A scenario is never dealt in tutor mode or listen (§6.5)."""
         return self.tutor is None and self.pacing.pace in ("manual", "auto")
 
     def _idle(self) -> bool:
-        """Whether the automatic schedule may run now (§4.2).
+        """Whether the automatic schedule may run now (§5.2).
 
         Auto: no call is waiting to be connected. Listen (Rev 16): no call in
         progress at all and no `after:` scene waiting to start, so the next
         call comes only once the story on the board has been heard out.
-        Tutor mode (§4.9): as listen, and not while she is introducing the
+        Tutor mode (§7): as listen, and not while she is introducing the
         board or waiting for the cords out after a call.
         """
         assert self.slots is not None
@@ -714,14 +714,14 @@ class Game:
                     and self._tutor_task is None)
         if self.pacing.pace == "listen":
             return not any(True for _ in self.slots) and not self._pending_after
-        # §4.10: a scenario on the board holds the schedule until it is over.
+        # §6.5: a scenario on the board holds the schedule until it is over.
         return not self._waiting_to_connect() and not self._scenario_on_board()
 
     async def _reschedule(self, keep: bool = False) -> None:
         """Schedule the next call if the board is idle for the pace, else clear it.
 
         keep: a start already scheduled stands. A call that ends after it was
-        connected must not restart the gap its connection began (§4.2).
+        connected must not restart the gap its connection began (§5.2).
         """
         if self._idle():
             if not (keep and self.pacing.next_at is not None):
@@ -731,7 +731,7 @@ class Game:
         await self._publish_pacing()
 
     def _free_trunk(self) -> int | None:
-        """A trunk fitted and in service (§6.5), idle, and not under test (§7.5);
+        """A trunk fitted and in service (§12.2), idle, and not under test (§11.4);
         of those, the one whose seizure changed longest ago (Rev 85). A trunk
         whose station has just hung up reads idle with the operator's cord still
         in its jack, since the game cannot see a cord without a loop."""
@@ -767,10 +767,10 @@ class Game:
             return
 
         if scene is None and self.queued:
-            # §4.8: the chosen scene, if its lines and people are free.
+            # §6.4: the chosen scene, if its lines and people are free.
             q = self.gs.scenes.get(self.queued)
             if q is not None and q.after_handled is not None and self.tutor is None:
-                # §4.10, Rev 40: a chosen scenario, in any pacing but tutor,
+                # §6.5, Rev 40: a chosen scenario, in any pacing but tutor,
                 # waits for a clear board, and nothing else is dealt meanwhile.
                 if any(True for _ in self.slots) or self._pending_after:
                     why = "waiting for the board to clear"
@@ -785,13 +785,13 @@ class Game:
                 scene = q
                 self.queued = ""
                 if q.after_handled is not None:
-                    # §4.10, Rev 49: a chosen scenario is its play for the game.
+                    # §6.5, Rev 49: a chosen scenario is its play for the game.
                     self._scenarios_dealt.add(q.id)
                 assert self.link is not None
                 await self.link.state("game/queue", "")
                 await self._say(f"chosen scene {q.id} dealt")
         if scene is None and self._scenario_allowed():
-            # §4.10: a scenario, once enough calls have been handled.
+            # §6.5: a scenario, once enough calls have been handled.
             for q in self.gs.scenarios():
                 if (q.id not in self._scenarios_dealt
                         and self.tallies.handled >= (q.after_handled or 0)
@@ -802,8 +802,8 @@ class Game:
                                     f"{self.tallies.handled} calls handled")
                     break
         if scene is None and self.tutor is not None and self._lessons:
-            # §4.9, Rev 30: the next lesson, taken out of the deck as a
-            # chosen scene is (§4.8).
+            # §7, Rev 30: the next lesson, taken out of the deck as a
+            # chosen scene is (§6.4).
             q = self.gs.scenes.get(self._lessons.pop(0))
             if q is not None and self.deck.take(q, self._held()):
                 scene = q
@@ -817,7 +817,7 @@ class Game:
                 if self.pacing.automatic:
                     await self._reschedule()        # try again after gap_now
                 return
-            # deal() reshuffles when the deck runs out (§4.4). Record each new
+            # deal() reshuffles when the deck runs out (§6.1). Record each new
             # order for the replay, and log it, which the specification asks for.
             while self._decks_recorded < len(self.deck.orders):
                 self._decks_recorded += 1
@@ -837,7 +837,7 @@ class Game:
                     await self._error("no free trunk")
                 return
 
-        await self._waiting("")                     # §4.9, Rev 33
+        await self._waiting("")                     # §7, Rev 33
         call = Call(slot=slot, number=self.next_number, scene=scene.id,
                     from_line=scene.from_line, to_line=scene.to_line)
         self.next_number += 1
@@ -849,14 +849,14 @@ class Game:
         self.session.call_started(call.number, scene.id, scene.from_line, scene.to_line)
 
         # A call is out and unconnected: nothing is scheduled until it connects
-        # or ends (§4.2).
+        # or ends (§5.2).
         self.pacing.waiting_to_connect()
         await self._publish_pacing()
 
         self._flows[slot] = asyncio.create_task(
             self._run_call(call, scene, trunk), name=f"call-{call.number}")
 
-        # §4.4, Rev 39: a `mode: concurrent` follower is timed from this start.
+        # §6.1, Rev 39: a `mode: concurrent` follower is timed from this start.
         for follower in self.gs.followers(scene.id):
             if follower.concurrent:
                 self._schedule_after(follower)
@@ -865,7 +865,7 @@ class Game:
         assert self.slots is not None and self.hw is not None
         cfg = self.cfg
         if self.tutor is not None:
-            # §4.9: nobody fails for being slow while she teaches.
+            # §7: nobody fails for being slow while she teaches.
             cfg = dataclasses.replace(cfg, answer_timeout=NO_LIMIT,
                                       connect_timeout=NO_LIMIT)
         ctx = Ctx(board=self.b, hw=self.hw, cfg=cfg, slots=self.slots,
@@ -902,7 +902,7 @@ class Game:
                 await self._finish_call(call, scene, outcome)
 
     async def _connected(self, call: Call) -> None:
-        """The §4.3 milestone: the operator's routing work is done."""
+        """The §3.3 milestone: the operator's routing work is done."""
         if call.connected:
             return
         call.connected = True
@@ -926,12 +926,12 @@ class Game:
         await self._publish_tallies()
 
         if self.tutor is not None and self.running:
-            # §4.9: she sees the call down; nothing is dealt meanwhile.
+            # §7: she sees the call down; nothing is dealt meanwhile.
             self._intro = self._unseen = False
             self._tutor_task = asyncio.create_task(
                 self._tutor_hangup(call, scene), name=f"tutor-hangup-{call.number}")
 
-        # §4.4: an `after:` scene follows only if this call was connected.
+        # §6.1: an `after:` scene follows only if this call was connected.
         # A concurrent one was scheduled when this call started.
         for follower in self.gs.followers(scene.id):
             if follower.concurrent:
@@ -944,10 +944,10 @@ class Game:
 
         await self._reschedule(keep=True)
 
-    # ---- tutor mode (§4.9) ------------------------------------------------
+    # ---- tutor mode (§7) ------------------------------------------------
 
     async def _waiting(self, what: str) -> None:
-        """game/tutor/waiting (§4.9, Rev 33): she has finished and waits for
+        """game/tutor/waiting (§7, Rev 33): she has finished and waits for
         More Help or Next Call ("more"), or Next Call alone ("next"), so the
         deck can flash the key. Empty otherwise."""
         if self.link is None or what == self._waiting_for:
@@ -959,7 +959,7 @@ class Game:
             pass
 
     async def _tutor_intro(self) -> None:
-        """Her introduction, a part at a time (§4.9, Rev 31).
+        """Her introduction, a part at a time (§7, Rev 31).
 
         After each part but the last she waits for More Help, which also cuts
         a part short; after the last, for Next Call, in every pacing. Next
@@ -1031,13 +1031,13 @@ class Game:
         if self.running:
             await self._reschedule()
 
-    # ---- `after:` scenes (§4.4) -----------------------------------------
+    # ---- `after:` scenes (§6.1) -----------------------------------------
 
     def _schedule_after(self, scene: SceneDef) -> None:
         self._pending_after[scene.id] = Holding(frozenset(scene.needs),
                                                 self.gs.needs_people(scene.id))
         delay = scene.delay
-        if scene.delay_max > scene.delay:           # a range (§4.4, Rev 39)
+        if scene.delay_max > scene.delay:           # a range (§6.1, Rev 39)
             delay = self._delays.uniform(scene.delay, scene.delay_max)
         self._afters[scene.id] = asyncio.create_task(
             self._after_timer(scene, delay), name=f"after-{scene.id}")
@@ -1049,7 +1049,7 @@ class Game:
             await self._say(f"{scene.id} follows in {secs}s, at "
                             f"{time.strftime('%H:%M:%S', time.localtime(at))}")
             await asyncio.sleep(delay)
-            # Its lines may still be busy in another call: wait for them (§4.4).
+            # Its lines may still be busy in another call: wait for them (§6.1).
             # A concurrent one waits for a free slot too, rather than being lost.
             while self.running:
                 mine = self._pending_after.get(scene.id)
@@ -1077,7 +1077,7 @@ class Game:
             self._pending_after.pop(scene.id, None)
             raise
 
-    # ---- the scheduler (§4.2) -------------------------------------------
+    # ---- the scheduler (§5.2) -------------------------------------------
 
     async def run_scheduler(self) -> None:
         """Start a call when the automatic gap has elapsed."""
@@ -1097,11 +1097,11 @@ class Game:
                 log.exception("scheduler")
                 await asyncio.sleep(1)
 
-    # ---- losing a client (§3) -------------------------------------------
+    # ---- losing a client (§2) -------------------------------------------
 
     def _wrong_ring(self, ch: Change) -> tuple[Call, str] | None:
         """The call and her line, when a ring just ended on the wrong cord of
-        a call in progress, not yet told this call (§6.7, Rev 88)."""
+        a call in progress, not yet told this call (§7.7, Rev 88)."""
         if self.slots is None:
             return None
         if m := _TRUNK_FAULT.match(ch.key):
@@ -1131,7 +1131,7 @@ class Game:
 
     def _trunk_call(self, trunk: str) -> tuple[Call, Shape] | None:
         """The call holding this trunk, else a call out whose trunk is not
-        yet known (§6.7)."""
+        yet known (§7.7)."""
         assert self.slots is not None
         calls = [(c, self.gs.scenes[c.scene].shape) for c in self.slots]
         held = [(c, s) for c, s in calls if c.trunk == trunk]
@@ -1142,7 +1142,7 @@ class Game:
 
     def _rear_check(self, ch: Change) -> None:
         """Start the wait when a trunk hears the operator unseized, which
-        only a rear cord in it does (§6.7, Rev 93); any change ends it."""
+        only a rear cord in it does (§7.7, Rev 93); any change ends it."""
         if not (m := _TRUNK_OP_SEIZE.match(ch.key)):
             return
         n = int(m[1])
@@ -1166,7 +1166,7 @@ class Game:
         await self._hint(c, "rear-in-trunk")
 
     async def _hint(self, call: Call, key: str) -> None:
-        """Her line for a wrong cord, on the monitor, in any pacing (§6.7)."""
+        """Her line for a wrong cord, on the monitor, in any pacing (§7.7)."""
         await self._say(f"wrong cord: {key}", call.number)
         sp = self.gs.tutor.get(key)
         if sp is None or self.hw is None:

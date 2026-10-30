@@ -91,7 +91,7 @@ class Diagnostics:
 
     async def _start(self, target: str, test: str) -> None:
         key = (target, test)
-        if test in ("tone", "voice"):                   # exclusive on one target (§7.5)
+        if test in ("tone", "voice"):                   # exclusive on one target (§11.4)
             other = "voice" if test == "tone" else "tone"
             if (target, other) in self.on:
                 await self._end(target, other)
@@ -135,18 +135,18 @@ class Diagnostics:
             elif test == "monitor":
                 self.monitor_target = ""
                 if restore:
-                    await self.hw.monitor_source(TAP)   # §7.5: back to the tap
+                    await self.hw.monitor_source(TAP)   # §11.4: back to the tap
         except Offline as e:
             log.warning("ending %s %s: %s", target, test, e)
         await self._echo(key)
 
     async def monitor_moved(self) -> None:
-        """Something other than a monitor test moved the loudspeaker (§6.4)."""
+        """Something other than a monitor test moved the loudspeaker (§9.1)."""
         if self.monitor_target:
             await self._end(self.monitor_target, "monitor", restore=False)
 
     async def end_all(self) -> None:
-        """Stop, a lost client, a restart: every test ends (§3)."""
+        """Stop, a lost client, a restart: every test ends (§2)."""
         for target, test in sorted(self.on):
             await self._end(target, test)
 

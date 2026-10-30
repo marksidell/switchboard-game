@@ -1,5 +1,5 @@
 # The Stream Deck+ (Elgato 0fd9:0084) for the sbgame-deck user, which runs
-# sbgame-streamdeck (game_control.md 7.4). hidapi's libusb backend opens the
+# sbgame-streamdeck (game_control.md 10). hidapi's libusb backend opens the
 # USB device node; the hidraw line covers the hidraw backend as well.
 SUBSYSTEM=="usb", ATTRS{idVendor}=="0fd9", ATTRS{idProduct}=="0084", GROUP="sbgame-deck", MODE="0660"
 KERNEL=="hidraw*", ATTRS{idVendor}=="0fd9", ATTRS{idProduct}=="0084", GROUP="sbgame-deck", MODE="0660"

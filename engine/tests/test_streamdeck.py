@@ -1,6 +1,6 @@
 """The Stream Deck program's rules, without a deck or a broker.
 
-Panel is driven directly with explicit times, so every rule of §7.4 can be
+Panel is driven directly with explicit times, so every rule of §10 can be
 checked: what each key publishes and when it does nothing, Stop's second
 press, Next Call's guard, the dials' target, the error on the strip, and
 staleness. Then the images are drawn once through a FileSurface, so a drawing
@@ -71,14 +71,14 @@ def main() -> int:
           "back in auto dial 1 is gap again, from gap's echo, not pause's target")
     check(p.on_key(4, 0) == [] and p.on_key(5, 0) == [], "tally keys publish nothing")
 
-    print("== the ring cue is not her voice (§6.6, Rev 51)")
+    print("== the ring cue is not her voice (§9.2, Rev 51)")
     c = live()
     c.on_message("audio/monitor/play", "cue.ringback", 0)
     check(not c.tutor_speaking(), "the cue on the monitor is not the tutor speaking")
     c.on_message("audio/monitor/play", "tutor.answer-station", 0)
     check(c.tutor_speaking(), "her line is")
 
-    print("== board sweeps (§7.6, Rev 62)")
+    print("== board sweeps (§11.5, Rev 62)")
     w = live()
     w.game_stale = lambda now: False     # the heartbeat is not what is under test
     check(w.on_key(4, 0) == [], "key 5 once does nothing")
@@ -103,7 +103,7 @@ def main() -> int:
     w.on_message("game/run", "on", 4.3)
     check(w.on_key(4, 5.0) == [] and w.on_key(4, 5.2) == [], "nothing while a game runs")
 
-    print("== switchboard reset: key 5 held 2s (§7.4, Rev 63)")
+    print("== switchboard reset: key 5 held 2s (§10, Rev 63)")
     r = live()
     r.game_stale = lambda now: False
     check(r.on_key(4, 10.0) == [], "the press sends nothing")

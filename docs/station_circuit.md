@@ -825,7 +825,7 @@ Set MARGIN_DB, PEER_WINDOW_DB and OP_WINDOW_DB empirically against a real cord-p
 
 ## 8.8 Audience Monitor Feed
 
-The audience loudspeaker is fed from one receive channel at a time. By default it is the operator tap strip’s. During a game it is the calling line of the call the operator most recently answered, chosen by the game program (audio.md §10.3, game_control.md §6.4). Rev 3.24 through Rev 3.40 fed it from the tap strip alone. The operator leaves a call when she throws the ring key to ring the called party, so the tap carried each request and none of the conversation; §14.41 records the change.
+The audience loudspeaker is fed from one receive channel at a time. By default it is the operator tap strip’s. During a game it is the calling line of the call the operator most recently answered, chosen by the game program (audio.md §10.3, game_control.md §9.1). Rev 3.24 through Rev 3.40 fed it from the tap strip alone. The operator leaves a call when she throws the ring key to ring the called party, so the tap carried each request and none of the conversation; §14.41 records the change.
 
 Feeding the loudspeaker is the tap channel’s only job: operator connectivity is detected per circuit from bin 768 (§8.7), and the tap channel takes no part in it. Rev 3.24 through Rev 3.27 had the tap channel doing detection as well, and treated its reading as the authoritative one; §14.28 records why that was withdrawn. A station or trunk channel used as the source keeps its other jobs. The monitor reads a copy of it.
 
@@ -1281,7 +1281,7 @@ The cable alone accounts for most of it, and the coupling is the same between ev
 
 ## 14.41 Changes in Rev 3.41
 
-—  The audience loudspeaker is no longer fed from the tap strip alone. The audio program can take the monitor from any station’s or trunk’s receive channel as well as from the tap’s, and the game program points it at the calling line of the call the operator most recently answered. Mark’s decision, 2026-09-24; audio.md Rev 8 §10.3 and game_control.md Rev 6 §6.4 carry it. The operator leaves a call when she throws the ring key to ring the called party, so a monitor fed only from her talking path carried each request and none of the conversation. A calling line’s receive channel carries both sides: its own transmit returns at full strength, since the interface has no hybrid (§8.4), and the far end arrives through the cord.
+—  The audience loudspeaker is no longer fed from the tap strip alone. The audio program can take the monitor from any station’s or trunk’s receive channel as well as from the tap’s, and the game program points it at the calling line of the call the operator most recently answered. Mark’s decision, 2026-09-24; audio.md Rev 8 §10.3 and game_control.md Rev 6 §9.1 carry it. The operator leaves a call when she throws the ring key to ring the called party, so a monitor fed only from her talking path carried each request and none of the conversation. A calling line’s receive channel carries both sides: its own transmit returns at full strength, since the interface has no hybrid (§8.4), and the far end arrives through the cord.
 
 —  §8.8 is corrected: it said the tap strip’s receive channel feeds the loudspeaker and that this is its only job. Monitoring is still its only job, since it takes no part in detection, but it is now the default monitor source rather than the only one. §7.9 and §7.9.6 follow in a sentence each, and the §9.10 summary names the new command (mqtt.md Rev 13).
 

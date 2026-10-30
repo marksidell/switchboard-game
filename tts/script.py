@@ -41,15 +41,15 @@ MIN_STATION, MAX_STATION = 1, 22
 PHONE_STATION = 24
 
 # The switchboard's own jacks, which are not the game's circuits: 30 station
-# jacks and 10 trunk jacks (game_control.md 6.3). Which circuit is cabled to
+# jacks and 10 trunk jacks (game_control.md 12.1). Which circuit is cabled to
 # which jack, and what every jack is labelled, is Mark's choice and changes
 # when he recables, so it lives in script.yml's jacks: rather than here.
 MIN_JACK, MAX_JACK = 1, 30
 
-# A conversation line's pause: and ringback:, in seconds (game_control.md 4.6).
+# A conversation line's pause: and ringback:, in seconds (game_control.md 6.2).
 MAX_PAUSE, MAX_RINGBACK = 30, 30
 
-# The player's own lines (game_control.md 4.7, Rev 22). The game never plays
+# The player's own lines (game_control.md 6.3, Rev 22). The game never plays
 # them — the person at the board says them — but the TTS run renders them in
 # this cast member's voice, for recordings of whole conversations
 # (tts/scenes --batch). `operator` in the cast is the long-distance operator.
@@ -58,7 +58,7 @@ HOTEL_OPERATOR = "hotel_operator"
 # were a scene of that name, so no scene may take it.
 OPERATOR_SCENE = "operator"
 
-# Tutor mode's lines (game_control.md 4.9, Rev 29), under tutor:, are said by
+# Tutor mode's lines (game_control.md 7, Rev 29), under tutor:, are said by
 # this cast member and named tutor.<key>, so no scene may take the name. Each
 # key is listed with the one placeholder it takes, if any; a template is
 # rendered once per value (see _tutor_lines()).
@@ -71,7 +71,7 @@ TUTOR_KEYS: dict[str, str | None] = {
     "trunk-front": None, "dial": "number", "dial-operator": None,
     "center-dialled": None, "center": None, "busy-heard": None,
     "hangup-pair": None, "hangup-one": None, "ready-manual": None,
-    # Ringing the wrong cord, in every pacing (game_control.md 6.7, Rev 88).
+    # Ringing the wrong cord, in every pacing (game_control.md 7.7, Rev 88).
     "rang-trunk": None, "rang-outside": None, "rang-caller": None,
     "rear-in-trunk": None,                      # Rev 93
 }
@@ -82,7 +82,7 @@ TUTOR_KEYS: dict[str, str | None] = {
 #   hello  - they have answered and nobody is on the line
 #   wrong  - the operator has put them through to the wrong party
 REACTIONS = ("nudge", "hello", "wrong")
-# Free calls, Lenny mode (game_control.md 4.12, Rev 74), under freecall:,
+# Free calls, Lenny mode (game_control.md 8, Rev 74), under freecall:,
 # per cast member: a greeting:, the lines: said once in order, and the loop:
 # said round and round after them. Named free.<cast>.g for the greeting and
 # free.<cast>.<n>, 1 up, for the rest in the order they are said.
@@ -135,20 +135,20 @@ class Utterance:
     # party on that side is the speaker; a line's own person: overrides that.
     role: str = "caller"
     # wait: true — the game plays it only after the operator has spoken on
-    # that side and stopped (game_control.md 4.6).
+    # that side and stopped (game_control.md 6.2).
     wait: bool = False
     # Seconds of silence before it, and seconds of ringback on the trunk
-    # before it, after any wait (game_control.md 4.6, Rev 20).
+    # before it, after any wait (game_control.md 6.2, Rev 20).
     pause: float = 0.0
     ringback: float = 0.0
     # The game waits for the operator to speak before this line: the request,
     # a wait: line, every line of a call to the operator or a busy call.
     after_operator: bool = False
     # What she says there, if the script gives it: the name of an operator
-    # line, operator.<id> or <scene>.<id>, else "" (game_control.md 4.7).
+    # line, operator.<id> or <scene>.<id>, else "" (game_control.md 6.3).
     operator: str = ""
     # One of the scene's if_busy: lines, played only when the called station
-    # is found engaged (game_control.md 4.11, Rev 39), not in the conversation.
+    # is found engaged (game_control.md 6.6, Rev 39), not in the conversation.
     if_busy: bool = False
 
     @property
@@ -173,21 +173,21 @@ class Script:
     # "guest": str | None}
     jacks: list[dict] = field(default_factory=list)
     utterances: list[Utterance] = field(default_factory=list)
-    # operator_lines: key -> the stock line's utterance (game_control.md 4.7)
+    # operator_lines: key -> the stock line's utterance (game_control.md 6.3)
     operator_lines: dict[str, Utterance] = field(default_factory=dict)
     # scene id -> the name of the operator line that closes it, if any
     closings: dict[str, str] = field(default_factory=dict)
     # tutor mode's lines, by key: "intro", "ring-front-lobby", "dial-pizza",
-    # "say-operator.1" (game_control.md 4.9). Empty without a tutor: section.
+    # "say-operator.1" (game_control.md 7). Empty without a tutor: section.
     tutor: dict[str, Utterance] = field(default_factory=dict)
     # reactions:, by kind and then speaker: reactions["nudge"]["martha"]
-    # (game_control.md 5, Rev 60). Empty without a reactions: section.
+    # (game_control.md 3.5, Rev 60). Empty without a reactions: section.
     reactions: dict[str, dict[str, Utterance]] = field(default_factory=dict)
     # freecall:, by cast member: {"greeting": Utterance, "lines": [...],
-    # "loop": [...]} (game_control.md 4.12, Rev 74). Empty without it.
+    # "loop": [...]} (game_control.md 8, Rev 74). Empty without it.
     freecall: dict[str, dict] = field(default_factory=dict)
     # tutor: lessons:, the scenes a tutored game starts with, one picked from
-    # each group (game_control.md 4.9, Rev 30). Empty without it.
+    # each group (game_control.md 7, Rev 30). Empty without it.
     lessons: list[list[str]] = field(default_factory=list)
 
     def by_speaker(self) -> dict[str, list[Utterance]]:
@@ -207,7 +207,7 @@ class Script:
                 and not u.if_busy]
 
     def busy_lines(self, scene_id: str) -> list[Utterance]:
-        """A scene's if_busy: lines, in order (game_control.md 4.11, Rev 39)."""
+        """A scene's if_busy: lines, in order (game_control.md 6.6, Rev 39)."""
         return [u for u in self.utterances if u.scene == scene_id and u.if_busy]
 
     def by_name(self) -> dict[str, Utterance]:
@@ -330,7 +330,7 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
             else:
                 seen_station[number] = name
 
-    # --- jacks (game_control.md 6.3) -----------------------------------------
+    # --- jacks (game_control.md 12.1) -----------------------------------------
     # Every station jack the board draws, with its label, and the station
     # cabled to it if any. The game program refuses to start without a jack
     # for every station — the page builds the board from these alone, and a
@@ -377,7 +377,7 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
                       "guest": guest.strip() if isinstance(guest, str) and guest.strip() else None})
     for name in stations:
         if name not in jack_of:
-            bad(f"stations.{name}", "on no jack: name it as station: under jacks: (game_control.md 6.3)")
+            bad(f"stations.{name}", "on no jack: name it as station: under jacks: (game_control.md 12.1)")
         extra = sorted(set(stations[name] or {}) - {"number"})
         if extra:
             bad(f"stations.{name}", f"unknown key(s): {', '.join(map(str, extra))}"
@@ -398,7 +398,7 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
         else:
             seen_outside[number] = name
 
-    # --- the operator's stock lines (game_control.md 4.7) ---------------------
+    # --- the operator's stock lines (game_control.md 6.3) ---------------------
     utterances: list[Utterance] = []
     stock: dict[str, Utterance] = {}
     op_lines = data.get("operator_lines") or {}
@@ -460,13 +460,13 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
         if parties["caller"] is None and not isinstance(scene.get("calling"), dict):
             bad(f"scenes.{scene_id}.calling", "missing")
 
-        # active: the game plays the scene (game_control.md 4.4); TTS renders
+        # active: the game plays the scene (game_control.md 6.1); TTS renders
         # every scene regardless, so a new one can be rendered before it plays
         active = scene.get("active")
         if not isinstance(active, bool):
             bad(f"scenes.{scene_id}.active", f"missing or not true/false: {active!r}")
 
-        # after: names a scene. Chains are allowed (game_control.md 4.4, Rev 19);
+        # after: names a scene. Chains are allowed (game_control.md 6.1, Rev 19);
         # loops and a scene with two followers are checked below, over all scenes.
         after = scene.get("after")
         if after is not None:
@@ -495,7 +495,7 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
                 bad(f"scenes.{scene_id}.mode", f"not concurrent: {scene['mode']!r}")
             elif after is None:
                 bad(f"scenes.{scene_id}.mode", "only on a scene with after:")
-        # after_handled: the first scene of a scenario (game_control.md 4.10).
+        # after_handled: the first scene of a scenario (game_control.md 6.5).
         if "after_handled" in scene:
             n = scene["after_handled"]
             if not isinstance(n, int) or isinstance(n, bool) or n < 0:
@@ -504,7 +504,7 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
                 bad(f"scenes.{scene_id}.after_handled", "not on a scene with after:")
 
         # if_busy: caller lines for a called station found engaged
-        # (game_control.md 4.11, Rev 39). Only between two rooms.
+        # (game_control.md 6.6, Rev 39). Only between two rooms.
         if "if_busy" in scene:
             at = f"scenes.{scene_id}.if_busy"
             ib = scene["if_busy"]
@@ -565,7 +565,7 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
             if "ringback" in line:
                 # Ringback is a trunk tone: it can only be heard on a line spoken
                 # on a trunk — the called side of a call out, or the calling side
-                # of a call in (game_control.md 4.6, Rev 21).
+                # of a call in (game_control.md 6.2, Rev 21).
                 side = called_party if "called" in line else scene.get("calling")
                 on = side.get("line") if isinstance(side, dict) else None
                 if on not in outside or waits_anyway:
@@ -658,7 +658,7 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
 
         # closing: what she says after the last line, before she pulls the
         # cord. Only where she is still on the line with the caller: a call to
-        # the operator, or a busy call (game_control.md 4.7).
+        # the operator, or a busy call (game_control.md 6.3).
         if "closing" in scene:
             at = f"scenes.{scene_id}.closing"
             if not waits_anyway:
@@ -674,7 +674,7 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
         if not seen_id:
             bad(f"scenes.{scene_id}", "has no utterances")
 
-    # --- after: chains (game_control.md 4.4) ---------------------------------
+    # --- after: chains (game_control.md 6.1) ---------------------------------
     # One follower per scene: two would each wait for the other's people to
     # come free, and neither would ever start. And no loop, which would never
     # reach the deck at all.
@@ -695,17 +695,17 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
             seen.add(at)
             at = after_of[at]
 
-    # --- the tutor (game_control.md 4.9) -------------------------------------
+    # --- the tutor (game_control.md 7) -------------------------------------
     tutor = _tutor_lines(data.get("tutor"), cast, board, stations, outside,
                          utterances, bad, scenes)
     utterances.extend(tutor.values())
 
-    # --- what a party says when left hanging (game_control.md 5, Rev 60) ----
+    # --- what a party says when left hanging (game_control.md 3.5, Rev 60) ----
     reactions = _reactions(data.get("reactions"), cast, bad)
     for by_speaker in reactions.values():
         utterances.extend(by_speaker.values())
 
-    # --- free calls, Lenny mode (game_control.md 4.12, Rev 74) --------------
+    # --- free calls, Lenny mode (game_control.md 8, Rev 74) --------------
     freecall = _freecall(data.get("freecall"), cast, bad)
     for entry in freecall.values():
         utterances.extend([entry["greeting"], *entry["lines"], *entry["loop"]])
@@ -724,7 +724,7 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
 
 
 def scene_kind(scene: dict, stations: dict) -> str:
-    """Which kind of call a scene is, as game_control.md 4.3 tells them apart."""
+    """Which kind of call a scene is, as game_control.md 3.3 tells them apart."""
     called = scene.get("called")
     if not isinstance(called, dict):
         return "to the operator"
@@ -828,7 +828,7 @@ DIAL_WORDS = ("zero",) + DIGIT_WORDS[1:]
 
 def dial_digits(number: str, exchanges: dict[str, str]) -> str:
     """What the player dials, a digit at a time: 783-2250, Sunset three, as
-    "seven, eight, three, two, two, five, zero" (game_control.md 4.9, Rev 69).
+    "seven, eight, three, two, two, five, zero" (game_control.md 7, Rev 69).
     The exchange's letters are dialled as their digits, and the commas give
     the voice a beat between them. Zero, not "oh": she is naming a hole in
     the dial, not reading a number from a card."""
@@ -852,14 +852,14 @@ def _tutor_lines(raw: object, cast: dict, board: list[dict], stations: dict,
     if TUTOR not in cast:
         bad("cast", f"no {TUTOR}, who speaks the lines under tutor:")
     for key in sorted(set(map(str, raw)) - set(TUTOR_KEYS) - {"lessons", BRIEF}):
-        bad(f"tutor.{key}", "is not one of the tutor's lines (game_control.md 4.9)")
+        bad(f"tutor.{key}", "is not one of the tutor's lines (game_control.md 7)")
     brief = raw.get(BRIEF) or {}
     if not isinstance(brief, dict):
         bad(f"tutor.{BRIEF}", "not a mapping")
         brief = {}
     for key in sorted(set(map(str, brief)) - set(BRIEF_KEYS)):
         bad(f"tutor.{BRIEF}.{key}", "has no short form: not one of "
-            + ", ".join(BRIEF_KEYS) + " (game_control.md 4.9, Rev 55)")
+            + ", ".join(BRIEF_KEYS) + " (game_control.md 7, Rev 55)")
 
     def checked(key: str, text: object, at: str) -> str | None:
         field_ = TUTOR_KEYS[key]
@@ -928,7 +928,7 @@ def _tutor_lines(raw: object, cast: dict, board: list[dict], stations: dict,
                         "number": number_words(number, ex),
                         DIGITS_FIELD: dial_digits(number, ex)}))
         elif field_ == "line":
-            # A scenario is never played in tutor mode (game_control.md 4.10),
+            # A scenario is never played in tutor mode (game_control.md 6.5),
             # so she needs no Say for a line only a scenario uses.
             scenario = _scenario_scenes(scenes or {})
             used: dict[str, set[str]] = {}
@@ -975,7 +975,7 @@ def _reactions(raw: object, cast: dict, bad) -> dict[str, dict[str, Utterance]]:
 
 
 def _freecall(raw: object, cast: dict, bad) -> dict[str, dict]:
-    """freecall: expanded into each answerer's utterances (game_control.md 4.12)."""
+    """freecall: expanded into each answerer's utterances (game_control.md 8)."""
     if raw is None:
         return {}
     if not isinstance(raw, dict):
@@ -1022,7 +1022,7 @@ def _freecall(raw: object, cast: dict, bad) -> dict[str, dict]:
 
 def _scenario_scenes(scenes: dict) -> set[str]:
     """Each scenario's scenes: its first, with after_handled:, and the
-    mode: concurrent followers down its chain (game_control.md 4.10)."""
+    mode: concurrent followers down its chain (game_control.md 6.5)."""
     out = {i for i, sc in scenes.items() if isinstance(sc, dict) and "after_handled" in sc}
     grew = True
     while grew:

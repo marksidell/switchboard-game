@@ -32,7 +32,7 @@ class Deck:
     def __init__(self, gs: GameScript, seed: int | None = None) -> None:
         self.gs = gs
         # The seed goes in the SQLite session record so a game can be replayed
-        # (§4.4). It is not published: the page is not told the order.
+        # (§6.1). It is not published: the page is not told the order.
         self.seed = random.randrange(2**32) if seed is None else seed
         self._rng = random.Random(self.seed)
         self._cards: list[str] = []
@@ -53,7 +53,7 @@ class Deck:
         self.orders.append(list(cards))
 
     def _free(self, scene: SceneDef, held: list[Holding]) -> bool:
-        # A scene with if_busy: is dealt though its called line is busy (§4.11).
+        # A scene with if_busy: is dealt though its called line is busy (§6.6).
         lines = set(scene.needs)
         people = set(self.gs.needs_people(scene.id))
         for h in held:
@@ -66,7 +66,7 @@ class Deck:
 
         Returns the scene and "", or None and the reason nothing could be
         dealt — which the caller logs, and reports on game/error if the page
-        asked for the call (§4.1).
+        asked for the call (§5.1).
         """
         if not self.gs.deck_scenes():
             return None, "no scenes in the script"
@@ -89,7 +89,7 @@ class Deck:
         return None, "every scene is using a busy line"
 
     def take(self, scene: SceneDef, held: list[Holding]) -> bool:
-        """Deal this scene next if it is free (§4.8, Rev 25), taking it out of
+        """Deal this scene next if it is free (§6.4, Rev 25), taking it out of
         the current deck so it does not come round again before the reshuffle."""
         if not self._free(scene, held):
             return False

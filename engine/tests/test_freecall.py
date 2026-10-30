@@ -148,7 +148,7 @@ async def until(b: Board, pred, t: float = 5.0):
 
 
 async def phone_to_room() -> None:
-    print("\n== the phone, put through to room 403 (§4.12)")
+    print("\n== the phone, put through to room 403 (§8)")
     g = StubGame()
     await g.live()
     runner = asyncio.create_task(g.free.run())
@@ -221,7 +221,7 @@ async def cord_out_then_again() -> None:
 
 
 async def nobody_patched() -> None:
-    print("\n== a room answers and no cord comes (§5, Rev 60)")
+    print("\n== a room answers and no cord comes (§3.5, Rev 60)")
     g = StubGame()
     await g.live()
     runner = asyncio.create_task(g.free.run())

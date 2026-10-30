@@ -13,14 +13,14 @@ so the game tightens as it goes. A change to gap, ramp, floor or jitter takes
 effect at the next scheduling, not on a call already scheduled, which is why
 the value is read when the timer is set rather than held.
 
-`jitter` (§4.3, Rev 12) takes the regularity out: each wait is drawn evenly
+`jitter` (§5.4, Rev 12) takes the regularity out: each wait is drawn evenly
 from gap_now × (1 ± jitter/100). Its mean is still gap_now, so the pace the
 three settings describe is unchanged and only the rhythm goes. The floor
 bounds gap_now, the centre, and not the draw — bounding the draw would push
 the short ones up to the floor and lift the mean near it. The draws come
 from the game's seed, so a replay draws the same sequence.
 
-Listen (§4.2, Rev 16): counted from the moment the board is empty — the
+Listen (§5.3, Rev 16): counted from the moment the board is empty — the
 most recent call has ended and no `after:` scene is waiting — so calls never
 overlap and every conversation is heard to its hang-up. What "empty" means is
 the game's to judge (game.py `_idle`). The wait is `pause`, its own value and
@@ -78,11 +78,11 @@ class Pacing:
         return max(0.0, centre * (1 + self.jitter / 100 * self._rng.uniform(-1, 1)))
 
     def gap_now(self) -> float:
-        """§4.3. Never below the floor, and the floor is never above the gap."""
+        """§5.4. Never below the floor, and the floor is never above the gap."""
         return max(min(self.floor, self.gap), self.gap - self.ramp * self.connected)
 
     def clamp(self, name: str, value: float) -> float:
-        """§4.3's ranges. The page's values are clamped and echoed as applied."""
+        """§5.4's ranges. The page's values are clamped and echoed as applied."""
         if name == "gap":
             return min(600.0, max(0.0, value))
         if name == "ramp":
@@ -109,7 +109,7 @@ class Pacing:
         return self.next_at
 
     def waiting_to_connect(self) -> None:
-        """A call is out and unconnected: nothing is scheduled (§4.2)."""
+        """A call is out and unconnected: nothing is scheduled (§5.2)."""
         self.next_at = None
 
     def due(self, now: float | None = None) -> bool:

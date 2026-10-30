@@ -54,7 +54,7 @@ Don't add `--monitor-own-duck`. `audio.md` §16 records it as a possible fix, to
 - A unit test for payload validation and the source-to-index mapping.
 - On the host, with the switchboard or a loopback: `mosquitto_pub` the source between `tap`, a station and a trunk while the monitor is on. Listen for clicks and watch the echo. Repeat with the monitor off. Stop the game heartbeat and confirm the source returns to `tap`.
 
-## Part 2: the game program (game_control.md Rev 6 §6.4)
+## Part 2: the game program (game_control.md Rev 6 §9.1)
 
 If the game program isn't written yet, build this in when you write it. Otherwise add it.
 
@@ -66,7 +66,7 @@ If the game program isn't written yet, build this in when you write it. Otherwis
 4. **Don't wait for the echo.** Don't touch the monitor gain or turn the monitor on or off.
 5. **Log** each move in `game/log` as `HH:MM:SS [n] monitor: <calling line>`, where n is the call number and the line name comes from script.yml (§6.2).
 
-## Part 3: the status page (game_control.md Rev 6 §7.1, §7.2)
+## Part 3: the status page (game_control.md Rev 6 §11.1, §11.2)
 
 1. In the health area, next to `monitor`, show the monitor's source. Show `tap`, or the jack label of the circuit it names, taken from the `board/` map. If no jack carries that circuit, show the circuit id.
 2. Grey it out while `audio_status` is offline, like the other audio topics.
@@ -75,7 +75,7 @@ The page publishes nothing new. The broker's access list doesn't change.
 
 ## Verification
 
-- `game_control.md` §9 step 9: the loudspeaker follows the call.
+- `game_control.md` §13.3 step 9: the loudspeaker follows the call.
 - `audio.md` §15 step 7: the tap trim, and a listen for the balance between caller and called party. These are bench settings for Mark.
 
 ## Report back

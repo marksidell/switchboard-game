@@ -34,7 +34,7 @@ class Stage:
 
 
 class Reason:
-    """§5's failure reasons. A wrong connection is not one of them."""
+    """§4's failure reasons. A wrong connection is not one of them."""
     NO_ANSWER = "no answer"
     NOT_CONNECTED = "not connected"
     CUT_OFF = "cut off"
@@ -69,8 +69,8 @@ class Call:
     since: float = 0.0
     deadline: float | None = None
     digits: str = ""
-    # Not published. The scheduler asks for it (§4.3) and an `after:` scene
-    # is dropped unless the scene it follows reached it (§4.4).
+    # Not published. The scheduler asks for it (§3.3) and an `after:` scene
+    # is dropped unless the scene it follows reached it (§6.1).
     connected: bool = False
 
     def topics(self) -> dict[str, str]:
@@ -89,7 +89,7 @@ class Call:
 
 
 def _t(v: float | None) -> str:
-    """Host Unix seconds as the page wants them, or empty (§7.2)."""
+    """Host Unix seconds as the page wants them, or empty (§11.2)."""
     return "" if not v else f"{v:.0f}"
 
 
@@ -114,7 +114,7 @@ class Slots:
         for n in range(1, N_SLOTS + 1):
             if n not in self._calls:
                 return n
-        return None          # a ninth call is not started (§4.4)
+        return None          # a ninth call is not started (§6.1)
 
     def get(self, slot: int) -> Call | None:
         return self._calls.get(slot)
@@ -126,7 +126,7 @@ class Slots:
 
     async def set_stage(self, call: Call, stage: str,
                         deadline: float | None = None) -> None:
-        """§6.1: since and deadline before stage."""
+        """§3.2: since and deadline before stage."""
         call.since = time.time()
         call.deadline = None if self.timeless else deadline
         call.stage = stage
@@ -139,7 +139,7 @@ class Slots:
         await self._publish(f"game/call/{call.slot}/{field_}", value)
 
     async def close(self, call: Call) -> None:
-        """§6.1: scene first, so the page frees the slot before the rest empty."""
+        """§3.2: scene first, so the page frees the slot before the rest empty."""
         self._calls.pop(call.slot, None)
         await self._publish(f"game/call/{call.slot}/scene", "")
         for k in ("number", "from", "to", "trunk", "stage", "since",
@@ -147,7 +147,7 @@ class Slots:
             await self._publish(f"game/call/{call.slot}/{k}", "")
 
     async def clear_all(self) -> None:
-        """Stop, or birth: every slot empty (§3)."""
+        """Stop, or birth: every slot empty (§2)."""
         for call in list(self._calls.values()):
             await self.close(call)
         for n in range(1, N_SLOTS + 1):

@@ -3,7 +3,7 @@
 A senior operator's voice on the loudspeaker talks a new player through each
 call. The flows call `Tutor.say()` at each step, and wait for her to finish:
 the loudspeaker is in the room with the operator's microphone, so nothing the
-game listens for may overlap her (§4.9). Every listen in tutor mode is
+game listens for may overlap her (§7). Every listen in tutor mode is
 therefore preceded by a line of hers, and `say()` is what silences any line
 still repeating from the step before.
 
@@ -36,9 +36,9 @@ log = logging.getLogger("tutor")
 MONITOR = "audio/monitor"      # its play/set and play (audio.md §10.4)
 REPEAT = 20.0                  # s without progress before a prompt is said again
 REPEATS = 2                    # times a prompt is said again, at most
-NO_LIMIT = 3600.0              # s, for the timeouts tutor mode lifts (§4.9)
+NO_LIMIT = 3600.0              # s, for the timeouts tutor mode lifts (§7)
 # Her introduction, in order: each part but the last waits for More Help
-# (§4.9, Rev 31).
+# (§7, Rev 31).
 INTRO = ("intro-jacks", "intro-cords", "intro-switches")
 FULL_TIMES = 2                 # times a prompt is said in full before its short form (Rev 55)
 BRIEF = "brief-"               # a short form's key: brief-<key> (tts/script.py)
@@ -91,7 +91,7 @@ class Tutor:
         return key in self.lines
 
     def say_key(self, sp: Speech, request: bool) -> str:
-        """What she prompts before the operator speaks ahead of `sp` (§4.7)."""
+        """What she prompts before the operator speaks ahead of `sp` (§6.3)."""
         if sp.operator and f"say-{sp.operator}" in self.lines:
             return f"say-{sp.operator}"
         return "greet" if request else "respond"

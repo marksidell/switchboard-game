@@ -66,7 +66,7 @@ class Board:
     # lines for about 0.2s, as do dial pulses; the detector reports that as
     # `deaf` and then idle, and the call must ride through it.
     HOLD = 1.0
-    # The switchboard's power cut, ctl/power_cut "on" (§3, Rev 66), drops every
+    # The switchboard's power cut, ctl/power_cut "on" (§2, Rev 66), drops every
     # line on the board for its 1s. Lines are frozen from the cut until SETTLE
     # after the power is back, and then take their latest values, through the
     # HOLD above, so the calls on the board carry on. CUT_MAX ends a freeze
@@ -203,7 +203,7 @@ class Board:
         return True
 
     def _hold(self, key: str, payload: str) -> bool | None:
-        """A circuit's `peer` and `op` going away, held (§5, Rev 45).
+        """A circuit's `peer` and `op` going away, held (§4, Rev 45).
 
         `deaf` is a circuit not hearing its own pilot, which says nothing
         about what it is patched to: the last value stands. A `peer` going

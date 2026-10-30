@@ -7,16 +7,16 @@ offline rather than going dark with it, and a USB fault cannot touch a game.
 
 Three pieces, so the middle one can be tested without a deck or a broker:
 
-  Panel     the retained topic values, the rules of §7.2 and §7.4, what a
+  Panel     the retained topic values, the rules of §11.2 and §10, what a
             press or a detent publishes, and the images to draw. No I/O.
   Surface   where the images go: the deck itself, or PNG files (--fake).
   run()     the broker connection, the deck's callbacks brought onto the
             event loop, and a redraw whenever something changed.
 
-The deck shows only what was echoed (§7.2). A press publishes and changes
+The deck shows only what was echoed (§11.2). A press publishes and changes
 nothing on the deck until the game program's state topic changes, with two
 exceptions that are local by nature: Stop armed for its second press, and
-Next Call dark while its guard holds (§4.1).
+Next Call dark while its guard holds (§5.1).
 """
 
 from __future__ import annotations
@@ -42,13 +42,13 @@ CLIENT_ID = "sbgame-deck"
 USERNAME = "sbgame-deck"                 # mqtt.md §9
 PASSWORD_FILE = "/etc/sbgame/mqtt-deck.pass"
 
-STALE = 2.5          # s without a heartbeat (§7.2)
-STOP_ARM = 3.0       # Stop's second press (§7.1)
-NEXT_GUARD = 3.0     # Next Call re-enables regardless (§4.1)
-ERROR_SHOW = 5.0     # an error across the strip (§7.4)
+STALE = 2.5          # s without a heartbeat (§11.2)
+STOP_ARM = 3.0       # Stop's second press (§11.1)
+NEXT_GUARD = 3.0     # Next Call re-enables regardless (§5.1)
+ERROR_SHOW = 5.0     # an error across the strip (§10)
 DIAL_HOLD = 1.0      # a dial's target outlives its last detent by this
 RESCAN = 2.0         # look for a deck this often while there is none
-DOUBLE = 0.5         # a second press within this is a double press (§7.6)
+DOUBLE = 0.5         # a second press within this is a double press (§11.5)
 
 KEY_PX = 120
 STRIP_W, STRIP_H = 800, 100
@@ -64,7 +64,7 @@ class Dial:
     unit: str = ""
 
 
-# Left to right under the strip. The page's steppers and §4.3's ranges.
+# Left to right under the strip. The page's steppers and §5.4's ranges.
 DIALS = (Dial("gap", 5, 0, 600, "s"), Dial("ramp", 1, 0, 60, "s"),
          Dial("floor", 1, 0, 600, "s"), Dial("jitter", 10, 0, 100, "%"))
 # In listen the first dial sets listen's own value and the others rest (Rev 17).
@@ -84,17 +84,17 @@ BLUE = (59, 110, 165)
 TEAL = (38, 128, 128)        # the deck's own: sweeps and the tutor's Help keys
 
 # The pacing key cycles in this order and shows all four (three until Rev 32), the echoed one lit
-# (§7.4, Rev 16), so the choices are on the key and not in the manual.
+# (§10, Rev 16), so the choices are on the key and not in the manual.
 PACES = (("tutor", "Tutor"), ("manual", "Manual"), ("auto", "Auto"), ("listen", "Listen"))
 
 
 Command = tuple[str, str, int]           # topic under sbgame/, payload, QoS
 
-# Keys 5 and 6 (0-based 4 and 5), double-pressed: a board sweep (§7.6, Rev 62).
+# Keys 5 and 6 (0-based 4 and 5), double-pressed: a board sweep (§11.5, Rev 62).
 SWEEP_KEYS = {4: "trunks", 5: "stations"}
 
 # Key 5 held this long with no game and no sweep: the switchboard reset,
-# game/power_cut/set (§7.4, Rev 63).
+# game/power_cut/set (§10, Rev 63).
 RESET_KEY = 4
 RESET_HOLD = 2.0
 
@@ -105,7 +105,7 @@ class Panel:
     """Everything the deck knows and does, driven by explicit times.
 
     `now` is this machine's monotonic-ish clock in seconds; the tests pass
-    their own. Host time, for next_at, comes from the game heartbeat (§7.2).
+    their own. Host time, for next_at, comes from the game heartbeat (§11.2).
     """
 
     def __init__(self) -> None:
@@ -123,7 +123,7 @@ class Panel:
         self.targets: list[list[float] | None] = [None] * len(DIALS)
         # The pacing key's target, as a dial's: [pace, time of the press].
         self.pace_target: tuple[str, float] | None = None
-        # The last press of a sweep key (§7.6, Rev 62): [key, time].
+        # The last press of a sweep key (§11.5, Rev 62): [key, time].
         self.last_sweep_press: tuple[int, float] | None = None
         # When key 5 went down for a switchboard reset (Rev 63), or None.
         self.reset_down: float | None = None
@@ -169,7 +169,7 @@ class Panel:
         return not self.broker_up or self.get("ctl/audio_status") != "online"
 
     def intro_part(self) -> tuple[int, int] | None:
-        """Her introduction's part now, and how many (§4.9, Rev 31), or None."""
+        """Her introduction's part now, and how many (§7, Rev 31), or None."""
         try:
             n, of = (int(x) for x in self.get("game/tutor/intro").split("/"))
         except ValueError:
@@ -191,7 +191,7 @@ class Panel:
         return bool(self.get("game/tutor/more")) and not self.tutor_speaking()
 
     def flash(self, now: float, *waiting: str) -> bool:
-        """Whether a key that flashes while the tutor waits (§4.9, Rev 33)
+        """Whether a key that flashes while the tutor waits (§7, Rev 33)
         is in its dark half now: once a second, while game/tutor/waiting is
         one of `waiting`."""
         return (self.get("game/tutor/waiting") in waiting and not self.tutor_speaking()
@@ -203,7 +203,7 @@ class Panel:
         return p not in ("", "missing") and not p.startswith("cue.")   # not the ring cue (Rev 51)
 
     def repeat_shown(self) -> bool:
-        """Key 7 is Repeat Help (§4.9, Rev 34)."""
+        """Key 7 is Repeat Help (§7, Rev 34)."""
         return bool(self.get("game/tutor/repeat"))
 
     def repeat_live(self, now: float) -> bool:
@@ -241,9 +241,9 @@ class Panel:
         if key in ("game/tutor/intro", "game/tutor/more") and payload != old:
             self.more_guard_until = 0.0  # her next part began (Rev 31), or the line changed
         if key == "game/started" and payload != old:
-            self.next_guard_until = 0.0  # the call started (§4.1)
+            self.next_guard_until = 0.0  # the call started (§5.1)
         elif key == "game/error" and payload and payload != old:
-            self.next_guard_until = 0.0  # rejected: re-enable (§4.1)
+            self.next_guard_until = 0.0  # rejected: re-enable (§5.1)
             self.error_until = now + ERROR_SHOW
         elif key == "game/error" and not payload:
             self.error_until = 0.0
@@ -284,7 +284,7 @@ class Panel:
         if key in SWEEP_KEYS:
             return self._sweep_key(key, now)
         if key >= 4 or self.game_stale(now):
-            return []                    # a greyed key does nothing (§7.4)
+            return []                    # a greyed key does nothing (§10)
         running = self.running()
         if key == 0:
             return [] if running else [("game/run/set", "on", 1)]
@@ -316,7 +316,7 @@ class Panel:
 
     def _reset_allowed(self, now: float) -> bool:
         """A hold on key 5 counts only with no sweep and a game program to
-        send it to (§7.4, Rev 63); during a game too, from Rev 66."""
+        send it to (§10, Rev 63); during a game too, from Rev 66."""
         return not (self.game_stale(now) or self.get("game/sweep"))
 
     def on_key_up(self, key: int, now: float) -> None:
@@ -345,7 +345,7 @@ class Panel:
     def _sweep_key(self, key: int, now: float) -> list[Command]:
         """Keys 5 and 6 double-pressed start a board sweep with no game
         running; either double-pressed during one stops it, and so does a
-        single press of the running sweep's own key (§7.6, Rev 62). A single
+        single press of the running sweep's own key (§11.5, Rev 62). A single
         press otherwise does nothing."""
         if (self.get("game/sweep") == SWEEP_KEYS[key]
                 and not self.game_stale(now) and not self.running()):
@@ -372,7 +372,7 @@ class Panel:
         if t is None or now - t[1] > DIAL_HOLD:
             base = self.num(f"game/{d.name}")
             if base is None:
-                return []                # nothing echoed yet (§7.4)
+                return []                # nothing echoed yet (§10)
         else:
             base = t[0]
         target = min(d.hi, max(d.lo, base + detents * d.step))
@@ -382,7 +382,7 @@ class Panel:
         return [(f"game/{d.name}/set", f"{target:g}", 1)]
 
     def on_touch(self, now: float) -> None:
-        self.error_until = 0.0           # dismiss (§7.4)
+        self.error_until = 0.0           # dismiss (§10)
 
     def tick(self, now: float) -> None:
         """Expire what times out, so a redraw after it shows the change."""
@@ -480,7 +480,7 @@ class Panel:
 
     def _k_sweep(self, key: int, now: float) -> Image.Image | None:
         """A sweep key while its sweep runs, from the deck or the page
-        (§7.6), else None."""
+        (§11.5), else None."""
         kind = SWEEP_KEYS[key]
         if self.get("game/sweep") != kind or self.game_stale(now):
             return None
@@ -509,7 +509,7 @@ class Panel:
                      ("fail", str(self._tally("game/fail"))), ink)
 
     def _k_pct(self, now: float) -> Image.Image:
-        if self.repeat_shown():          # Repeat Help (§4.9, Rev 34)
+        if self.repeat_shown():          # Repeat Help (§7, Rev 34)
             live = self.repeat_live(now)
             return _key("Repeat", "Help", fill=TEAL if live else PANEL,
                         ink=INK if live else GREY)
@@ -889,7 +889,7 @@ async def run(args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
         description="Drive the Stream Deck+ that carries the game's controls "
-                    "(game_control.md 7.4).")
+                    "(game_control.md 10).")
     p.add_argument("--broker", default="localhost")
     p.add_argument("--port", type=int, default=1883)
     p.add_argument("--user", default=USERNAME)

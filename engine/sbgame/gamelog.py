@@ -9,7 +9,7 @@ on a restart.
     14:02:10 [8] started pike-taxi: lobby → taxi
     14:01:40 page: gap 15
 
-Host time, because the iPad's clock is not trusted (§7.2). The call number in
+Host time, because the iPad's clock is not trusted (§11.2). The call number in
 brackets where there is one.
 """
 

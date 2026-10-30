@@ -9,7 +9,7 @@
 # Without -o the simulator is only the boards. Nobody answers, so every call
 # runs to its timeout at the first stage — which looks exactly like the game
 # being stuck. The status page cannot stand in: it sends run, next and the
-# pacing, and nothing else (game_control.md §7 makes it a monitor). The thing
+# pacing, and nothing else (game_control.md §11 makes it a monitor). The thing
 # that works the board is the switchboard, and the switchboard is not here
 # yet. So plain mode is for watching the hardware side alone, and -o is the
 # mode that plays.

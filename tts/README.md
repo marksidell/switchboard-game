@@ -36,7 +36,7 @@ tts/.venv/bin/python -m tts.process             # tts/raw -> wav/
 tts/aws/status                                  # nothing should be running
 ```
 
-**The tutor** (game_control.md §4.9) is a cast member like any other, and her
+**The tutor** (game_control.md §7) is a cast member like any other, and her
 lines are generated from script.yml's `tutor:` by the loader: one whole
 sentence per jack, outside number and operator line they name, about 120 in
 all. Her voice first, alone, then every line that is new:
@@ -71,7 +71,7 @@ audience hears them and is the only fair basis for choosing.
 | `manifest.py` | decides what needs regenerating, before anything is launched |
 | `process.py` | mono, trim, 16kHz, 300–3400Hz, level, 48kHz, 24-bit, then check and delete on failure |
 | `audition` | plays each cast member's three candidates and records the choice |
-| `scenes` | plays the active scenes on one Digiface channel, stopping where the operator speaks; `--batch` writes every scene, the operator's lines included, to `mp3/<scene>.mp3`; `--batch --tutor` writes tutor mode's lesson scenes (game_control.md §4.9) with her lines where the game says them, to `mp3/tutor/`, plus `intro.mp3` and `demo.mp3` (the introduction and the first scene of each lesson group) |
+| `scenes` | plays the active scenes on one Digiface channel, stopping where the operator speaks; `--batch` writes every scene, the operator's lines included, to `mp3/<scene>.mp3`; `--batch --tutor` writes tutor mode's lesson scenes (game_control.md §7) with her lines where the game says them, to `mp3/tutor/`, plus `intro.mp3` and `demo.mp3` (the introduction and the first scene of each lesson group) |
 | `choose` | promotes the candidates named in `voices.yml`; `--only` for just some, so a hand-placed reference is not overwritten |
 | `record` | records a performed part's lines on this host (`--status`, `--print` a script to record elsewhere, `--import` those files); takes go to `recorded/`, never rendered over (tts_task.md §6.4) |
 | `playback.py` | playing a clip on the Digiface, for `audition` and `record` |

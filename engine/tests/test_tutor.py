@@ -244,7 +244,7 @@ def make_wavs(tmp: Path, names) -> Path:
 
 
 async def main() -> int:
-    print("\n== her lines, from script.yml's tutor: (§4.9)")
+    print("\n== her lines, from script.yml's tutor: (§7)")
     s = load("../script.yml")
     t = s.tutor
     check(all(k in t for k in ("intro-jacks", "answer-station", "hangup-pair")), "the plain lines are there")
@@ -273,7 +273,7 @@ async def main() -> int:
     check(max(len(u.name) for u in t.values()) <= 31, "every name within 31 characters")
     check(all(len(u.name) <= 31 for u in t.values()), "every name fits audio.md §7.1")
 
-    print("\n== the lessons (§4.9, Rev 30)")
+    print("\n== the lessons (§7, Rev 30)")
     from tts.script import scene_kind, ScriptError
     kinds = [{scene_kind(s.scenes[i], s.stations) for i in g} for g in s.lessons]
     check(kinds == [{"between rooms"}, {"out to a number"}, {"in from outside"},

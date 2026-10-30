@@ -1,10 +1,10 @@
 """A whole game, against the simulated controller, audio program and operator.
 
 Where test_flows.py proves one call, this proves the game around it: start and
-stop (§3), the tallies (§5), page commands and their clamps (§8), the slots
-filling and emptying (§6.1), an `after:` scene following a connected call and
-being dropped after one that was not (§4.4), and the loudspeaker going to the
-tap at start and stop (§6.4).
+stop (§2), the tallies (§4), page commands and their clamps (§13.2), the slots
+filling and emptying (§3.2), an `after:` scene following a connected call and
+being dropped after one that was not (§6.1), and the loudspeaker going to the
+tap at start and stop (§9.1).
 
 The real script.yml is used, so the scenes and the jack map are the ones the
 game will actually run.
@@ -76,7 +76,7 @@ async def main() -> int:
 
         print("\n== birth publishes a stopped game and the whole board")
         b, link, g, sess = await build_game(tmp)
-        check(link.state_v.get("game/run") == "off", "run is off at birth (§3)")
+        check(link.state_v.get("game/run") == "off", "run is off at birth (§2)")
         check(link.state_v.get("game/call/1/scene") == "", "every slot is clear")
         labels = [k for k in link.state_v if k.startswith("board/station/") and k.endswith("/label")]
         check(len(labels) == 30, f"30 station jacks published, got {len(labels)}")
@@ -87,7 +87,7 @@ async def main() -> int:
         check(link.state_v.get("board/station/21/circuit") == "station/1",
               f"jack 21 carries {link.state_v.get('board/station/21/circuit')!r}")
 
-        print("\n== jacks: a labelled jack with nothing cabled (§6.3)")
+        print("\n== jacks: a labelled jack with nothing cabled (§12.1)")
         real = Path("../script.yml").read_text(encoding="utf-8")
         # Jack 7 is taken out and put back first, labelled and uncabled.
         spare = re.sub(r"\n    -   jack: 7\n(        \w+:.*\n)*", "\n", real, count=1)
@@ -132,7 +132,7 @@ async def main() -> int:
                           "                pause: a while\n", 1)),
             ("the old switchboard: key on a station",
              real.replace("        number: 2\n", "        number: 2\n        switchboard: 22\n", 1)),
-            ("operator: where the game does not wait for her (§4.7)",
+            ("operator: where the game does not wait for her (§6.3)",
              real.replace("                caller: Yes, fast.\n",
                           "                caller: Yes, fast.\n"
                           "                operator: busy\n", 1)),
@@ -159,13 +159,13 @@ async def main() -> int:
         gs = build("../script.yml", "../wav")
         check(all(u.by != "operator" for sc in gs.scenes.values()
                   for u in (sc.request, *sc.conversation)),
-              "the operator's own lines are never played (§4.7)")
+              "the operator's own lines are never played (§6.3)")
         check(gs.script.by_name()[gs.script.scene_lines("dobbs-stamp")[1].operator].text
               == "Three cents, sir.", "an inline operator: line is found by name")
         check(gs.script.by_name()[gs.script.closings["nbn-trace"]].text.startswith("That call was from the lobby"),
               "a closing: line is found by its scene")
 
-        print("\n== active: an inactive scene needs no wavs and is never dealt (§4.4)")
+        print("\n== active: an inactive scene needs no wavs and is never dealt (§6.1)")
         new = real.replace("\nscenes:\n", "\nscenes:\n"
                            "    unrendered:\n"
                            "        active: false\n"
@@ -270,11 +270,11 @@ async def main() -> int:
             ib = sc.busy_lines("martha-squirrel")
             check("martha-squirrel.9" not in names and [u.name for u in ib] == ["martha-squirrel.9"]
                   and ib[0].after_operator and ib[0].operator == "operator.4",
-                  "if_busy: lines kept out of the conversation, waiting on her (§4.11)")
+                  "if_busy: lines kept out of the conversation, waiting on her (§6.6)")
         except ScriptError as e:
             check(False, f"accepts if_busy: {e.failures}")
 
-        print("\n== page commands: clamps and refusals (§8)")
+        print("\n== page commands: clamps and refusals (§13.2)")
         await g.on_command("gap", "700")
         check(link.state_v.get("game/gap") == "600", f"gap clamped to 600, got {link.state_v.get('game/gap')}")
         check("clamped" in link.state_v.get("game/error", ""), "and said so on game/error")
@@ -296,7 +296,7 @@ async def main() -> int:
         check(link.state_v.get("game/jitter") == "30", "jitter 30 applied and echoed")
         await sess.close()
 
-        print("\n== jitter: the spread of the automatic wait (§4.3)")
+        print("\n== jitter: the spread of the automatic wait (§5.4)")
         p = Pacing(pace="auto", gap=20, ramp=0, floor=5, jitter=0)
         p.seed(1)
         check({p.wait() for _ in range(50)} == {20.0}, "jitter 0 is the fixed wait")
@@ -319,7 +319,7 @@ async def main() -> int:
         at = a.schedule(1000.0)
         check(at is not None and 12 <= at - 1000.0 <= 28, f"schedule() uses the draw: {at - 1000.0:.1f}s")
 
-        print("\n== the circuits fitted (§6.5, Rev 25)")
+        print("\n== the circuits fitted (§12.2, Rev 25)")
         full = build("../script.yml", "../wav")
         small, left = fit(full, stations=5, trunks=0)
         check(all(all(n is None or n <= 5 for n in (s.from_station, s.to_station))
@@ -343,7 +343,7 @@ async def main() -> int:
         await b.update("trunk/2/seize", "off")
         check(g._free_trunk() == 1, "and the one released longest ago is taken")
 
-        print("\n== trunks out of service (§6.5, Rev 36)")
+        print("\n== trunks out of service (§12.2, Rev 36)")
         oos = {"trunks": {"6": "jack 6's lamp does not latch", "8": "lamp out"}}
         cfg = Config(out_of_service=oos)
         cfg.check()
@@ -364,13 +364,13 @@ async def main() -> int:
         check(g2._free_trunk() == 7, "and a working one is offered when it comes free")
         await sess2.close()
 
-        print("\n== station 24, the real telephone (§6.5, Rev 73)")
+        print("\n== station 24, the real telephone (§12.2, Rev 73)")
         check(fitted_stations(22) == list(range(1, 23)) + [24], "fitted with board 3, at 22 stations")
         check(fitted_stations(21) == list(range(1, 22)), "and not below it")
         j18 = next(j for j in full.jacks if j.kind == "station" and j.number == 18)
         check(j18.circuit == "station/24", f"cabled to jack 18: {j18.circuit!r}")
 
-        print("\n== stations out of service (§6.5, Rev 43)")
+        print("\n== stations out of service (§12.2, Rev 43)")
         so = {"stations": {"1": "top row dead", "9": "top row dead"}}
         cfg = Config(out_of_service=so)
         cfg.check()
@@ -385,7 +385,7 @@ async def main() -> int:
         check(all(i in kept.scenes for grp in kept.lessons for i in grp),
               "every tutor lesson left is a kept scene")
 
-        print("\n== back to tutor when stopped (§4.9, Rev 44)")
+        print("\n== back to tutor when stopped (§7, Rev 44)")
         b3, link3, g3, sess3 = await build_game(tmp / "idle" if (tmp / "idle").mkdir() is None else tmp,
                                                 pace="manual", idle_tutor=0.2)
         await asyncio.sleep(0.4)
@@ -406,7 +406,7 @@ async def main() -> int:
         check(link3.state_v.get("game/pace") == "tutor", "and from the stop")
         await sess3.close()
 
-        print("\n== diagnostics (§7.5, Rev 25)")
+        print("\n== diagnostics (§11.4, Rev 25)")
         check(link.state_v.get("game/diag/station/3/tone") == "off"
               and link.state_v.get("game/diag/tap/voice") == "off", "every test off at birth")
         link.sent.clear()
@@ -418,7 +418,7 @@ async def main() -> int:
         await g.on_command("diag/station/3/voice", "on")
         await asyncio.sleep(D)
         check(link.state_v.get("game/diag/station/3/tone") == "off"
-              and ("audio/test/3/set", "off") in link.sent, "voice ends tone (§7.5)")
+              and ("audio/test/3/set", "off") in link.sent, "voice ends tone (§11.4)")
         check(any(k == "station/3/play/set" and v != "stop" for k, v in link.sent),
               "voice plays a file on the station")
         await g.on_command("diag/trunk/2/tone", "on")
@@ -440,7 +440,7 @@ async def main() -> int:
         await g.on_command("diag/station/5/monitor", "on")
         await g._monitor("station/1")                   # the game moves it: an answer
         check(link.state_v.get("game/diag/station/5/monitor") == "off",
-              "the game moving the loudspeaker ends a monitor test (§6.4)")
+              "the game moving the loudspeaker ends a monitor test (§9.1)")
         await g.on_command("diag/station/9/tone", "on")
         check("not a circuit fitted" in link.state_v.get("game/error", ""),
               "a station beyond the fitted is refused")
@@ -463,7 +463,7 @@ async def main() -> int:
         check(("station/3/hook/set", "off") in link.sent and ("audio/tap/play/set", "stop") in link.sent,
               "and puts the hardware back")
 
-        print("\n== board sweeps (§7.6, Rev 50)")
+        print("\n== board sweeps (§11.5, Rev 50)")
         from sbgame import sweep
         sweep.BURST = sweep.OFF_HOOK = sweep.PAUSE = 0.01
         check(link.state_v.get("game/sweep") == "", "no sweep at birth")
@@ -514,7 +514,7 @@ async def main() -> int:
         check(link.state_v.get("game/sweep") == "" and g._sweep is None, "Stop ends a sweep")
         sweep.BURST, sweep.OFF_HOOK, sweep.PAUSE = 1.0, 1.0, 2.0
 
-        print("\n== recording and playback (§7.7, Rev 61)")
+        print("\n== recording and playback (§11.6, Rev 61)")
         check(b.audio_up, "the audio program is up for these")
         link.sent.clear()
         await g.on_command("record", "on")
@@ -554,7 +554,7 @@ async def main() -> int:
         check(link.sent == [("audio/record/set", "off")], "but off is always passed on")
         await b.update("audio/playback", "")
 
-        print("\n== a chosen next scene (§4.8, Rev 25)")
+        print("\n== a chosen next scene (§6.4, Rev 25)")
         scenes = link.state_v.get("game/scenes", "").split("\n")
         check(scenes == g.gs.choosable() and scenes[0], "game/scenes lists the deck's scenes and each scenario's first")
         await g.on_command("queue", "no-such-scene")
@@ -579,7 +579,7 @@ async def main() -> int:
         check(link.state_v.get("game/run") == "on", "run is on")
         check(link.state_v.get("game/started") == "0", "started is 0 before any call")
         check(("audio/monitor/source/set", "tap") in link.sent,
-              "the loudspeaker went to the tap at start (§6.4)")
+              "the loudspeaker went to the tap at start (§9.1)")
         sched = asyncio.create_task(g.run_scheduler())
 
         await g.on_command("next", "")
@@ -592,12 +592,12 @@ async def main() -> int:
         check(link.state_v.get(f"game/call/{call.slot}/stage") == "signalling",
               "it is signalling, waiting for the operator")
         check(link.state_v.get("game/next_at") == "",
-              "nothing scheduled while a call waits to connect (§4.2)")
+              "nothing scheduled while a call waits to connect (§5.2)")
 
         await g.stop("stop")
         check(link.state_v.get("game/run") == "off", "stopped")
         check(link.state_v.get("game/call/1/scene") == "", "slots cleared")
-        check(link.state_v.get("game/started") == "1", "the tallies stay after Stop (§3)")
+        check(link.state_v.get("game/started") == "1", "the tallies stay after Stop (§2)")
         check(link.sent.count(("audio/monitor/source/set", "tap")) >= 2,
               "and the loudspeaker went back to the tap")
         sched.cancel()
@@ -616,7 +616,7 @@ async def main() -> int:
         await g.stop("stop")
         await sess.close()
 
-        print("\n== an after: scene is dropped when its parent never connected (§4.4)")
+        print("\n== an after: scene is dropped when its parent never connected (§6.1)")
         b, link, g, sess = await build_game(tmp, pace="manual")
         await g.start()
         parent = g.gs.scenes["nbn-kaplan"]
@@ -650,7 +650,7 @@ async def main() -> int:
         check(not g._afters, "Stop dropped the waiting after: scene")
         await sess.close()
 
-        print("\n== a scenario: dealt after n handled, followers start together (§4.10, Rev 39)")
+        print("\n== a scenario: dealt after n handled, followers start together (§6.5, Rev 39)")
         import dataclasses as dc
         b, link, g, sess = await build_game(tmp, pace="manual")
         ops = [sc for sc in g.gs.scenes.values()
@@ -703,7 +703,7 @@ async def main() -> int:
         check(not any(c.scene == "p0" for c in g.slots), "never dealt in listen")
         await g.stop("stop")
 
-        print("\n== a scenario chosen from the page (§4.10, Rev 40)")
+        print("\n== a scenario chosen from the page (§6.5, Rev 40)")
         await g.start()
         g.pacing.pace = "manual"
         await g._start_call()                       # an ordinary call on the board
@@ -761,7 +761,7 @@ async def main() -> int:
         await g.stop("stop")
         await sess.close()
 
-        print("\n== listen: the schedule waits for the board to empty (§4.2, Rev 16)")
+        print("\n== listen: the schedule waits for the board to empty (§5.3, Rev 16)")
         b, link, g, sess = await build_game(tmp, pace="manual")
         await g.start()
         check(link.state_v.get("game/pause") == "3", "pause published, 3 from the configuration")
@@ -800,7 +800,7 @@ async def main() -> int:
         await g.stop("stop")
         await sess.close()
 
-        print("\n== auto: a call's end keeps the start its connection scheduled (§4.2)")
+        print("\n== auto: a call's end keeps the start its connection scheduled (§5.2)")
         b, link, g, sess = await build_game(tmp, pace="manual")
         await g.start()
         await g.on_command("pace", "auto")
@@ -821,7 +821,7 @@ async def main() -> int:
         await g.stop("stop")
         await sess.close()
 
-        print("\n== the switchboard power cut (§3, §7.4, Rev 63; held, Rev 65)")
+        print("\n== the switchboard power cut (§2, §10, Rev 63; held, Rev 65)")
         b, link, g, sess = await build_game(tmp, pace="manual")
         cut = ("ctl/power_cut/set", "on")
         await g.on_command("power_cut", "on")
@@ -863,7 +863,7 @@ async def main() -> int:
               "nor does the command")
         await sess.close()
 
-        print("\n== losing the controller stops the game (§3)")
+        print("\n== losing the controller stops the game (§2)")
         b, link, g, sess = await build_game(tmp, pace="manual")
         watcher = asyncio.create_task(g.watch_clients())
         await asyncio.sleep(0)
@@ -912,13 +912,13 @@ async def main() -> int:
         seeded = db.execute("SELECT count(*) FROM sessions WHERE seed IS NOT NULL").fetchone()[0]
         decks = db.execute("SELECT count(*) FROM decks").fetchone()[0]
         check(n_sessions >= 1, f"{n_sessions} sessions recorded")
-        check(seeded == n_sessions, "every one has its seed, for the replay (§4.4)")
+        check(seeded == n_sessions, "every one has its seed, for the replay (§6.1)")
         check(decks >= 1, f"{decks} deck orders recorded")
         pause = db.execute("SELECT pause FROM sessions ORDER BY id DESC").fetchone()[0]
         check(pause == 3.0, f"pause recorded with the pacing values (Rev 17): {pause}")
         db.close()
 
-        print("\n== the wrong cord rung (§6.7, Rev 88)")
+        print("\n== the wrong cord rung (§7.7, Rev 88)")
         b, link, g, sess = await build_game(tmp)
         from sbgame.board import Change
         from sbgame.script_data import Shape

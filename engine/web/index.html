@@ -4,7 +4,7 @@
 
   MQTT.js 5.10.1, the browser build from the npm package's dist/, vendored as
   mqtt.min.js. Never loaded from a CDN: on the road the travel router may have
-  no internet, and the page would come up without its library (§2).
+  no internet, and the page would come up without its library (§13.1).
 
   Served by nginx from /srv/sbgame/web; the MQTT socket is proxied to
   Mosquitto on the path /mqtt (mqtt.md §9).
@@ -18,7 +18,7 @@
 <title>Switchboard</title>
 <link rel="stylesheet" href="style.css">
 
-<!-- Installable from the Home Screen (game_control.md 7.3). iOS reads the
+<!-- Installable from the Home Screen (game_control.md 11.3). iOS reads the
      apple-* tags rather than the manifest for Add to Home Screen, so both
      are here and must agree. -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -36,7 +36,7 @@
     <button id="controls-toggle" class="toggle">Controls</button>
   </div>
 
-  <!-- With the controls hidden (§7.1), what they would have shown. -->
+  <!-- With the controls hidden (§11.1), what they would have shown. -->
   <div class="group" id="state-text"><span id="v-state">–</span></div>
 
   <div class="group control">
@@ -53,7 +53,7 @@
 
   <div class="group control"><button id="next" class="big">Next Call</button></div>
 
-  <!-- Recording and playback in progress (game_control.md 7.7, Rev 61): shown
+  <!-- Recording and playback in progress (game_control.md 11.6, Rev 61): shown
        only while one runs, beside Tools; a tap stops it. -->
   <div class="group control">
     <button id="tools-btn" class="toggle">Tools</button>
@@ -113,7 +113,7 @@
 
 <div id="panel" hidden><div id="panel-body"></div></div>
 
-<!-- Tools (game_control.md 7.1, 7.5, Rev 25): diagnostics not tied to a jack;
+<!-- Tools (game_control.md 11.1, 7.5, Rev 25): diagnostics not tied to a jack;
      the board sweeps (7.6), the loudspeaker's recording and playback (7.7,
      Rev 61), and the switchboard's power (7.8, Rev 65). -->
 <div id="tools" class="sheet" hidden>
@@ -143,13 +143,13 @@
   </div>
 </div>
 
-<!-- Tools, play (game_control.md 7.7, Rev 61): the ten newest recordings. -->
+<!-- Tools, play (game_control.md 11.6, Rev 61): the ten newest recordings. -->
 <div id="recordings" class="sheet" hidden>
   <h3>Recordings</h3>
   <div id="rec-list"></div>
 </div>
 
-<!-- A long press on Tools (game_control.md 7.1, Rev 53): what each lamp colour
+<!-- A long press on Tools (game_control.md 11.1, Rev 53): what each lamp colour
      means, most urgent first, with the board's own lamps. -->
 <div id="lamps" class="sheet" hidden>
   <h3>Lamps</h3>
@@ -171,10 +171,10 @@
     means the controller or the audio program is not reporting.</p>
 </div>
 
-<!-- A long press on a pacing button or a stepper (game_control.md 7.1, Rev 54). -->
+<!-- A long press on a pacing button or a stepper (game_control.md 11.1, Rev 54). -->
 <div id="help" class="sheet" hidden></div>
 
-<!-- A long press on Next Call (game_control.md 4.8, Rev 25). -->
+<!-- A long press on Next Call (game_control.md 6.4, Rev 25). -->
 <div id="scenes" class="sheet" hidden>
   <h3>Next scene</h3>
   <div id="scene-list"></div>

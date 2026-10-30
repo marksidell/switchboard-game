@@ -44,10 +44,10 @@ class Speech:
     name: str          # "nbn-valet.3", the wav's base name
     seconds: float
     by: str            # "caller" or "called"
-    wait: bool = False # play only after the operator has spoken on that side (§4.6)
-    pause: float = 0.0     # seconds of silence first (§4.6, Rev 20)
-    ringback: float = 0.0  # seconds of ringback on the trunk first (§4.6, Rev 20)
-    operator: str = ""     # the operator line she says before it, if any (§4.7)
+    wait: bool = False # play only after the operator has spoken on that side (§6.2)
+    pause: float = 0.0     # seconds of silence first (§6.2, Rev 20)
+    ringback: float = 0.0  # seconds of ringback on the trunk first (§6.2, Rev 20)
+    operator: str = ""     # the operator line she says before it, if any (§6.3)
 
     @property
     def filename(self) -> str:
@@ -69,28 +69,28 @@ class SceneDef:
     after: str = ""             # the scene this one follows, else ""
     delay: float = 0.0
     delay_max: float = 0.0      # a range [delay, delay_max] if above delay (Rev 39)
-    concurrent: bool = False    # mode: concurrent, starts with the one it follows (§4.4)
-    after_handled: int | None = None   # starts a scenario after n handled (§4.10)
-    if_busy: tuple[Speech, ...] = ()   # if the called station is engaged (§4.11)
-    closing: str = ""           # her closing line's name (§4.7); the caller waits for it (Rev 47)
+    concurrent: bool = False    # mode: concurrent, starts with the one it follows (§6.1)
+    after_handled: int | None = None   # starts a scenario after n handled (§6.5)
+    if_busy: tuple[Speech, ...] = ()   # if the called station is engaged (§6.6)
+    closing: str = ""           # her closing line's name (§6.3); the caller waits for it (Rev 47)
     caller_voice: str = ""      # cast member who speaks the caller's lines, for reactions (Rev 60)
     called_voice: str = ""      # and the called party's, if any
 
     @property
     def lines(self) -> tuple[str, ...]:
-        """The line names this scene occupies while it runs (§4.4)."""
+        """The line names this scene occupies while it runs (§6.1)."""
         return tuple(n for n in (self.from_line, self.to_line) if n)
 
     @property
     def needs(self) -> tuple[str, ...]:
         """The lines that must be free to deal it: a scene with if_busy: does
-        not wait for its called line (§4.11)."""
+        not wait for its called line (§6.6)."""
         return (self.from_line,) if self.if_busy else self.lines
 
 
 @dataclass(frozen=True)
 class Jack:
-    """One switchboard jack, for the board/ topics (§6.3)."""
+    """One switchboard jack, for the board/ topics (§12.1)."""
     number: int          # 1-30 for stations, 1-10 for trunks
     kind: str            # "station" or "trunk"
     label: str           # "" for a trunk jack, and for a station jack jacks: does not list
@@ -99,7 +99,7 @@ class Jack:
 
 @dataclass(frozen=True)
 class FreeLines:
-    """One answerer's free-call lines (§4.12, Rev 74), those whose wavs are here."""
+    """One answerer's free-call lines (§8, Rev 74), those whose wavs are here."""
     greeting: Speech
     lines: tuple[Speech, ...]      # said once each, in order
     loop: tuple[Speech, ...]       # then round and round
@@ -111,7 +111,7 @@ class FreeLines:
         return self.loop[(k - len(self.lines)) % len(self.loop)]
 
 
-LENNY = "lenny"                    # the real Lenny, for a number nobody answers (§4.12)
+LENNY = "lenny"                    # the real Lenny, for a number nobody answers (§8)
 
 
 @dataclass
@@ -120,20 +120,20 @@ class GameScript:
     scenes: dict[str, SceneDef]          # active scenes only
     people: dict[str, tuple[str, str]]   # scene id -> (calling person, called person)
     jacks: tuple[Jack, ...]
-    # Tutor mode (§4.9, Rev 29): the tutor's lines whose wavs are here, by
+    # Tutor mode (§7, Rev 29): the tutor's lines whose wavs are here, by
     # key as under tutor:, and the names of those that are not. Not needed to
     # play, so a missing one is not a fault at load; tutor mode is refused.
     tutor: dict[str, Speech] = field(default_factory=dict)
     tutor_missing: tuple[str, ...] = ()
-    # The scenes a tutored game starts with, one from each group (§4.9, Rev 30).
+    # The scenes a tutored game starts with, one from each group (§7, Rev 30).
     lessons: tuple[tuple[str, ...], ...] = ()
-    # What a party says when left hanging (§5, Rev 60), by kind, then cast
+    # What a party says when left hanging (§3.5, Rev 60), by kind, then cast
     # member: only those whose wavs are here; the game does without the rest.
     reactions: dict[str, dict[str, Speech]] = field(default_factory=dict)
     # Station circuit -> who answers it when nobody is expected (Rev 60): the
     # person the scenes most often have on that line.
     occupants: dict[int, str] = field(default_factory=dict)
-    # Free calls (§4.12, Rev 74): each answerer's lines, by cast member, only
+    # Free calls (§8, Rev 74): each answerer's lines, by cast member, only
     # those with a greeting and a loop here; who answers each station and
     # each outside line, from the people the scenes have on it; and each
     # outside number, digits only, to its line.
@@ -144,7 +144,7 @@ class GameScript:
 
     def answerer(self, who: str) -> tuple[str, FreeLines | None]:
         """Who answers in place of `who` ("" for nobody), and their lines:
-        `who` if they have lines here, else the real Lenny (§4.12)."""
+        `who` if they have lines here, else the real Lenny (§8)."""
         if who in self.freecall:
             return who, self.freecall[who]
         return LENNY, self.freecall.get(LENNY)
@@ -153,28 +153,28 @@ class GameScript:
         return self.reactions.get(kind, {}).get(voice)
 
     def jack_of(self, station: int) -> int | None:
-        """The switchboard jack station circuit n is cabled to (§6.3)."""
+        """The switchboard jack station circuit n is cabled to (§12.1)."""
         for j in self.jacks:
             if j.kind == "station" and j.circuit == f"station/{station}":
                 return j.number
         return None
 
     def deck_scenes(self) -> list[str]:
-        """Every scene eligible for the deck: those without `after:` (§4.4),
-        and not the first scene of a scenario (§4.10)."""
+        """Every scene eligible for the deck: those without `after:` (§6.1),
+        and not the first scene of a scenario (§6.5)."""
         return [i for i, s in self.scenes.items()
                 if not s.after and s.after_handled is None]
 
     def choosable(self) -> list[str]:
-        """What game/scenes lists (§4.8): the deck's, and each scenario's first."""
+        """What game/scenes lists (§6.4): the deck's, and each scenario's first."""
         return [i for i, s in self.scenes.items() if not s.after]
 
     def scenarios(self) -> list[SceneDef]:
-        """The first scene of each scenario (§4.10), in script order."""
+        """The first scene of each scenario (§6.5), in script order."""
         return [s for s in self.scenes.values() if s.after_handled is not None]
 
     def needs_people(self, scene_id: str) -> frozenset[str]:
-        """The people who must be free to deal it (§4.4, §4.11)."""
+        """The people who must be free to deal it (§6.1, §6.6)."""
         calling, called = self.people[scene_id]
         if self.scenes[scene_id].if_busy:
             called = ""
@@ -182,7 +182,7 @@ class GameScript:
 
     def in_scenario(self, scene_id: str) -> bool:
         """Whether the scene is a scenario's first or one of its concurrent
-        followers down the chain (§4.10)."""
+        followers down the chain (§6.5)."""
         sc = self.scenes.get(scene_id)
         while sc is not None:
             if sc.after_handled is not None:
@@ -235,7 +235,7 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
 
     scenes: dict[str, SceneDef] = {}
     people: dict[str, tuple[str, str]] = {}
-    # Only active scenes are built, so an inactive one needs no wavs (§4.4).
+    # Only active scenes are built, so an inactive one needs no wavs (§6.1).
     for sid, raw in s.active_scenes().items():
         us = s.scene_lines(sid)          # the operator's own lines are not played
         req = us[0]
@@ -281,7 +281,7 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
                 seen.setdefault(n, Counter())[e["person"]] += 1
     occupants = {n: c.most_common(1)[0][0] for n, c in seen.items()}
 
-    # Free calls (§4.12, Rev 74): each answerer's lines, tolerant of wavs not
+    # Free calls (§8, Rev 74): each answerer's lines, tolerant of wavs not
     # rendered yet; who answers each station and outside line - the person
     # the scenes have there most often, among those with free-call lines.
     freecall: dict[str, FreeLines] = {}
@@ -335,7 +335,7 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
             tutor[key] = Speech(u.name, _wav_seconds(wav, u.name), "tutor")
         except (OSError, EOFError, wave.Error):
             # A short form not rendered yet (Rev 55) is no gap: she says
-            # the full line in its place. Nor is a wrong-cord line (§6.7,
+            # the full line in its place. Nor is a wrong-cord line (§7.7,
             # Rev 88), said in every pacing and simply not said without it.
             if not key.startswith((BRIEF_PREFIX, "rang-", "rear-")):
                 missing.append(u.name)
@@ -353,7 +353,7 @@ PHONE_STATION = 24          # the real telephone, on board 3 (game_control.md Re
 
 
 def fitted_stations(stations: int = N_STATIONS) -> list[int]:
-    """The stations fitted (§6.5): the first `stations` of 1-22, and station
+    """The stations fitted (§12.2): the first `stations` of 1-22, and station
     24 when `stations` is 22, since it is on board 3 with 17-22 (Rev 73)."""
     return list(range(1, stations + 1)) + ([PHONE_STATION] if stations == N_STATIONS else [])
 
@@ -396,14 +396,14 @@ def fit(gs: GameScript, stations: int = N_STATIONS, trunks: int = N_TRUNKS,
     fitted = dataclasses.replace(
         gs, scenes=keep, people={i: p for i, p in gs.people.items() if i in keep},
         # A lesson left out goes from its group; an emptied group goes
-        # altogether (§6.5).
+        # altogether (§12.2).
         lessons=tuple(g for g in (tuple(i for i in grp if i in keep)
                                   for grp in gs.lessons) if g))
     return fitted, [f"{i}: {w}" for i, w in why.items()]
 
 
 def _jacks(s: Script) -> tuple[Jack, ...]:
-    """The board map (§6.3): 30 station jacks and 10 trunk jacks.
+    """The board map (§12.1): 30 station jacks and 10 trunk jacks.
 
     Station jacks come from script.yml's jacks:. A listed jack has a label
     whether or not a station is cabled to it, and the page draws a labelled

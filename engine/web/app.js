@@ -1,19 +1,19 @@
 /* 551 Switchboard Simulator — the status page (game_control.md §7).
  *
- * The page never shows what it asked for, only what was echoed (§7.2). A tap
+ * The page never shows what it asked for, only what was echoed (§11.2). A tap
  * publishes a /set and changes nothing on screen; the display moves when the
  * game program's state topic moves. That is the same rule every other client
  * follows, and it is why there is no local model of the game here — only a
  * map of retained topic values, and a render that reads it.
  *
- * Host time, not the iPad's (§7.2). On the travel router neither clock may
+ * Host time, not the iPad's (§11.2). On the travel router neither clock may
  * have seen a time server, so every duration is computed against the host's
  * clock, whose offset from ours comes from each game_heartbeat.
  */
 'use strict';
 
 const PREFIX = 'sbgame/';
-const STALE_MS = 2500;              // §7.2: 2.5 s without a heartbeat
+const STALE_MS = 2500;              // §11.2: 2.5 s without a heartbeat
 const N_STATION_JACKS = 30, N_TRUNK_JACKS = 10;
 const PHONE_STATION = 24;           // the real telephone (game_control.md Rev 73)
 
@@ -29,13 +29,13 @@ let panelOpen = null;               // "station/7" while its panel is up
 let nextEnabledAt = 0;              // Next Call re-enables after 3 s regardless
 let playSince = 0;                  // our clock when audio/playback last changed
 // A circuit's `peer` going `deaf` or `ambiguous` is a fault only once it has
-// stayed so for a second (§7.1, Rev 52): a relay or the cord switch breaks the
+// stayed so for a second (§11.1, Rev 52): a relay or the cord switch breaks the
 // line for about 0.2s, and the detector reports `deaf` for that long.
 const PEER_FAULT_MS = 1000;
 const peerFaultSince = Object.create(null);   // circuit -> our clock, ms
 const peerBefore = Object.create(null);       // circuit -> the last other peer
 
-// Whether this iPad shows the controls (§7.1, Rev 13). A preference of this
+// Whether this iPad shows the controls (§11.1, Rev 13). A preference of this
 // device alone, so it lives in the browser and not on the bus. Shown unless
 // hidden here: storage can come back empty, and an iPad that has lost its
 // setting should be able to run the game.
@@ -48,12 +48,12 @@ const on = (k) => S[k] === 'on';
 const hostNow = () => Date.now() / 1000 + hostOffset;
 const num = (k) => { const v = parseFloat(get(k)); return isFinite(v) ? v : null; };
 
-// ---- connection (§7.2) -----------------------------------------------------
+// ---- connection (§11.2) -----------------------------------------------------
 
 function connect() {
   const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
   // location.host, so no address, port or scheme is written into the page and
-  // it works unchanged at home and on the road (§2).
+  // it works unchanged at home and on the road (§13.1).
   client = mqtt.connect(`${scheme}://${location.host}/mqtt`, {
     username: 'sbgame-web',
     password: 'PAGE_PASSWORD',      // replaced at install; see web/README.md
@@ -82,7 +82,7 @@ function connect() {
     const text = payload.toString();
 
     if (key === 'ctl/game_heartbeat') {
-      // The host's clock (§7.2). Keep the offset, not the time.
+      // The host's clock (§11.2). Keep the offset, not the time.
       const t = parseFloat(text);
       if (isFinite(t)) hostOffset = t - Date.now() / 1000;
       lastGameBeat = Date.now();
@@ -104,7 +104,7 @@ function connect() {
       }
     }
 
-    // When a playback began, by our clock, for its time (§7.7, Rev 61).
+    // When a playback began, by our clock, for its time (§11.6, Rev 61).
     if (key === 'audio/playback' && text !== get(key)) playSince = Date.now();
 
     if (text === '') delete S[key]; else S[key] = text;
@@ -128,7 +128,7 @@ function send(name, value, qos) {
   client.publish(`${PREFIX}game/${name}/set`, value, { qos: qos === undefined ? 1 : qos });
 }
 
-// ---- staleness (§7.2) ------------------------------------------------------
+// ---- staleness (§11.2) ------------------------------------------------------
 //
 // Grey out rather than blank, so the operator sees the last known value and
 // that it may be old, instead of an empty box that looks like "nothing there".
@@ -140,7 +140,7 @@ const espStale = () =>
   !brokerUp || get('ctl/status') !== 'online' ||
   (lastEspBeat && Date.now() - lastEspBeat > STALE_MS);
 const audioStale = () => !brokerUp || get('ctl/audio_status') !== 'online';
-// The public address (§7.1, Rev 68): looked up every 5 min, so stale once
+// The public address (§11.1, Rev 68): looked up every 5 min, so stale once
 // the last lookup is over 11 min old — the service is down — or failed.
 const IP_STALE_S = 660;
 const ipStale = () => {
@@ -162,7 +162,7 @@ const trunkShown = () => {
 let ipAsked = null;                  // `checked` when the line was tapped
 let ipAskedAt = 0;
 
-// ---- the board (§7.1) ------------------------------------------------------
+// ---- the board (§11.1) ------------------------------------------------------
 
 const jackCircuit = (kind, n) => get(`board/${kind}/${n}/circuit`);
 const jackLabel = (kind, n) => get(`board/${kind}/${n}/label`);
@@ -177,7 +177,7 @@ function labelOf(circuit) {
   return circuit;
 }
 
-/** One state per tile, most urgent first (§7.1's table). A labelled jack with
+/** One state per tile, most urgent first (§11.1's table). A labelled jack with
  *  nothing cabled to it is drawn as a working jack at rest (Rev 11). */
 function tileState(kind, circuit, label) {
   if (!circuit) return label ? 'idle' : 'none';
@@ -187,7 +187,7 @@ function tileState(kind, circuit, label) {
     on(circuit === `station/${PHONE_STATION}` ? `${circuit}/lifted` : `${circuit}/hook`);
   let peer = get(`${circuit}/peer`);
   if (circuit in peerFaultSince && Date.now() - peerFaultSince[circuit] < PEER_FAULT_MS)
-    peer = peerBefore[circuit];        // held, as the game holds it (§5)
+    peer = peerBefore[circuit];        // held, as the game holds it (§4)
   if (peer === 'ambiguous' || peer === 'deaf' || get(`${circuit}/play`) === 'missing'
       || on(`${circuit}/fault`)) return 'fault';
   if (on(`${circuit}/ring`)) return 'ringing';
@@ -317,9 +317,9 @@ function fitsAt(tile, start) {
 // A rotation or a resize changes the tile width, so the board is refitted.
 window.addEventListener('resize', fitBoard);
 
-// ---- diagnostics (§7.5, Rev 25) ----------------------------------------------
+// ---- diagnostics (§11.4, Rev 25) ----------------------------------------------
 
-/** A circuit within game/stations and game/trunks (§6.5). Station 24, the
+/** A circuit within game/stations and game/trunks (§12.2). Station 24, the
  *  real telephone, is fitted with board 3, when game/stations is 22 (Rev 73). */
 function fitted(circuit) {
   const [kind, n] = circuit.split('/');
@@ -343,11 +343,11 @@ document.getElementById('panel-body').addEventListener('click', (e) => {
 document.getElementById('tools').addEventListener('click', (e) => {
   const b = e.target.closest('[data-diag]');
   if (b) toggleDiag(b.dataset.diag);
-  // The board sweeps (§7.6; on the deck's keys 5 and 6 until Rev 61).
+  // The board sweeps (§11.5; on the deck's keys 5 and 6 until Rev 61).
   const w = e.target.closest('[data-sweep]');
   if (w && get('game/run') !== 'on')
     send('sweep', get('game/sweep') === w.dataset.sweep ? 'off' : w.dataset.sweep);
-  // Recording and playback (§7.7, Rev 61).
+  // Recording and playback (§11.6, Rev 61).
   const id = e.target.closest('button') && e.target.closest('button').id;
   // Each button stops what it started, and neither starts while the other
   // runs: a playback would be recorded, and recording one is not the point.
@@ -365,7 +365,7 @@ document.getElementById('tools').addEventListener('click', (e) => {
     if (playing()) send('playback', 'stop');
     else if (!recording() && get('game/run') !== 'on') showRecordings();
   }
-  // The switchboard's power (§7.8, Rev 65): a toggle, held off until tapped
+  // The switchboard's power (§11.7, Rev 65): a toggle, held off until tapped
   // again; not switched off while a game runs.
   if (id === 'power-btn' && !espStale()) {
     if (get('ctl/power_cut') !== 'off') send('power_cut', 'off');
@@ -477,7 +477,7 @@ function renderTools() {
   playBtn.textContent = playing() ? 'playing' : play === 'missing' ? 'play… (missing)' : 'play…';
   document.getElementById('play-ind').hidden = !playing();
 
-  // Lit while the switchboard is powered; dark through a 1s cut too (§7.8).
+  // Lit while the switchboard is powered; dark through a 1s cut too (§11.7).
   const powered = get('ctl/power_cut') === 'off';
   const powerBtn = document.getElementById('power-btn');
   powerBtn.classList.toggle('on', powered);
@@ -502,7 +502,7 @@ function tickIndicators() {
 }
 setInterval(tickIndicators, 100);
 
-// ---- help on a long press (§7.1, Rev 54) ---------------------------------------
+// ---- help on a long press (§11.1, Rev 54) ---------------------------------------
 //
 // The pacing buttons and the steppers. A tap still does what it did; holding
 // about half a second explains instead, and the click that ends the hold is
@@ -564,7 +564,7 @@ document.addEventListener('contextmenu', (e) => {
   if (e.target.closest('[data-help]')) e.preventDefault();
 });
 
-// ---- a chosen next scene (§4.8, Rev 25) ---------------------------------------
+// ---- a chosen next scene (§6.4, Rev 25) ---------------------------------------
 
 function showScenes() {
   const list = document.getElementById('scene-list');
@@ -597,7 +597,7 @@ function showPanel(kind, n) {
   const p = document.getElementById('panel');
   const rows = [['jack', `${kind} ${n}`], ['circuit', circuit || '—'],
                 ['label', jackLabel(kind, n) || '—']];
-  // Diagnostics (§7.5, Rev 25): commands only on a circuit that is fitted,
+  // Diagnostics (§11.4, Rev 25): commands only on a circuit that is fitted,
   // and only with the controls shown. The row's third element is its test.
   const cmds = circuit && showControls && fitted(circuit);
   const own = kind === 'station' ? 'hook' : 'ring';
@@ -690,7 +690,7 @@ function renderHealth() {
     ['controller', get('ctl/status') || '—', espStale()],
     ['esp beat', age(lastEspBeat), espStale()],
     ['i2c', get('ctl/i2c') || '—', espStale()],
-    // §7.1, Rev 27: "control.md Rev 18, 4118077, built 2026-10-01 21:14Z",
+    // §11.1, Rev 27: "control.md Rev 18, 4118077, built 2026-10-01 21:14Z",
     // shown as two rows to fit the column.
     ['firmware', fw[0] || '—', espStale()],
     ['built', fw[1] || '—', espStale()],
@@ -700,7 +700,7 @@ function renderHealth() {
     ['source', src === 'tap' ? 'tap' : (src ? labelOf(src) : '—'), audioStale()],
     ['game', get('ctl/game_status') || '—', gameStale()],
     ['game beat', age(lastGameBeat), gameStale()],
-    // §7.1, Rev 68: tap either row to look again now.
+    // §11.1, Rev 68: tap either row to look again now.
     ['public IP', ipShown(), ipStale(), 'ip'],
     ['checked', ipChecked(), ipStale(), 'ip'],
     ['public trunk', trunkShown(),
@@ -746,7 +746,7 @@ function renderTop() {
 
   const running = get('game/run') === 'on';
   const pace = get('game/pace');
-  const auto = pace === 'auto' || pace === 'listen';   // listen is automatic too (§4.2)
+  const auto = pace === 'auto' || pace === 'listen';   // listen is automatic too (§5.3)
   const disabled = gameStale();
 
   document.getElementById('start').disabled = disabled || running;
@@ -762,7 +762,7 @@ function renderTop() {
   }
 
   const next = document.getElementById('next');
-  // Looks disabled rather than being `disabled`, so its long press (§4.8)
+  // Looks disabled rather than being `disabled`, so its long press (§6.4)
   // still works with no game running; the tap handler checks the same thing.
   next.classList.toggle('dis', nextBlocked());
   next.classList.toggle('small', auto);
@@ -825,7 +825,7 @@ function render() {
   e.textContent = err;
   e.hidden = !err;
   const log = document.getElementById('log');
-  // game_control.md 6.2 publishes the log newest first. It reads better the
+  // game_control.md 12.3 publishes the log newest first. It reads better the
   // other way round — down the page, like a terminal — so it is reversed
   // here rather than at the source: anything else subscribing to game/log
   // still gets the order the specification gives.
@@ -852,7 +852,7 @@ document.getElementById('controls-toggle').onclick = () => {
 };
 document.getElementById('start').onclick = () => send('run', 'on');
 document.getElementById('stop').onclick = () => {
-  // §7.1: a second tap within 3 s, because Stop ends a player's game.
+  // §11.1: a second tap within 3 s, because Stop ends a player's game.
   if (stopArmed > Date.now()) { stopArmed = 0; send('run', 'off'); }
   else { stopArmed = Date.now() + 3000; setTimeout(render, 3100); }
   render();
@@ -861,7 +861,7 @@ function nextBlocked() {
   return gameStale() || get('game/run') !== 'on' || Date.now() < nextEnabledAt;
 }
 
-// A long press, about half a second, lists the scenes (§4.8). The tap that
+// A long press, about half a second, lists the scenes (§6.4). The tap that
 // ends a long press must not also start a call.
 let pressTimer = null, longPressed = false;
 const nextBtn = document.getElementById('next');
@@ -876,14 +876,14 @@ nextBtn.addEventListener('contextmenu', (e) => e.preventDefault());
 document.getElementById('next').onclick = () => {
   if (longPressed) { longPressed = false; return; }
   if (nextBlocked()) return;
-  // §4.1: QoS 0, never resent on reconnect, and the button disables itself
+  // §5.1: QoS 0, never resent on reconnect, and the button disables itself
   // until `started` changes — or 3 s, so a lost tap does not leave it dead.
   send('next', '', 0);
   nextEnabledAt = Date.now() + 3000;
   setTimeout(render, 3100);
   render();
 };
-for (const p of ['tutor', 'manual', 'auto', 'listen'])          // tutor §4.9, Rev 32
+for (const p of ['tutor', 'manual', 'auto', 'listen'])          // tutor §7, Rev 32
   document.getElementById('pace-' + p).onclick = () => { if (!gameStale()) send('pace', p); };
 document.getElementById('steppers').addEventListener('click', (e) => {
   const spec = e.target.dataset.step;
@@ -891,12 +891,12 @@ document.getElementById('steppers').addEventListener('click', (e) => {
   const [name, delta] = spec.split(':');
   const now = num('game/' + name);
   if (now === null) return;
-  // §7.2: the steppers publish the new value, not a step. The game program
+  // §11.2: the steppers publish the new value, not a step. The game program
   // clamps and echoes what it applied.
   send(name, String(Math.max(0, now + parseFloat(delta))));
 });
 
-// `started` changing is what re-enables Next Call (§4.1).
+// `started` changing is what re-enables Next Call (§5.1).
 let lastStarted = null;
 setInterval(() => {
   const s = get('game/started');
@@ -917,7 +917,7 @@ function secs(v) {
 }
 
 // The page is installable and opens from the Home Screen without Safari's
-// bars (game_control.md 7.3). The worker also opens it from cache, which
+// bars (game_control.md 11.3). The worker also opens it from cache, which
 // matters when the iPad has been asleep and the board is wanted at once.
 //
 // Picking up a new build. From the Home Screen there is no reload button, and

@@ -95,9 +95,9 @@ async def run(cfg: Config) -> int:
         asyncio.create_task(link.run(), name="link"),
         asyncio.create_task(game.run_scheduler(), name="scheduler"),
         asyncio.create_task(game.watch_clients(), name="clients"),
-        asyncio.create_task(game.free.run(), name="free-calls"),     # §4.12, Rev 74
+        asyncio.create_task(game.free.run(), name="free-calls"),     # §8, Rev 74
     ]
-    if cfg.ring_cue:                                # §6.6, Rev 51
+    if cfg.ring_cue:                                # §9.2, Rev 51
         if (cfg.resolved("wav_dir") / f"{cue.CUE}.wav").is_file():
             tasks.append(asyncio.create_task(cue.RingCue(board, Hw(link)).run(), name="ring-cue"))
         else:
@@ -131,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--script", help="override the script.yml path")
     p.add_argument("--broker", help="override the broker host")
     p.add_argument("--stations", type=int, metavar="N",
-                   help="stations fitted, 0-22: the first N (game_control.md 6.5)")
+                   help="stations fitted, 0-22: the first N (game_control.md 12.2)")
     p.add_argument("--trunks", type=int, metavar="N",
                    help="trunks fitted, 0-8: the first N")
     p.add_argument("--check", action="store_true",
@@ -182,7 +182,7 @@ def main(argv: list[str] | None = None) -> int:
               f"of {len(gs.script.scenes)}, "
               f"{len(gs.deck_scenes())} in the deck, "
               f"{sum(1 for j in gs.jacks if j.circuit)} jacks cabled")
-        print(f"tutor (§4.9): {len(gs.tutor) + len(gs.tutor_missing)} lines, "
+        print(f"tutor (§7): {len(gs.tutor) + len(gs.tutor_missing)} lines, "
               f"{len(gs.tutor_missing)} with no wav")
         return 0
 

@@ -24,7 +24,7 @@ sbgame = "sbgame.main:main"
 # The stand-in for the controller, the audio program and the operator,
 # for use until the boards arrive.
 sbgame-sim = "sbgame.simulate:main"
-# The Stream Deck+ that carries the game's controls (game_control.md 7.4).
+# The Stream Deck+ that carries the game's controls (game_control.md 10).
 sbgame-streamdeck = "sbgame.streamdeck:main"
 # Trunk and station boards wired straight together, tested pair by pair.
 sbgame-boardtest = "sbgame.boardtest:main"

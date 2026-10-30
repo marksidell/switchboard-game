@@ -72,7 +72,7 @@ Four broker users, named as in `mqtt.md` §9: `sbgame-control`, `sbgame-audio`, 
 - **Where each password lives on the host:**
   - `sbgame-audio` and `sbgame-game`: one file each, `/etc/sbgame/mqtt-audio.pass` and `/etc/sbgame/mqtt-game.pass`, mode 640, owner root, group = the group of the user that runs that program. `sbaudio` reads its file with `--mqtt-pass-file`. Change its unit file to use that option if it passes the password on the command line now.
   - `sbgame-control`: its password is compiled into the firmware. If the firmware has none, or a different one, **don't edit `control/control.ino` as part of this task.** Report what it has. Mark decides, and the firmware change goes through the usual route.
-  - `sbgame-web`: goes into the page's `app.js` when the page is written (`game_control.md` §2). Put it in `/etc/sbgame/mqtt-web.pass` for now, same mode, so it can be found then.
+  - `sbgame-web`: goes into the page's `app.js` when the page is written (`game_control.md` §13.1). Put it in `/etc/sbgame/mqtt-web.pass` for now, same mode, so it can be found then.
 - Build `/etc/mosquitto/passwd` with `mosquitto_passwd` (`-c` for the first user only). Set it to `root:mosquitto` 640.
 - Write `/etc/mosquitto/acl` exactly as in `mqtt.md` §9, with the same ownership and mode.
 
@@ -113,7 +113,7 @@ If ufw is active, allow 443/tcp. Allow 1883/tcp too if the controller's subnet i
 
 ## Step 5: checks
 
-These are `game_control.md` §9 steps 1–4 and 10, as far as they can run from the host.
+These are `game_control.md` §13.3 steps 1–4 and 10, as far as they can run from the host.
 
 1. **Listeners.** Both open in the log, as above.
 2. **Name and certificate.** From portland, and from another machine on the LAN if you can reach one:
@@ -128,7 +128,7 @@ These are `game_control.md` §9 steps 1–4 and 10, as far as they can run from 
 4. **The access list.** As `sbgame-web` over WSS, publish `sbgame/station/1/hook/set` `on`. Watch with `mosquitto_sub -v -t 'sbgame/#'` on 1883 as `sbgame-game`: the message never appears. Then publish `sbgame/game/run/set` `off` as `sbgame-web`: it does appear. Use `off`, so a running game program does nothing.
 5. **Certificate reload on SIGHUP.** This decides the renewal design (`mqtt.md` §9.1).
    - Start `mosquitto_sub -d -v -t 'sbgame/ctl/#'` on 1883 as `sbgame-game` in the background, logging to a file. It stands in for the controller's connection.
-   - Note the served certificate's serial with the `openssl s_client … -serial -enddate` line from `game_control.md` §9 step 10.
+   - Note the served certificate's serial with the `openssl s_client … -serial -enddate` line from `game_control.md` §13.3 step 10.
    - Run `sudo certbot renew --force-renewal --cert-name game.kr3am.org`. It runs the deploy hook.
    - Note the serial again.
    - **Pass:** the serial changed, and the background subscriber's log shows no disconnect or new CONNACK across the renewal.
