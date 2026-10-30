@@ -376,7 +376,7 @@ and, equally important, maintained the specifications. Claude is a much better
 note-taker than I. Every step of the process, every design decision, every misstep,
 every bug, every hardware test, everything, is documented. After five weeks of
 development, the game's
-[specification](docs/game_control.md) is at its 94th revision.
+[specification](docs/game_control.md) is at its 100th revision.
 When there were problems that spanned hardware and software, I was able to work
 with Claude to devise tests incorporating the Analog Discovery 3, game logs,
 and one-off test programs, which turned out to be far more useful than the debugging tools
@@ -738,6 +738,9 @@ channel is connected only when the real phone is offhook.
 
 With this configuration, the game can detect when someone
 picks up the phone and can hear the person speaking.
+The pilot tones are also quite audible in the telephone's earpiece.
+I fixed that problem by stashing the same low-pass filter
+used for the operator headset inside the phone.
 
 I connected the ATA to trunk 8 and modified a trunk channel to work with
 it:
