@@ -2,13 +2,13 @@
 
 **Game Control and the Status Page**
 
-*Rev 95. The changes in each revision are in §11.*
+*Rev 96. The changes in each revision are in §11.*
 
 # 1. Overview
 
 This document specifies how the game is run: starting and stopping a game, pacing the calls, counting how the operator did, and a status page on an iPad that shows the whole system while it runs. From Rev 13 the controls are on an Elgato Stream Deck+ beside the switchboard (§7.4), and the page becomes a display. It covers three things that are written together:
 
-- **What the game program does** with each control — the meaning of a game, of pacing, of success and failure. There is no game program specification yet; when one is written, §3 to §6 move into it and this document keeps the page.
+- **What the game program does** with each control — the meaning of a game, of pacing, of success and failure.
 - **The status page** — one HTML page with its script, served by nginx and connected to Mosquitto over MQTT on WebSockets through the same nginx (Rev 10). It has no server of its own and no code on the host beyond the game program's topics.
 - **The Stream Deck** (Rev 13) — a Stream Deck+ on USB to the host, driven by a small program of its own, `sbgame-streamdeck`, that talks MQTT to the same broker. It carries Start, Stop, the pacing, Next Call and the four pacing values, and shows the tallies and the health of the three clients.
 
@@ -58,7 +58,7 @@ The game program always starts with `run` `"off"`.
 
 ## 4.1 Manual
 
-The Next Call key on the Stream Deck starts one call (Rev 13; until the deck is commissioned the page's Next Call button does too). Nothing else starts a call, apart from `after:` scenes (§4.4).
+The Next Call key on the Stream Deck, or the page's Next Call button, starts one call. Nothing else starts a call, apart from `after:` scenes (§4.4).
 
 The key publishes `game/next/set`, at QoS 0, with an empty payload. The game program keeps its own count and starts the next call if `run` is `"on"` and a scene can be dealt (§4.4). If not, it reports why on `game/error`.
 
@@ -129,7 +129,7 @@ Mark wants, later, a mode where a new call can arrive before the operator has co
 
 **Hanging up** (Rev 75). After a call's last line, the parties hang up 1.5s later, not at once: the time it takes to put a receiver down. The same after the operator's closing words, or where a call to her has none, and after an engaged caller's last line.
 
-Two keys on a conversation line (Rev 19):
+Keys on a conversation line:
 
 - **`wait: true`** — the line plays only after the operator has spoken on that line's side of the call and stopped: a listen on the called circuit for a `called:` line, on the calling circuit for a `caller:` line, as in the calls to the operator. If she does not speak within the speak timeout, the call fails as `timeout` (§5). It is refused in a call to the operator and in a `busy: true` scene, where every line waits already.
 - **`person: <cast member>`** — the line is spoken by that person rather than by the scene's party on that side. It plays on the same circuit; only the voice changes.
@@ -279,7 +279,7 @@ Three counts per game, each zeroed at start:
 
 The page shows **handled** as `success + fail`, the success percentage of handled, and **in progress** as the count of occupied slots. `started` minus handled minus in progress is the calls abandoned at Stop; the page does not show it.
 
-A failure is logged with its reason. The reasons at Rev 1:
+A failure is logged with its reason:
 
 | **Reason** | **Meaning** |
 | --- | --- |
@@ -289,9 +289,9 @@ A failure is logged with its reason. The reasons at Rev 1:
 | `timeout` | The operator did not speak when a line was waiting for them (calls to the operator, busy scenes, and a `wait:` line, §4.6). |
 | `misdialled` | The operator dialled the number with too many digits — a digit more within 3s of the last it needs — or too few, stopping 10s short of it (Rev 56), or nothing, 30s after taking the trunk, outside tutor mode (Rev 60, Rev 84). The trunk gets reorder, the fast busy, until she releases it; she may then take a trunk and dial again, and the call fails as `misdialled` only when the connect timeout runs out after a reorder (Rev 84). |
 
-Timeouts are the game program's configuration, not the page's, at Rev 1: 60s to answer, 90s to connect after the request has played, 30s for the operator to speak. They are starting values for play-testing.
+Timeouts are the game program's configuration, not the page's: 60s to answer, 90s to connect after the request has played, 30s for the operator to speak. They are starting values for play-testing.
 
-A wrong connection is logged but is not a failure on its own. From Rev 60 a wrong room rung answers, "Hello?", the caller says it is not who they asked for, and it hangs up; a right room rung on a cord not patched to the caller says "Hello?" after 8s and hangs up after 8s more; a party waiting for her to speak says "Hello? Operator?" after 6s of silence; and a trunk taken and not dialled for 15s gets reorder and fails as `misdialled` (§11.60). An operator who plugs the wrong jack and corrects it within the connect timeout has made the call. A wrong number of the right length gets busy tone on the trunk until she hangs it up (Rev 46), and she may redial; one too long or too short is `misdialled` (Rev 56). The game takes a number as dialled 3s after its last digit, so as to hear a digit too many; a fresh seizure gets dial tone again, a second after it, as on every seizure for a call out. Whether a wrong party answering should end the call is open (§10).
+A wrong connection is logged but is not a failure on its own. From Rev 60 a wrong room rung answers, "Hello?", the caller says it is not who they asked for, and it hangs up; a right room rung on a cord not patched to the caller says "Hello?" after 8s and hangs up after 8s more; a party waiting for her to speak says "Hello? Operator?" after 6s of silence; and a trunk taken and not dialled for 15s gets reorder and fails as `misdialled` (§11.60). An operator who plugs the wrong jack and corrects it within the connect timeout has made the call. A wrong number of the right length gets busy tone on the trunk until she hangs it up (Rev 46), and she may redial; one too long or too short is `misdialled` (Rev 56). The game takes a number as dialled 3s after its last digit, so as to hear a digit too many; a fresh seizure gets dial tone again, a second after it, as on every seizure for a call out.
 
 # 6. Calls in Progress, the Log and the Board
 
@@ -438,11 +438,11 @@ The log records each as `wrong cord: <key>` against the call's number.
 
 For an iPad in landscape, 1024 CSS pixels wide or more. Touch targets 44px or larger. Four areas: the top bar across the page; the board under it, across the whole width; then calls, with the log under them, beside a narrow health column (Rev 11):
 
-**Top bar**, always visible. A Controls switch beside the connection lamps shows or hides its buttons — Start, Stop, the pacing, Next Call and the steppers' − and + — on this iPad (Rev 13). The Stream Deck carries the same controls (§7.4). With the buttons hidden the values stay — the four values, `gap_now`, the countdown and the tallies — and one line reads what the hidden buttons showed: Running or Stopped, and Manual, Automatic or Listen. The setting belongs to the iPad, kept in the browser's storage, not on the bus. An iPad with no setting, or one whose storage was cleared, shows the buttons, so it can always run the game.
+**Top bar**, always visible. A Controls switch beside the connection lamps shows or hides its buttons — Start, Stop, the pacing, Next Call and the steppers' − and + — on this iPad (Rev 13). The Stream Deck carries the same controls (§7.4). With the buttons hidden the values stay — the four values, `gap_now`, the countdown and the tallies — and one line reads what the hidden buttons showed: Running or Stopped, and Tutor, Manual, Automatic or Listen. The setting belongs to the iPad, kept in the browser's storage, not on the bus. An iPad with no setting, or one whose storage was cleared, shows the buttons, so it can always run the game.
 
 - Connection: broker connected or not; game program online or not.
 - Start and Stop. Stop needs a second tap within 3s, because it ends a player's game.
-- Pacing: Manual | Automatic | Listen (Rev 16).
+- Pacing: Tutor | Manual | Automatic | Listen.
 - Next Call: large in manual pacing, small in automatic (auto or listen). A long press, held about half a second, opens a scrolling list of the scenes to choose the next one from (§4.8, Rev 25); a chosen scene shows under the button until it is dealt.
 - Tools (Rev 25): a panel of diagnostics not tied to a jack. Its one section at Rev 25 is the operator tap: `tone`, `voice` and `monitor` (§7.5). From Rev 61 three more follow it: Diagnostics, the board sweeps (§7.6); Record; and Playback (§7.7). From Rev 65, a fifth: Switchboard, its power (§7.8). A long press, about half a second, shows a key to the lamps instead: each state in the table below with its lamp as the board draws it (Rev 53).
 - Help (Rev 54): a long press on a pacing button or a stepper explains it, beside the button. Escape, or a tap elsewhere, closes it and every other popup.
@@ -499,7 +499,7 @@ A station jack with a label and no circuit — listed in `jacks:` with no `stati
 
 ## 7.3 On the iPad
 
-Add the page to the Home Screen, so it opens without Safari's bars. Turn off Auto-Lock while it is in use at an event. The page is a secure origin (§2), so it could instead hold a screen wake lock while a game runs; that is not specified yet (§10, Rev 8). For a public exhibit, Guided Access keeps visitors on the page; for Rev 1 the page is Mark's.
+Add the page to the Home Screen, so it opens without Safari's bars. Turn off Auto-Lock while it is in use at an event. The page is a secure origin (§2), so it could instead hold a screen wake lock while a game runs; that is not specified yet (§10, Rev 8). For a public exhibit, Guided Access keeps visitors on the page.
 
 ## 7.4 The Stream Deck
 
@@ -587,10 +587,10 @@ Every value arriving on `game/+/set` is checked by the game program; the access 
 
 # 9. Commissioning
 
-Before step 1: the certificate is issued (`mqtt.md` §9.1), nginx is configured and enabled, the Route 53 A record for `game.kr3am.org` points at the host, and the broker users and the access list are in place — four, and `sbgame-deck` the fifth from Rev 13. The deploy hook no longer has to be run by hand, because nginx reads the certificate from `/etc/letsencrypt/live` directly and the hook only reloads it.
+Before step 1: the certificate is issued (`mqtt.md` §9.1), nginx is configured and enabled, the Route 53 A record for `game.kr3am.org` points at the host, and the five broker users and the access list are in place. The deploy hook no longer has to be run by hand, because nginx reads the certificate from `/etc/letsencrypt/live` directly and the hook only reloads it.
 
 1. Restart Mosquitto and nginx after the §9 changes to `mqtt.md`'s configuration. Mosquitto's log shows two listeners open, MQTT on 1883 and WebSockets on 127.0.0.1:9001; `ss -ltnp` shows nginx on 443. Mosquitto's WebSockets listener is deliberately on loopback: nothing off the host reaches it except through nginx (Rev 10).
-2. From another machine on the LAN, `curl https://game.kr3am.org/` returns `index.html` with no certificate error. That checks the name, the certificate and `http_dir` together (Rev 8; `curl http://<host>.local:9001/` through Rev 7).
+2. From another machine on the LAN, `curl https://game.kr3am.org/` returns `index.html` with no certificate error. That checks the name, the certificate and nginx together.
 3. The controller, the audio program and the game program still connect. `allow_anonymous false` refuses any client without credentials; control.md §9.1 and audio.md already use them, but check the usernames against the access list.
 4. As `sbgame-web`, publish `sbgame/station/1/hook/set` `on`. Station 1's relay does not move and `hook` does not change: the broker has dropped it silently. Then `sbgame/game/run/set` `on`, which is accepted.
 5. Lock the iPad for a minute and unlock it. The page reconnects and shows the full state without a reload.
@@ -598,23 +598,20 @@ Before step 1: the certificate is issued (`mqtt.md` §9.1), nginx is configured 
 7. Kill the game program. The page shows it offline within 2.5s and keeps showing the hardware.
 8. **Wiring check** (Rev 5). With no game running, put an answering cord into each cabled station jack in turn and ring it. The tile for that jack flashes. If another tile flashes, or none does, the cable and script.yml's `jacks:` disagree about that station (Rev 11; each station's `switchboard:` at Rev 7–10, `wiring.yml` at Rev 5–6). A labelled jack with nothing cabled looks like any other at rest, so a tile that never flashes is not by itself proof of a fault — tap it: its circuit reads none. For trunks, seize each trunk jack in turn: the tile for that jack shows busy. This checks the cabling against the script using only topics that already exist.
 9. **The loudspeaker follows the call** (Rev 6). Start a game. The page shows the monitor's source as `tap`. Start a call from a station and answer it: the source changes to that station's label and the audience hears the request. Put the call through and release the operator: the conversation stays on the loudspeaker. Do the same for a call from a trunk, and confirm the source does not change while the trunk is ringing. Stop the game: the source returns to `tap`.
-10. **Certificate reload** (Rev 10). Nothing to check. Mosquitto holds no certificate: nginx terminates TLS and rereads the certificate on `systemctl reload`, which starts new workers and lets the old ones finish, so no client is disconnected and no client of Mosquitto is touched at all. Rev 8 and Rev 9 had this step decide between SIGHUP and a 04:00 restart, because whether Mosquitto's libwebsockets listener reloads a certificate on SIGHUP was unconfirmed. Both are withdrawn (`mqtt.md` §9.1). Confirm the renewal path itself instead, without spending an issuance: `sudo certbot renew --dry-run` runs the DNS-01 challenge against staging and the deploy hook, and must report success.
+10. **Certificate renewal.** `sudo certbot renew --dry-run` runs the DNS-01 challenge against staging and the deploy hook without spending an issuance, and must report success. nginx rereads the certificate on `systemctl reload`, so no client is disconnected.
 11. **The Stream Deck** (Rev 13). With `sbgame-streamdeck` running and the deck plugged in: the keys draw within 2s. Start and Stop start and stop a game, Stop only on the second press. The pacing key switches the page's pacing. Turn each dial one detent each way and check the page shows the step, then turn `gap` quickly through ten detents and check it moves 50s. Next Call starts one call per press, however fast it is pressed. Stop the game program: keys 1–7 grey within 2.5s and key 8 shows the game red. Unplug the deck and plug it in again: it redraws with the current state. `systemctl stop sbgame-streamdeck`: the deck goes blank. Then hide the page's controls with its Controls switch (§7.1), reload the page, and check they stay hidden and the line reads the game's state.
-
-    Run 2026-09-26 (Rev 15). Passed: the keys drew; Start and Stop, Stop on the second press; the pacing key; each dial one step per detent (`gap` 5s, `ramp` and `floor` 1, `jitter` 10), and eight quick `gap` detents moved it 40s, published in order within a second; with the game program stopped the keys greyed and key 8 went red; replugged, the deck redrew; with `sbgame-streamdeck` stopped it went blank; the page's controls stayed hidden across a reload. A fast turn can carry two detents in one message (`jitter` 100 → 80); the total comes out right. Next Call pressed fast, checked the same day with `sbaudio` running: six presses about 0.4s apart gave six `next/set` and six calls, each a different scene, none doubled or lost. With the audio program offline this could not be checked, since every call fails at once and the game stops (§3).
 12. **Tutor mode** (Rev 29; a pacing from Rev 32). With her lines rendered and in `/srv/sbgame/wav`, and the loudspeaker on: choose Tutor on the pacing key. Start a game: she introduces the board a part at a time, key 8 reads More Help and takes her to the next part, and Next Call at any point ends the introduction and deals the first call. Take a call from a room, one in on a trunk, and one out, following her, and check that every step is prompted before it is due and that she never speaks while the page shows a line `listening`. Leave a lamp lit: she says it twice more, 20s apart, then stops. Finish a call and leave a cord in: Next Call is refused and the page's error says why; pull it, and she asks for Next Call. Set the level of her voice against the calls' with `--monitor-file-trim` (audio.md §10.4), with the monitor at the level the room wants for the calls. Choose Manual mid-call: she stops at once and the call goes on.
 
 # 10. Open Items
 
 - **Calls before connection** (§4.5). Deferred by Mark.
-- **Wrong party answers.** Whether ringing the wrong station, or dialling a wrong number, ends the call as a failure or only costs time. Rev 1 lets the connect timeout decide. Rev 60 settles it for a wrong room: it answers and hangs up, and the call goes on; it is not a failure, since she can recover (Mark, 2026-10-17). A wrong number, the same: busy tone, and she redials (Rev 46).
-- **Timeouts from the page.** The §5 timeouts are configuration at Rev 1. If play-testing wants them changed between players, they become three more `game/…/set` topics.
+- **Timeouts from the page.** The §5 timeouts are configuration. If play-testing wants them changed between players, they become three more `game/…/set` topics.
 - **Audience view.** A second page, or a mode of this one, for the room: the tallies large, the calls in progress, nothing diagnostic. Same topics; no host change.
 - **Cords drawn as lines** between tiles rather than shown by colour. Only if the colour pairing is hard to read on the iPad.
 - **Script names or jack labels.** script.yml's station keys (`room463`) and the board's labels (`463`) name the same thing twice. The calls panel and the log use script names, and the tiles use labels. If that reads badly, the game program can put labels in the call slots instead.
 - **The loudspeaker leaving a conversation** (§6.4). In automatic pacing, the operator answering the next call takes the audience away from the current conversation, possibly mid-sentence. The alternative is to stay on a call until its conversation ends and then move to the most recently answered call, at the cost of missing that call's request. Rev 6 moves at each answer. Wants listening with an audience. Rev 16's listen pacing sidesteps it when the conversations matter more than the pressure.
 - **Settings across restarts.** Pacing values return to the configuration file's when the game program restarts (§4.3). If that is annoying, the game program can read its own retained values back at start.
-- **Dial push** (§7.4). Unused at Rev 13. Candidates: a finer step while held, or back to the configured value — the program does not know the configured values, and the game program would have to publish them.
+- **Dial push** (§7.4). Unused. Candidates: a finer step while held, or back to the configured value — the program does not know the configured values, and the game program would have to publish them.
 - **Error on the strip** (§7.4). 5s may be too short to read a long error, or too long to lose the dials during a game. Wants use.
 - **Next Call on GPIO36** (`control.md` §11). A third way to publish `next/set`, needing the same guard as the page and the deck.
 - **The tutor and a wrong move** (§4.9). She does not say a jack or a number is wrong; her prompt only comes round again. A line per jack for "that is not room 403" would be one more template. Wants play with a new player first.
@@ -622,6 +619,12 @@ Before step 1: the certificate is issued (`mqtt.md` §9.1), nginx is configured 
 - **Screen wake lock** (§7.3, Rev 8). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 11. Revision History
+
+## 11.96 Changes in Rev 96
+
+— Out-of-date text corrected, Mark's request, 2026-10-30: §1's note that no game program specification exists; §4.1's "until the deck is commissioned"; §4.6's "Two keys" before a list of four; "at Rev 1" in §5, §7.3 and §10; Tutor added to the pacing lists of §7.1, as the page has it; §9's count of broker users; §9 step 2's `http_dir`. §9 step 10 keeps only the renewal check, and the Stream Deck test log of §9 step 11 moves to §11.15. The settled "Wrong party answers" comes out of §10.
+
+— No code consequence.
 
 ## 11.95 Changes in Rev 95
 
@@ -1099,6 +1102,8 @@ Calls before connection in general stay deferred (§4.5); the scenario is the on
 
 ## 11.15 Changes in Rev 15
 — Commissioning record only. §9 step 11, the Stream Deck, was run on portland on 2026-09-26, with Mark at the deck and the page. Everything passed. Fast Next Call presses needed the audio program running and were checked once it was. No behaviour changes.
+
+— The run in detail: passed: the keys drew; Start and Stop, Stop on the second press; the pacing key; each dial one step per detent (`gap` 5s, `ramp` and `floor` 1, `jitter` 10), and eight quick `gap` detents moved it 40s, published in order within a second; with the game program stopped the keys greyed and key 8 went red; replugged, the deck redrew; with `sbgame-streamdeck` stopped it went blank; the page's controls stayed hidden across a reload. A fast turn can carry two detents in one message (`jitter` 100 → 80); the total comes out right. Next Call pressed fast, checked the same day with `sbaudio` running: six presses about 0.4s apart gave six `next/set` and six calls, each a different scene, none doubled or lost. With the audio program offline this could not be checked, since every call fails at once and the game stops (§3).
 
 — Two host snags met on the way, both fixed in `host/`, not here. `libhidapi-libusb0` was not installed; the Stream Deck steps in `host/README.md` now install it. The udev rule names the `sbgame-deck` group, which did not exist when `make install` triggered udev, so the deck stayed `root:root` until udev was triggered again; `make sbgame-install` now triggers it after making the user.
 
