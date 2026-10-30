@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 99. The changes in each revision are in §15.*
+*Rev 100. The changes in each revision are in §15.*
 
 # 1. Overview
 
@@ -14,7 +14,7 @@ This document specifies how the game is run: starting and stopping a game, pacin
 
 Every topic named here is defined in `mqtt.md` (§6.1 and §6.2), which owns names, payloads, retention and the broker's access list. This document says what the values mean and when they change. It does not repeat the tables.
 
-The page reads the bus directly rather than through the game program. That is the reason for the design: it shows what the controller and the audio program actually report, and it keeps working when the game program is down — which is when it is most needed. The page commands only the game program, and the broker's access list holds it to that (`mqtt.md` §9).
+The page reads the bus directly rather than through the game program. That is the reason for the design: it shows what the controller and the audio program actually report, and it keeps working when the game program is down — which is when it is most needed. The page commands only the game program and the public-address check (`host/public_ip/check/set`), and the broker's access list holds it to that (`mqtt.md` §9).
 
 The Stream Deck program follows the same design for the same reason (§10). It commands the game over the broker as the page does, and displays only what the broker reports.
 
@@ -257,70 +257,131 @@ For dealing (§6.1), a scene with `if_busy:` does not hold its called line or it
 
 # 7. Tutor Mode
 
-A voice on the audience loudspeaker talks a new player through each call: a senior operator, cast member `tutor`, calm and unhurried. The tutor's lines are in script.yml under `tutor:`, rendered offline in the tutor's voice like every other line, and played on the monitor with `audio/monitor/play/set` (audio.md §10.4). The game program decides when the tutor speaks, from the same topics it runs the calls on.
+A voice on the audience loudspeaker talks a new player through each call: a senior operator, cast member `tutor`, calm and unhurried. The game program decides when the tutor speaks, from the same topics it runs the calls on, and plays each line on the monitor with `audio/monitor/play/set` (audio.md §10.4). The lines are rendered offline like every other line (§7.6).
 
 ## 7.1 The Pacing
 
-Tutor mode is the pacing `tutor`, first of the four on `game/pace` and the deck's pacing key (§10). It is manual pacing with the tutor: each call on Next Call, never on a schedule. It may be chosen whether or not a game runs. Chosen before Start, the tutor introduces the board and the game starts with the lessons; chosen mid-game, the tutor tutors from the next call, with no introduction and no lessons. Another pacing chosen mid-game takes effect at once: the tutor stops mid-word, and calls in progress go on without the tutor — which is how a player is moved on. `pace/set` `"tutor"` is refused on `game/error` while any of the tutor's lines has no wav, naming them, since a tutor with gaps is worse than none; the game program does not refuse to start for it, and a configured `pace = "tutor"` falls back to manual.
+Tutor mode is the pacing `tutor`, first of the four on `game/pace` and the deck's pacing key (§10). It is manual pacing with a teacher: each call comes on Next Call, never on a schedule. It can be chosen whether or not a game runs:
 
-**Back to tutor**. The installation's `game.toml` sets `pace = "tutor"`, so the game program starts in tutor. A game left stopped in any other pacing returns to tutor after `idle_tutor` seconds, 300 by default — counted from the stop, from start-up, or from the last pacing chosen while stopped, whichever is latest — so the next visitor finds it as a newcomer should. Never while a game runs; 0 turns it off. The return is logged, "pace tutor: stopped 300s", and published on `game/pace` like any other change.
+- **Before Start.** The tutor introduces the board (§7.3), and the game starts with the lessons (§7.5).
+- **Mid-game.** Tutoring begins at the next call, with no introduction and no lessons.
+
+Choosing another pacing mid-game takes effect at once. The tutor stops mid-word and the calls in progress go on, which is how a player is moved on.
+
+**Missing lines.** While any of the tutor's lines has no wav, `pace/set` `"tutor"` is refused on `game/error`, naming them, since a tutor with gaps is worse than none. The game program does not refuse to start for it, and a configured `pace = "tutor"` falls back to manual.
+
+**Back to tutor.** The installation's `game.toml` sets `pace = "tutor"`, so the game program starts in tutor. A game left stopped in any other pacing returns to tutor after `idle_tutor` seconds, 300 by default, so the next visitor finds it as a newcomer should. The time is counted from the stop, from start-up, or from the last pacing chosen while stopped, whichever is latest. It never happens while a game runs, and 0 turns it off. The return is logged, "pace tutor: stopped 300s", and published on `game/pace` like any other change.
 
 ## 7.2 When the Tutor Speaks
 
-At each step, before the player has to act, with the call held until the tutor has finished:
+The tutor speaks at each step, before the player has to act, and the call is held until the line has finished.
 
 | **Step** | **The tutor says** | **The game then waits for** |
 | --- | --- | --- |
 | Start | the introduction's first part, the jacks, ending "press More Help, or Next Call to start playing" | More Help or Next Call |
 | More Help | the next part: the cords, then the switches and the dial. The last ends "press Next Call" | More Help or Next Call; after the last, Next Call |
-| A room's lamp lights | which cord, the lit jack, and the switch to push. One line: the game cannot see a cord go into a station jack | the caller's `op` |
+| A room's lamp lights | which cord, the lit jack, and the switch to push. One line, because the game cannot see a cord go into a station jack | the caller's `op` |
 | A trunk's lamp lights | which cord, and the trunk jack | the trunk's `seize`, which the cord makes |
-| The trunk is seized | the switch to push | the trunk's `op` |
+| That trunk is seized | the switch to push | the trunk's `op` |
 | A call to the operator, once the caller has asked | "This call is for you, not for another line. Answer the caller yourself." | the next line |
 | Before every listen | "Say:" and the operator line the script gives there (§6.3), or "Greet the caller" for a request, or "Now it is your turn to speak" | the listen |
 | Ringing a room | the cord, the jack for that room by name, and the switch that rings it: the front cord and the near switch for a call from a room, the rear cord and the far switch for a call from a trunk | that station's `ring` |
-| The room rings, call from a trunk | return the near switch to the centre, before the room answers | — |
+| The room rings, on a call from a trunk | return the near switch to the centre, before the room answers | — |
 | Calling out | the front cord, into any free trunk | any trunk's `seize` |
-| The trunk is seized | keep the switch pushed, and the number to dial when dial tone comes, as the operator's card prints it: "Sunset four, four one oh one", or "zero, for the operator" | the first digit |
-| Ringback | return the switch to the centre when the party answers. Ringback runs on until the tutor has finished, so the tutor does not talk over the far end's first line | — |
+| The trunk is seized, calling out | keep the switch pushed, and the number to dial when dial tone comes, as the operator's card prints it: "Sunset four, four one oh one", or "zero, for the operator" | the first digit |
+| Ringback | return the switch to the centre when the party answers. Ringback runs on until the line has finished, so the far end's first line is not talked over | — |
 | Busy tone | "That is a busy signal. Tell the caller", then the Say prompt | the listen |
-| After the last `wait:` line | return the switch to the centre. In a call with a `wait:` line this replaces the two above: the call still needs the tutor's | — |
-| The call ends | both cords out and the switches centred; for a call to the operator, the one cord | the end of the line: once the call is down the board shows no cord, an on-hook station no pilot and a trunk no seizure, which runs through the station's line |
-| Cleared, in manual pacing | "press Next Call when you are ready" | Next Call, the player's word that the cords are out, which may come during either line and cuts it short |
+| After the last `wait:` line | return the switch to the centre. In a call with a `wait:` line this replaces the two rows above it that say to centre the switch, since until then the call still needs the operator | — |
+| The call ends | both cords out and the switches centred; for a call to the operator, the one cord | the end of the line. Once the call is down the board shows no cord: an on-hook station has no pilot, and a trunk no seizure, which runs through the station's line |
+| Cleared, in manual pacing | "press Next Call when you are ready" | Next Call, the player's word that the cords are out. It may come during this line or the one before, and cuts it short |
 
-**Never over a listen.** The operator's microphone hears the loudspeaker, so a listen while the tutor speaks would hear the tutor as the operator. Every listen in tutor mode is preceded by one of the tutor's lines, which ends before the listen starts, and saying a line stops any line still repeating.
+Three rules apply to every prompt:
 
-**Stopped once done**. A prompt the game waits on the board after — the answer, the switch, ring, the trunk, dial, centring the switch, the end of a call — stops mid-word as soon as the board shows the player has done it, and is not said at all if it already does.
-
-**Said again.** A prompt the player does not act on is said again 20s after it ended, and again 20s after that, then not again. A Say prompt whose listen hears nothing in 20s is said again the same way; after the third, the line plays as after any listen that times out.
+- **Never over a listen.** The operator's microphone hears the loudspeaker, so a listen during a tutor line would take the tutor for the operator. Every listen in tutor mode follows a tutor line that ends before the listen starts, and saying a line stops any line still repeating.
+- **Stopped once done.** A prompt the game checks against the board — the answer, the switch, ring, the trunk, dial, centring the switch, the end of a call — stops mid-word as soon as the board shows the player has done it. If the board already shows it, the prompt is not said at all.
+- **Said again.** A prompt the player does not act on is said again 20s after it ended, and again 20s after that, then not again. A Say prompt whose listen hears nothing in 20s is said again the same way. After the third time, the line plays as after any listen that times out.
 
 ## 7.3 The Introduction
 
-**The introduction** is in parts, `intro-jacks`, `intro-cords` and `intro-switches`, so a new player takes in one thing at a time. Each part but the last ends by asking for More Help or Next Call, and the tutor waits for either, as long as it takes. More Help is the Stream Deck's key 8 while the tutor is introducing (§10), and publishes `game/more/set`; pressed while the tutor is still speaking, it cuts the part short and goes on to the next. After the last part More Help does nothing, and at any other time it is refused on `game/error`, unless a short prompt is waiting (below). Next Call at any point ends the introduction and deals the first call. The part the tutor is on is `game/tutor/intro`, `"1/3"` to `"3/3"`, and `""` when the tutor is not introducing.
+The introduction comes in three parts, `intro-jacks`, `intro-cords` and `intro-switches`, so a new player takes in one thing at a time. Each part but the last ends by asking for More Help or Next Call, and the tutor waits for either for as long as it takes.
 
-**The key the tutor asks for flashes**. Once the tutor has finished speaking and waits for a key, the game program says which on `game/tutor/waiting`: `"more"` after a part of the introduction that ends "press More Help, or Next Call", `"next"` after the last part and after a call once the cords are out and the tutor has said "press Next Call when you are ready for another", and `""` at any other time, including while the tutor speaks and while the cords are still up. It goes back to `""` when the call is dealt, when More Help moves the tutor on, and when the tutor stops. The deck flashes the key the tutor asks for (§10).
+- **More Help** is the deck's key 8 during the introduction (§10), and publishes `game/more/set`. Pressed during a part, it cuts that part short and goes on to the next. After the last part it does nothing. At any other time it is refused on `game/error`, unless a short prompt is waiting (§7.4).
+- **Next Call**, at any point, ends the introduction and deals the first call.
+
+`game/tutor/intro` is the part under way, `"1/3"` to `"3/3"`, and `""` outside the introduction.
+
+**The key the tutor asks for flashes** on the deck (§10). `game/tutor/waiting` names it, once the tutor has finished speaking and waits for a key:
+
+| **Value** | **When** |
+| --- | --- |
+| `"more"` | after a part of the introduction that ends "press More Help, or Next Call" |
+| `"next"` | after the last part, and after a call once the cords are out and the tutor has said "press Next Call when you are ready for another" |
+| `""` | at any other time, including during a line and while the cords are still up |
+
+It goes back to `""` when the call is dealt, when More Help moves on to the next part, and when the tutor stops.
 
 ## 7.4 Repeat Help and Short Prompts
 
-**Repeat Help**. Once the tutor has finished a line and the game is waiting on the player, the line can be said again: the deck's key 7 reads "Repeat Help" and publishes `game/repeat/set`, an event at QoS 0, and the game program says the line again at once. Repeatable are each part of the introduction, every prompt the game waits on the board after — the answer, the switch, ring, the trunk, dial, the end of a call — and "press Next Call when you are ready for another". It stays repeatable until the board shows the player has done what it asks, or the tutor says another line, whichever comes first; the game program publishes it on `game/tutor/repeat`, the line's key under `tutor:`, or `""`. A "Say:" prompt is repeatable too, while the game listens for the operator after it: a press stops the listen first, so the loudspeaker is never heard as the tutor's, the tutor says the prompt again, and the game listens afresh. Once the operator has started speaking a press is refused, so the operator's answer is not cut off; a press is not one of the tutor's own repeats. Elsewhere a repeat on request starts the tutor's own repeats over (20s, twice) from its end. `repeat/set` with nothing repeatable, or while the operator speaks, is refused on `game/error`.
+**Repeat Help.** Once a line has finished and the game is waiting on the player, the line can be said again. The deck's key 7 reads "Repeat Help" and publishes `game/repeat/set`, an event at QoS 0, and the game program says the line again at once. `game/tutor/repeat` carries the line's key under `tutor:`, or `""` when nothing can be repeated.
 
-**Short prompts**. The tutor says each prompt in full the first two times it comes up, counted from Start or from Tutor chosen mid-game, prompt by prompt: a jack or a number in it does not make another prompt, so `ring-front` to room 403 and to the Lobby count together, while `dial-operator` counts apart from `dial`. The tutor's own repeats, Repeat Help and More Help do not count. From the third time, a prompt with a short form under script.yml's `tutor: brief:` is said short — "Rear cord into the lighted jack, then push the near switch away from you." — and one without is said in full. Once the tutor has finished a short prompt and the game waits on the player, More Help — the deck's key 8, as in the introduction — says the full line, at once. It is offered for as long as the short line could be repeated, and the game program publishes the full line's key on `game/tutor/more` while it is, `""` otherwise. After the press the full line is the one Repeat Help repeats, and More Help is not offered again until the tutor's next short prompt. `more/set` outside the introduction with no short prompt waiting is refused on `game/error`. Short forms may be given for every prompt but the introduction and the three said before the operator speaks (`say`, `greet`, `respond`).
+These lines can be repeated:
+
+- each part of the introduction;
+- every prompt the game checks against the board: the answer, the switch, ring, the trunk, dial, the end of a call;
+- "press Next Call when you are ready for another";
+- a "Say:" prompt, while the game listens for the operator after it.
+
+A line stays repeatable until the board shows the player has done what it asks, or the tutor says another line, whichever comes first.
+
+Pressed on a "Say:" prompt, Repeat Help stops the listen first, so the loudspeaker is never heard as the operator. The prompt is said again and the game listens afresh. Once the operator has started speaking a press is refused, so her answer is not cut off. The press does not count among the repeats of §7.2. On any other line, a press starts those repeats over (20s, twice) from the end of the line.
+
+`repeat/set` with nothing repeatable, or while the operator speaks, is refused on `game/error`.
+
+**Short prompts.** Each prompt is said in full the first two times it comes up, and from the third time short if script.yml's `tutor: brief:` has a short form for it: "Rear cord into the lighted jack, then push the near switch away from you." A prompt with no short form is always said in full.
+
+- **What is counted.** Times are counted from Start, or from Tutor chosen mid-game, prompt by prompt. A jack or a number in a prompt does not make another prompt, so `ring-front` to room 403 and to the Lobby count together, while `dial-operator` counts apart from `dial`. The tutor's own repeats, Repeat Help and More Help do not count.
+- **More Help for the full line.** Once a short prompt has finished and the game waits on the player, More Help (the deck's key 8, as in the introduction) says the full line at once. It is offered for as long as the short line could be repeated, and `game/tutor/more` carries the full line's key while it is, `""` otherwise. After the press, Repeat Help repeats the full line, and More Help is not offered again until the next short prompt. `more/set` outside the introduction with no short prompt waiting is refused on `game/error`.
+- **What may have a short form.** Every prompt but the introduction and the three said before the operator speaks (`say`, `greet`, `respond`).
 
 ## 7.5 Calls in Tutor Mode
 
-**One call at a time.** No call is dealt while one is in progress, an `after:` scene is waiting, the tutor is introducing the board, or the cords of the last call are still up. Next Call is refused on `game/error` while that holds, except during the introduction, which it ends. The schedule waits for all of it, as listen pacing waits for every call to end (§5.3), then runs its gap.
+**One call at a time.** No call is dealt while any of these holds:
 
-**The first calls**. A game started in tutor mode deals one call of each kind first: between rooms, from a room out to a number, in from outside to a room, and to the operator, in the order of the groups under script.yml's `tutor: lessons:`. Each group lists suitable scenes of one kind — short, without `wait:` lines or a following `after:` scene, though the loader insists only on one kind, active, and not itself an `after:` scene. At Start the game picks one scene from each group at random, from the game's seed apart from the shuffle's, so a restart picks again and a replay picks the same; the picks go in the log. Each is taken out of the shuffle as a chosen scene is (§6.4), and a chosen scene still comes before them. A pick that the circuits built cannot play is left out of its group before the choice (§12.2), and an emptied group is skipped. After the last, the shuffle deals as usual. Choosing another pacing drops the rest; choosing Tutor mid-game deals none.
+- a call is in progress;
+- an `after:` scene is waiting;
+- the tutor is introducing the board;
+- the cords of the last call are still up.
 
-**Nothing fails for being slow.** The answer and connect timeouts are lifted for calls dealt in tutor mode, and the call slots show no deadline (§3.2); nor does a caller left alone before connecting hang up (§4). A wrong jack or a wrong number is no more a failure than in any game (§3.5); the tutor does not say it is wrong, but the tutor's prompt comes round again. A call can still fail by being cut off once connected. The tallies count as in any game, and the game log records each change of pacing.
+Next Call is refused on `game/error` meanwhile, except during the introduction, which it ends. The schedule waits for all of it, as listen pacing waits for every call to end (§5.3), then runs its gap.
+
+**The first calls.** A game started in tutor mode first deals one call of each kind, in the order of the groups under script.yml's `tutor: lessons:`: between rooms, from a room out to a number, in from outside to a room, and to the operator.
+
+- Each group lists suitable scenes of one kind: short, without `wait:` lines or a following `after:` scene. The loader insists only that they are of one kind, active, and not themselves `after:` scenes.
+- At Start the game picks one scene from each group at random, from the game's seed apart from the shuffle's, so a restart picks again and a replay picks the same. The picks go in the log.
+- Each pick is taken out of the shuffle as a chosen scene is (§6.4), and a chosen scene still comes before them.
+- A scene the circuits built cannot play is left out of its group before the choice (§12.2), and an emptied group is skipped.
+
+After the last, the shuffle deals as usual. Choosing another pacing drops the rest, and choosing Tutor mid-game deals none.
+
+**Nothing fails for being slow.** The answer and connect timeouts are lifted for calls dealt in tutor mode, and the call slots show no deadline (§3.2). A caller left alone before connecting does not hang up (§4). A wrong jack or a wrong number is no more a failure than in any game (§3.5): the tutor does not call it wrong, but the prompt comes round again. A call can still fail by being cut off once connected. The tallies count as in any game, and the game log records each change of pacing.
 
 ## 7.6 The Tutor's Lines
 
-**The tutor's lines** (script.yml `tutor:`). Each key is one line, rendered as `tutor.<key>`. Three keys are templates rendered once for every value they take: `ring-front` and `ring-rear` for each jack a station is cabled to (`{jack}`, "room 403" for a numbered jack, else its label), named for the station, `tutor.ring-front-room403`, so moving a label to another jack changes no file, `dial` for each outside line but the operator (`{number}`, as above, and optionally `{number-digits}`, the digits to dial one at a time, "seven, eight, three, two, two, five, zero"), and `say` for each operator line (`{line}`). A whole sentence for each, not a phrase spliced into a sentence at play time, so each is spoken as one. A short form under `brief:` is expanded the same way and rendered as `brief.<key>`, `brief.ring-front-room403`, since `tutor.brief-…` would pass the 31 characters a name may have. The tutor's voice is designed and chosen as any cast member's (`tts/aws/design --only tutor`, `tts/audition`, `tts/choose --only tutor`); the tutor's lines are rendered and band-limited with the rest.
+The lines are in script.yml under `tutor:`. Each key is one line, rendered as `tutor.<key>`. A few keys are templates, rendered once for every value they take:
+
+| **Key** | **Rendered for** | **Fills in** |
+| --- | --- | --- |
+| `ring-front`, `ring-rear` | each jack a station is cabled to, named for the station, `tutor.ring-front-room403`, so moving a label to another jack changes no file | `{jack}`: "room 403" for a numbered jack, else its label |
+| `dial` | each outside line but the operator | `{number}`, as the operator's card prints it, and optionally `{number-digits}`, the digits to dial one at a time: "seven, eight, three, two, two, five, zero" |
+| `say` | each operator line | `{line}` |
+
+Each is a whole sentence, not a phrase spliced into a sentence at play time, so it is spoken as one. A short form under `brief:` is expanded the same way and rendered as `brief.<key>`, `brief.ring-front-room403`, since `tutor.brief-…` would pass the 31 characters a name may have.
+
+The tutor's voice is designed and chosen as any cast member's (`tts/aws/design --only tutor`, `tts/audition`, `tts/choose --only tutor`), and the lines are rendered and band-limited with the rest.
 
 ## 7.7 Ringing the Wrong Cord
 
-When the player rings the wrong cord of a call in progress, the tutor says so on the loudspeaker as the ringing ends, in every pacing, tutor or not. The tutor's lines are under `tutor:` (§7), and the game program plays them on the monitor as it plays hers:
+When the player rings the wrong cord of a call in progress, the tutor says so on the loudspeaker as the ringing ends, in every pacing, tutor or not. These lines are under `tutor:` (§7.6), and are played on the monitor like the tutor's others.
 
 | **The ring** | **Seen as** | **The call** | **The tutor says** |
 | --- | --- | --- | --- |
@@ -328,50 +389,96 @@ When the player rings the wrong cord of a call in progress, the tutor says so on
 | On the trunk of a call out | the same | from a room to an outside line, once the trunk is known (`trunk` in its slot), or while it is not yet known | `rang-outside`: outside lines are dialled, not rung: push the switch away, wait for dial tone, dial |
 | On the calling room | `station/<n>/ringing` `"on"` ending, n the calling station, from the audio program (audio.md §9.5) | from a room to a room: the rear cord is in the caller's jack | `rang-caller`: "you rang the person who called you" — a room, the desk or any station — ring the other cord, the one in the called party's jack, since either cord may have answered |
 
-A rear cord in a trunk is told the same way, though nothing is rung: a trunk that hears the operator, `trunk/<n>/op` `"on"`, while its `seize` is `"off"`, for 2s together — 1s beyond the hold on `op` going off (§4) — has a rear cord in it, since only a front cord seizes a trunk. The call is found as for `rang-trunk` and `rang-outside`: the call holding that trunk, else a call out whose trunk is not yet known. Only before the call is connected: a room hanging up on a call out drops the trunk's seizure, and the operator may be in. The tutor says `rear-in-trunk`: pull it out and use the front cord. A rear cord in a trunk whose pair's front cord is in an off-hook room seizes the trunk and patches the two as a correct patch would; that is not caught.
+The third row is heard rather than seen: a station's own ring detector does not see ring on a line held off-hook, so ringing the caller is detected on the station's capture channel.
 
-Each is said once a call. A ring that matches none of these — a trunk no call holds, with no call going out; a call to the operator; a call out whose caller is rung — is left alone. So is the ring cue (§9.2), which sounds as for any ring; the tutor replaces it if it is still playing. A line not yet rendered is not said, and does not stop tutor mode being chosen, as the tutor's other lines do (§7). The station's own ring detector does not see ring on a line held off-hook, so ringing the caller is heard instead, on the station's capture channel. A caller left alone while the tutor speaks waits its 10s afresh from the end of the tutor's line (§4).
+**A rear cord in a trunk** is told the same way, though nothing is rung. Only a front cord seizes a trunk, so a trunk that hears the operator without being seized has a rear cord in it: `trunk/<n>/op` `"on"` while its `seize` is `"off"`, for 2s together, which is 1s beyond the hold on `op` going off (§4).
 
-The log records each as `wrong cord: <key>` against the call's number.
+- The call is found as for `rang-trunk` and `rang-outside`: the call holding that trunk, else a call out whose trunk is not yet known.
+- It applies only before the call is connected, because a room hanging up on a call out drops the trunk's seizure while the operator may be in.
+- The tutor says `rear-in-trunk`: pull it out and use the front cord.
+- A rear cord in a trunk whose pair's front cord is in an off-hook room seizes the trunk and patches the two as a correct patch would. That is not caught.
+
+**For all of these:**
+
+- Each is said once a call, and the log records it as `wrong cord: <key>` against the call's number.
+- A ring that matches none of them is left alone: a trunk no call holds, with no call going out; a call to the operator; a call out whose caller is rung.
+- The ring cue (§9.2) sounds as for any ring, and the wrong-cord line replaces it if it is still playing.
+- A line not yet rendered is not said, and unlike the tutor's other lines it does not stop tutor mode being chosen (§7.1).
+- A caller left alone during the line waits its 10s afresh from the end of the line (§4).
 
 # 8. Free Calls: Lenny Mode
 
-Mark's spec, 2026-10-23:
+A free call is a real person on the switchboard rather than a scene: someone lifts the real telephone, or dials in from outside. The operator connects them to any room or number, and whoever answers replies from a list of lines, whatever the caller says, as the Lenny recordings do with telemarketers. Mark's spec, 2026-10-23:
 
 > A real person will pick up the phone on station 24 or call in from an outside line. We assume the operator will connect the caller to one of our game stations or dial one of our pre-defined outside numbers. If the operator dials some other outside number, the game should still answer, but in this case use the "real" Lenny voice. The actor residing at the called station or outside establishment should answer in an appropriate way. Then the actor responds to speech by the caller by iterating through [their] utterances. The actor continues in this mode until the calling party disconnects, at which time the called station or trunk hangs up.
 
-**Who calls.** Two kinds of free caller, both real people:
+## 8.1 Who Calls
 
-- **Station 24**, the real telephone on jack 18 (§12.2, real_phone.md). When `station/24/lifted` goes on, the game closes station 24's relay (`hook/set` `"on"`), which puts the line on channel 24 so its pilot, `op` and `peer` work; the phone's own lamp is the switchboard's. The caller is gone when `lifted` goes off; the relay is opened again.
-- **Trunk 8**, the public line: the Grandstream ATA's FXS port, which outside callers reach by dialling its number (trunk_circuit.md §4.5). The game cannot see it ring. The free call begins when the operator answers it, `trunk/8/seize` and `trunk/8/op` both on, and the caller is gone when `seize` goes off for more than a second: the operator has pulled the cord, or the far end hung up and the ATA dropped the loop. Which trunk is the public line is `public_trunk` in the configuration, 8 by default; no scene ever uses it (§12.2).
+There are two kinds of free caller, both real people.
 
-**The operator answers** when `op` comes on on the caller's line. The loudspeaker moves to the caller then, as for any answer (§9.1), with the peer boost fixed at 6dB: the caller is live, so the audio program has nothing on the caller's line to measure against, and the 2026-10-24 recording put the called party's files 6dB under the real telephone. Until she answers, a lifted station 24 waits as long as it is lifted. Then she talks to the caller herself; the game does nothing until she connects them.
+**Station 24**, the real telephone on jack 18 (§12.2, real_phone.md). When `station/24/lifted` goes on, the game closes station 24's relay (`hook/set` `"on"`), which puts the line on channel 24 so its pilot, `op` and `peer` work. The phone's own lamp is the switchboard's. The caller is gone when `lifted` goes off, and the relay is opened again.
 
-**Connecting.** While a free caller is answered and not connected, either of these is the call's:
+**Trunk 8**, the public line: the Grandstream ATA's FXS port, which outside callers reach by dialling its number (trunk_circuit.md §4.5). The game cannot see it ring. The free call begins when the operator answers it, with `trunk/8/seize` and `trunk/8/op` both on. The caller is gone when `seize` goes off for more than a second, because the operator has pulled the cord, or the far end hung up and the ATA dropped the loop. Which trunk is the public line is `public_trunk` in the configuration, 8 by default, and no scene ever uses it (§12.2).
 
-- **A room rung**: `station/<n>/ring` on a station fitted (§12.2), not station 24, and not in another call or another free call — unless a game call is routing and wants that very station, when the ring is that call's. The room answers as in §3.5, 4s after she rings it: its relay closes, and once its `peer` is the free caller, its occupant answers. Not patched within 8s, it says "Hello?"; not within as long again, it hangs up, and the free call waits for her to ring again.
-- **An outside number dialled**: a trunk seized, not the public line and not in a game call, whose `peer` is the free caller — the operator's cord joins them. It gets dial tone after 1s as in §3.5. The number is seven digits, or `0` alone, and rings once 3s pass with no digit more; fewer digits and 10s with no new one, or a digit more, get fast busy, as a game call's misdial does (§3.5), until she releases the trunk. Known numbers are the `outside:` lines' numbers, digits only; `0` is the local operator. A known number gets 2s of ringback and its establishment answers; an unknown one gets 4s of ringback and the real Lenny answers. Nothing dialled in 15s, or the trunk released: back to waiting.
+## 8.2 Answering and Connecting
 
-While a free caller is routing, a game call routing at the same time does not take a rung room as a wrong party unless it is the room it wants, and does not take a trunk whose `peer` is a free caller. One operator does one thing at a time, so the two rarely meet; when they do the game call wins.
+**The operator answers** when `op` comes on on the caller's line. Until then, a lifted station 24 waits for as long as it is lifted. The loudspeaker moves to the caller as for any answer (§9.1), with the peer boost fixed at 6dB: the caller is live, so the audio program has nothing on the caller's line to measure against, and the 2026-10-24 recording put the called party's files 6dB under the real telephone. She then talks to the caller herself, and the game does nothing until she connects them.
 
-**Who answers.** At a room, its occupant: the cast member who speaks for that station most often in the scenes (§3.5). At an outside number, the cast member who speaks for that line most often, or, for a line no scene speaks for, the one its `outside:` entry names with `person:` — the police's desk sergeant. If that person has no `freecall:` entry, or the line has nobody, the real Lenny answers.
+**Connecting.** While a free caller is answered and not connected, either of these is taken as connecting the call.
 
-**How they talk.** The answerer plays their `greeting:`. Then, over and over:
+**A room rung:** `station/<n>/ring` on a station fitted (§12.2), not station 24, and not in another call or another free call. If a game call is routing and wants that very station, the ring is that call's. The room answers as in §3.5, 4s after she rings it: its relay closes, and once its `peer` is the free caller, its occupant answers. If it is not patched within 8s it says "Hello?", and if not within as long again it hangs up, and the free call waits for her to ring again.
 
-1. Listen on the answerer's circuit, which hears the caller across the cord (and the operator if she is on it), from the start of the greeting or line just said (the echo canceller of audio.md §9.4 hears a caller who talks over it), for up to 3s after it ends, and up to 7s after a "Hello?".
-2. Nobody spoke: say "Hello?" — the person's `hello` reaction (§3.5), or nothing for Lenny, who waits in silence as the original does — and listen again.
-3. Speech, then silence: listen once more for 0.4s, so that a breath is not the end of a turn. With the audio program's own 0.8s to report silence, the answerer comes in about 1.2s after the caller's last word; Lenny waits about 1.5s. Speech again: back to 3.
-4. Say the next line: the `lines:` once each, in order, then the `loop:` in order, round and round for as long as the call lasts.
+**An outside number dialled:** a trunk seized, not the public line and not in a game call, whose `peer` is the free caller, since the operator's cord joins them. It gets dial tone after 1s as in §3.5. The number is seven digits, or `0` alone, and what follows depends on what she dials:
 
-**The end.** When the caller is gone the answerer hangs up: its relay opens, or for a trunk the tone and file stop. If instead the operator pulls the cord between them — the answerer's `peer` is not the caller for more than a second (§4) — or releases the outside trunk, the answerer hangs up and the free call goes back to waiting for her to connect it again, as long as the caller is still there.
+| **Dialled** | **Result** |
+| --- | --- |
+| A known number, then 3s with no digit more | 2s of ringback, and its establishment answers. Known numbers are the `outside:` lines' numbers, digits only; `0` is the local operator |
+| An unknown number, then 3s with no digit more | 4s of ringback, and the real Lenny answers |
+| Too few digits and 10s with no new one, or a digit too many | fast busy, as a game call's misdial gets (§3.5), until she releases the trunk |
+| Nothing in 15s, or the trunk released | back to waiting |
 
-**With a game.** Free calls run whether or not a game is running. They are not scored and have no call slot. Each one holds, for dealing (§6.1), the caller's line and the answerer's line and person, so no scene is dealt that would use them; it does not hold the schedule. A diagnostic is refused on a circuit in a free call. Stop does not end a free call, though its switchboard power cut (§2) may: a cord that comes back within the hold rides through it.
+**A game call routing at the same time.** While a free caller is routing, a game call does not take a rung room as a wrong party unless it is the room it wants, and does not take a trunk whose `peer` is a free caller. One operator does one thing at a time, so the two rarely meet. When they do, the game call wins.
+
+## 8.3 Who Answers
+
+| **Called** | **The answerer** |
+| --- | --- |
+| A room | its occupant: the cast member who speaks for that station most often in the scenes (§3.5) |
+| An outside number | the cast member who speaks for that line most often |
+| An outside number no scene speaks for | the one its `outside:` entry names with `person:`, such as the police's desk sergeant |
+| A line with nobody, or a person with no `freecall:` entry, or an unknown number | the real Lenny |
+
+## 8.4 How They Talk
+
+The answerer plays their `greeting:`. Then, over and over:
+
+1. **Listen** on the answerer's circuit, which hears the caller across the cord (and the operator if she is on it). The listen runs from the start of the greeting or line just said, since the echo canceller of audio.md §9.4 hears a caller who talks over it, until 3s after it ends, or 7s after a "Hello?".
+2. **Nobody spoke:** say "Hello?", the person's `hello` reaction (§3.5), and listen again. Lenny says nothing and waits in silence, as the original does.
+3. **Speech, then silence:** listen once more for 0.4s, so that a breath is not the end of a turn. With the audio program's own 0.8s to report silence, the answerer comes in about 1.2s after the caller's last word; Lenny waits about 1.5s. If speech comes again, go back to the start of this step.
+4. **Say the next line:** the `lines:` once each, in order, then the `loop:` in order, round and round for as long as the call lasts.
+
+## 8.5 The End
+
+When the caller is gone the answerer hangs up: its relay opens, or for a trunk the tone and file stop.
+
+If instead the operator pulls the cord between them, so that the answerer's `peer` is not the caller for more than a second (§4), or releases the outside trunk, the answerer hangs up. The free call then goes back to waiting for her to connect it again, as long as the caller is still there.
+
+## 8.6 Free Calls and a Game
+
+- Free calls run whether or not a game is running. They are not scored and have no call slot.
+- Each one holds, for dealing (§6.1), the caller's line and the answerer's line and person, so no scene is dealt that would use them. It does not hold the schedule.
+- A diagnostic is refused on a circuit in a free call.
+- Stop does not end a free call, though its switchboard power cut (§2) may: a cord that comes back within the hold rides through it.
+
+**What is not done.** The game does not ring station 24 or the public line, and no scene uses either. An operator who rings station 24 rings the real phone and nothing else happens. A free call to a room that a game call has off-hook is not answered.
 
 **The log.** Each step goes in the log without a call number: `free call: phone answered`, `free call: phone to room403, thornhill answers`, `free call: phone dialled 2835678, canlis, maitre_d answers`, `free call: phone dialled 5551212, Lenny answers`, `free call: phone hung up`.
 
-**The real Lenny.** Sixteen recordings released freely on the internet in 2013 and used ever since to waste telemarketers' time (Sahin et al., *Using chatbots against voice spam: analyzing Lenny's effectiveness*, SOUPS 2017). He plays them in order, one at each pause, and after the sixteenth goes back to the seventh (the Asterisk dialplan in the public pack). Here he is the cast member `lenny`, recorded: `freecall: lenny:` carries his recordings' transcripts as the greeting (1), lines (2–6) and loop (7–16), and the files themselves are his takes in `tts/recorded/`, processed like any performer's (tts_task.md §6.4). The pack's alternative sixteenth, with a song in it, is not used.
+## 8.7 The Real Lenny
 
-**What is not done.** The game does not ring station 24 or the public line, and no scene uses either. An operator who rings station 24 rings the real phone and nothing else happens. A free call to a room that a game call has off-hook is not answered.
+Lenny is sixteen recordings released freely on the internet in 2013 and used ever since to waste telemarketers' time (Sahin et al., *Using chatbots against voice spam: analyzing Lenny's effectiveness*, SOUPS 2017). He plays them in order, one at each pause, and after the sixteenth goes back to the seventh (the Asterisk dialplan in the public pack).
+
+Here he is the cast member `lenny`, recorded. `freecall: lenny:` carries his recordings' transcripts as the greeting (1), lines (2–6) and loop (7–16), and the files themselves are his takes in `tts/recorded/`, processed like any performer's (tts_task.md §6.4). The pack's alternative sixteenth, with a song in it, is not used.
 
 # 9. The Audience Loudspeaker
 
@@ -641,7 +748,7 @@ web/
 
 `web/` lives in the repository beside the game program and is installed to `/srv/sbgame/web`, readable by nginx's worker. MQTT.js is a local copy and never loaded from a CDN: on the road the travel router may have no internet, and the page would load without its library. The version copied is recorded in a comment at the top of `index.html`.
 
-The bookmark is `https://game.kr3am.org/`. The name resolves to the host at home and on the travel router alike: from a public Route 53 record at home and from the travel router's own host entry on the road (`mqtt.md` §9.2). The certificate is a real one, so Safari loads the page with no warning. The page connects to `location.host` with the path `/mqtt`, over `wss://` when it was loaded over `https:` and `ws://` otherwise, so no address, port or scheme is written into it, and it works unchanged at home and on the road. It connects as the broker user `sbgame-web`; the password is in `app.js`, which anyone who loads the page can read. That is accepted: the access list, not the password, is what stops the page commanding hardware (`mqtt.md` §9, §11).
+The bookmark is `https://game.kr3am.org/`. The name resolves to the host at home and on the travel router alike: from a public Route 53 record at home and from the travel router's own host entry on the road (`host/README.md`, "The name"). The certificate is a real one, so Safari loads the page with no warning. The page connects to `location.host` with the path `/mqtt`, over `wss://` when it was loaded over `https:` and `ws://` otherwise, so no address, port or scheme is written into it, and it works unchanged at home and on the road. It connects as the broker user `sbgame-web`; the password is in `app.js`, which anyone who loads the page can read. That is accepted: the access list, not the password, is what stops the page commanding hardware (`mqtt.md` §9, §11).
 
 The path is what lets nginx tell the two apart: `/mqtt` goes to Mosquitto, everything else is a file.
 
@@ -651,7 +758,7 @@ Every value arriving on `game/+/set` is checked by the game program; the access 
 
 ## 13.3 Commissioning
 
-Before step 1: the certificate is issued (`mqtt.md` §9.1), nginx is configured and enabled, the Route 53 A record for `game.kr3am.org` points at the host, and the five broker users and the access list are in place. The deploy hook no longer has to be run by hand, because nginx reads the certificate from `/etc/letsencrypt/live` directly and the hook only reloads it.
+Before step 1: the certificate is issued (`host/README.md`, "The certificate"), nginx is configured and enabled, the Route 53 A record for `game.kr3am.org` points at the host, and the five broker users and the access list are in place. The deploy hook no longer has to be run by hand, because nginx reads the certificate from `/etc/letsencrypt/live` directly and the hook only reloads it.
 
 1. Restart Mosquitto and nginx after the §9 changes to `mqtt.md`'s configuration. Mosquitto's log shows two listeners open, MQTT on 1883 and WebSockets on 127.0.0.1:9001; `ss -ltnp` shows nginx on 443. Mosquitto's WebSockets listener is deliberately on loopback: nothing off the host reaches it except through nginx.
 2. From another machine on the LAN, `curl https://game.kr3am.org/` returns `index.html` with no certificate error. That checks the name, the certificate and nginx together.
@@ -683,6 +790,12 @@ Before step 1: the certificate is issued (`mqtt.md` §9.1), nginx is configured 
 - **Screen wake lock** (§11.3). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 15. Revision History
+
+## 15.100 Changes in Rev 100
+
+— §7 and §8 rewritten to be read, Mark's request, 2026-10-30: long paragraphs broken into lists and tables, and subsections added to §8. Where the rename of Rev 98 left "the call still needs the tutor's" and "never heard as the tutor's", the meaning is restored: the operator in both. No behaviour is specified differently. The page's one command beyond the game program, the public-address check, is added to §1, and the setup references follow `mqtt.md` Rev 48 to `host/README.md`.
+
+— No code consequence.
 
 ## 15.99 Changes in Rev 99
 

@@ -2,69 +2,115 @@
 
 **Audio Program Specification**
 
-*Rev 33. The changes in each revision are in §17.*
+*Rev 34. The changes in each revision are in §17.*
 
 # 1. Overview
 
-The audio program is one of the two host programs (mqtt.md §1). It is C++, it runs on the Linux host, and it owns every audio channel in the system: the 32 balanced channels of the Ferrofish A32 in both directions, reached through the RME Digiface USB over ADAT, and the Digiface's own analog output pair, which feeds the audience loudspeaker (Rev 24). It does six things:
+The audio program is one of the two host programs (mqtt.md §1). It is C++, it runs on the Linux host, and it owns every audio channel in the system: the 32 balanced channels of the Ferrofish A32 in both directions, reached through the RME Digiface USB over ADAT, and the Digiface's own analog output pair, which feeds the audience loudspeaker. It does eight things:
 
-1. Plays the pilot comb on every circuit channel and the operator tone on the tap channel, continuously, and runs the FFT pilot detector of station §8.7 on every circuit input to find which circuits the switchboard has patched together and which the operator is bridged to. This is the job the program has had since station Rev 3.1; everything below is new at this revision.
+1. Plays the pilot comb on every circuit channel and the operator tone on the tap channel, continuously, and runs the FFT pilot detector of station §8.7 on every circuit input to find which circuits the switchboard has patched together and which the operator is bridged to.
 2. Plays a 48kHz `.wav` file on a station or trunk channel on command, and reports when it has finished.
-3. Plays dial tone, ringback or busy tone on a trunk channel on command, in the standard cadence, until told to stop.
-4. Listens for speech on a circuit channel on command and reports when speech starts, when it ends, or that it did neither in time.
-5. Pipes one receive channel to the loudspeaker through the low-pass filter of station §8.8 — the operator tap's by default, or a station's or trunk's on command (§10.3) — with a commanded on/off and level.
-6. Plays a 1kHz test tone on any output channel on command, as a wiring and level diagnostic.
+3. Plays dial tone, ringback, busy or reorder tone on a trunk channel on command, in the standard cadence, until told to stop.
+4. Listens for speech on a circuit channel on command and reports when speech starts, when it ends, or that it did neither in time, with an echo canceller so that a caller can be heard over the circuit's own file (§9.4).
+5. Watches every station's capture for 20Hz ring (§9.5).
+6. Pipes one receive channel to the loudspeaker through the low-pass filter of station §8.8 — the operator tap's by default, or a station's or trunk's on command (§10.3) — with a commanded on/off and level, a gate against line disturbances (§10.5), a boost for the far party (§10.8), and a file on command (§10.4).
+7. Records what the loudspeaker carries, and plays a recording back (§10.6, §10.7).
+8. Plays a 1kHz test tone on any output channel on command, as a wiring and level diagnostic.
 
-Everything is commanded and reported over MQTT. The topics are specified in mqtt.md §5 and §6; this document says what the program does with a command, when it publishes, and how the audio is generated, mixed and analysed. Station §8 owns the pilot comb, the detector algorithm and the monitor filter specification, and this document points to those sections rather than restating them. The game program (Python) is the only client that commands; the audio program never commands anything.
+Everything is commanded and reported over MQTT. The topics are specified in mqtt.md §5 and §6; this document says what the program does with a command, when it publishes, and how the audio is generated, mixed and analysed. Station §8 owns the pilot comb, the pilot detector's algorithm and the monitor filter specification, and this document points to those sections rather than restating them. The game program (Python) is the only client that commands; the audio program never commands anything.
 
-Ownership. This document is the specification. The source is written to it by Claude Code, in the same way `control/control.ino` is written to `control.md`, and chat sessions do not produce or revise the source. When a revision here has a code consequence, the revision says so.
+Ownership. This document is the specification. The source is written to it, as `control/control.ino` is to `control.md`. When a revision here has a code consequence, the revision says so.
 
-Build state as of Rev 9. The program exists — `sbaudio`, written by Claude Code against Rev 2 and reviewed in chat on 2026-09-18. §17.3 records the decisions the implementation made where the specification was silent, now adopted, and the three corrections the review sent back, which Claude Code fixed the same day. Claude Code reported on 2026-09-24 that `sbaudio` is at Rev 8, which takes in the code consequences of Rev 6, Rev 7 and Rev 8 (§17.6 to §17.8). Rev 9 settles three questions that report raised (§17.9); two of them carry small code consequences. Nothing has yet run against the A32 and the switchboard; §15 is still to be done.
+Build state. The program, `sbaudio`, runs on the switchboard under `sbaudio.service`, with the installation's values in §14. The settings of §15 not yet made are in §16.
 
-Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout the project documents: station n is A32 channel n, trunk n is channel 24 + n, the tap is channel 23, station 24 is A32 channel 24 (Rev 24), and the monitor is on the Digiface's channels 33 and 34. ALSA frame indices are 0-based, so the program's internal index for a channel is the document number less one — the tap is index 22. Rev 1 to Rev 6 had the tap on channel 24 and the monitor on Digiface playback 33 and 34; the rough specification Rev 1 was written from gave those as 23 and 33, which were ALSA indices. §2 records the mapping.
+Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout the project documents: station n is A32 channel n, trunk n is channel 24 + n, the tap is channel 23, station 24 is A32 channel 24, and the monitor is on the Digiface's channels 33 and 34. ALSA frame indices are 0-based, so the program's internal index for a channel is the document number less one — the tap is index 22. §2 records the mapping.
+
+## 1.1 Terms
+
+- **The operator** is the player, "she" throughout, on the switchboard's headset. **The tap** is station board 3's strip 7, a transformer bridged across the operator's tip and ring: channel 23, no relay, no pilot, no circuit.
+- **A strip** is one channel's worth of circuitry on a board. **A circuit** is a station or trunk, a slot that has a line.
+- **Bridged**: the operator's key is in on a circuit, so she is across its line. The operator tone on a circuit's capture says so.
+- **Peer**: the circuit a circuit is patched to, as the pilot detector hears it (§6.2).
+- **Hop**: the 2048 samples between pilot detector results, 42.7ms (§6.1).
+- **Hybrid**: a two-wire to four-wire converter that keeps transmit off receive. The interface has none, so everything a channel transmits returns on its own receive.
+- **IPM**: interruptions per minute of a tone. **803C**: the tone alternator the ringback was measured from (§8.2). **NLMS**: normalised least mean squares, the adaptive filter of §9.4.
+- **Ring-trip**: the transient on a line as a telephone is answered during ringing.
+- **The bench** is measurement with instruments or by ear on the real hardware. **The installation** is what `sbaudio.service` sets on the host; its values are in §14.
+
+Six words have more than one sense. The text uses the longer name wherever the section does not settle it.
+
+| **Word** | **Senses** |
+| --- | --- |
+| Ring | **Ring** alone is 20Hz ringing current. A **sample ring** is a buffer that wraps (§3). The **city ring** is the ringback's waveform (§8.2). |
+| Window | The **decision window** is the speech detector's last 30 frames (§9.2). The **FFT window** is the pilot detector's rectangular or Hann (§6.1). `PEER_WINDOW_DB` and `OP_WINDOW_DB` are level limits (§14). |
+| Floor | The **noise floor** is the speech detector's measure of the line (§9.2). The **absolute bar** is `--vad-floor`, the least a threshold may be. The **guard-bin floor** is the pilot detector's reference (§11.3). |
+| Source | A **program source** is a file or a trunk tone on a channel (§5.2). The **monitor source** is the capture channel the loudspeaker follows (§10.3), and is "the source" alone in §10. |
+| Detector | The **pilot detector** is §6, the **speech detector** §9.2. Ring on a station is **heard** (§9.5); the station board's ring detector is hardware. |
+| Program | **The program** is `sbaudio`. **The game program** is `engine/`. **Program source** is above. |
 
 # 2. Channel Plan
 
-One ALSA card, the Digiface USB, opened in both directions at 48kHz, S32_LE. Playback is 34 channels — confirmed on the host at station Rev 3.37 — and capture is expected to be 32 (the four ADAT ports; the Digiface has no analog input) and is to be confirmed the same way (§16).
+One ALSA card, the Digiface USB, opened in both directions at 48kHz, S32_LE. Playback is 34 channels and capture is 32 (the four ADAT ports; the Digiface has no analog input), both confirmed on the host (`audio-io.md`).
 
 | **Document channel** | **ALSA index** | **Playback carries** | **Capture carries** |
 | --- | --- | --- | --- |
-| 1–22 | 0–21 | Station 1–22: pilot at comb slot n + program source | Station receive: detector input; speech detection on command; monitor source on command (§10.3) |
-| 23 | 22 | Operator tap: 9000Hz operator tone, and a file on command (Rev 10, §7) | Tap receive: the default monitor source (§10.3) and the tap's own-tone health check (§6.3) |
-| 24 | 23 | Station 24, the real telephone (Rev 24): pilot at comb slot 24 + program source | Station 24 receive, as stations 1–22 |
-| 25–32 | 24–31 | Trunk 1–8: pilot at comb slot 24 + n + program source | Trunk receive: detector input; speech detection on command; monitor source on command (§10.3) |
+| 1–22 | 0–21 | Station 1–22: pilot at comb slot n + program source | Station receive: pilot detector input; speech detection on command; monitor source on command (§10.3) |
+| 23 | 22 | Operator tap: 9000Hz operator tone, and a file on command (§7) | Tap receive: the default monitor source (§10.3) and the tap's own-tone health check (§6.3) |
+| 24 | 23 | Station 24, the real telephone: pilot at comb slot 24 + program source | Station 24 receive, as stations 1–22 |
+| 25–32 | 24–31 | Trunk 1–8: pilot at comb slot 24 + n + program source | Trunk receive: pilot detector input; speech detection on command; monitor source on command (§10.3) |
 | 33, 34 | 32, 33 | The audience monitor (§10), with a file summed in on command (§10.4) | — |
 
-The program source on a circuit channel is one of: nothing, a file (§7), a trunk tone (§8, trunks only) or the test tone (§11.1). Exactly one is active on a channel at a time; a new one replaces the current one (§5.2). The pilot is always present on channels 1–22 and 24–32 and is not a program source; the operator tone is always present on channel 23 and is not one either. The test tone is the one source that may be placed on channels 23, 33 and 34 as well, where it replaces the operator tone or the monitor for as long as it runs.
+The program source on a circuit channel is one of: nothing, a file (§7) or a trunk tone (§8, trunks only). Exactly one is active on a channel at a time; a new one replaces the current one (§5.2). The pilot is always present on channels 1–22 and 24–32 and is not a program source; the operator tone is always present on channel 23 and is not one either.
 
-Slot 23 of the comb (bin 688) is not generated while station board 3's strip 7 is the tap, per station §7.9.6. Slot 24 (bin 696) was not generated from Rev 7 to Rev 23, while strip 8 fed the loudspeaker; it is station 24's pilot from Rev 24. The mapping from circuit to comb bin, `512 + 8 × (slot − 1)`, is station §8.2 and is not restated here.
+The test tone (§11.1) is none of these. It may be placed on any playback channel, and while it runs the channel carries nothing else: a program source is suspended, and the pilot, operator tone or monitor is displaced.
+
+Slot 23 of the comb (bin 688) is not generated while station board 3's strip 7 is the tap, per station §7.9.6. Slot 24 (bin 696) is station 24's pilot. The mapping from circuit to comb bin, `512 + 8 × (slot − 1)`, is station §8.2 and is not restated here.
 
 # 3. Program Structure
 
-Three threads and two lock-free queues. Nothing else runs concurrently.
+Three threads. The one other thing that runs concurrently is `lame`, a child process the MQTT thread starts on a finished recording (§10.6).
 
-**Audio thread.** Owns the ALSA stream. Runs one period at a time: read a capture period, run the per-sample work on it (§9 detector front-end accumulation, §9 speech-detection frames, §10 monitor chain), render one playback period (§5), write it. SCHED_FIFO, memory locked, no allocation, no file I/O, no locks, no MQTT — it communicates only through the two queues. Everything it plays is either generated arithmetically or read from a buffer that was filled before the command reached it.
+**Audio thread.** Owns the ALSA stream. Runs one period at a time, in this order: read a capture period; run the per-sample work on it (speech detector frames §9, ring heard §9.5, monitor chain §10, the hop §6.1); drain the command queue; render one playback period (§5); run the output check (§11.4) and any raw recording (§10.6); write it.
 
-**Analysis thread.** Receives 4096-sample blocks per capture channel from the audio thread at the 2048-sample hop (§6), runs the FFT and the detector, and hands results to the MQTT thread. It also runs the detector's logging (§11.2). Normal priority. It is separate from the audio thread so that thirty-two 4096-point FFTs every 43ms — a fraction of a millisecond of work, but bursty — never sit inside a period deadline. It waits by polling the snapshot mailbox with a 2ms sleep (§6.1) — chosen over a condition variable so that the audio thread has nothing to signal but an atomic store. Two milliseconds on a 43ms hop is nothing, and 500 empty wake-ups a second are nothing on this host.
+It is SCHED_FIFO, memory locked, with no allocation, no file I/O, no locks and no MQTT, and it communicates only through the hand-overs below. Everything it plays is either generated arithmetically or read from a buffer that was filled before the command reached it.
 
-**MQTT thread.** Runs the libmosquitto network loop as a polled loop: `mosquitto_loop()` with a 20ms timeout, then drain both result queues and publish, then check the game heartbeat, then repeat. It sleeps in `select()` on the broker socket for up to 20ms or until traffic arrives, so a command is handled as it lands and a result posted by the other two threads waits at most 20ms — inside the detector hop and invisible to the game. When there is no connection `mosquitto_loop()` returns at once, and the loop must sleep the 20ms itself or it spins (Rev 3 code consequence 1). Translates each incoming command into a queue entry for the audio thread; for a file command it loads and validates the file first (§7.2), in the message callback, and passes the audio thread a pointer to a buffer it may not free until the audio thread has released it. Publishes the birth message, holds the LWT, and watches `game_heartbeat` (§13.2). It is the main thread: it becomes the MQTT thread once the other two are started.
+**The exception: recovering from an xrun.** `AlsaStream::recover()` runs on the audio thread. It writes a log line to stderr, which takes stdio's lock, and its `start()` allocates a period of silence and prefills the stream with it. An xrun means the deadline has already been missed and the stream has stopped, so nothing is left to protect at that moment. No other path in the audio thread does any of this.
 
-**The loudspeaker recording and its playback** (Rev 22, §10.6, §10.7) add two more hand-overs, each a ring of samples with one writer and one reader: audio thread → MQTT thread, written while `Shared::rec_on` is set and emptied into the file; and MQTT thread → audio thread, filled from a recording and played while `Shared::play_on` is set. Neither side waits for the other; a full recording ring drops the period, and an empty playback ring plays silence.
+**Analysis thread.** Receives 4096-sample blocks per capture channel from the audio thread at the 2048-sample hop (§6), runs the FFT and the pilot detector, and hands results to the MQTT thread. It also runs the pilot detector's logging (§11.2). Normal priority. It is separate from the audio thread so that thirty-two 4096-point FFTs every 43ms — a fraction of a millisecond of work, but bursty — never sit inside a period deadline.
 
-**Command queue**, MQTT thread → audio thread, single-producer single-consumer. Entries are small fixed-size structs: channel, verb, a numeric argument, a buffer pointer for files.
+It waits by polling the snapshot mailbox with a 2ms sleep (§6.1), chosen over a condition variable so that the audio thread has nothing to signal but an atomic store. Two milliseconds on a 43ms hop is nothing, and 500 empty wake-ups a second are nothing on this host.
 
-**Result queue**, audio thread and analysis thread → MQTT thread. Two producers, so either two SPSC queues or one MPSC; either is fine. Entries: topic key, value. The audio thread posts play-finished, listen results and the echoed state of every command it has acted on; the analysis thread posts detector results.
+**MQTT thread.** The main thread, which becomes the MQTT thread once the other two are started. It runs the libmosquitto network loop as a polled loop: `mosquitto_loop()` with a 20ms timeout, then drain both result queues and publish, then check the game heartbeat, then repeat.
 
-Buffer lifetime for files: the MQTT thread allocates, the audio thread plays, and when the audio thread stops playing a buffer — end of file, stop, or replacement — it posts the buffer back on the result queue for the MQTT thread to free. No reference counting, no atomics beyond the queues.
+It sleeps in `select()` on the broker socket for up to 20ms or until traffic arrives, so a command is handled as it lands and a result posted by the other two threads waits at most 20ms — inside the hop and invisible to the game. When there is no connection `mosquitto_loop()` returns at once, and the loop must sleep the 20ms itself or it spins.
+
+It translates each incoming command into a queue entry for the audio thread. For a file command it loads and validates the file first (§7.2), in the message callback, and passes the audio thread a pointer to a buffer it may not free until the audio thread has released it. It publishes the birth message, holds the LWT, and watches `game_heartbeat` (§13.2). It also writes the recordings and reads them back (§10.6, §10.7).
+
+**The hand-overs.** All are in `Shared` (`ipc.h`), each with one writer and one reader, and neither side ever waits for the other.
+
+| **Hand-over** | **From → to** | **What it carries** |
+| --- | --- | --- |
+| Command queue, `cmdq` | MQTT → audio | Small fixed-size structs: channel, verb, a numeric argument, a buffer pointer for files |
+| Result queue, `res_audio` | audio → MQTT | Topic key and value: play-finished, listen results, the echoed state of every command acted on; and buffers to free |
+| Result queue, `res_ana` | analysis → MQTT | Topic key and value: pilot detector results |
+| Snapshots, `snap[2]`, with a mailbox and busy flags | audio → analysis | Each hop's blocks (§6.1) |
+| `heard_peer[]`, atomic | analysis → audio | Each circuit's heard peer, every hop (§10.8) |
+| Sample ring `rec_ring`, while `rec_on` is set | audio → MQTT | The loudspeaker feed, for the recording; full, it drops the period (§10.6) |
+| Sample ring `line_ring`, while `rec_on` is set | audio → MQTT | `--record-line`'s raw slots; full, it drops the period (§10.6) |
+| Sample ring `play_ring`, while `play_on` is set | MQTT → audio | A recording played back; empty, it plays silence (§10.7) |
+
+The queues are three SPSC queues rather than one MPSC. A handful of atomics carry the rest: thread lifetime, the first-publish handshake (§12), and the log's counters, which the audio thread hands over once a second.
+
+Buffer lifetime for files: the MQTT thread allocates, the audio thread plays, and when the audio thread stops playing a buffer — end of file, stop, or replacement — it posts the buffer back on `res_audio` for the MQTT thread to free. No reference counting, no atomics beyond the queues.
 
 # 4. The ALSA Stream
 
-- Device: the Digiface USB by its ALSA card id, `hw:<id>` and not `plughw:`, so that the driver's native S32_LE and 34-channel layout are used and no format conversion or resampling is inserted. The id is the second column of `/proc/asound/cards` (also `aplay -l`), and for the Digiface it is an alphanumeric string the driver derives from the device, not the name "Digiface" — found on the host by Claude Code, 2026-09-18. It is a command-line option (§14) with no default: the id is stable for one unit but is not something this document can predict, and a card index would depend on USB enumeration order. Record the id in the systemd unit.
+- Device: the Digiface USB by its ALSA card id, `hw:<id>` and not `plughw:`, so that the driver's native S32_LE and 34-channel layout are used and no format conversion or resampling is inserted. The id is the second column of `/proc/asound/cards` (also `aplay -l`), and for the Digiface it is an alphanumeric string the driver derives from the device, not the name "Digiface". It is a command-line option (§14) with no default: the id is stable for one unit but is not something this document can predict, and a card index would depend on USB enumeration order. The installation's is in §14.
 - Rate 48000, format S32_LE, playback channels 34, capture channels as reported.
 - Period 256 frames (5.3ms), buffer 3 periods. Small because the monitor path is an acoustic loop with the room in it (station §8.8) and every period of latency is in that loop. A class-compliant USB device may not sustain 256 without xruns; period and buffer count are options and the bench sets them.
-- Playback and capture handles linked (`snd_pcm_link`) and started together, so the two directions share one start and one xrun. The detector does not depend on the relative alignment of playback and capture — each pilot's phase at the far end is arbitrary and the detector measures magnitude only — but the speech detector's own-playback exclusion (§9.3) does depend on them running, and linking is how that is guaranteed.
+- Playback and capture handles linked (`snd_pcm_link`) and started together, so the two directions share one start and one xrun. The pilot detector does not depend on the relative alignment of playback and capture — each pilot's phase at the far end is arbitrary and the pilot detector measures magnitude only — but the speech detector's own-playback exclusion (§9.3) does depend on them running, and linking is how that is guaranteed.
 - Samples are converted to float once on capture and once on playback at the period boundary; all processing is float.
-- An xrun on either direction: log it with the uptime, recover both handles (`snd_pcm_prepare` and restart), count it, and continue. The pilots resume on the next period; the detector discards the partial block. A file that was playing continues from where it was — a few milliseconds of silence is preferable to the game seeing a `play` state flicker. Repeated xruns are a configuration problem, not something the program works around, and the count is in the log.
+- An xrun on either direction: log it with the uptime, recover both handles (`snd_pcm_prepare` and restart), count it, and continue. The pilots resume on the next period. A file that was playing continues from where it was — a few milliseconds of silence is preferable to the game seeing a `play` state flicker. Repeated xruns are a configuration problem, not something the program works around, and the count is in the log. The recovery is the audio thread's one exception to §3's rules.
 
 Clocking. The pilots sit exactly on FFT bins only while generation and analysis share one clock (station §8.2). Both directions run through the Digiface, and the Digiface and the A32 must be locked to each other — one the master, the other slaved over ADAT — or the loop from Digiface DAC through the A32's converters and back is two clock domains and the rectangular window is no longer optimal. There is no TotalMix under Linux to set or inspect the Digiface's clock source; §15 gives the check, which is the purity of a circuit's own pilot in its own bin.
 
@@ -74,23 +120,27 @@ Clocking. The pilots sit exactly on FFT bins only while generation and analysis 
 
 Every playback channel is rendered per period as the sum of its fixed source and its program source, in float, then hard-clipped at ±1.0 with a clip count in the log.
 
-**Pilot** (channels 1–22, 24–32). Level −40dBFS per station §8.4, an option. Generated from one shared 4096-entry sine table: for comb bin b, sample n of the 4096-sample cycle is `table[(b × n) mod 4096]`. Because every pilot completes an integer number of cycles per 4096 samples, a per-channel sample counter that wraps at 4096 is the whole oscillator — no phase accumulator, no rounding, no drift, and the pilot is on its bin by construction. The counter is shared across channels; only b differs.
+**Pilot** (channels 1–22, 24–32). Level −40dBFS per station §8.4, an option. Generated from one shared 4096-entry sine table: for comb bin b, sample n of the 4096-sample cycle is `table[(b × n) mod 4096]`. Because every pilot completes an integer number of cycles per 4096 samples, a sample counter that wraps at 4096 is the whole oscillator — no phase accumulator, no rounding, no drift, and the pilot is on its bin by construction. The counter is shared across channels; only b differs.
 
-**Operator tone** (channel 23). Bin 768, the same table at `table[(768 × n) mod 4096]`, which is 16 samples per cycle. Level per station §7.9.3: with that channel's A32 reference at +20dBu, about −18dBFS puts 12mV on the operator's line. An option, set from the bench measurement §7.9.5 asks for.
+**Operator tone** (channel 23). Bin 768, the same table at `table[(768 × n) mod 4096]`, which repeats every 16 samples, 3 cycles of 9kHz. Level per station §7.9.3: with that channel's A32 reference at +20dBu, about −18dBFS puts 12mV on the operator's line. An option, set from the bench measurement §7.9.5 asks for.
 
-**Program source** (channels 1–22, 24–32): a file, a trunk tone, or the test tone. Unity gain for a file; the tone levels are §8.3 and §11.1.
+**Program source** (channels 1–22, 24–32: a file or a trunk tone; channel 23: a file). Unity gain for a file; the tone levels are §8.3. The test tone, which replaces the rest while it runs, is §11.1.
 
 **Monitor** (channels 33 and 34, or those of them `--monitor-ch` names): §10.
 
 ## 5.2 One Program Source per Channel
 
-A channel plays one thing at a time. A `play/set` while a tone is running stops the tone; a `tone/set` while a file is playing stops the file; a test tone stops either. The state topics follow: the stopped source's topic clears, the new one's is set (§12). This is deliberate and matches the line being simulated — a trunk does not send ringback and a caller's voice at once, and a station does not talk over itself. It also keeps the game's model simple: to know what a channel is doing, read two retained topics, `play` and `tone`, and at most one is non-empty.
+A channel plays one thing at a time. A `play/set` while a tone is running stops the tone; a `tone/set` while a file is playing stops the file. The state topics follow: the stopped source's topic clears, the new one's is set (§12). A test tone stops neither: it suspends the program source, whose topic stays as it was, and the source resumes when the test tone goes off (§11.1).
 
-The pilot and the operator tone are not program sources and are never displaced by one, except by the test tone (§11.1). On the tap, a file (Rev 10) is its only program source: it sums over the operator tone as a circuit's file sums over its pilot. On the monitor, a file (Rev 11) is summed into the monitor chain (§10.4).
+This is deliberate and matches the line being simulated — a trunk does not send ringback and a caller's voice at once, and a station does not talk over itself. It also keeps the game's model simple: to know what a channel is doing, read two retained topics, `play` and `tone`, and at most one is non-empty.
+
+The pilot and the operator tone are not program sources and are never displaced by one, except by the test tone (§11.1). On the tap, a file is its only program source: it sums over the operator tone as a circuit's file sums over its pilot. On the monitor, a file is summed into the monitor chain (§10.4).
 
 ## 5.3 Content Rule for Files
 
-The pilots are at −40dBFS and the detector's margin is 20dB, so any program energy above about 5.5kHz within 20dB of −40dBFS — that is, above −60dBFS — on a circuit channel will return on that circuit's own receive channel at full strength (the two-wire interface has no hybrid, station §8.4) and can cross the threshold in a neighbouring bin, producing `ambiguous`. Authored speech is pre-rendered at 16kHz with period band-limiting (station §8.8) and has nothing there; a file that was not authored that way must be low-passed before it is put in the wav directory. The program does not filter files on playback, because the cost of a filter in the audio thread is paid on every period forever to fix a content error that is fixed once offline. It does check on load and warn (§7.2).
+The pilots are at −40dBFS and the pilot detector's margin is 20dB, so any program energy above about 5.5kHz within 20dB of −40dBFS — that is, above −60dBFS — on a circuit channel will return on that circuit's own receive channel at full strength (the two-wire interface has no hybrid, station §8.4) and can cross the threshold in a neighbouring bin, producing `ambiguous`.
+
+Authored speech is pre-rendered at 16kHz with period band-limiting (station §8.8) and has nothing there; a file that was not authored that way must be low-passed before it is put in the wav directory. The program does not filter files on playback, because the cost of a filter in the audio thread is paid on every period forever to fix a content error that is fixed once offline. It does check on load and warn (§7.2).
 
 # 6. Pilot Detection
 
@@ -98,14 +148,14 @@ The algorithm is station §8.7 and is implemented as that listing specifies; not
 
 ## 6.1 Blocks and Hops
 
-The audio thread appends each capture period to a per-channel ring of 4096 samples and, every 2048 samples, hands the analysis thread a snapshot of every circuit channel's last 4096 — 50% overlap, an update every 42.7ms as §8.2 gives. One real-to-complex 4096-point FFT per circuit channel per hop, rectangular window. The FFT is FFTW3 (r2c, one plan reused, wisdom saved), chosen because it is packaged everywhere, its 4096-point real transform is a few microseconds, and the program has no reason to carry its own.
+The audio thread appends each capture period to a per-channel sample ring of 4096 samples and, every 2048 samples, hands the analysis thread a snapshot of every capture channel's last 4096 — 50% overlap, an update every 42.7ms as §8.2 gives. One real-to-complex 4096-point FFT per circuit channel per hop, rectangular window. The FFT is FFTW3 (r2c, one plan reused, wisdom saved), chosen because it is packaged everywhere, its 4096-point real transform is a few microseconds, and the program has no reason to carry its own.
 
-The handover. The snapshot is a copy — two `memcpy`s per channel that linearise the ring from its write index — into one of two pre-allocated blocks, never a pointer into the live ring; a transform that straddled two hops would break the exact-cycle alignment the rectangular window depends on. The two blocks and a one-slot mailbox holding the index of the block that is ready are the whole mechanism, and the rule that makes it safe is that each side owns one edge of the busy flag:
+The handover. The snapshot is a copy — two `memcpy`s per channel that linearise the sample ring from its write index — into one of two pre-allocated blocks, never a pointer into the live sample ring; a transform that straddled two hops would break the exact-cycle alignment the rectangular window depends on. The two blocks and a one-slot mailbox holding the index of the block that is ready are the whole mechanism, and the rule that makes it safe is that each side owns one edge of the busy flag:
 
 - Audio thread, each hop: if the block it is due to fill is busy, drop the hop, count it in `hops_lost`, and do not advance — the analysis thread is behind and must never be waited for. Otherwise fill the block, set its busy flag, and exchange its index into the mailbox. If the exchange returns an index rather than empty, the analysis thread never collected that earlier block: clear its busy flag and count that hop as lost too.
 - Analysis thread: exchange the mailbox to empty; if it held an index, transform that block and clear its busy flag when done; otherwise sleep 2ms and try again.
 
-The audio thread sets busy and the analysis thread clears it, so there is no window in which both believe a block is theirs. (Rev 2's program had the analysis thread set busy after taking the index, which leaves such a window, and superseded a stale mailbox entry without counting it — Rev 3 code consequence 2.) A dropped hop costs 43ms of detector latency and nothing else; the two-hop confirmation in §6.2 is indifferent to it.
+The audio thread sets busy and the analysis thread clears it, so there is no moment at which both believe a block is theirs. A dropped hop costs 43ms of detector latency and nothing else; the two-hop confirmation in §6.2 is indifferent to it.
 
 ## 6.2 Publishing
 
@@ -117,13 +167,15 @@ On start, the first hop's results are published for every circuit regardless of 
 
 ## 6.3 The Tap's Own Tone
 
-The tap's receive channel (23) is not a detector input — it carries the operator tone at close to full level and the pilots of whatever the operator is bridged to, and station §8.8 withdrew it from detection. The one thing read from it is bin 768, the tap's own tone returning, which is the health check on the tap's transmit path (station §8.4). It is checked every hop against the same 20dB guard-bin margin and published retained to `sbgame/audio/optone` as `"ok"` or `"deaf"`, with the two-hop confirmation. This topic is new at mqtt.md Rev 5 and exists because a dead tap transmit path makes every circuit's `op` read off, which looks exactly like an operator who has not plugged in; the game needs the one topic that says the difference.
+The tap's receive channel (23) is not a detector input — it carries the operator tone at close to full level and the pilots of whatever the operator is bridged to, and station §8.8 withdrew it from detection. The one thing read from it is bin 768, the tap's own tone returning, which is the health check on the tap's transmit path (station §8.4).
+
+It is checked every hop against the same 20dB guard-bin margin and published retained to `sbgame/audio/optone` as `"ok"` or `"deaf"`, with the two-hop confirmation. This topic exists because a dead tap transmit path makes every circuit's `op` read off, which looks exactly like an operator who has not plugged in; the game needs the one topic that says the difference.
 
 # 7. File Playback
 
 ## 7.1 Command
 
-`sbgame/station/<n>/play/set`, `sbgame/trunk/<n>/play/set`, for the operator tap (Rev 10) `sbgame/audio/tap/play/set`, or for the monitor (Rev 11, §10.4) `sbgame/audio/monitor/play/set`, with the base filename as payload: `greeting_1` plays `wav/greeting_1.wav`. No directory, no extension, no path separator — a payload containing `/`, `\` or `..`, or any control character, or longer than 31 characters, is rejected as a bad name and echoed as `"missing"` (§7.4) with the reason in the log. `"stop"`, or an empty payload, stops whatever is playing on the channel; a file cannot be named `stop`. The wav directory is `wav/` relative to the program's working directory by default and is an option (§14).
+`sbgame/station/<n>/play/set`, `sbgame/trunk/<n>/play/set`, for the operator tap `sbgame/audio/tap/play/set`, or for the monitor (§10.4) `sbgame/audio/monitor/play/set`, with the base filename as payload: `greeting_1` plays `wav/greeting_1.wav`. No directory, no extension, no path separator — a payload containing `/`, `\` or `..`, or any control character, or longer than 31 characters, is rejected as a bad name and echoed as `"missing"` (§7.4) with the reason in the log. `"stop"`, or an empty payload, stops whatever is playing on the channel; a file cannot be named `stop`. The wav directory is `wav/` relative to the program's working directory by default and is an option (§14).
 
 ## 7.2 Loading
 
@@ -141,30 +193,32 @@ The audio thread starts the buffer at the beginning of the next period after the
 
 ## 7.4 Reporting
 
-The circuit's `play` topic — `sbgame/audio/tap/play` for the tap (Rev 10), `sbgame/audio/monitor/play` for the monitor (Rev 11) — retained, carries the base filename from the period the file starts until the period after it ends, then clears to empty. That clearing is the "finished" response. The game distinguishes finished from stopped by knowing whether it sent `stop`, and from replaced by seeing the new filename instead of empty. A file that could not be loaded publishes `"missing"` — a diagnostic literal on the same topic, in the same way `peer` carries `"ambiguous"` — and the log says why (not found, wrong rate, stereo, too long). `"missing"` persists until the next `play/set` on that channel.
+The circuit's `play` topic — `sbgame/audio/tap/play` for the tap, `sbgame/audio/monitor/play` for the monitor — retained, carries the base filename from the period the file starts until the period after it ends, then clears to empty. That clearing is the "finished" response. The game distinguishes finished from stopped by knowing whether it sent `stop`, and from replaced by seeing the new filename instead of empty. A file that could not be loaded publishes `"missing"` — a diagnostic literal on the same topic, in the same way `peer` carries `"ambiguous"` — and the log says why (not found, wrong rate, stereo, too long). `"missing"` persists until the next `play/set` on that channel.
 
 # 8. Trunk Tones
 
 ## 8.1 Command
 
-`sbgame/trunk/<n>/tone/set` with `"dial"`, `"ringback"`, `"busy"`, `"reorder"` (Rev 20) or `"off"`. Trunks only: dial tone, ringback, busy and reorder are what a central office sends toward the switchboard, and a station is the telephone, which sends none of them. A tone runs until `"off"`, until another `tone/set` replaces it, until a `play/set` replaces it (§5.2), or until the program loses the game (§13.2). The state topic `tone`, retained, echoes `"dial"`, `"ringback"`, `"busy"`, `"reorder"` or empty.
+`sbgame/trunk/<n>/tone/set` with `"dial"`, `"ringback"`, `"busy"`, `"reorder"` or `"off"`. Trunks only: dial tone, ringback, busy and reorder are what a central office sends toward the switchboard, and a station is the telephone, which sends none of them. A tone runs until `"off"`, until another `tone/set` replaces it, until a `play/set` replaces it (§5.2), or until the program loses the game (§13.2). The state topic `tone`, retained, echoes `"dial"`, `"ringback"`, `"busy"`, `"reorder"` or empty.
 
 ## 8.2 Tones
 
 | **Tone** | **Waveform** | **Cadence** |
 | --- | --- | --- |
 | Dial | 600Hz, amplitude-modulated by 120Hz | Continuous |
-| Ringback | the city ring of `cityring.h` (Rev 21): 48 harmonics of 20Hz, strongest at 440, 400 and 360Hz, measured from an 803C recording; nominally 420Hz mixed with 20Hz ringing current, beating at 40Hz | 2.0s on, 4.0s off |
+| Ringback | the city ring of `cityring.h`: 48 harmonics of 20Hz, strongest at 440, 400 and 360Hz, measured from an 803C recording; nominally 420Hz mixed with 20Hz ringing current, beating at 40Hz | 2.0s on, 4.0s off |
 | Busy | 600Hz, amplitude-modulated by 120Hz | 0.5s on, 0.5s off |
-| Reorder (Rev 20) | 600Hz, amplitude-modulated by 120Hz | 0.25s on, 0.25s off |
+| Reorder | 600Hz, amplitude-modulated by 120Hz | 0.25s on, 0.25s off |
 
 These are the Bell System tones of the period the 551 belongs to, before the precise tone plan of the 1960s replaced them with two-frequency sums — dial tone 350 + 440Hz, ringback 440 + 480Hz, busy 480 + 620Hz, same cadences. The precise tones are the alternative, one table away, and are not used: they are what a modern ear expects, and on a board of this age they would be the one anachronism the operator hears on every call. The cadence starts at the beginning of the on period when the tone is commanded, so the operator always hears a burst first.
 
 Busy is the dial-tone waveform interrupted at 60 IPM, which is how the period offices made it — one tone source, one interrupter — and a listener tells the two apart by the cadence alone. That is faithful and it is also the reason to keep the busy cadence exact: a dial tone with a dropout could be mistaken for it. A scenario switches a trunk from ringback to busy, or from dial to busy after the operator dials a busy number, with one `tone/set`; the change takes effect at the next period and the new cadence starts from its on phase.
 
-**Ringback** (Rev 21) is one 2400-sample period of the city ring, built at startup from the partials in `audio/src/cityring.h` — each a harmonic of 20Hz with its amplitude and phase, measured from a recording of the Atlanta 755 office's 803C machine (§17.21) — set to a peak of 1 and played a sample at a time, so it costs less than the two sines it replaced. Every component is below 1.4kHz, clear of the comb. At the same peak as the other tones its RMS is 2.7dB higher.
+**Ringback** is one 2400-sample period of the city ring, built at startup from the partials in `audio/src/cityring.h` — each a harmonic of 20Hz with its amplitude and phase, measured from a recording of the Atlanta 755 office's 803C machine (§17.21) — set to a peak of 1 and played a sample at a time, so it costs less than the two sines it replaced. Every component is below 1.4kHz, clear of the comb. At the same peak as the other tones its RMS is 2.7dB higher.
 
-Each other tone is a carrier sine multiplied by `(1 + m × sin(2π f_mod t))`, so the spectrum is the carrier plus one sideband either side at ± f_mod — 480, 600 and 720Hz for dial, busy and reorder (Rev 21: ringback was 380, 420 and 460Hz) — all inside the switchboard's passband and all well clear of the comb. Modulation depth m is an option, 1.0 by default; the period tones were made by beating two sources through a nonlinear element and the exact depth varied by office, so set it by ear against a recording if one is to hand. The generator is two phase-accumulator sines per tone, not the 4096-table, because these frequencies are not an integer number of cycles per 4096 samples and do not need to be — they are program audio, not pilots. Their harmonics are not a concern for the detector: a digitally generated sine has none, and the transformer's distortion at −20dBFS is far below the −60dBFS content rule.
+Each other tone is a carrier sine multiplied by `(1 + m × sin(2π f_mod t))`, so the spectrum is the carrier plus one sideband either side at ± f_mod — 480, 600 and 720Hz for dial, busy and reorder — all inside the switchboard's passband and all well clear of the comb. Modulation depth m is an option, 1.0 by default; the period tones were made by beating two sources through a nonlinear element and the exact depth varied by office, so set it by ear against a recording if one is to hand.
+
+The generator is two phase-accumulator sines per tone, not the 4096-table, because these frequencies are not an integer number of cycles per 4096 samples and do not need to be — they are program audio, not pilots. Their harmonics are not a concern for the pilot detector: a digitally generated sine has none, and the transformer's distortion at −20dBFS is far below the −60dBFS content rule.
 
 ## 8.3 Level
 
@@ -189,47 +243,56 @@ Each other tone is a carrier sine multiplied by `(1 + m × sin(2π f_mod t))`, s
 
 The final value — `"silence"` or `"timeout"` — persists until the next `listen/set` on that channel; a cancel clears it to empty. The game watches the transitions: out of `"listening"` for the start of speech, out of `"speech"` for the end. A game that finds `"timeout"` and needs to know which kind reads the value it replaced; one that was restarted mid-listen has lost the listen either way and reissues it. The payload's seconds bound only the wait for speech to start. The silence hangover and the maximum speech time are options, not payload (§14, §17.6).
 
-## 9.2 Detector
+## 9.2 Speech Detector
 
 Energy-based, in the voice band, on 10ms frames, in the audio thread:
 
-- The channel's capture is band-passed 300–3400Hz — one second-order high-pass and a sixth-order Butterworth low-pass, three biquads (Rev 18) — before anything is measured. The pilots at 6–9kHz are the loudest thing on the channel and must not count; hum must not either. The low-pass puts the lowest pilot 30dB down and the operator tone 50dB down, so that neither sets the noise floor; with one section, as Rev 1 to Rev 17 had it, the lowest pilot was only 10.9dB down and the station's own pilot set a floor near −71dBFS.
+- The channel's capture is band-passed 300–3400Hz — one second-order high-pass and a sixth-order Butterworth low-pass, three biquads — before anything is measured. The pilots at 6–9kHz are the loudest thing on the channel and must not count; hum must not either. The low-pass puts the lowest pilot 30dB down and the operator tone 50dB down, so that neither sets the noise floor; with one section the lowest pilot was only 10.9dB down and the station's own pilot set a floor near −71dBFS.
 - RMS per 480-sample frame, in dBFS referenced to a full-scale sine (RMS × √2), which is the convention for every dBFS figure the program reports or accepts.
-- The noise floor is the 10th percentile of the frame levels over the second before the command arrived, which the audio thread keeps as a rolling history per channel at all times so it is available the instant a listen starts. During the listen the floor may rise at no more than 1dB/s and never fall, so a slowly rising room does not trigger and a burst does not lower the bar. A step to a new steady level is the exception (Rev 32): when the last 50 frames all lie within 3dB of each other and the highest of them is more than 3dB above the floor, that highest is the floor at once and the window starts again. Only at or below −55dBFS: a held vowel is steady too, but a line's noise is 40dB under a voice. A trunk seized as a listen starts steps up 38dB to its line noise.
-- Threshold is the greater of floor + 10dB and an absolute −50dBFS by default, `--vad-floor`. The absolute term is what stops a very quiet channel from triggering on nothing. The installation sets −70 (Rev 18): through the 551 an operator's normal voice reaches a station's line at −55 to −65dBFS in this band, peaks near −47, and never cleared −50 for 200ms of 300.
-- Speech is declared when at least 20 of the last 30 frames — 200ms of 300ms — are above threshold, and those 30 are not all within 3dB of each other at or below −55dBFS (Rev 32): a steady level that quiet is noise waiting to become the floor. A single click or a relay operating is a frame or two; a word is many, and varies.
-- Speech is declared ended when no more than 2 of the last 30 frames are above threshold and that has held for the hangover time — 1.5s by default; the installation sets 0.5s (Rev 23). The pauses inside a sentence are shorter than that; the pause after one is longer. A cough or a chair after the caller has stopped is a frame or two above threshold inside the window and does not restart the count; a second sentence does.
+- The noise floor is the 10th percentile of the levels of the last 100 valid frames before the command arrived — the second before, unless a program source has been running — which the audio thread keeps as a rolling history per channel at all times so it is available the instant a listen starts. During the listen the noise floor may rise at no more than 1dB/s and never fall, so a slowly rising room does not trigger and a burst does not lower the bar.
+- A step to a new steady level is the exception: when the last 50 frames all lie within 3dB of each other and the highest of them is more than 3dB above the floor, that highest is the floor at once and the decision window starts again. This applies only at or below −55dBFS: a held vowel is steady too, but a line's noise is 40dB under a voice. A trunk seized as a listen starts steps up 38dB to its line noise.
+- Threshold is the greater of noise floor + 10dB and the absolute bar, −50dBFS by default, `--vad-floor`. The absolute bar is what stops a very quiet channel from triggering on nothing. The installation's is in §14: through the 551 an operator's normal voice reaches a station's line at −55 to −65dBFS in this band, peaks near −47, and never cleared −50 for 200ms of 300.
+- Speech is declared when at least 20 of the 30 frames of the decision window — 200ms of 300ms — are above threshold, and those 30 are not all within 3dB of each other at or below −55dBFS: a steady level that quiet is noise waiting to become the floor. A single click or a relay operating is a frame or two; a word is many, and varies.
+- Speech is declared ended when no more than 2 of the last 30 frames are above threshold and that has held for the hangover time — 1.5s by default (§14 for the installation). The pauses inside a sentence are shorter than that; the pause after one is longer. A cough or a chair after the caller has stopped is a frame or two above threshold inside the decision window and does not restart the count; a second sentence does.
 - The maximum speech time — 30s by default — runs from the frame that declared speech. If speech has not ended by then the listen reports `"timeout"` and stops. It is a bound on a caller who keeps talking, or on a line that has gone noisy enough to read as speech forever, so that the game is never left waiting on a listen that cannot resolve.
 
-The thresholds, the window, the hangover and the maximum speech time are options. Set them on the bench with the operator speaking a short phrase at normal level through a real cord-pair connection, and with the room's ordinary noise present.
+The margin, the absolute bar, the hangover and the maximum speech time are options. The decision window and its counts, 30, 20 and 2, and the steady-level figures are constants (`vad.h`). Set the options on the bench with the operator speaking a short phrase at normal level through a real cord-pair connection, and with the room's ordinary noise present.
 
 ## 9.3 What Is Excluded
 
-Frames during which the same channel has an active program source are discarded, and the 30-frame window restarts when the source ends — unless the echo canceller has cleaned them (§9.4, Rev 26). The reason is station §8.4's: the two-wire interface has no hybrid, so everything this channel transmits returns on its own receive at full strength, and the program would detect its own file. The echo that persists after the source stops — through the switchboard's cord circuit and the far-end transformer — is milliseconds and is covered by the window restart.
+Frames during which the same channel has an active program source are discarded, and the decision window restarts when the source ends — unless the echo canceller has cleaned them (§9.4). The reason is station §8.4's: the two-wire interface has no hybrid, so everything this channel transmits returns on its own receive at full strength, and the program would detect its own file. The echo that persists after the source stops — through the switchboard's cord circuit and the far-end transformer — is milliseconds and is covered by the restart. A test tone is not a program source, and its frames are judged like any others (§11.1).
 
 What is not excluded is the far end. If the game plays a file on station 5 while listening on trunk 2 and the two are patched together, trunk 2 hears the file and reports speech. The program cannot know that is not wanted, and the game, which issued both commands, can. Do not listen on a channel whose peer is playing, or expect the result you asked for.
 
 ## 9.4 The Echo Canceller
 
-Rev 26. While a circuit plays a file, a line echo canceller learns the file's echo on that circuit's receive and subtracts it, so that the detector can judge what is left: a caller talking over the file. A listen started with the file, or before it, then hears such a caller; one started after it is not affected.
+While a circuit plays a file, a line echo canceller learns the file's echo on that circuit's receive and subtracts it, so that the speech detector can judge what is left: a caller talking over the file. A listen started with the file, or before it, then hears such a caller; one started after it is not affected.
 
-**Where.** In the voice band at 8kHz. The file, as summed into the circuit's output, and the capture each go through the detector's band-pass of §9.2, and every sixth sample is kept. A running sample count common to the render and the capture lines the two up, whatever the period. The canceller starts with the file and runs until 50ms after its last sample, when its echo is over. A trunk tone is not a reference: the canceller does not run for one, and a tone's frames are discarded as before.
+**Where.** In the voice band at 8kHz. The file, as summed into the circuit's output, and the capture each go through the speech detector's band-pass of §9.2, and every sixth sample is kept. A running sample count common to the render and the capture lines the two up, whatever the period. The canceller starts with the file and runs until 50ms after its last sample, when its echo is over. A trunk tone is not a reference: the canceller does not run for one, and a tone's frames are discarded as before.
 
-**How.** Two NLMS filters of 128 taps, covering 10–26ms of lag, `--aec-delay` 10ms plus 16ms: the bench round trip is 11.7ms at 256 × 3 frames, and the echo was over by 26ms. The *background* filter adapts on every sample, step 0.5. The *foreground* filter is what is subtracted, and is a copy of the background taken once a frame when the background's residual has been at least 3dB below the foreground's, and at least 10dB below the capture, for three frames running. A background that falls 6dB behind the foreground is put back from it. A caller's voice therefore spoils only the background, never the filter in use, and no double-talk detector is needed — one would have to tell a caller 15dB below the echo from the echo. This is the two-path scheme (Ochiai, 1977).
+**How.** Two NLMS filters of 128 taps, covering 10–26ms of lag, `--aec-delay` 10ms plus 16ms: the bench round trip is 11.7ms at 256 × 3 frames, and the echo was over by 26ms. The *background* filter adapts on every sample, step 0.5. The *foreground* filter is what is subtracted, and is a copy of the background taken once a frame when the background's residual has been at least 3dB below the foreground's, and at least 10dB below the capture, for three frames running. A background that falls 6dB behind the foreground is put back from it.
+
+A caller's voice therefore spoils only the background, never the filter in use, and no double-talk detector is needed — one would have to tell a caller 15dB below the echo from the echo. This is the two-path scheme (Ochiai, 1977).
 
 **Converged.** Once a copy has taken 20dB or more off the capture, until the foreground makes the line louder than the capture for half a second, which a caller cannot cause and a changed echo path does. A canceller that has not converged changes nothing: its frames are discarded as §9.3 says. Between two files on a circuit it keeps what it learnt; after 30s with no file it starts afresh, since the next file is likely another call.
 
-**What the detector does with it.** A frame in which the canceller ran throughout and has converged counts. Its level is the residual's; it is judged against the usual threshold and also against the echo subtracted less 20dB, so that the echo left behind — 31–40dB under the echo on the bench, against 15–25dB for a caller — does not read as speech. It is not added to the floor's history (§9.2), which stays the quiet before the file. The window does not restart when the file ends, so a caller who started over the end of a file is heard at once.
+**What the speech detector does with it.** A frame in which the canceller ran throughout and has converged counts. Its level is the residual's; it is judged against the usual threshold and also against the echo subtracted less 20dB, so that the echo left behind — 31–40dB under the echo on the bench, against 15–25dB for a caller — does not read as speech.
+
+While the file plays it is not added to the noise floor's history (§9.2), which stays the quiet before the file; in the 50ms after the file's last sample, when no source is running, a whole frame of residual is added. Until the canceller has converged those frames are discarded as a file's are. The decision window does not restart when the file ends, so a caller who started over the end of a file is heard at once.
 
 **Cost.** Two filters' outputs and one adaptation, 128 taps, 8000 times a second, on each circuit while it plays: about 3 million multiply-adds a second each.
 
-**Bench.** On the station 21 recording of 2026-10-24, 16 lines: the canceller took 27–34dB off each line Mark did not talk over, and no window there reached more than 13 frames of 30 above threshold; the lines he talked over showed 11–19dB, the residual being him, and those he talked over for longer than the window were heard. `aec_check FILE.lineN.wav` runs the canceller over a `--record-line` recording and prints each frame.
+**Bench.** On the station 21 recording of 2026-10-24, 16 lines: the canceller took 27–34dB off each line Mark did not talk over, and no decision window there reached more than 13 frames of 30 above threshold; the lines he talked over showed 11–19dB, the residual being him, and those he talked over for longer than the decision window were heard. `aec_check FILE.lineN.wav` runs the canceller over a `--record-line` recording and prints each frame.
 
 ## 9.5 Ring Heard on a Station
 
-Rev 30. The station board's ring detector is across the line ahead of the relay (station §7.2), and it does not see ring on a station that is off-hook: the board's own loop load pulls the ring down from about 80V to 17V AC, below its turn-on. Ring on an off-hook station is what the player sends when she rings the wrong cord of a call from that room (game_control.md §7.7). It reaches the station's capture channel through Tx01, at about −25dBFS of 20Hz; without it the 20Hz band is below −85dBFS (Rev 30 measurements).
+The station board's ring detector is across the line ahead of the relay (station §7.2), and it does not see ring on a station that is off-hook: the board's own loop load pulls the ring down from about 80V to 17V AC, below its turn-on. Ring on an off-hook station is what the player sends when she rings the wrong cord of a call from that room (game_control.md §7.7). It reaches the station's capture channel through Tx01, at about −25dBFS of 20Hz; without it the 20Hz band is below −85dBFS (measured, §17.30).
 
-So on every station's capture channel, 1–22 and 24, at all times: a 20Hz Goertzel over blocks of 4800 samples (100ms, exactly two cycles, so DC and 60Hz fall on the window's nulls), under a Hann window, which keeps a file returning at full strength on the same channel from leaking into the band. The block's 20Hz amplitude, in dBFS of a sine's peak, is compared with −50dBFS, and its 40Hz amplitude, from a second Goertzel, must be at least 20dB below the 20Hz (Rev 31): ring has almost no second harmonic, while a plug's click or a contact's bounce spreads across the low band. Three blocks in a row passing both (300ms) set `ringing` `"on"`; three in a row below it (300ms) set `"off"`. Published on `sbgame/station/<n>/ringing` on change only, retained.
+So on every station's capture channel, 1–22 and 24, at all times: a 20Hz Goertzel over blocks of 4800 samples (100ms, exactly two cycles, so DC and 60Hz fall on the window's nulls), under a Hann window, which keeps a file returning at full strength on the same channel from leaking into the band.
+
+The block's 20Hz amplitude, in dBFS of a sine's peak, is compared with −50dBFS, and its 40Hz amplitude, from a second Goertzel, must be at least 20dB below the 20Hz: ring has almost no second harmonic, while a plug's click or a contact's bounce spreads across the low band. Three blocks in a row passing both (300ms) set `ringing` `"on"`; three in a row below it (300ms) set `"off"`. 
+
+Published on `sbgame/station/<n>/ringing` on change only, retained.
 
 It is heard whether the station is on- or off-hook, but on-hook the relay has lifted Tx01 from the line and nothing reaches the channel, so in practice it reports off-hook ringing only. The ESP32's `station/<n>/ring` remains the report of a ringing on-hook station. Trunks are not watched: ringing a trunk is reported by the controller (control.md §8.3).
 
@@ -237,83 +300,125 @@ It is heard whether the station is on- or off-hook, but on-hook the relay has li
 
 ## 10.1 Chain
 
-The source's capture channel — 23, the tap, unless `monitor/source/set` has named a circuit (§10.3) → high-pass, second order, 150Hz → low-pass per station §8.8: elliptic, 8th order as four second-order sections, passband edge 3.6kHz, stopband edge 5.6kHz, stopband 70dB → gain, plus `--monitor-tap-trim` while the source is the tap → limiter → the channels `--monitor-ch` names, 33 and 34 by default, the same samples on each. All in the audio thread, per sample, with no buffering beyond the period, because the loop through the room is the constraint §8.8 records.
+The whole of the loudspeaker's path, in the audio thread, per sample:
 
-Channels 33 and 34 are the Digiface's own analog output, a 6.3mm TRS jack, 33 on the tip and 34 on the ring, full scale +9.5dBu, fixed (real_phone.md §4). The amplifier takes 33 through a TS-to-XLR cable. From Rev 7 to Rev 23 the monitor was on A32 output 24, which is station 24 from Rev 24. Only 33 and 34 are accepted; a circuit or tap channel is refused at startup.
+```text
+capture of the monitor source (§10.3; the tap, 23, unless commanded)
+   |
+   +--> 50Hz low-pass, run twice --> peak over --monitor-gate? ----+
+   |                                                               | shuts 1ms,
+   v                                                               v opens 20ms
+high-pass 150Hz --> elliptic low-pass --> delay 10ms --------> line-disturbance gate (§10.5)
+                                                                   |
+                                                                   v
+                                                         x peer boost (§10.8)
+                                                                   |
+file on the monitor (§10.4) --> elliptic low-pass, --> x file      |
+                                own state              trim -----> +
+                                                                   |
+                                                                   v
+                                     x gain, ramped, plus --monitor-tap-trim on the tap (§10.2)
+                                                                   |
+                                                                   v
+                                                         limiter (--monitor-limit)
+                                                                   |
+                         a recording playing back replaces it ---> + (§10.7)
+                                                                   |
+                                                                   +--> recording (§10.6)
+                                                                   |
+                                                                   v
+                         channels --monitor-ch names; a test tone on one replaces it (§11.1)
+```
+
+The high-pass is second order. The low-pass is per station §8.8: elliptic, 8th order as four second-order sections, passband edge 3.6kHz, stopband edge 5.6kHz, stopband 70dB. `--monitor-ch` is 33 and 34 by default, the same samples on each.
+
+The only buffering beyond the period is the 10ms delay, 480 samples, which is always in the path whether or not the gate is on. The loop through the room is the constraint §8.8 records, so nothing else is added.
+
+Channels 33 and 34 are the Digiface's own analog output, a 6.3mm TRS jack, 33 on the tip and 34 on the TRS ring, full scale +9.5dBu, fixed (real_phone.md §4). The amplifier takes 33 through a TS-to-XLR cable. Only 33 and 34 are accepted; a circuit or tap channel is refused at startup.
 
 The filter coefficients are computed at startup from the passband edge, stopband edge and attenuation, which are options, so that a different passband edge (§17.1) is a command-line change and not a code change. The coefficients are computed with a standard elliptic design; a unit test compares the realised stopband at 6000Hz against the requirement, because the lowest pilot sits exactly there and 70dB is what keeps it out of the loudspeaker.
 
-Limiter: peak, threshold −3dBFS unless `--monitor-limit` sets it lower (Rev 16), instant attack, 100ms release. It is there so that setting the monitor level by ear with the operator on the headset cannot produce a clipped burst from a ring-trip transient or a shouted line, and its release is fast enough that it is not audible as pumping on speech.
+Limiter: peak, threshold −3dBFS unless `--monitor-limit` sets it lower, instant attack, 100ms release. It is there so that setting the monitor level by ear with the operator on the headset cannot produce a clipped burst from a ring-trip transient or a shouted line, and its release is fast enough that it is not audible as pumping on speech.
 
 ## 10.2 Command
 
-`sbgame/audio/monitor/set` with `"off"` or a gain in dB as a signed decimal string — `"0"`, `"-12"`, `"6"`. 0dB is unity from the source's capture to the monitor's output channels, with `--monitor-tap-trim` added while the source is the tap (§10.3). The analog level that corresponds to is the Digiface's fixed +9.5dBu full scale; the amplifier's input gain is where its sensitivity is matched. This gain is the running level. Accepted range −60 to +20dB; a value outside it is clamped and the clamped value is what the state topic echoes. Gain changes are applied with a 20ms ramp so a level step does not click. `"off"` is a mute, ramped the same way; the filter keeps running so that turning the monitor on is instant and has no transient from a cold filter state. The state topic `sbgame/audio/monitor`, retained, echoes `"off"` or the gain.
+`sbgame/audio/monitor/set` with `"off"` or a gain in dB as a signed decimal string — `"0"`, `"-12"`, `"6"`. 0dB is unity from the source's capture to the monitor's output channels, with `--monitor-tap-trim` added while the source is the tap (§10.3). The analog level that corresponds to is the Digiface's fixed +9.5dBu full scale; the amplifier's input gain is where its sensitivity is matched. This gain is the running level. Accepted range −60 to +20dB; a value outside it is clamped and the clamped value is what the state topic echoes.
+
+Gain changes are applied with a 20ms ramp so a level step does not click. `"off"` is a mute, ramped the same way; the filter keeps running so that turning the monitor on is instant and has no transient from a cold filter state. The state topic `sbgame/audio/monitor`, retained, echoes `"off"` or the gain.
 
 The monitor is on at startup only if the `--monitor` option gives a level; the default is off, because the loudspeaker is in the operator's room and a program restart should not surprise anyone.
 
 ## 10.3 Source
 
-`sbgame/audio/monitor/source/set` with `"tap"` or a circuit id — `"station/5"`, `"trunk/2"` (mqtt.md §3). Accepted: `tap`, `station/1` to `station/22`, `trunk/1` to `trunk/8`, provided the channel it names is one the device captures. Anything else is logged and dropped, and the state topic does not change. `--monitor-src` is checked the same way at startup, and a value that fails refuses to start (Rev 9). The state topic `sbgame/audio/monitor/source`, retained, echoes the source in use. The source at startup is `--monitor-src`, `tap` by default (Rev 8).
+`sbgame/audio/monitor/source/set` with `"tap"` or a circuit id — `"station/5"`, `"trunk/2"` (mqtt.md §3). Accepted: `tap`, `station/1` to `station/22`, `station/24`, `trunk/1` to `trunk/8`, provided the channel it names is one the device captures. Anything else is logged and dropped, and the state topic does not change. `--monitor-src` is checked the same way at startup, and a value that fails refuses to start. The state topic `sbgame/audio/monitor/source`, retained, echoes the source in use. The source at startup is `--monitor-src`, `tap` by default.
 
-The source names a capture channel: the tap is 23, station n is n, trunk n is 24 + n (§2). That channel's capture is the input to the chain of §10.1; nothing after the input changes. Only the monitor reads it this way. Whatever else reads that channel — the detector, a listen, the tap's own-tone check — is unaffected.
+The source names a capture channel: the tap is 23, station n is n, trunk n is 24 + n (§2). That channel's capture is the input to the chain of §10.1; nothing after the input changes. Only the monitor reads it this way. Whatever else reads that channel — the pilot detector, a listen, the tap's own-tone check — is unaffected.
 
-What a circuit channel carries. Its own transmit returns on it at full strength, because the interface has no hybrid (station §8.4). The far end arrives through the switchboard's cord. The operator's voice is there while she is bridged to the line. Its own pilot, its peer's pilot and, while she is bridged, the operator tone are there too, and the §8.8 filter removes all three as it removes the tone and the pilots from the tap channel. The game sets a circuit source when the operator answers that line (game_control.md §9.1), which also keeps the monitor off a trunk while its ring relay is moving: trunk §8.1.1 puts a click on that trunk's channel at each relay operate and release.
+What a circuit channel carries. Its own transmit returns on it at full strength, because the interface has no hybrid (station §8.4). The far end arrives through the switchboard's cord. The operator's voice is there while she is bridged to the line. Its own pilot, its peer's pilot and, while she is bridged, the operator tone are there too, and the §8.8 filter removes all three as it removes the tone and the pilots from the tap channel.
 
-Switching, in the audio thread. A new source ramps the monitor gain down to silence over 20ms, the same ramp §10.2 uses. At the bottom of the ramp the input changes to the new channel, and the gain ramps back up over 20ms to the commanded gain, with `--monitor-tap-trim` applied or removed as the new source requires. The filter state is carried across the switch rather than cleared: the step from one input to the other happens at zero gain and has rung out by the time the ramp-up is audible. The echo is posted at the bottom of the ramp, when the input changes. A second `source/set` during a ramp takes over from wherever the ramp is. A `source/set` naming the source already in use is echoed and does nothing else. While the monitor is `"off"` the input changes at once, with no ramp, and is echoed.
+The game sets a circuit source when the operator answers that line (game_control.md §9.1), which also keeps the monitor off a trunk while its ring relay is moving: trunk §8.1.1 puts a click on that trunk's channel at each relay operate and release.
 
-The tap trim. `--monitor-tap-trim`, in dB, is added to the gain only while the source is the tap. The tap arrives about 15dB below the operator's line (station §7.9.3); a circuit channel sees its line through T2 alone. The trim is set once on the bench so that the operator's voice sounds the same on either source at one monitor gain (§15 step 7), and `monitor/set` then stays one number. It is not echoed on `monitor`, which carries the commanded gain. Its range is −30 to +30dB; outside that the program refuses to start. The sum of the commanded gain and the trim is not clamped to `monitor/set`'s range. The limiter protects the output (Rev 9, §17.9).
+Switching, in the audio thread. A new source ramps the monitor gain down to silence over 20ms, the same ramp §10.2 uses. At the bottom of the ramp the input changes to the new channel, and the gain ramps back up over 20ms to the commanded gain, with `--monitor-tap-trim` applied or removed as the new source requires. The filter state is carried across the switch rather than cleared: the step from one input to the other happens at zero gain and has rung out by the time the ramp-up is audible.
+
+The echo is posted at the bottom of the ramp, when the input changes. A second `source/set` during a ramp takes over from wherever the ramp is. A `source/set` naming the source already in use is echoed and does nothing else. While the monitor is `"off"` the input changes at once, with no ramp, and is echoed.
+
+The tap trim. `--monitor-tap-trim`, in dB, is added to the gain only while the source is the tap. The tap arrives about 15dB below the operator's line (station §7.9.3); a circuit channel sees its line through T2 alone. The trim is set once on the bench so that the operator's voice sounds the same on either source at one monitor gain (§15 step 7), and `monitor/set` then stays one number. It is not echoed on `monitor`, which carries the commanded gain. Its range is −30 to +30dB; outside that the program refuses to start. The sum of the commanded gain and the trim is not clamped to `monitor/set`'s range. The limiter protects the output (§17.9).
 
 The game program chooses the source. This program does not know about calls, and falls back to the tap only when it loses the game or the broker (§13.2).
 
 ## 10.4 A File on the Monitor
 
-Rev 11. `sbgame/audio/monitor/play/set` plays a file on the loudspeaker: loaded, checked, reported and stopped exactly as a circuit's (§7), echoed on `sbgame/audio/monitor/play`. The game program uses it for the tutor's voice (game_control.md §7).
+`sbgame/audio/monitor/play/set` plays a file on the loudspeaker: loaded, checked, reported and stopped exactly as a circuit's (§7), echoed on `sbgame/audio/monitor/play`. The game program uses it for the tutor's voice (game_control.md §7).
 
-The file is not a source in §10.3's sense and does not displace one. Per sample, the file passes through its own copy of the §10.1 low-pass — the same coefficients, its own state — and is added to the source after the source's filter, then the sum takes the gain and the limiter:
+The file is not a source in §10.3's sense and does not displace one. Per sample, the file passes through its own copy of the §10.1 low-pass — the same coefficients, its own state — and is added to the source after the source's filter, gate and boost, then the sum takes the gain and the limiter (the diagram in §10.1).
 
-```text
-source capture -> high-pass -> low-pass -----------+
-                                                    +-> x gain -> limiter -> channels 33, 34
-file -> low-pass (own state) -> x file trim -------+
-```
+The low-pass is there for the reason the source has it: the loudspeaker is in the room with the operator's microphone, and anything above 5.5kHz it puts into the room can return on the line she is bridged to and reach the pilot detector (§5.3). Authored speech has nothing there, but the filter is free and makes it so for any file. The file has no high-pass: it carries no ring-trip click or hum. Its filter runs whether or not a file plays, so a file never starts against a cold state.
 
-The low-pass is there for the reason the source has it: the loudspeaker is in the room with the operator's microphone, and anything above 5.5kHz it puts into the room can return on the line she is bridged to and reach the detector (§5.3). Authored speech has nothing there, but the filter is free and makes it so for any file. The file has no high-pass: it carries no ring-trip click or hum. Its filter runs whether or not a file plays, so a file never starts against a cold state.
+Gain. The monitor's commanded gain applies to the file as to the source, ramps and mute included, so `monitor/set` remains one number for the room and the file is silent while the monitor is `"off"` — it still plays to its end and clears its topic, so the game is not left waiting. `--monitor-file-trim`, −30 to +30dB, 0 by default, is added for the file only, so that its level is set once on the bench against the calls' (game_control.md §13.3 step 12).
 
-Gain. The monitor's commanded gain applies to the file as to the source, ramps and mute included, so `monitor/set` remains one number for the room and the file is silent while the monitor is `"off"` — it still plays to its end and clears its topic, so the game is not left waiting. `--monitor-file-trim`, −30 to +30dB, 0 by default, is added for the file only, so that its level is set once on the bench against the calls' (game_control.md §13.3 step 12). `--monitor-tap-trim` is not applied to the file: while the source is the tap, the file's share is scaled by the tap trim's inverse so that the file's level does not change with the source. A source switch's ramp passes through zero for 20ms and takes the file with it, which is inaudible in speech.
+`--monitor-tap-trim` is not applied to the file: while the source is the tap, the file's share is scaled by the tap trim's inverse so that the file's level does not change with the source. A source switch's ramp passes through zero for 20ms and takes the file with it, which is inaudible in speech.
 
 The file and the source are summed in float before the limiter, which protects the output as it does for the source alone. A file on the monitor is stopped with the game's other files when the program loses the game or the broker (§13.2).
 
 ## 10.5 The Line-Disturbance Gate
 
-Rev 17. A switch moved on the line the monitor follows, or ringing on or near it, reaches the loudspeaker as a click or a rumble far louder than speech. Both carry most of their energy below 50Hz — a step in the line's DC current, ringing at 20Hz — where speech has next to none. So the gate watches the source's raw capture, before the chain's high-pass, through a 50Hz low-pass (a second-order Butterworth, run twice; 100Hz at Rev 17, §17.19), and while that signal's peak exceeds `--monitor-gate`, and for `--monitor-gate-hold` after (0.25s), it shuts the source: down in 1ms, back up over 20ms. The filtered source passes through a 10ms delay ahead of the gate, so the gate is shut before a click's onset reaches the output. The delay is there whether or not the gate is on, so the chain's latency does not depend on a setting, and 10ms is well inside what §10.1's acoustic loop tolerates.
+A switch moved on the line the monitor follows, or ringing on or near it, reaches the loudspeaker as a click or a rumble far louder than speech. Both carry most of their energy below 50Hz — a step in the line's DC current, ringing at 20Hz — where speech has next to none. So the gate watches the source's raw capture, before the chain's high-pass, through a 50Hz low-pass (a second-order Butterworth, run twice, §17.19), and while that signal's peak exceeds `--monitor-gate`, and for `--monitor-gate-hold` after (0.25s), it shuts the source: down in 1ms, back up over 20ms.
+
+The filtered source passes through a 10ms delay ahead of the gate, so the gate is shut before a click's onset reaches the output. The delay is there whether or not the gate is on, so the chain's latency does not depend on a setting, and 10ms is well inside what §10.1's acoustic loop tolerates.
 
 Only the source is gated. A file on the monitor (§10.4) is summed in after the gate and plays on through it: the tutor is not cut off because a phone is ringing. The log's counters line reports how many times the gate shut in each ten seconds, `gate N`, so a threshold low enough to catch the operator's own voice shows up there.
 
-Off unless `--monitor-gate` is given. The installation sets −60dBFS since Rev 27, after the gate at −70 cut speech on the loudspeaker in play. Rev 19 had set −70 from a recording of the switchboard, 2026-10-16: the gate at 50Hz and −70 brings the worst switch flip or ring at the output, at −12dB monitor gain, from −10.5dBFS to −44.5, below speech, as Rev 17's 100Hz and −60 did; and the loudest authored line reaches it at about −84dBFS on its own line, and the operator's live voice at −99.
+Off unless `--monitor-gate` is given. The installation's threshold is in §14. −70 had been set from a recording of the switchboard, 2026-10-16: at 50Hz and −70 the gate brings the worst switch flip or ring at the output, at −12dB monitor gain, from −10.5dBFS to −44.5, below speech; and the loudest authored line reaches it at about −84dBFS on its own line, and the operator's live voice at −99. In play it then cut speech on the loudspeaker, and −60 is the step back from that (§17.27).
 
 ## 10.6 Recording the Loudspeaker
 
-Rev 22. `sbgame/audio/record/set` `"on"` starts a recording of the monitor's output — the samples written to the channels `--monitor-ch` names, after the gain and the limiter: what the audience hears, the source and a file on the monitor (§10.4) both, and silence while the monitor is muted. A 1kHz test tone on a monitor channel (§11.1) is not in it. `"off"` stops it. Recording runs whether or not a game does.
+`sbgame/audio/record/set` `"on"` starts a recording of the monitor's output — the samples written to the channels `--monitor-ch` names, after the gain and the limiter: what the audience hears, the source and a file on the monitor (§10.4) both, and silence while the monitor is muted. A 1kHz test tone on a monitor channel (§11.1) is not in it. `"off"` stops it. Recording runs whether or not a game does.
 
 **The file.** `<--record-dir>/<YYYY-MM-DD-HH-MM-SS>.wav`, the local date and time of the start, every field joined by `-` so the names sort in time order; a second start within the same second adds `-2`. WAV, 48kHz, mono, 16-bit. The header is rewritten after every write, so a crash leaves a file that plays up to the last 20ms.
 
-**The level.** The monitor's own level is set for the amplifier, not for a file: the installation's limiter is at −30dBFS (§10.1). So a fixed makeup gain, −1dB less `--monitor-limit`, is applied on the way to the file — +29dB at −30 — which puts the limiter's ceiling at −1dBFS in the file. Nothing in the file can exceed that, and the monitor's gain still applies, so a recording sounds as loud, relative to full scale, as the loudspeaker does relative to its limiter.
+**The level.** The monitor's own level is set for the amplifier, not for a file: the installation's limiter is at −18dBFS (§14). So a fixed makeup gain, −1dB less `--monitor-limit`, is applied on the way to the file — +17dB at −18 — which puts the limiter's ceiling at −1dBFS in the file. Nothing in the file can exceed that, and the monitor's gain still applies, so a recording sounds as loud, relative to full scale, as the loudspeaker does relative to its limiter.
 
 **The MP3.** When a recording stops, the program closes the WAV and starts `nice -n 10 lame --quiet -V 4` on it, writing `<name>.mp3` beside it, and does not wait: the MQTT thread collects the exit status on a later pass and logs the result. The WAV is kept either way. A recording ended by the program's own shutdown (§13.1) is closed and kept, and not converted, since stopping the service would kill the conversion; `lame` by hand does it.
 
-**The hand-over.** The audio thread does no file I/O (§3). While `Shared::rec_on` is set, it appends each period's monitor row to a ring of 2^20 samples, 21.8s, at the end of the capture step. The MQTT thread empties the ring into the file on every pass of its loop, every 20ms, in chunks of 8192 samples, applying the makeup gain. If the MQTT thread falls more than 21s behind, the audio thread drops whole periods rather than wait, and the log's counters line counts them, `recorded periods lost N`. The MQTT thread opens the file before setting `rec_on`, and clears it before closing the file; a period the audio thread appended between the two is discarded at the next start.
+**The hand-over.** The audio thread does no file I/O (§3). While `Shared::rec_on` is set, it appends each period's monitor row to a sample ring of 2^20 samples, 21.8s, at the end of the capture step. The MQTT thread empties the sample ring into the file on every pass of its loop, every 20ms, in chunks of 8192 samples, applying the makeup gain. If the MQTT thread falls more than 21s behind, the audio thread drops whole periods rather than wait, and the log's counters line counts them, `recorded periods lost N`.
+
+The MQTT thread opens the file before setting `rec_on`, and clears it before closing the file; a period the audio thread appended between the two is discarded at the next start.
 
 **State.** `sbgame/audio/record`, retained: the base name of the file being written, `"off"`, or `"failed"` when the last `"on"` could not open a file — the directory missing or not writable — which persists until the next `record/set`. Echoed by the MQTT thread once the file is open or closed, since the file is that thread's (§12). An `"on"` while recording leaves the recording as it is and echoes its name. At `--record-max`, four hours by default, a recording stops itself, is converted, and the state goes `"off"`.
 
-**Circuits raw** (Rev 25, bench use). With `--record-line SLOT[,SLOT...]`, up to eight circuit slots, each recording also writes `<name>.line<SLOT>[-<SLOT>...].wav`: WAV, 48kHz, 32-bit float, unscaled, two channels a slot in the order given — the slot's output as given to ALSA (pilot, file or tone, and test tone, whatever the render made), then its capture as ALSA gave it, period by period, so the round-trip delay is fixed and measurable. The audio thread writes the frames to a second ring of 2^20 samples, 10.9s for one slot and 1.4s for eight, after the render; the MQTT thread drains it with the recording's and closes it with the WAV. It is never converted, and the `.` in its name keeps it out of `audio/recordings` and playback. A full ring loses the period, counted with the recording's.
+**Circuits raw** (bench use). With `--record-line SLOT[,SLOT...]`, up to eight circuit slots, each recording also writes `<name>.line<SLOT>[-<SLOT>...].wav`: WAV, 48kHz, 32-bit float, unscaled, two channels a slot in the order given — the slot's output as given to ALSA (pilot, file or tone, and test tone, whatever the render made), then its capture as ALSA gave it, period by period, so the round-trip delay is fixed and measurable.
+
+The audio thread writes the frames to a second sample ring of 2^20 samples, 10.9s for one slot and 1.4s for eight, after the render; the MQTT thread drains it with the recording's and closes it with the WAV. It is never converted, and the `.` in its name keeps it out of `audio/recordings` and playback. A full sample ring loses the period, counted with the recording's.
 
 ## 10.7 Playing a Recording Back
 
-Rev 22. `sbgame/audio/playback/set` with a recording's base name, as `audio/recordings` gives it, plays `<--record-dir>/<name>.wav` on the loudspeaker; `"stop"` stops it. A name of anything but digits and dashes in the form §10.6 makes is refused, so the wire cannot reach outside the directory, and so is a file that is not 48kHz mono; either echoes `"missing"`.
+`sbgame/audio/playback/set` with a recording's base name, as `audio/recordings` gives it, plays `<--record-dir>/<name>.wav` on the loudspeaker; `"stop"` stops it. A name of anything but digits and dashes in the form §10.6 makes is refused, so the wire cannot reach outside the directory, and so is a file that is not 48kHz mono; either echoes `"missing"`.
 
 **In place of the monitor.** While a recording plays, its samples are the monitor's output: the chain still runs — its filters stay warm and its gate keeps counting — but what goes to the monitor's channels is the recording, divided by the makeup gain of §10.6, which brings it back to the level the loudspeaker carried when it was made. It is not passed through the monitor's gain or limiter again, which have already acted on it, and it plays whether the monitor is muted or not. A test tone on a monitor channel (§11.1) still displaces it. A recording made while one plays back records the playback.
 
-**Streaming.** An hour's recording is 690MB as floats, so it is not loaded as a file to play is (§7.2). The MQTT thread opens it and keeps a second ring, of the same size as the recording's, two seconds ahead of the audio thread, reading 8192 samples at a time on every pass of its loop. The audio thread takes a period from the ring while `Shared::play_on` is set, and fills with silence anything the ring cannot give; a period short once samples have begun to arrive is counted in the log's counters line, `playback periods short N`. While `play_on` is clear it empties the ring every period, so a new playback started the pass after a stop never begins with the last one's tail. When the file is read to its end and the ring has run dry, the MQTT thread clears `play_on`, closes the file, and `audio/playback` goes `""`.
+**Streaming.** An hour's recording is 690MB as floats, so it is not loaded as a file to play is (§7.2). The MQTT thread opens it and keeps a second sample ring, of the same size as the recording's, two seconds ahead of the audio thread, reading 8192 samples at a time on every pass of its loop.
+
+The audio thread takes a period from the sample ring while `Shared::play_on` is set, and fills with silence anything it cannot give; a period short once samples have begun to arrive is counted in the log's counters line, `playback periods short N`. While `play_on` is clear it empties the sample ring every period, so a new playback started the pass after a stop never begins with the last one's tail. When the file is read to its end and the sample ring has run dry, the MQTT thread clears `play_on`, closes the file, and `audio/playback` goes `""`.
 
 **State.** `sbgame/audio/playback`, retained: the name playing, `""`, or `"missing"` until the next `playback/set`. Echoed by the MQTT thread, which carries the command out. `sbgame/audio/recordings`, retained: the ten newest recordings in `--record-dir`, newest first, one per line as `<name> <seconds>`, leaving out one being written; published with the initial state and again whenever a recording starts or stops.
 
@@ -321,17 +426,17 @@ Losing the game or the broker does not stop a playback (§13.2); it runs to its 
 
 ## 10.8 The Peer Boost
 
-Rev 28. The monitor follows the calling line (game_control.md §9.1). On that line the caller's file returns at full strength, since the interface has no hybrid, and the called party's arrives only after crossing the operator's cord to it — on the switchboard, a good many dB lower. The audio program knows what every circuit is playing and, from its own detector, what the source is patched to, so it evens the two by measurement rather than by riding the level.
+The monitor follows the calling line (game_control.md §9.1). On that line the caller's file returns at full strength, since the interface has no hybrid, and the called party's arrives only after crossing the operator's cord to it — on the switchboard, a good many dB lower. The audio program knows what every circuit is playing and, from its own pilot detector, what the source is patched to, so it evens the two by measurement rather than by riding the level.
 
-**The peer.** The detector writes each circuit's heard peer, every hop, to `Shared::heard_peer`: the slot of the one circuit heard, or 0 for idle, deaf or ambiguous. The audio thread takes the source's, and holds it through 2s of anything else, since a circuit's own playback makes its peer flicker to idle (§6.2). A different peer starts its measurement afresh; so does a different source, or the tap.
+**The peer.** The pilot detector writes each circuit's heard peer, every hop, to `Shared::heard_peer`: the slot of the one circuit heard, or 0 for idle, deaf or ambiguous. The audio thread takes the source's, and holds it through 2s of anything else, since a circuit's own playback makes its peer flicker to idle (§6.2). A different peer starts its measurement afresh; so does a different source, or the tap.
 
 **The two paths.** While a file plays on the source and none on the peer, the source's monitor signal — after the filters and the gate, before the gain — is summed as energy against the energy of the file sent, period by period: the **own** path. While a file plays on the peer and none on the source, the same sums give the **peer** path. A file counts as playing until 50ms after its last sample, for the echo. A period in which the gate is shut is left out of both. Each sum is halved once it holds 10s, so it follows the call.
 
 **The boost.** Once each path holds a second of file, the boost is the own path's gain over the peer's, in dB, clamped to 0 – `--monitor-peer-max` (15dB). Until then it is `--monitor-peer-start` (6dB). It is applied to the source only while a file plays on the peer and none on the source, eased in and out with a 20ms one-pole, ahead of the gain and the limiter. Anything else on the line — the operator, a live caller on the real telephone, the caller's own file — is untouched; so is a file on the monitor (§10.4). `--monitor-peer-max 0` turns it off.
 
-**Fixed by the game** (Rev 29). `sbgame/audio/monitor/peer/set` is `"auto"`, the measurement above, or a boost in dB, 0 to `--monitor-peer-max`, which is applied as is, at the same moments and with the same easing, and nothing is measured. A figure outside that range is clamped and logged; anything else is logged and dropped. The retained `sbgame/audio/monitor/peer` echoes `"auto"` or the figure. The program starts in `auto` and returns to it, with the source, when it loses the game program (§13.2). `--monitor-peer-max 0` turns the boost off whatever is sent. The game program fixes it for a free call, whose caller is live (game_control.md §8, Rev 86).
+**Fixed by the game**. `sbgame/audio/monitor/peer/set` is `"auto"`, the measurement above, or a boost in dB, 0 to `--monitor-peer-max`, which is applied as is, at the same moments and with the same easing, and nothing is measured. A figure outside that range is clamped and logged; anything else is logged and dropped. The retained `sbgame/audio/monitor/peer` echoes `"auto"` or the figure. The program starts in `auto` and returns to it, with the source, when it loses the game program (§13.2). `--monitor-peer-max 0` turns the boost off whatever is sent. The game program fixes it for a free call, whose caller is live (game_control.md §8).
 
-**Installation.** `sbaudio.service` sets `--monitor-peer-max 20 --monitor-peer-start 12` from the measurement in Rev 28's note.
+**Installation.** The figures are in §14, from the measurement in §17.28.
 
 **Log.** `monitor: peer boost +N.NdB, peer <circuit> (measured|start|fixed)` when the boost or its peer changes by more than 0.5dB, at most once a second.
 
@@ -339,13 +444,17 @@ Rev 28. The monitor follows the calling line (game_control.md §9.1). On that li
 
 ## 11.1 Test Tone
 
-`sbgame/audio/test/<1-34>/set`, `"on"` or `"off"`, any playback channel. A 1kHz sine at −20dBFS (an option) replaces everything on that channel — the program source, and also the pilot, the operator tone or the monitor — for as long as it is on. It replaces rather than sums so that a scope or a meter at the far end sees one clean tone at a known level, which is the point of a wiring and level check. The consequence is that the circuit reports `deaf` while its pilot is displaced (station §8.7), the operator tone is off the line while channel 23 is under test, and the loudspeaker carries the test tone while 24 is (or 33 or 34, when `--monitor-ch` names them). All of that is correct and none of it is a fault. The state topic `sbgame/audio/test/<ch>`, retained, echoes `"on"` or `"off"`. More than one channel may be under test at once. On `"off"` the displaced source resumes from the next period.
+`sbgame/audio/test/<1-34>/set`, `"on"` or `"off"`, any playback channel. A 1kHz sine at −20dBFS (an option) replaces everything on that channel — the program source, and also the pilot, the operator tone or the monitor — for as long as it is on. It replaces rather than sums so that a scope or a meter at the far end sees one clean tone at a known level, which is the point of a wiring and level check.
+
+The consequence is that the circuit reports `deaf` while its pilot is displaced (station §8.7), the operator tone is off the line while channel 23 is under test, and the loudspeaker carries the test tone while 33 or 34 is. All of that is correct and none of it is a fault.
+
+The state topic `sbgame/audio/test/<ch>`, retained, echoes `"on"` or `"off"`. More than one channel may be under test at once. A file or trunk tone under test is suspended, not stopped: it does not advance, its `play` or `tone` topic does not change, and on `"off"` it resumes from where it was at the next period, as does anything else displaced.
 
 1kHz is bin 85.33, so it does not land on a bin and is not a pilot; it is chosen because every meter and every scope trigger on it, not for any property in the detector.
 
 ## 11.2 Log
 
-To stderr, one line per event, with uptime, and picked up by the journal when run under systemd. Events: start with the ALSA parameters actually negotiated, every MQTT command received and what was done with it, every `peer` and `op` change, every `ambiguous` with the list of pilots and levels, `deaf` and `optone` changes, monitor source changes, file load results and warnings, xruns and clip counts, output-check excesses (§11.4), MQTT connect and disconnect, game-heartbeat loss (§13.2).
+To stderr, one line per event, with uptime, and picked up by the journal when run under systemd. Events: start with the ALSA parameters actually negotiated, every MQTT command received and what was done with it, every `peer` change, every `ambiguous` with the list of pilots and levels, `deaf` and `optone` changes, monitor source changes, file load results and warnings, xruns and clip counts, output-check excesses (§11.4), MQTT connect and disconnect, game-heartbeat loss (§13.2).
 
 ## 11.3 Spectrum Dump
 
@@ -353,7 +462,11 @@ To stderr, one line per event, with uptime, and picked up by the journal when ru
 
 ## 11.4 Output Self-Check
 
-Every period, after `render()` and before the write, the program scans the playback buffer it is about to hand to ALSA and compares each channel's peak with the most that channel should carry this period: the pilot level on a circuit with no program source, the operator tone's on the tap with no file, the test tone's under test, the limiter's −3dBFS on a monitor channel, and nothing on a silent one. A channel with a file or a trunk tone is not checked — its source can reach full scale by design. A peak more than 0.5dB over its ceiling counts that period as an excess on that channel. The audio thread keeps the count and the highest peak per channel and hands them to Shared once a second; the MQTT thread logs them every ten seconds with the counters, one line naming each channel, its count of periods and its peak in dBFS. Silence in the log means every channel carried what it should. The scan is one pass over the buffer already in cache, with no allocation and no lock, and costs a few microseconds a period.
+Every period, after `render()` and before the write, the program scans the playback buffer it is about to hand to ALSA and compares each channel's peak with the most that channel should carry this period: the pilot level on a circuit with no program source, the operator tone's on the tap with no file, the test tone's under test, −3dBFS, the highest the limiter may be set, on a monitor channel, and nothing on a silent one.
+
+A channel with a file or a trunk tone is not checked — its source can reach full scale by design. A peak more than 0.5dB over its ceiling counts that period as an excess on that channel.
+
+The audio thread keeps the count and the highest peak per channel and hands them to Shared once a second; the MQTT thread logs them every ten seconds with the counters, one line naming each channel, its count of periods and its peak in dBFS. Silence in the log means every channel carried what it should. The scan is one pass over the buffer already in cache, with no allocation and no lock, and costs a few microseconds a period.
 
 It sees only the program's own buffer. Samples corrupted after the write — in ALSA, the USB stream or the Digiface — do not appear in it, and that is the point: a meter at the A32 that misbehaves while this check is silent puts the fault downstream of the program.
 
@@ -376,26 +489,37 @@ sbgame/audio/record/set        sbgame/audio/playback/set
 sbgame/ctl/game_heartbeat
 ```
 
-Station n is validated 1–22 or 24 (Rev 24) and trunk n 1–8; a topic outside those ranges, or a `tone/set` on a station, is logged and dropped. The same ranges apply to the circuit id in a `monitor/source/set` payload (§10.3). Nothing is acted on that the program cannot echo.
+Station n is validated 1–22 or 24 and trunk n 1–8; a topic outside those ranges, or a `tone/set` on a station, is logged and dropped. The same ranges apply to the circuit id in a `monitor/source/set` payload (§10.3). Nothing is acted on that the program cannot echo.
 
-Every command is acknowledged by its state topic changing, retained, from the audio thread after it has taken effect — `record/set` and `playback/set` from the MQTT thread, which carries them out (§10.6, §10.7) — — the same convention as the ESP32's `hook` echoing `hook/set` (mqtt.md §3). A command that arrives while the program is running and produces no change in the state topic was not acted on, and the log says why.
+Every command is acknowledged by its state topic changing, retained, from the audio thread after it has taken effect — `record/set` and `playback/set` from the MQTT thread, which carries them out (§10.6, §10.7) — the same convention as the ESP32's `hook` echoing `hook/set` (mqtt.md §3). A command that arrives while the program is running and produces no change in the state topic was not acted on, and the log says why.
 
-Published state at start, before the birth message, so that a subscriber that sees `audio_status` go `online` already has consistent values: `play`, `tone` and `listen` empty for every circuit, `monitor`, `monitor/source` and `monitor/peer` as started, `test/<ch>` off for every channel, `record`, `recordings` and `playback` as they are (Rev 22), `ringing` off for every station (Rev 30), then `peer`, `op` and `optone` from the analysis thread's first pass — the MQTT thread raises a flag asking for a full publish and waits for the analysis thread to report that pass done. Only then `sbgame/ctl/audio_status` = `"online"`. The same sequence runs on every reconnect. The values republished are what the program is doing at that moment, not the last values that reached the broker, so a change made while disconnected is what reconnect announces (Rev 9). (Rev 2's program published `online` first and let the detector topics follow up to a hop later — Rev 3 code consequence 3.)
+Published state at start, before the birth message, so that a subscriber that sees `audio_status` go `online` already has consistent values:
+
+- `play` and `listen` empty for every circuit, `tone` empty for every trunk, and `play` empty for the tap and the monitor.
+- `monitor`, `monitor/source` and `monitor/peer` as started, and `test/<ch>` off for every channel.
+- `record`, `recordings` and `playback` as they are, and `ringing` off for every station.
+- `peer`, `op` and `optone` from the analysis thread's first pass: the MQTT thread raises a flag asking for a full publish and waits for the analysis thread to report that pass done.
+
+Only then `sbgame/ctl/audio_status` = `"online"`. The same sequence runs on every reconnect. The values republished are what the program is doing at that moment, not the last values that reached the broker, so a change made while disconnected is what reconnect announces.
 
 # 13. Startup, Shutdown and Failure
 
 ## 13.1 Sequence
 
-Parse options → open and configure both ALSA handles, link, allocate every buffer, lock memory → compute filter coefficients and FFT plan → start the audio thread and the stream, pilots and operator tone on from the first period → start the analysis thread → connect to the broker with the LWT, subscribe, publish the initial state (§12), publish the birth message. Audio starts before MQTT deliberately: the pilots and the operator tone are part of the switchboard's electrical environment and nothing about them depends on the broker.
+Parse options → open and configure both ALSA handles, link → allocate every buffer, compute filter coefficients and FFT plan → prepare the MQTT client → lock memory → start the stream, then the audio thread, pilots and operator tone on from the first period → start the analysis thread → connect to the broker with the LWT, subscribe, publish the initial state (§12), publish the birth message. Audio starts before MQTT deliberately: the pilots and the operator tone are part of the switchboard's electrical environment and nothing about them depends on the broker.
 
-SIGTERM or SIGINT: stop every program source and the test tones, clear their state topics, `ringing` off for every station (Rev 30), close a recording, unconverted (§10.6), with `record` `"off"`, stop a playback, publish `audio_status` = `"offline"` cleanly so the broker does not fire the will, disconnect, stop the stream, exit. The pilots stop with the stream, and every `peer` on the broker goes stale at that moment — which is why `audio_status` exists (mqtt.md §8.1).
+SIGTERM or SIGINT: stop every program source and the test tones, clear their state topics, `ringing` off for every station, close a recording, unconverted (§10.6), with `record` `"off"`, stop a playback, publish `audio_status` = `"offline"` cleanly so the broker does not fire the will, disconnect, stop the stream, exit. The pilots stop with the stream, and every `peer` on the broker goes stale at that moment — which is why `audio_status` exists (mqtt.md §8.1).
 
 ## 13.2 Losing the Game or the Broker
 
 The program mirrors the ESP32's rule (mqtt.md §8.2) for the same reason. A game program that has crashed can leave a trunk sending ringback to the operator indefinitely, which presents as a hardware fault. So:
 
-- **Two consecutive missed `game_heartbeat`s** (no beat for 2s): stop every trunk tone and every file, clear their state topics, log it. Pilots, the operator tone and the monitor continue — they are not things the game started and are harmless without it. The monitor's source returns to the tap, under the §10.3 ramp, and `monitor/source` echoes `"tap"`, and the peer boost returns to `auto` (Rev 29): the calls a circuit source was following have been torn down, and the tap is the one source that is not about a call (Rev 8). Listens in progress are cancelled and cleared; their results would go nowhere. Test tones continue: they are a bench diagnostic, not game state, and stopping them under someone's meter is unhelpful. So does a recording (§10.6, Rev 22): the moment the game is lost is one worth having on it, and `--record-max` ends a forgotten one. A playback (§10.7) runs to its end.
-- **Broker connection lost**: the same stops, applied locally, and reconnect with backoff — 1s, doubling to a 30s ceiling, reset on success; a refused connection (bad credentials, mqtt.md §9) backs off the same way rather than retrying at speed. The will is registered once on the client handle and survives every reconnect. On reconnect: republish all state as at start, then `online`. The will has already published `offline` on the program's behalf. Results the audio and analysis threads post while disconnected are discarded, not queued: the sources they describe were stopped at the disconnect, and the detector republishes in full on reconnect. State is not a result. The state republished on reconnect is read from the program as it stands, so the monitor's return to the tap, made locally while disconnected, is what reconnect announces on `monitor/source` (Rev 9).
+- **Two consecutive missed `game_heartbeat`s** (no beat for 2s): stop every trunk tone and every file, clear their state topics, log it. Pilots, the operator tone and the monitor continue — they are not things the game started and are harmless without it. The monitor's source returns to the tap, under the §10.3 ramp, and `monitor/source` echoes `"tap"`, and the peer boost returns to `auto`: the calls a circuit source was following have been torn down, and the tap is the one source that is not about a call.
+
+  Listens in progress are cancelled and cleared; their results would go nowhere. Test tones continue: they are a bench diagnostic, not game state, and stopping them under someone's meter is unhelpful. So does a recording (§10.6): the moment the game is lost is one worth having on it, and `--record-max` ends a forgotten one. A playback (§10.7) runs to its end.
+- **Broker connection lost**: the same stops, applied locally, and reconnect with backoff — 1s, doubling to a 30s ceiling, reset on success; a refused connection (bad credentials, mqtt.md §9) backs off the same way rather than retrying at speed.
+
+  The will is registered once on the client handle and survives every reconnect. On reconnect: republish all state as at start, then `online`. The will has already published `offline` on the program's behalf. Results the audio and analysis threads post while disconnected are discarded, not queued: the sources they describe were stopped at the disconnect, and the pilot detector republishes in full on reconnect. State is not a result. The state republished on reconnect is read from the program as it stands, so the monitor's return to the tap, made locally while disconnected, is what reconnect announces on `monitor/source`.
 - **The stream fails** and cannot be recovered: exit non-zero. Under systemd, `Restart=on-failure` brings it back and the birth/LWT sequence tells the game what happened. There is no attempt to run without audio.
 
 ## 13.3 What Is Not Failsafed
@@ -417,7 +541,7 @@ Command-line options, each with the default given here, and no configuration fil
 --mqtt-user USER       broker credentials (mqtt.md 9); --mqtt-pass PASS,
 --mqtt-pass-file PATH    or the password from a file
 --client-id ID         MQTT client id (sbgame-audio)
---window rect|hann     detector window (rect); hann is station 8.2's fallback,
+--window rect|hann     FFT window (rect); hann is station 8.2's fallback,
                        three-bin sum, guards at +-4/+-5
 --wav-dir PATH         wav directory (wav)
 --max-file SECONDS     longest file accepted (120)
@@ -447,12 +571,12 @@ Command-line options, each with the default given here, and no configuration fil
 --monitor-file-trim DB gain added to a file on the monitor, -30 to +30 (0)
                        (§10.4)
 --monitor-limit DB     the monitor limiter's threshold, -60 to -3 dBFS (-3)
-                       (§10.1, Rev 16)
+                       (§10.1)
 --monitor-gate DB      mute the source while its line carries more than this
-                       below 50Hz, -90 to -10 dBFS (off) (§10.5, Rev 17, 19)
+                       below 50Hz, -90 to -10 dBFS (off) (§10.5)
 --monitor-gate-hold S  how long it stays muted after, 0.05 to 2 (0.25)
 --monitor-peer-max DB  most the source is raised while its peer plays a file,
-                       0 to 24, 0 = off (15) (§10.8, Rev 28)
+                       0 to 24, 0 = off (15) (§10.8)
 --monitor-peer-start DB the boost until both paths are measured, 0 to the
                        max (6)
 --monitor-lp HZ HZ DB  monitor low-pass passband edge, stopband edge,
@@ -468,32 +592,61 @@ Command-line options, each with the default given here, and no configuration fil
 
 Every level that station §8 gives as a figure is an option here and defaults to that figure, so the document and the program agree until the bench says otherwise, and what the bench says goes into the unit file, not into the source. FFTW's plan is cached as wisdom at `$SBAUDIO_WISDOM`, or `~/.cache/sbaudio-wisdom`, so the first start after a build is the only slow one.
 
+**Installation values.** What `sbaudio.service` (`host/etc/systemd/system/`) sets where it differs from the default. The unit is the authority; this table says why.
+
+| **Option** | **Installation** | **Default** | **Why** |
+| --- | --- | --- | --- |
+| `--card` | `USB24306452` | none, required | This Digiface's id (§4) |
+| `--monitor` | 0 | off | On at startup, at unity; the amplifier is matched to it (§10.2) |
+| `--monitor-ch` | 33 | 33,34 | The amplifier takes the jack's tip (§10.1) |
+| `--monitor-limit` | −18 | −3 | Just above speech, so a switch's click is held to it (§10.1, §17.16). −30 held the Digiface output too quiet |
+| `--monitor-file-trim` | −18 | 0 | The tutor's level against the calls (§10.4, §17.16) |
+| `--monitor-gate` | −60 | off | −70 cut speech in play (§10.5, §17.27) |
+| `--monitor-peer-max` | 20 | 15 | Measured path differences (§10.8, §17.28) |
+| `--monitor-peer-start` | 12 | 6 | The same measurement |
+| `--vad-floor` | −70 | −50 | An operator's normal voice never cleared −50 for 200ms of 300 (§9.2, §17.18) |
+| `--vad-hangover` | 0.5 | 1.5 | 1.5s left too long a pause before the caller's line; a pause over 0.5s inside what she says ends it there, which is the lesser fault (§9.2, §17.23) |
+
+The unit also names the broker, its credentials, and the wav and recording directories. Every other option is at its default.
+
 # 15. Commissioning
 
 In order, with the switchboard connected:
 
 1. Start with no game program and `mosquitto_sub -v -t 'sbgame/#'` open. Every circuit should show `peer` empty and `op` off within a second, `optone` ok, and `audio_status` online. A `deaf` here is a wiring fault on that circuit's own strip or D-Sub channel, and is the first thing to find.
 2. Clock check. `--dump` one station for ten seconds with nothing patched. Its own pilot should sit in its own bin at a steady level with the two neighbouring bins 40dB or more below it. Energy in the neighbouring bins that varies slowly is two clock domains — the Digiface and the A32 are not locked — and must be fixed at the hardware before anything else is measured, or the Hann fallback of station §8.2 adopted.
-3. Test tone on each channel in turn, meter at the board's D-Sub, then at the switchboard jack. This is the wiring check for all 32 A32 channels and the two Digiface outputs, and the level reference for everything after. For channel 24 the meter goes at the amplifier end of the monitor cable (station §7.9.8).
+3. Test tone on each channel in turn, meter at the board's D-Sub, then at the switchboard jack. This is the wiring check for all 32 A32 channels and the two Digiface outputs, and the level reference for everything after. For the monitor, the meter goes at the amplifier end of the cable from channel 33 (§10.1).
 4. Set the trunk tone level by measuring at the switchboard's trunk jack with dial tone on.
 5. Set the operator tone level per station §7.9.5, and confirm the operator cannot hear it.
-6. Set `MARGIN_DB`, `PEER_WINDOW_DB` and `OP_WINDOW_DB` per station §8.7, against a real cord-pair connection, and confirm no `ambiguous` with every cord patched. For the windows, run the program by hand for a few seconds with `--peer-window-db 200 --op-window-db 200`, so that everything above the floor is heard and every circuit hearing more than one pilot logs `ambiguous` with each level against the own pilot in brackets — the figure the window reads (`--dump` gives levels above each bin's floor, which is not it; station §14.48). Do it with the weakest connections patched — station to station and station to trunk, each with the operator bridged on and off. Each window must take the weakest connection with room to spare and stay short of the crosstalk: on the switchboard as cabled, 44dB or more under the own pilot (station §14.48).
-7. Set the amplifier's input gain with the test tone on channel 33, then set the monitor gain by ear with the operator on the headset and the limiter's activity in the log — it should be silent on ordinary speech. Then set `--monitor-tap-trim`: on a real call with the operator bridged to the calling line, switch `monitor/source/set` between `tap` and that circuit and trim until her voice is the same level on both. On the same call, once it is connected and talking, listen to the balance between the caller and the called party on the circuit source (§16).
-8. Set the speech detector's margin and floor with the operator speaking through a real connection, and confirm it does not trigger on a ring-trip or a relay.
+6. Set `MARGIN_DB`, `PEER_WINDOW_DB` and `OP_WINDOW_DB` per station §8.7, against a real cord-pair connection, and confirm no `ambiguous` with every cord patched.
+
+   For the level windows, run the program by hand for a few seconds with `--peer-window-db 200 --op-window-db 200`, so that everything above the guard-bin floor is heard and every circuit hearing more than one pilot logs `ambiguous` with each level against the own pilot in brackets — the figure the level window reads (`--dump` gives levels above each bin's guard-bin floor, which is not it; station §14.48).
+
+   Do it with the weakest connections patched — station to station and station to trunk, each with the operator bridged on and off. Each level window must take the weakest connection with room to spare and stay short of the crosstalk: on the switchboard as cabled, 44dB or more under the own pilot (station §14.48).
+7. Set the amplifier's input gain with the test tone on channel 33, then set the monitor gain by ear with the operator on the headset and the limiter's activity in the log — it should be silent on ordinary speech. Then set `--monitor-tap-trim`: on a real call with the operator bridged to the calling line, switch `monitor/source/set` between `tap` and that circuit and trim until her voice is the same level on both.
+8. Set the speech detector's margin and absolute bar with the operator speaking through a real connection, and confirm it does not trigger on a ring-trip or a relay.
 
 # 16. Open Items
 
-- **Monitor level.** The monitor is on the Digiface's channels 33 and 34 again as of Rev 24, at its fixed +9.5dBu full scale; the amplifier's input gain is the bench setting (§15 step 7).
-- **Capture channel count.** Expected 32 at 48kHz; confirm from the driver as the playback count was at station Rev 3.37.
 - **Tone modulation depth and level.** §8.2 and §8.3; bench settings, by ear.
-- **Detector `MARGIN_DB`, `PEER_WINDOW_DB` and `OP_WINDOW_DB`, tone, operator tone and monitor levels**: all bench settings, §15, none yet made.
+- **Pilot detector `MARGIN_DB`, `PEER_WINDOW_DB` and `OP_WINDOW_DB`, tone and operator tone levels**: bench settings, §15. The installation leaves all of them at their defaults; the monitor's levels are set (§14).
 - **Period size.** 256 is the target for the monitor loop; whether the class-compliant driver sustains it is a bench question.
 - **Audio program heartbeat.** §13.3; open in mqtt.md §11.
 - **Listening on the tap channel.** Not offered — the rough specification says station or trunk — but the tap always carries the operator's voice, and "has the operator said anything" may turn out to be a question the game wants to ask. One more accepted topic if so.
-- **The two sides of a call on a circuit source** (Rev 8). A circuit's own transmit returns on its own receive through its own transformer's secondary. The far end crosses two transformers and the cord circuit. The caller will be louder than the called party by an amount nothing measured so far predicts. Measure it at §15 step 7. If the difference is large enough to matter, the fix is a fixed cut applied to the monitor while the source channel has an active program source, which this program already knows for §9.3's exclusion: one more option, `--monitor-own-duck DB`, default 0. It would also cut the far end during any overlap, which scripted content rarely has. Not added until the bench asks for it.
-- **Reorder tone.** Not asked for and not added. If a scenario ever needs "the number you have dialled is not in service" as a tone rather than a recording, the period version is the busy waveform at 120 IPM — 0.25s on, 0.25s off — and is one more row here.
 
 # 17. Revision History
+
+## 17.34 Changes in Rev 34
+
+— The document made correct and readable, Mark's request, 2026-10-30, as `game_control.md` was at Rev 95 to Rev 100. Checked against the code, and where they differed the code stands.
+
+— A test tone suspends a file or trunk tone and does not stop it (§2, §5.1, §5.2, §11.1). No partial block is discarded after an xrun (§4). §3 had two lock-free queues; it now has the three SPSC queues and the other hand-overs. The decision window's counts are constants, not options (§9.2). The floor's history is the last 100 valid frames (§9.2), and the 50ms after a file does add to it (§9.4). The 10ms delay is always in the monitor's path, and §10.1 now draws the whole chain, gate and boost included, in place of §10.4's partial one. `station/24` is an accepted monitor source (§10.3). `op` changes are not logged (§11.2). `tone` is published at start for trunks only (§12). Memory is locked after the coefficients are computed (§13.1). The operator tone's 16 samples are 3 cycles (§5.1). The recording's makeup gain is given for the installation's limiter, −18dBFS, +17dB (§10.6).
+
+— Recorded, not changed: recovering from an xrun is the one exception to the audio thread's rules (§3, §4). `AlsaStream::recover()` logs to stderr and its `start()` allocates a period of silence, on the audio thread, when the deadline has already been missed.
+
+— Out-of-date text removed: chat-era ownership and build state (§1), the claim that nothing has run (§1, §16), channel 24 as the monitor (§11.1, §15). Open items settled and removed from §16: the monitor's level, the capture channel count, the balance of a call's two sides and `--monitor-own-duck` (§10.8), and the reorder tone (§8). Added: §1.1 Terms, naming the senses of six words, and §14's table of the installation's values, which replaces scattered mentions. Long paragraphs are split, and `Rev N` is out of the body, as in `game_control.md`.
+
+— Code consequence: no change of behaviour. Stale comments in `engine.cpp`, `engine.h`, `ipc.h` and `options.cpp`; `--version` reports this revision; `audio/README.md`.
 
 ## 17.33 Changes in Rev 33
 

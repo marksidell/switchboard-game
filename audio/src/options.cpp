@@ -121,9 +121,9 @@ static bool parse_record_line(const char* s, std::vector<int>& out)
 }
 
 // parse_monitor_ch()                                                 [startup]
-//   "24", "33,34", "24,33" -> the channels, in the order given. Refuses
+//   "33", "33,34" -> the channels, in the order given. Refuses
 //   rather than clamps (audio.md 14): an empty list, a repeat, anything that
-//   is not a number, and any channel outside {24, 33, 34} - a circuit or the
+//   is not a number, and any channel but 33 and 34 - a circuit or the
 //   tap would displace a pilot or the operator tone, which is never what was
 //   meant. Returns false having said which channel was wrong and why.
 static bool parse_monitor_ch(const char* s, std::vector<int>& out)
@@ -183,7 +183,7 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         const char* nx = (i + 1 < argc) ? argv[i + 1] : nullptr;
 
         if (a == "--help" || a == "-h")     { usage(argv[0]); exit_now = true; return true; }
-        if (a == "--version")               { std::printf("sbaudio 8 (audio.md Rev 8)\n");
+        if (a == "--version")               { std::printf("sbaudio 34 (audio.md Rev 34)\n");
                                               exit_now = true; return true; }
 
         if (a == "--no-realtime")           { o.no_rt = true; continue; }

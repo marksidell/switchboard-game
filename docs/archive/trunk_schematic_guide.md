@@ -1,5 +1,7 @@
 # Trunk Board — KiCad Schematic Drawing Guide
 
+*Archived 2026-10-30. A record of how this schematic was drawn; the board is built and this guide is not kept current, so its footprints, pin names and some parts have gone stale. The schematic in `kicad/` is what was built.*
+
 Derived from trunk circuit Rev 5.25 and the KiCad library plan; C19, the /RESET filter, added at trunk Rev 5.40; R_LOOP and R_DET values from trunk Rev 5.41. **Follows trunk Rev 5.42: every reference below is the designator as annotated on the rev 2 board** — strip parts as Rxnn, x = trunk number + 1, root parts from 101 — with the former document name alongside in each table. §6 is a record of an earlier check and keeps the names it was written in. Checked part by part
 against Rev 5.25 §13 — the earlier version of this guide was written against Rev 5.16 and
 its header was never moved, so the change entries from 5.17 to 5.25 had never been read

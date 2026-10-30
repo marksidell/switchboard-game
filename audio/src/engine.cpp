@@ -537,7 +537,8 @@ void Engine::drain_commands()
 //     - run the speech detector on it (circuits only, not the tap): filter,
 //       accumulate 10 ms frames, and hand each frame to the Listener, which
 //       keeps the history and reports speech, silence or timeout;
-//   then run the tap channel (23) through the monitor chain into mon_row_,
+//   then run the monitor source's channel (the tap, 23, unless a circuit has
+//   been named) through the chain of audio.md 10.1 into mon_row_,
 //   advance the ring position, and take a snapshot if a hop is due.
 // ring_step()                                                          [audio]
 //   audio.md 9.5: one period of every station's capture through its 20Hz
@@ -585,8 +586,8 @@ void Engine::process_capture()
     const int ncirc = (int)std::min<unsigned>(ncap_, chan::N_CAP_CH);
 
     for (int c = 0; c < ncirc; ++c) {
-        // Capture 24 is read by nothing, so it is not even kept: no ring, no
-        // snapshot, no speech detection (audio.md 2, Rev 7).
+        // Every capture channel is read: the 31 circuits and the tap (audio.md
+        // 2), so this skips nothing while the map is as it is.
         if (!chan::is_read_channel(c + 1)) continue;
 
         const float* src = &capf_[(size_t)c * period_];
@@ -777,7 +778,7 @@ void Engine::hop_if_due()
 
     float* dst = sh_.snap[w].data.data();
     for (int c = 0; c < chan::N_CAP_CH; ++c) {
-        if (!chan::is_read_channel(c + 1)) continue;   // nothing reads capture 24
+        if (!chan::is_read_channel(c + 1)) continue;   // skips nothing: all 32 are read
         const float* rg = &ring_[(size_t)c * FFT_N];
         float*       d  = dst + (size_t)c * FFT_N;
         const size_t a  = FFT_N - ring_w_;          // oldest run, from ring_w_
@@ -810,8 +811,8 @@ void Engine::hop_if_due()
 //   Step 5 of the period: builds one period of playback in obuf_, channel by
 //   channel. Each playback channel gets exactly one of:
 //     - the 1 kHz test tone, if test_on_[ch] - it replaces everything;
-//     - the monitor feed, for whatever channels --monitor-ch named (24 by
-//       default; 33 and 34 are the Digiface fallback);
+//     - the monitor feed, for whatever channels --monitor-ch named (33 and
+//       34, the Digiface pair, by default);
 //     - the operator tone, for the tap (23);
 //     - silence, for a monitor-capable channel the monitor is not on;
 //     - its pilot, plus its programme source if it has one (every circuit).

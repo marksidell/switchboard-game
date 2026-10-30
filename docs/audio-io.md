@@ -52,10 +52,10 @@ oversight:
   tone_monitor          -p / -c take ONE-based channel numbers
 ```
 
-`tone_out` and `tone_monitor` print both conventions on startup — *"channel 34 (0-based
+`tone_out` prints both conventions on startup — *"channel 34 (0-based
 index 33)"* — so the resolved pin is never in doubt. `pilot_loopback_test` reports its
 result table one-based while taking its arguments zero-based, which is the trap. The
-headphone pair is `-c 33,34` to `tone_out` and indices 32/33 to everything else.
+headphone pair is `-c 33,34` to `tone_out`, `-p 33` and `34` to `tone_monitor`, and indices 32/33 to `pilot_loopback_test`.
 
 ## Measured reference levels
 
@@ -187,7 +187,7 @@ Sources in the repo root; each carries its reasoning in its own header comment.
                         tenth of a second still shows. Built for chasing intermittents.
 ```
 
-All three use a Hann window for every level reading. An earlier version of
+`pilot_loopback_test` and `tone_monitor` use a Hann window for every level reading. An earlier version of
 `pilot_loopback_test` read the cross-channel matrix off a rectangular window, which is
 leakage-free only while sampling stays perfectly coherent; 0.1 bin of drift throws
 −67 dBFS into the neighbouring pilot bin against Hann's −103, and that artefact was

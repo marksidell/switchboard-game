@@ -14,31 +14,29 @@ of this file.
 
 | File | Rev | Covers |
 |---|---|---|
-| `mqtt.md` | **47** | The MQTT design: broker, clients, topic naming, every message by publisher, QoS and retention, liveness, broker configuration and access list. |
-| `control.md` | **39** | The firmware specification: startup order, ring generation, I²C map, station and trunk behaviour, dial pulse timing, failsafes. |
-| `audio.md` | **33** | The audio program specification: channel plan, output mixer, detector scheduling, file playback, trunk tones, speech detection, audience monitor, MQTT interface. |
-| `game_control.md` | **99** | The game program, status page and Stream Deck: what a game is, call pacing, the deck of scenes, tallies, call slots, the log, the jack map. |
+| `mqtt.md` | **48** | The MQTT design: broker, clients, topic naming, every message by publisher, QoS and retention, liveness, broker configuration and access list. |
+| `control.md` | **41** | The firmware specification: startup order, ring generation, I²C map, station and trunk behaviour, dial pulse timing, failsafes. |
+| `audio.md` | **34** | The audio program specification: channel plan, output mixer, detector scheduling, file playback, trunk tones, speech detection, audience monitor, MQTT interface. |
+| `game_control.md` | **100** | The game program, status page and Stream Deck: what a game is, call pacing, the deck of scenes, tallies, call slots, the log, the jack map. |
 | `pilot-map.md` | — | Slot ↔ bin ↔ circuit assignment and the detector constants. Authoritative. |
 | `audio-io.md` | — | Channel map, measured reference levels, bench tools. |
-| `protocol.md` | — | Socket and shared-memory design. A skeleton, not implemented: the programs talk over MQTT. |
 
 ## Hardware design
 
 | File | Rev | Covers |
 |---|---|---|
-| `station_circuit.md` | **3.50** | Station interface: 8 strips per board, three boards, ring detection, off-hook, audio, the operator tap, the real telephone on station 24. |
-| `trunk_circuit.md` | **5.56** | Trunk interface, 8 circuits: constant-current loop feed, seizure detection, ring relay, the Grandstream ATA on trunk 8. |
-| `ring_generator.md` | **77** | Ring generator: H-bridge, transformer, and the Olimex ESP32 that is the system's I²C master. |
-| `station_schematic_guide.md` | — | KiCad drawing guide for the station board. |
-| `trunk_schematic_guide.md` | — | KiCad drawing guide for the trunk board, with PCB netclasses and the stack-up (§7). |
-| `ring_generator_schematic_guide.md` | — | KiCad drawing guide for the generator. Its designator tables are superseded by the Board column of `ring_generator.md` §10. |
+| `station_circuit.md` | **3.52** | Station interface: 8 strips per board, three boards, ring detection, off-hook, audio, the operator tap, the real telephone on station 24. |
+| `trunk_circuit.md` | **5.57** | Trunk interface, 8 circuits: constant-current loop feed, seizure detection, ring relay, the Grandstream ATA on trunk 8. |
+| `ring_generator.md` | **79** | Ring generator: H-bridge, transformer, and the Olimex ESP32 that is the system's I²C master. |
+
+The KiCad drawing guides for all three boards are in `archive/`, as records of how the schematics were drawn. The boards are built, and the guides are not kept current; the trunk guide's §7 still has the PCB netclasses and stack-up.
 
 ## Notes and proposals
 
 | File | Rev | Covers |
 |---|---|---|
-| `real_phone.md` | **4** | The proposal for a real telephone on the board, adopted 2026-10-23, and how the decision was reached. |
-| `grandstream_trunk.md` | **5** | Bench notes on a Grandstream HT80x V2 ATA on a trunk jack. The design is `trunk_circuit.md` §4.5. |
+| `real_phone.md` | **5** | How the decision for a real telephone on the board was reached, adopted 2026-10-23. |
+| `grandstream_trunk.md` | **6** | Bench notes on a Grandstream HT80x V2 ATA on a trunk jack. The design is `trunk_circuit.md` §4.5. |
 | `lenny-spec.txt` | — | Mark's spec for Lenny mode, as he wrote it. The design is `game_control.md` §8. |
 
 ## Task briefs
@@ -64,24 +62,18 @@ Carried from September, before the boards were built, and not rechecked since. C
 and items the built boards settled have been removed; some of what remains may be done too.
 
 **Bench**
-- Compliance sweep: load the current source 0–700Ω, find the knee. Predicted 554Ω,
-  station load measured at 330Ω, so margin is 1.7× — the binding case
-- Optocoupler release threshold in LED current terms
-- Seizure behaviour during ring (the 20Hz pulse train §11 masks)
 - TY-311P sweep in the tap configuration — lightly loaded, may show an HF peak (station §7.9.5)
 - Sweep 2–3 transformers of the production lot, not one — spread at 9kHz decides whether
   one detection threshold serves all channels
-- Generator §12.6 start-phase verification: firmware change is in `control/control.ino`; the capture
-  (first half-cycle through J10 with the rail on the other channel, triggered on SD) is still to be made
-- Generator §8.5: scope the switch node with C_OUT fitted (new at Rev 52), and confirm C_OUT
+- Generator §8.5: scope the switch node with C14 fitted, and confirm C14
   runs cool after an hour — it carries about 0.15A RMS of 40kHz ripple (generator §9.6)
 - **Ring current, both figures** (trunk §7.6). Per-trunk with the switchboard connected, and
   the switchboard's own draw when the operator rings one station. This measurement now sizes
-  three things: the concurrent-ring cap, trunk F2 (which sits at 71% of rating on the present
+  three things: the concurrent-ring cap, trunk F101 (which sits at 71% of rating on the present
   estimate) and generator F2. It also decides whether generator §9.4's no-load trim stands
 - Audio commissioning order is `audio.md` §15: clock lock between Digiface and A32 first,
   then channel wiring by test tone, then every level and threshold — including the period
-  tones' modulation depth, set by ear (`audio.md` §8.2), and A32 channel 24's reference and
+  tones' modulation depth, set by ear (`audio.md` §8.2), and the monitor channel's reference and
   trim against the loudspeaker amplifier's input sensitivity (§15 step 7), then the tap trim and
   a listen for the balance between caller and called party on a circuit source (audio.md §16)
 
@@ -91,11 +83,7 @@ and items the built boards settled have been removed; some of what remains may b
 - TSR 2-2450 maximum output capacitance. Still open — the TSR 1 limit is 470µF against
   10µF on the generator, but that is a different part and a different datasheet — affects the 220µF, and the failure mode is a
   board that will not start with no diagnostic symptom
-- **BOM to the three-board build.** `telephone_bom.xlsx` still carries the two-board quantities
-  in its station column and "board 1 strip 8" in the R11/R12 note. At station Rev 3.40 the per-strip
-  station counts are 22 fitted (relays, Q2, D5, R3, R4, R_pd, C9, ring detector parts), 23 for the
-  audio path (T2, C3, R5–R8, TVS1 — the monitor strip fits none of them), R11/R12 on board 3 strip 7,
-  and R2 on all 24. Check Have/Need before relying on any station line
+- **BOM to the build.** `telephone_bom.xlsx` was on the two-board build when last checked, 2026-09-23, and the board has changed since (trunk 8, station 24). Check Have/Need before relying on any line
 - Rack packaging
 - Powerpole contact gauge for the switchboard 24V run — set by run length and lamp inrush,
   not by the 1A average. Pick the wire first

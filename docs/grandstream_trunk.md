@@ -1,7 +1,7 @@
 # 551 Switchboard Simulator — A Grandstream ATA on a Trunk Jack (Bench Notes)
 
-Rev 5 — 2026-10-30. Bench notes, Mark's measurements. The design that puts the
-ATA on trunk 8 is in trunk_circuit.md §4.5 (Rev 5.51). The ATA is a Grandstream HT80x V2; its administration guide is in
+Rev 6 — 2026-10-30. Bench notes, Mark's measurements. The design that puts the
+ATA on trunk 8 is in trunk_circuit.md §4.5. The ATA is a Grandstream HT80x V2; its administration guide is in
 `reference/HT80x-V2-–-Administration-Guide.pdf`.
 
 ## 1. Measured
@@ -43,12 +43,14 @@ does not trip, and at 55 Vrms, the ATA's maximum, it does (Mark, 2026-10-22).
   30 mA.
 - The ATA's loop current setting, if it has one (administration guide, FXS port
   settings).
-- After the trunk 8 change: whether the ATA still feeds 30 mA with R906's 330 Ω added,
-  about 38 V of its 48 V (trunk_circuit.md §4.5).
-- Whether the ATA's FXS port survives the switchboard's ring, about 90 Vrms, if the
+- Whether the ATA's FXS port survives the switchboard's ring, about 80 Vrms, if the
   operator rings trunk 8 by mistake.
 
 ## Revision History
+
+### Changes in Rev 6
+
+— A pointer to the design no longer names a revision (Mark, 2026-10-30). The question of whether the ATA still feeds 30 mA through R906 is closed: it does (Mark, 2026-10-30; trunk_circuit.md §4.5).
 
 ### Changes in Rev 5
 

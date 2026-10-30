@@ -1,9 +1,10 @@
 // ipc.h - what crosses between the three threads (audio.md 3).
 //
-// Two queues. Command: MQTT thread -> audio thread, small fixed-size structs.
-// Result: audio thread and analysis thread -> MQTT thread, one topic key and
-// one value. Nothing else is shared except a handful of atomics and the hop
-// snapshot, all of which live in Shared below.
+// Three queues. Command: MQTT thread -> audio thread, small fixed-size structs.
+// Result: audio thread -> MQTT thread, and another from the analysis thread, one
+// topic key and one value. Nothing else is shared except atomics, the hop
+// snapshot and the sample rings of the recording and its playback, all of which
+// live in Shared below.
 //
 // The whole program's data flow, in one picture:
 //
@@ -48,7 +49,7 @@ struct AudioBuffer {
     char               name[32] = { 0 };// base filename, for the log
 };
 
-// The three trunk tones, and Off. Carried as a float in Command::arg.
+// The four trunk tones, and Off. Carried as a float in Command::arg.
 enum class ToneKind : uint8_t { Off = 0, Dial, Ringback, Busy, Reorder };
 
 // What a Command asks the audio thread to do. The comment on each says which

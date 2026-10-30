@@ -2,15 +2,15 @@
 
 **Trunk Interface Circuit Design**
 
-*Rev 5.56. The changes in each revision are in §17.*
+*Rev 5.57. The changes in each revision are in §17.*
 
 # **1. Overview**
 
-Each trunk interface circuit presents itself to the 551 switchboard as a Central Office trunk. The trunk board is the central office: it supplies the DC loop current the switchboard supervises, it applies ring voltage toward the switchboard on command, and it detects switchboard seizure of the trunk. Eight identical trunk circuits share one PCB.
+Each trunk interface circuit presents itself to the 551 switchboard as a Central Office trunk. The trunk board is the central office: it supplies the DC loop current the switchboard supervises, it applies ring voltage toward the switchboard on command, and it detects switchboard seizure of the trunk. Eight trunk circuits share one PCB, identical as drawn. Trunk 8 has since been modified: a Grandstream ATA feeds and rings it, and it is the public line of game_control.md §8 (§4.5).
 
 This is the mirror image of the station board, and the inversion matters at almost every point in the design. On a station board the switchboard owns the battery and the station answers; here the trunk board owns the battery and the switchboard answers. Consequently the trunk pairs are referenced to trunk-board ground by definition, there is no off-hook relay, and there is exactly one supervisory input per trunk — loop current — rather than the station board's ring-detect input.
 
-Ring travels one way only on a trunk. The board originates it; nothing signals inward. The operator can apply ring to a trunk by mistake and the circuit has to survive that, but it is a fault condition to be tolerated and reported, not a signalling event to be decoded, and no ring detector is fitted — see §5. Because ring is outbound and deliberate, the relay that applies it also lifts the audio transformer clear of the line, so T2 sees ring only in the accidental case and never in normal operation — see §8.1.
+Ring travels one way only on a trunk. The board originates it; nothing signals inward. The operator can apply ring to a trunk by mistake and the circuit has to survive that, but it is a fault condition to be tolerated and reported, not a signalling event to be decoded, and no ring detector is fitted — see §5. Because ring is outbound and deliberate, the relay that applies it also lifts the audio transformer clear of the line, so Tx01 sees ring only in the accidental case and never in normal operation — see §8.1.
 
 Control is by a single MCP23017 GPIO expander on the shared I²C bus, mastered by the same Olimex ESP32-POE-ISO that serves the station boards, exactly as specified in station circuit Rev 3.19 §9. Audio is fully balanced through a 600Ω:600Ω transformer to the Ferrofish A32 on channels 25–32, on a pair of D-Sub25 connectors that mate with the converter directly. Ring voltage is generated on a separate board and arrives as a two-wire high-voltage bus; nothing about its generation is specified here.
 
@@ -24,7 +24,7 @@ The station design (Rev 3.19) already anticipates this board in four places, and
 
 - I²C address 0x23 on the shared daisy chain (station §9.2) — one expander, exactly as assumed.
 
-- MQTT topics under sbgame/trunk/<1-8>/ (station §9.9).
+- MQTT topics under sbgame/trunk/<1-8>/ (station §9.10).
 
 Only two amendments to the station document are needed, and both are flagged where they arise: the TVS part number differs (§6), and the trunk MQTT topics cannot share the station topic shape because a trunk has no hook to set (§11.3). The address allocation and channel budget stand unchanged.
 
@@ -68,7 +68,7 @@ Only two amendments to the station document are needed, and both are flagged whe
     A32 ANALOG OUT (-) ---- Rx11 (1k) -- Tx01 sec cold
 ```
 
-Only Dx01 sits permanently across tip and ring at the jack. Everything else on the trunk — the DC feed, the sense resistor and the audio transformer — is behind a relay contact, and both relay poles break when ring is applied. Node A and node B are the board-side ends of the two NC contacts; Tx01 spans them, which is what lifts it clear of the line during ring — see §8.1.
+Only Dx01 sits permanently across tip and ring at the jack. Everything else on the trunk — the DC feed, the sense resistor and the audio transformer — is behind a relay contact, and both relay poles break when ring is applied. Node A and node B are the board-side ends of the two NC contacts; Tx01 spans them, which is what lifts it clear of the line during ring — see §8.1. This is trunks 1–7; trunk 8 is fed and rung by the ATA, with its current source off the line and K901 pulled (§4.5).
 
 # **3. DC Loop Feed — Constant Current Source**
 
@@ -147,22 +147,19 @@ Against a 600Ω line that is a ratio of roughly 450:1 even at the worst frequenc
 
 ## **3.2.2 Compensation and Transient Behaviour**
 
-This is a feedback loop with gain, so it can oscillate, and a telephone line is a reactive load with cord circuit inductance measured in henries. Cx02, 1nF from Qx03's base to its emitter, is the dominant-pole compensation and was missing from earlier drafts of this document. Fit the footprint and expect to tune it: 100pF to 10nF covers the useful range, and the correct value depends on the actual cord circuit, which has not been measured.
+This is a feedback loop with gain, so it can oscillate, and a telephone line is a reactive load with cord circuit inductance measured in henries. Cx02, 1nF from Qx03's base to its emitter, is the dominant-pole compensation. The footprint accepts 100pF to 10nF; measured through the switchboard there is no sign of oscillation and Cx02 stays at 1nF (§3.3.3).
 
-Cx02 also sets the recovery time when a seizure suddenly presents a load. Before the switchboard closes the loop, Qx03 has no load, saturates, and sits with its full 2.27mA of base drive available, so at the instant of seizure the loop has to catch a transistor that is already fully on. An earlier draft of this section put that inrush at 227mA, from beta × I_bias. That is wrong: it is what Qx03 would deliver into a zero-impedance load, but the series resistance is in the path from the first instant, and a saturated Qx03 can only pass what that resistance allows.
+Cx02 also sets the recovery time when a seizure suddenly presents a load. Before the switchboard closes the loop, Qx03 has no load, saturates, and sits with its full 2.27mA of base drive available, so at the instant of seizure the loop has to catch a transistor that is already fully on. The inrush is not beta × I_bias, 227mA: that is what Qx03 would deliver into a zero-impedance load, but the series resistance is in the path from the first instant, and a saturated Qx03 can only pass what that resistance allows.
 
 ```text
   I = (24 - Vce(sat) - Vd) / (Rx02 + Rx05 + Rx06)   with Qx03 saturated
 
-      Rev 5.44, Rx05 33R,  Rx06 220R:  ~85 mA  ->  ~15 V at node B  ->  ~13-20 mA into Ux01
-      Rev 5.43, Rx05 100R, Rx06 220R:  ~67 mA  ->  ~14 V at node B  ->  ~11 mA into Ux01
-      Rev 5.40, Rx05 100R, Rx06 150R:   85 mA  ->  12.8 V on Rx06   ->  24 mA into Ux01
-      Rev 5.40, Rx05 0R:               134 mA  ->  20.1 V on Rx06   ->  40 mA into Ux01
+      Rx05 33R, Rx06 220R:  ~85 mA  ->  ~15 V at node B  ->  ~13-20 mA into Ux01
 
   duration with Cx02 = 1nF: ~2 us
 ```
 
-So the real figure is about 67mA, a little over twice the steady current rather than eight, and about 11mA into an optocoupler input rated 50mA average and 140mA surge (Rev 5.43; it was 85mA and 24mA with Rev 5.40's Rx06 and Rx07). Ux01's input is about 1kΩ in series with 1V (§4.2), which is why it takes so little of the spike. The detector is in no difficulty. The spike is worth knowing about only so that nobody finds it on a scope and assumes something is wrong, and it is far too brief for the 100ms seize debounce in §11.1 to register.
+So the real figure is about 85mA, about three times the steady current, and about 13–20mA into an optocoupler input rated 50mA average and 140mA surge. Ux01's input is about 1kΩ in series with 1V up to its clamp near 12.5V (§4.2), which is why it takes so little of the spike. The detector is in no difficulty. The spike is worth knowing about only so that nobody finds it on a scope and assumes something is wrong, and it is far too brief for the 100ms seize debounce in §11.1 to register.
 
 ## **3.2.3 Why Not an LM317 or a Depletion FET**
 
@@ -184,30 +181,26 @@ Rx05 is not necessary. The current source regulates perfectly well without it, a
 
 Rx05 does three things, and only one of them matters:
 
-- It moves steady dissipation off Qx03 and into a resistor. Real but small — 0.09W between the 100Ω and 220Ω cases.
+- It moves steady dissipation off Qx03 and into a resistor. Real but small — 0.03W at 33Ω.
 
-- It halves the inrush when a seizure suddenly presents a load to a saturated Qx03. Both values are benign.
+- It reduces the inrush when a seizure suddenly presents a load to a saturated Qx03, which is benign in any case (§3.2.2).
 
 - It limits the current if Qx03 fails collector-to-emitter short. This is the one that earns Rx05 its place.
 
-It does almost nothing for the case that actually stresses Qx03. During an accidental ring the transistor is absorbing 127V of applied ring, and whether Rx05 drops 2.8V or 6.2V of the remainder changes peak dissipation by 2%. Rx05 is not thermal protection for the event that matters.
+It does almost nothing for the case that actually stresses Qx03. During an accidental ring the transistor is absorbing 127V of applied ring, and whether Rx05 drops 0.9V or 2.8V of the remainder changes peak dissipation by under 2%. Rx05 is not thermal protection for the event that matters.
 
-Against that it consumes compliance one-for-one, and compliance is what the design is short of, because the 551 cord circuit resistance is still unmeasured and the switchboard's own trunk supervisory relay needs adequate loop current to operate. Running out of compliance is not a graceful degradation in the way §3.3 suggests — the current falls, and it may fall below what the switchboard needs to see.
+Against that it consumes compliance one-for-one, and compliance is what the design is short of: the dial relay's load, about 440Ω with the operator in after dialling (§3.3.3), leaves about 75–84Ω of spare. Running out of compliance is not a graceful degradation in the way §3.3 suggests — the current falls, and it may fall below what the switchboard needs to see.
 
-| **Rx05** | **Line compliance** | **Qx03 at shorted jack** | **Qx03 short-fault: I / Rx06 / Ux01** |
+| **Rx05** | **Line compliance** | **Qx03 at shorted jack** | **Qx03 shorted and jack shorted: I / Rx06 / Ux01** |
 | --- | --- | --- | --- |
-| 0Ω | 654Ω | 0.52W | 134mA / 2.71W / 40mA — Rx06 destroyed, Ux01 over-driven |
-| 100Ω | 554Ω | 0.44W | 85mA / 1.08W / 24mA — survivable with a 2W Rx06 |
-| 220Ω | 434Ω | 0.35W | 59mA / 0.52W / 16mA — comfortable, but 120Ω less compliance |
-| 330Ω | 324Ω | 0.26W | 46mA / 0.32W / 12mA — too little compliance to risk |
+| 0Ω | 608–618Ω | 0.49W | 154mA / 2.29W / 52mA, 760mW — Rx06 past its 2W, Ux01 lost |
+| 33Ω | 575–585Ω | 0.46W | 118mA / 1.57W / 33mA, 450mW — Ux01 may be lost, the rest survive |
+| 100Ω | 505–520Ω | 0.41W | 80mA / 0.95W / 14mA, 170mW — all survive, but about 8–17Ω of spare at 440Ω |
+| 220Ω | 388–398Ω | 0.31W | 55mA / 0.49W / 8mA, 74mW — comfortable, but cannot carry 440Ω |
 
-Rx05 = 100Ω is specified as the default, revised down from 220Ω. It keeps a shorted pass transistor from cascading into Rx06 and the optocoupler, which is the only real job it has, while giving back 120Ω of compliance against the unmeasured cord circuit. Rx06 is uprated to 2W to cover the resulting 1.08W fault case; that is the cost of the change and it is one resistor package size.
+Rx05 = 33Ω is specified. With Rx06 at 220Ω the two total 253Ω, which keeps a shorted pass transistor from cascading into Rx06 and the optocoupler on any load the switchboard presents, the only real job Rx05 has (§4.2), while leaving the compliance the dial relay needs. Rx06 is 2W to cover the 1.57W case. The cost is the double fault, a shorted Qx03 into a dead-shorted jack, which overloads Ux01; §4.2 accepts it.
 
-Deleting Rx05 entirely is the tempting simplification and should be resisted. At 0Ω a shorted Qx03 puts 2.7W into a 0.5W Rx06 and drives 40mA continuously into the optocoupler input — a single transistor failure then takes out two more parts and possibly the trunk's detection with it. The 100Ω resistor is cheap insurance against a plausible failure turning into a cascading one.
-
-*Rev 5.41: Rx05 stays at 100Ω. Rx06 rises to 220Ω, so Rx05 + Rx06 is 320Ω, and the fault figures in the table above improve; §4.2 has them. The compliance figures in the table are the Rev 5.40 values; §3.3 and §3.3.3 have the current ones.*
-
-*Rev 5.44: Rx05 is 33Ω. The dial relay's load, about 440Ω with the operator in after dialling (§3.3.3), needs the compliance that 67Ω of Rx05 was costing, and Rx05 + Rx06 at 253Ω is back near the Rev 5.40 total, so the fault limiting of the paragraphs above is nearly what it was. What changes is the double fault, a shorted Qx03 into a dead-shorted jack, which now overloads Ux01 (§4.2).*
+Deleting Rx05 entirely is the tempting simplification and should be resisted. It gains only 33Ω of compliance, and at 0Ω the double fault puts 2.3W into a 2W Rx06 and 52mA into an optocoupler input rated 50mA average, where at 33Ω Rx06 and Rx05 survive it. The 33Ω resistor is cheap insurance against a plausible failure turning into a wider one.
 
 ## **3.3 Component Values and Compliance**
 
@@ -216,71 +209,66 @@ Deleting Rx05 entirely is the tempting simplification and should be resisted. At
 | Rx02 | 22Ω, 0.5W | Sets loop current |
 | Loop current | 28.2mA nominal | V_BE 0.62V / 22Ω |
 | Spread | 26–31mA | V_BE 0.58–0.68V across parts and temperature |
-| Fixed drops at 28mA | 7.5–7.8V | Rx02 0.62 + Rx05 0.93 + Dx03 0.7 + node B 5.24–5.54 (Rev 5.44; 9.4–9.7V with Rx05 at 100Ω, Rev 5.43; 8.4V with Rx06 4.23 at Rev 5.40). Ux01's branch carries 3.0–4.4mA of the loop current past Rx06, so the drop is less than 28mA × 220Ω — §4.2. |
-| Compliance for line | 16.2–16.5V | Regulates up to about 575–585Ω of line (Rev 5.44; 505–520Ω at Rev 5.43, 554Ω at Rev 5.40). Measured loads through the switchboard are 134–440Ω, the highest resistance with the operator in and the dial relay held — §3.3.3. |
-| Beyond compliance | Degrades | Behaves as a resistive feed and loop current falls. A seizure already detected holds down to 15.7mA in the worst case (13.4mA typical), but a new one is not detected below 23.6mA (§4.2); that point is reached only beyond about 730Ω of line (Rev 5.45; 670Ω with Rx05 at 100Ω). The switchboard's supervisory relay may give out sooner. |
+| Fixed drops at 28mA | 7.5–7.8V | Rx02 0.62 + Rx05 0.93 + Dx03 0.7 + node B 5.24–5.54. Ux01's branch carries 3.0–4.4mA of the loop current past Rx06, so the drop is less than 28mA × 220Ω — §4.2. |
+| Compliance for line | 16.2–16.5V | Regulates up to about 575–585Ω of line. Measured loads through the switchboard are 134–440Ω, the highest resistance with the operator in and the dial relay held — §3.3.3. |
+| Beyond compliance | Degrades | Behaves as a resistive feed and loop current falls. A seizure already detected holds down to 15.7mA in the worst case (13.4mA typical), but a new one is not detected below 23.6mA (§4.2); that point is reached only beyond about 730Ω of line. The switchboard's supervisory relay may give out sooner. |
 
-*If the cord circuit measures comfortably below 400Ω, Rx05 can go back up to 220Ω for a cooler Qx03 and a gentler fault case. If it measures above about 575Ω, see §3.3.1 — and note that raising the supply rail is not among the options.*
+*The highest load measured is 440Ω (§3.3.3), so Rx05 stays at 33Ω; at 220Ω the source could not carry it. A load above about 575Ω would need §3.3.1 — and note that raising the supply rail is not among the options.*
 
 The 2mV/°C temperature coefficient of V_BE(Qx01) makes the loop current fall about 0.3% per °C. Over a realistic 25–50°C range that is 28mA down to 26mA. Do not attempt to compensate it, but keep Qx01 away from Qx03's heatsink: this tempco, not the optocoupler, is the seizure detector's real temperature sensitivity, since the detector's guaranteed turn-on needs 23.6mA (§4.2).
 
 ## **3.3.1 If Compliance Is Short**
 
-An earlier draft of this document suggested raising the rail to 30V if 554Ω proved insufficient. That was written before the supply became common to the whole system and it is no longer a knob that can be turned. Three separate things block it:
+The measured loads fit (§3.3.3), so nothing in this section is needed; it records what the options are. Raising the rail to 30V is not one of them. The supply is common to the whole system and it is not a knob that can be turned. Three separate things block it:
 
 - The specified LRS-150-24 adjusts over 21.6–28.8V. It cannot reach 30V at all, so this is a change of supply, not a trim.
 
 - The switchboard runs on the same rail, and its lamps are incandescent. Filament life goes roughly as the twelfth power of voltage, so 24V to 30V is a 1.25× overdrive and cuts lamp life by about fifteen times. On vintage lamps that cannot readily be replaced, this alone settles it.
 
-- The station boards run on the same rail too. R3 is 330Ω 2W and its short-circuit dissipation goes from 1.75W to 2.73W, past the part. Station loop current rises from 70mA to 88mA, adding about 400mA to the system budget across 22 stations and shifting every supervision margin the switchboard was designed around.
+- The station boards run on the same rail too. Station Rx03 is 330Ω 2W and its short-circuit dissipation goes from 1.75W to 2.73W, past the part. Station loop current rises from 70mA to 88mA, adding about 400mA to the system budget across 22 stations and shifting every supervision margin the switchboard was designed around.
 
 That is the real cost of the common battery decision, and it is worth stating plainly: the rail voltage stopped being a trunk board parameter the moment the switchboard was put on it. Anything that changes the rail now changes vintage equipment that was designed for 24V.
 
 The options that remain are all local to this board:
 
-Before listing them, one thing has to be said clearly because it rules out a whole family of apparent fixes. Compliance and the Qx03-short fault current are two views of the same quantity: the total series resistance in the loop. Call everything other than Rx02 R_extra — Rx05 plus Rx06, 250Ω to Rev 5.40 and 320Ω from Rev 5.41. Both figures fall out of it, and neither depends on where that resistance physically sits or on which part of it the detector senses across:
+Before listing them, one thing has to be said clearly because it rules out a whole family of apparent fixes. Compliance and the Qx03-short fault current are two views of the same quantity: the total series resistance in the loop. Call everything other than Rx02 R_extra — Rx05 plus Rx06, 253Ω as designed. Both figures fall out of it, and to first order neither depends on where that resistance physically sits or on which part of it the detector senses across. The table leaves out Ux01's branch, which takes some current past Rx06: at 253Ω it lifts compliance to the 575–585Ω of §3.3 and the dead-short fault to the 118mA of §4.2.
 
-| **R_extra** | **Compliance at 28.2mA** | **Qx03-short fault current** |
+| **R_extra** | **Compliance at 28.2mA** | **Qx03-short fault current, dead-short jack** |
 | --- | --- | --- |
-| 100Ω | 704Ω | 189mA |
-| 150Ω | 654Ω | 134mA |
-| 250Ω (as designed to Rev 5.40) | 554Ω | 85mA |
-| 300Ω | 504Ω | 72mA |
-| 320Ω (Rev 5.41–5.43) | 484Ω | 68mA |
-| 253Ω (as designed from Rev 5.44) | 551Ω | 85mA |
+| 100Ω | 704Ω | 225mA |
+| 150Ω | 654Ω | 150mA |
+| 253Ω (as designed) | 551Ω | 89mA |
+| 300Ω | 504Ω | 75mA |
 
-So resistance cannot be deleted to buy compliance without giving up fault limiting in exact proportion. An earlier draft of this section listed "move the sense from Rx06 to Rx05" as recovering 150Ω for nothing. It does not, and the row was wrong. Deleting Rx06 takes R_extra from 250Ω to 100Ω, which does give 704Ω of compliance — but it also takes the shorted-Qx03 fault from 85mA to 189mA, putting 3.6W into Rx05 and 54mA into the optocoupler input, past a PC817's continuous rating. The fault-limiting argument that justified keeping Rx05 in §3.2.4 applies just as much to the total.
+So resistance cannot be deleted to buy compliance without giving up fault limiting in exact proportion. Moving the sense from Rx06 to Rx05 does not recover anything for nothing. A single 100Ω in place of the pair does give 704Ω of compliance, but it also takes the shorted-Qx03 fault to about 225mA, putting about 5W into that resistor and about 60mA into Ux01's input, past its 50mA rating. The fault-limiting argument that justified keeping Rx05 in §3.2.4 applies just as much to the total.
 
 That leaves only two axes that genuinely move compliance: the loop current, and the feed voltage.
 
 | **Option** | **Loop I** | **Compliance** | **Qx03 (×8)** | **Cost** |
 | --- | --- | --- | --- | --- |
-| As designed | 28.2mA | 554Ω | 0.44W (3.5W) | — |
-| Raise Rx02 to 33Ω | 18.8mA | 956Ω | 0.34W (2.7W) | One resistor, and the fault current is unchanged at 85mA. But 18.8mA may be below what the switchboard's trunk supervisory relay needs to operate — measure that first. |
-| Local 48V feed for the loops only | 28.2mA | 1405Ω | 1.12W (8.9W) | An isolated 24→48V module on the trunk board. Contained — touches nothing shared, unlike the common rail — but 8.9W of board dissipation needs real heatsinking. |
-| Both | 18.8mA | 2085Ω | 0.75W (6.0W) | Only if the cord circuit turns out to be extreme |
+| As designed | 28.2mA | 575–585Ω | 0.46W (3.7W) | — |
+| Raise Rx02 to 33Ω | 18.8mA | 980Ω | 0.35W (2.8W) | One resistor, and the fault current is unchanged, since Qx01 clamps Rx02 in that fault. But 18.8mA is below the 23.6mA at which §4.2 guarantees a seizure is detected, so Rx06 and Rx07 would have to change with it, and it may be below what the switchboard's trunk supervisory relay needs to operate — measure that first. |
+| Local 48V feed for the loops only | 28.2mA | 1430Ω | 1.14W (9.1W) | An isolated 24→48V module on the trunk board. Contained — touches nothing shared, unlike the common rail — but 9.1W of board dissipation needs real heatsinking. |
+| Both | 18.8mA | 2260Ω | 0.80W (6.4W) | Only if the load turns out to be extreme, and with the detector changes above |
 
-Raising Rx02 is the cheap one and should be tried first, subject to the supervisory relay measurement below. The 48V module is the option that actually has room in it, and it is worth noting that it does not compromise the common battery in any way that matters: the trunk board is the exchange for its own eight loops, and nothing requires those loops to sit at the same potential as the switchboard's talk battery. What it costs is heat, and 8.9W across eight TO-126 packages is the point at which the thermal design stops being incidental.
+Raising Rx02 is the cheap one on paper, subject to the detector and to the supervisory relay measurement below. The 48V module is the option that actually has room in it, and it is worth noting that it does not compromise the common battery in any way that matters: the trunk board is the exchange for its own eight loops, and nothing requires those loops to sit at the same potential as the switchboard's talk battery. What it costs is heat, and 9.1W across eight TO-126 packages is the point at which the thermal design stops being incidental.
 
 ## **3.3.2 A Simplification Worth Taking Anyway**
 
-The same reasoning suggests a change that is not a compliance fix but is a genuine tidy-up. Since only the total R_extra matters, there is no need for it to be split between a high-side Rx05 and a low-side Rx06. Merging them into a single 250Ω resistor in the ring return leg gives identical figures on every count:
+The same reasoning suggests a change for a future board that is not a compliance fix but is a genuine tidy-up. Since to first order only the total R_extra matters, there is no need for it to be split between a high-side Rx05 and a low-side Rx06. Merging them into a single 253Ω resistor in the ring return leg, with Rx07 at about 330Ω, gives much the same figures:
 
 ```text
-  compliance                554 ohm      unchanged
-  Qx03-short fault           85 mA       unchanged
-  V_sense at 28.2mA        7.05 V        (was 4.23V across Rx06 alone)
-  Rx07 = 1k -> I_opto      5.65 mA       margin 1.8x over the 3.11mA threshold   [wrong - see note]
-  fault: 20 mA into Ux01, 1.80 W in the resistor
+  compliance               ~585 ohm      against 575-585 ohm
+  V_sense at 28.2mA        ~6.2 V        (5.24-5.54V across Rx06 now)
+  Rx07 = 330R, I_loop 26mA  V_in 4.76 V   margin 0.71V, against 0.52V (§4.2)
+  Qx03 short, dead-short jack: 117 mA, 2.0 W in the resistor, 28 mA and 370 mW in Ux01
 ```
 
-It removes one component per trunk, eight across the board, and keeps the sense node ground-referenced and at low voltage where it belongs. The cost is that the single resistor needs a 3W rating for the fault case where the split version used a 1W and a 2W part, so the choice is really one 3W package against two smaller ones — closer than it looks, since two smaller bodies also spread the heat better.
-
-*Rev 5.41: the Rx07 line above used the same 1.4V LED drop as Rev 5.40's §4.2 and is wrong. With the HCPL3700M's real DC threshold a merged 250Ω needs Rx07 at about 330Ω, not 1k, to turn on every part (§4.2). Rev 5.41 keeps the split and Rx05 at 100Ω.*
+It removes one component per trunk, eight across the board, and keeps the sense node ground-referenced and at low voltage where it belongs. The cost is that the single resistor needs a 3W rating for the fault case where the split version uses a 1W and a 2W part, so the choice is really one 3W package against two smaller ones — closer than it looks, since two smaller bodies also spread the heat better. The double fault still overloads Ux01. The board as built keeps the split.
 
 Sensing across a high-side Rx05 instead, which is the other way to remove a component, is the one arrangement to avoid. It works electrically — the optocoupler provides the isolation — but it moves the LED and its series resistor out of the ground-referenced logic area and into the high-voltage zone, where their common-mode potential swings with the line during ring. There is no benefit to pay for that.
 
-*Reducing the loop current is the cheapest fix on the list and the one with the hidden dependency. The switchboard's trunk supervisory relay has a minimum operate current that nobody has measured, and if it needs 20mA or more then 18.8mA is not available regardless of what our own detector can see. Measure the relay before the resistor — it also bounds how far the current can be trimmed for any other reason.*
+*Reducing the loop current is the cheapest fix on the list and the one with the hidden dependencies. §4.2's detector needs 23.6mA to guarantee a new seizure with the fitted Rx06 and Rx07. And the switchboard's trunk supervisory relay has a minimum operate current that nobody has measured: if it needs 20mA or more then 18.8mA is not available regardless of what our own detector can see. Measure the relay before the resistor — it also bounds how far the current can be trimmed for any other reason.*
 
 ## **3.3.3 Measured Through the Switchboard — 2026-10-04 and 2026-10-05**
 
@@ -288,7 +276,7 @@ Trunk 1, as built at Rev 5.40 (Rx05 100Ω, Rx06 150Ω, Rx07 470Ω), the Analog D
 
 | **Test** | **On the trunk** | **Loop R** | **Loop I** | **Qx03 V_EC** | **Spare** |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Station board strip 1, wired direct (bench); R3 is 330Ω | 326Ω | 30.4mA | 5.48V | 164Ω |
+| 1 | Station board strip 1, wired direct (bench); station Rx03 is 330Ω | 326Ω | 30.4mA | 5.48V | 164Ω |
 | 2 | Model 500 desk set, wired direct | 175Ω | 30.1mA | 10.17V | 321Ω |
 | 3 | Switchboard cord in the trunk jack — the switchboard seizes the trunk | 181Ω | 29.9mA | 10.09V | 321Ω |
 | 4 | Operator connected on the talk key, no station | 134Ω | 29.7mA | 11.55V | 372Ω |
@@ -298,13 +286,13 @@ Trunk 1, as built at Rev 5.40 (Rx05 100Ω, Rx06 150Ω, Rx07 470Ω), the Analog D
 | 8 | Operator on the trunk, no station: cord in / operator in / after dialling / operator out | 181Ω / 134Ω / **≈440Ω** / 175Ω | ≈30mA | 9.84 / 11.3 / **2.19** / 10.1V | — / — / **56Ω** / — |
 | 9 | Station 1 corded to trunk 1: cord in at the trunk / station on-hook / off-hook / operator in / after dialling a 5 / operator out | 177 / 177 / 356 / 200 / **439** / 355Ω | ≈30mA | 10.1 / 10.1 / 4.76 / 9.46 / **2.36** / 4.88V | — / — / — / — / **≈60Ω** / — |
 
-Test 1 checks the method: 326Ω calculated against R3's 330Ω. Every configuration regulates. Tests 8 and 9 (2026-10-05) found the highest-resistance load: the 551's dial relay pulls in at the first dial pulse and holds until the operator switches out (Mark), and while it holds the trunk sees about 440Ω. The station does not add to it — the operator's key takes the station out of the trunk loop, and the station comes back in series, at about 355Ω, the talking state, only when she switches out — so 440Ω is the worst case whether or not a station is on the cord, and the 650Ω that a station in series with the dial relay would have made does not occur.
+Test 1 checks the method: 326Ω calculated against station Rx03's 330Ω. Every configuration regulates. Tests 8 and 9 (2026-10-05) found the highest-resistance load: the 551's dial relay pulls in at the first dial pulse and holds until the operator switches out (Mark), and while it holds the trunk sees about 440Ω. The station does not add to it — the operator's key takes the station out of the trunk loop, and the station comes back in series, at about 355Ω, the talking state, only when she switches out — so 440Ω is the worst case whether or not a station is on the cord, and the 650Ω that a station in series with the dial relay would have made does not occur.
 
 What that leaves for each set of values, at the dial relay's 440Ω and 29.9mA:
 
 | **Values** | **Rx05 / Rx06 / Rx07** | **Spare at 440Ω** | **At 31mA, V_BE 0.68V** |
 | --- | --- | --- | --- |
-| As built (Rev 5.40) | 100 / 150 / 470Ω | 56Ω (measured) | — |
+| As first built (Rev 5.40) | 100 / 150 / 470Ω | 56Ω (measured) | — |
 | Rev 5.41–5.43 | 100 / 220 / 150Ω | about 8–17Ω | out of regulation |
 | Rev 5.44 | 33 / 220 / 150Ω | about 75–84Ω | about 50Ω |
 
@@ -318,11 +306,11 @@ Each trunk has its own current source, so the figures below are per trunk and th
 
 | **Element** | **Per trunk** | **×8** | **Notes** |
 | --- | --- | --- | --- |
-| Qx03 (MJE350) | 0.44W | 3.5W | TO-126, 300V/0.5A. Fit a heatsink — see below. |
+| Qx03 (MJE350) | 0.46W | 3.7W | TO-126, 300V/0.5A. Fit a heatsink — see below. |
 | Rx05 (33Ω) | 0.03W | 0.2W | 1W part — rated for the Qx03-short case, not this one (Rev 5.44; 0.08W at 100Ω) |
 | Rx06 (220Ω) | up to 0.14W | 1.1W | Up to 0.17W at 31mA. 2W part — rated for the Qx03-short case (§4.2) |
 | Relay coils | 0.15W | 1.2W | On the 5V rail |
-| Total loops + coils | 0.79W | ≈6.4W | Per-trunk column is one trunk block; ×8 is the board. Ventilate — see §15 |
+| Total loops + coils | 0.81W | ≈6.5W | Per-trunk column is one trunk block; ×8 is the board. Ventilate — see §15 |
 
 During an accidental ring the current source holds 28mA while absorbing the extra 127V peak. Integrating over the cycle rather than estimating it: Qx03 sees 3.9W at the peak of the aiding half-cycle and 1.3W averaged, which is the figure that matters thermally. A bare TO-126 in free air is around 83°C/W, so 1.3W is a 108°C rise — too much to sustain. Fit a small clip-on heatsink rather than merely leaving the footprint; at 40°C/W the rise falls to about 52°C, which the part will tolerate for as long as anyone holds a ring key. Note that Rx05 does not help here — it changes peak dissipation by 2% (§3.2.4).
 
@@ -473,7 +461,7 @@ Rev 5.51, 2026-10-22; Rev 5.52 pulls K901. A change to trunk 8 of the rev 2 boar
 
 The ATA plugs into that jack on its line pair, pins 4 and 5. The board's own trunk RJ45 still carries trunk 8 to the switchboard. Photographs: `hardware/trunk8-ata-mod-2026-10-23-*.jpg`.
 
-With R906 off ground and U901 on its AC pins, the loop floats: nothing in it touches board ground. That is the reason for the AC input (Mark, 2026-10-22). The internal bridge makes the detector indifferent to which way the ATA's feed flows, so its polarity does not have to be checked, and pin 3 no longer has to come off ground alone. U901 is soldered, not socketed, so pins 2 and 3 have to be lifted; Mark will do that. Pins 2 and 3 must be open. Leaving pin 2 on R907 with pin 1 also wired to it shorts one diode of the bridge, and one polarity then bypasses the buffer altogether.
+With R906 off ground and U901 on its AC pins, the loop floats: nothing in it touches board ground. That is the reason for the AC input (Mark, 2026-10-22). The internal bridge makes the detector indifferent to which way the ATA's feed flows, so its polarity does not have to be checked, and pin 3 no longer has to come off ground alone. U901 is soldered, not socketed, so pins 2 and 3 were clipped (step 2 above). Pins 2 and 3 must be open. Leaving pin 2 on R907 with pin 1 also wired to it shorts one diode of the bridge, and one polarity then bypasses the buffer altogether.
 
 **R906 goes to 330Ω.** The AC input's turn-on threshold is higher than the DC input's: 4.23–5.50 V at pins 1–4, against 3.35–4.05 V (station_circuit.md §3.4). The turn-on current is the same, 1.96–3.11 mA. With §4.2's formula and the ATA's 30 mA:
 
@@ -481,19 +469,19 @@ With R906 off ground and U901 on its AC pins, the loop floats: nothing in it tou
   worst-case turn-on:  V_in = R906 x (30mA - 3.11mA) - 3.11mA x R907     must be >= 5.50V
                        loop current to turn on = (5.50V + 3.11mA x (R906 + R907)) / R906
 
-  R906 / R907    V_in at 30mA    margin     turn-on floor   R906 drop at 30mA
+  R906 / R907    V_in at 30mA    margin     turn-on floor   30mA x R906, before U901
   220R / 150R    5.45V           -0.05V     30.2mA          6.6V    - not enough
   270R / 150R    6.79V           +1.29V     25.2mA          8.1V
   330R / 150R    8.41V           +2.91V     21.2mA          9.9V    - recommended
 ```
 
-At 220Ω the worst part would sit in its hysteresis band at 30 mA, the Rev 5.41 fault again. At 330Ω every part turns on with the loop 9 mA short of 30 mA, and a 5% part is good enough: at −5% the floor is 22.1 mA. The input clamps at 6.1–7.3 V, so U901 takes about 7 mA through R907, about 50 mW, inside its ratings. R906 dissipates about 0.3 W, so the 2 W footprint's part or anything over 0.5 W will do. A break takes the input to 0 V, so every part turns off.
+At 220Ω the worst part would sit in its hysteresis band at 30 mA, the Rev 5.41 fault again. At 330Ω every part turns on with the loop 9 mA short of 30 mA, and a 5% part is good enough: at −5% the floor is 22.1 mA. The last column leaves out U901, which takes current past R906. Calculated, not measured: the input clamps at 6.1–7.3 V, so U901 takes about 5–8 mA through R907, about 40–50 mW, inside its ratings, and R906 drops 7.3–8.1 V, about 7.7 V, on the remaining 22–25 mA, about 0.18 W. A 2 W part is fitted; anything over 0.5 W would do. A break takes the input to 0 V, so every part turns off.
 
-**The ATA's compliance.** R906 adds about 10 V to the loop. With the cord alone in the jack the ATA measured 28 V at 30 mA, so it now has to supply about 38 V of its 48 V. Whether its feed still regulates there is not known. Bench check: put a meter in series after the change and plug the cord in. It should still read 30 mA. Anything above about 22 mA still detects. The other check is that 24 V is enough to light trunk 8's lamp and pull its relay, as it did on the bare jack.
+**The ATA as measured** (Mark, 2026-10-30): 48 V on-hook, 30 mA in the loop, and ring set to 55 Vrms. Anything above about 22 mA is guaranteed to detect, and the bench below shows the seizure detected. R906's drop has not been measured; about 7.7 V is calculated above. The same bench shows 24 V lights trunk 8's lamp and pulls its relay, as it did on the bare jack.
 
-**Ring.** The board never rings trunk 8. With K901 pulled it cannot: K901's NO contacts were the only path from the ring bus to trunk 8, so a `trunk/8/ring/set` energises nothing. The game still must not send one. The ATA rings the switchboard itself, and trunk 8's lamp latches as on any trunk. Its ring current flows through R906 and C_RB, and U901 may or may not see it, depending on the current the 551's trunk ringer draws. Bench check. If U901 does see it, the full-wave input gives a 40 Hz train, which the firmware reports as `fault` ring-on-trunk (control.md §8.3). That would tell the game a call is ringing in. If it does not see it, the game first learns of the call when the operator answers. Ring keys the operator presses on trunk 8 by mistake put the switchboard's ring, about 90 Vrms from the shared generator (§7.1.1), into the ATA's FXS port. Whether the port survives that is not known; see the ATA's administration guide.
+**Ring.** The board never rings trunk 8. With K901 pulled it cannot: K901's NO contacts were the only path from the ring bus to trunk 8, so a `trunk/8/ring/set` energises nothing. The game does not send one (game_control.md §8.6). The ATA rings the switchboard itself, and trunk 8's lamp latches as on any trunk. Its ring current flows through R906 and C_RB, and U901 does not see it (bench below), so there is no `fault` ring-on-trunk and the game first learns of a call when the operator answers. Ring keys the operator presses on trunk 8 by mistake put the switchboard's ring, about 80 Vrms from the shared generator (§7.1.1), into the ATA's FXS port. Whether the port survives that is not known; see the ATA's administration guide.
 
-**Ring through R906 (Rev 5.54).** With the 330 Ω alone in the loop, the ATA's 55 Vrms ring did not latch the switchboard's trunk relay (Mark, 2026-10-23); with one 100 µF across R906 it latched but not every time. C_RB, two 220 µF 25 V electrolytics back to back, 110 µF bipolar, latches it. At 20 Hz it is 72 Ω, 59 Ω with R906, where the 330 Ω alone took more of the ring than the relay could spare. It is DC-open, so the seizure arithmetic above is unchanged. The ring is pure AC across it, with no DC loop current while on-hook, so it must be bipolar: a single polarized part is reverse-biased each half-cycle. It sees about 10 V DC while seized and a few volts of ring, so 25 V parts are enough; the 126 V peak is across the line, not R906. A single bipolar 220 µF 25 V would do the same.
+**Ring through R906 (Rev 5.54).** With the 330 Ω alone in the loop, the ATA's 55 Vrms ring did not latch the switchboard's trunk relay (Mark, 2026-10-23); with one 100 µF across R906 it latched but not every time. C_RB, two 220 µF 25 V electrolytics back to back, 110 µF bipolar, latches it. At 20 Hz it is 72 Ω, about 70 Ω with R906 (calculated; the two are in quadrature), where the 330 Ω alone took more of the ring than the relay could spare. It is DC-open, so the seizure arithmetic above is unchanged. The ring is pure AC across it, with no DC loop current while on-hook, so it must be bipolar: a single polarized part is reverse-biased each half-cycle. It sees about 7.7 V DC while seized (calculated) and a few volts of ring, so 25 V parts are enough; the 126 V peak is across the line, not R906. A single bipolar 220 µF 25 V would do the same.
 
 **Bench, 2026-10-23, as built (Mark and Claude Code).** A call from a mobile to the ATA's number: the switchboard's trunk 8 lamp latched on the first ring with C_RB in. The controller did not see the ring (`trunk/8/fault` stayed empty), as expected with C_RB across R906. Answered: `seize` on within a second, `op` on, audio both ways on the operator's headset and the mobile. Cord pulled: `op` off, then `seize` off, a clean release. With R906 shorted by a jumper (a mistake on the bench) the ring latched too, but the answer did not seize, since U901 then sees no voltage. So the game first learns of an outside call when the operator answers it.
 
@@ -501,7 +489,7 @@ At 220Ω the worst part would sit in its hysteresis band at 30 mA, the Rev 5.41 
 
 **Audio.** Tx01 still bridges the line through Cx04, so the A32 hears trunk 8 and its pilot goes on the line. The two jumpers keep it there. The ATA's port now terminates the line as well, where the current source left it nearly open at audio frequencies (§8.1). Expect the trunk's own pilot and the operator's 9 kHz to arrive several dB down at the detector. Bench check: `op` and `peer` on trunk 8 with the ATA connected and a call up.
 
-**Program consequences, not yet made.** game_control.md has to define trunk 8 as the outside line: no call is dealt on it, and nothing is ever rung, played or toned on it — no dial tone, no ringback, no files. A seizure there is the operator answering a caller, not an operator going out on a trunk, and the operator does not dial on it. game.toml says which trunk it is.
+**Program consequences.** Made: game_control.md §8 defines trunk 8 as the public line. No call is dealt on it (§12.2), and nothing is rung, played or toned on it — no dial tone, no ringback, no files. A seizure there with `op` on is the operator answering a caller, not an operator going out on a trunk, and the operator does not dial on it. `public_trunk` in the configuration says which trunk it is, 8 by default.
 
 # **5. Accidental Ring from the Switchboard**
 
@@ -513,7 +501,7 @@ The constant-current feed does essentially all of this work. With the loop curre
 
 | **Component** | **Exposure** | **Verdict** |
 | --- | --- | --- |
-| Qx03 | Absorbs up to 137V at 28mA. ~4.1W peak, ~0.7W cycle average. | The only part under real stress. Heatsink footprint, §3.4. |
+| Qx03 | Absorbs about 139V at 28mA. 3.9W peak, 1.3W cycle average. | The only part under real stress. Fit a heatsink, §3.4. |
 | Dx03 | ~127V reverse on the opposing half-cycle | 1N4007 at 1000V — no concern |
 | Rx05, Rx06 | 28mA, unchanged from normal | No concern. This is what the current source buys. |
 | Ux01 | Pulses at 20Hz at normal input current | No concern. No clamp needed. |
@@ -555,7 +543,7 @@ A bidirectional TVS across tip and ring at each trunk jack clamps transients fro
   RING o----+---- Kx01 pole 2 common
 ```
 
-The part differs deliberately from the station board, and station §4.1 will need correcting where it states the two boards use the same TVS. The station board uses a P6KE120CA, which has a 102V standoff and breaks down between 114V and 126V. On a station that is acceptable, because ring arrives only from the switchboard and mild conduction on the peaks is a protection function. On the trunk board we generate the ring ourselves, at 127V peak nominal and up to 141V peak no-load, so a 120V-class part would conduct on every cycle of every ring — loading the generator, distorting the waveform and dissipating power for no benefit.
+The part differs deliberately from the station board, as station §4.1 records. The station board uses a P6KE120CA, which has a 102V standoff and breaks down between 114V and 126V. On a station that is acceptable, because ring arrives only from the switchboard and mild conduction on the peaks is a protection function. On the trunk board we generate the ring ourselves. It was specified at 127V peak nominal and up to 141V peak no-load, where a 120V-class part would conduct on every cycle of every ring — loading the generator, distorting the waveform and dissipating power for no benefit. Today's 113V peak (§7.1) sits only just under that part's 114V minimum breakdown, so the P6KE150CA stays.
 
 The P6KE150CA has a 128V standoff, breaks down between 143V and 158V, and clamps at 207V. It stays out of the way of our own ring, and it also stays out of the way of an accidental 90V ring from the switchboard, which is correct: that event is already bounded by the current source and does not need clamping. What remains for the TVS is genuine transients — cord plugging, relay switching elsewhere on the frame, and whatever arrives down a long cable run.
 
@@ -587,6 +575,8 @@ One residual exposure is worth naming rather than protecting against. Cx04 is a 
 
 # **7. Ring Injection**
 
+This section is trunks 1–7. Trunk 8 is not rung from this board: K901 is pulled and the ATA rings the switchboard (§4.5).
+
 ## **7.1 Ring Bus Interface**
 
 Ring voltage is generated on a separate board, designed separately, and arrives at the trunk board as a two-wire bus. Nothing in this document depends on how it is generated. What the trunk board requires of it:
@@ -594,7 +584,7 @@ Ring voltage is generated on a separate board, designed separately, and arrives 
 | **Parameter** | **Requirement** | **Notes** |
 | --- | --- | --- |
 | Waveform | 20Hz sine | Generator Rev 20: ESP32 LEDC PWM, 40kHz carrier, H-bridge into T1. Exactly 20.000Hz. |
-| Amplitude | 90V RMS nominal | 95–100V RMS no-load per generator §14. Trunk board tolerates 85–100V RMS without change. |
+| Amplitude | About 80V RMS no-load, 113V peak (ring_generator.md §9.4) | This document was worked at 90V RMS nominal, 127V peak, and 95–100V RMS no-load, 141V peak, from an earlier generator transformer. Those figures stand throughout as upper bounds. |
 | Reference | Floating pair | Confirmed: the switchboard breaks both legs too. Needs a high-impedance common-mode reference — see §7.1.1. |
 | Load | (N trunks + switchboard) × I_ring | Shared source; the switchboard rings stations from the same generator — see §7.6 |
 | Connector | J102, 2-pin, 250V | Physically separate from all other connectors |
@@ -606,13 +596,13 @@ The same generator supplies the switchboard's own ringing, so the operator rings
 
 First, the bus is genuinely floating and stays that way. The switchboard isolates its ring supply from the line circuits with DPDT switches, breaking both legs when not ringing — which is the signature of a floating source, since a supply with one leg bonded to battery would only need single-pole keys. An earlier draft of this section predicted the opposite and it was wrong. Both ends of the system therefore treat the bus identically: two poles, both legs broken, complete isolation when idle. The original floating-pair specification stands, and pole 2's justification in §7.2 is restored in full — it keeps ring current out of the ground plane as well as lifting Tx01's cold end.
 
-It also means the bus carries no load at all when nothing is ringing. Neither end presents so much as a leakage path, so the generator idles into an open circuit and its no-load output voltage — measured at 95–100V RMS, 141V peak — is what sits on the bus for most of the session. Every clearance and standoff figure on this board should be taken against that number rather than the 90V RMS nominal.
+It also means the bus carries no load at all when nothing is ringing. Neither end presents so much as a leakage path, so the generator idles into an open circuit and its no-load output voltage — about 80V RMS, 113V peak — is what sits on the bus for most of the session. The clearance and standoff figures on this board are taken against the earlier 141V peak, so they hold with margin.
 
 *A fully floating bus with both ends open has no defined common-mode potential, so it will drift on leakage and stray capacitance. That is not dangerous at these energies but it makes bench measurements confusing and leaves creepage stress unpredictable. Ask the generator board for a high-impedance reference — 1MΩ from each leg to ground, or a grounded centre tap if the transformer has one. That pins the common mode near zero while leaving the pair effectively floating at signal levels, and it costs two resistors.*
 
 Second, the generator can no longer be gated on trunk ring. The operator must be able to ring a station at any moment, so the generator has to be running whenever the system is up — see §7.6.
 
-Third, the station boards are a very light ring load and this is good news for the generator budget. A station's ring detector draws about 4mA RMS through its 20kΩ dropper (station §3.4), against the 20mA or more a real telephone ringer would take. Even with several stations being rung the switchboard side contributes little; the trunk side, loading the switchboard's own trunk circuits, remains the unknown.
+Third, the station boards are a light ring load and this is good news for the generator budget. A station's ring detector draws about 4mA RMS through its 20kΩ dropper (station §3.4), against the 20mA or more a real telephone ringer would take. The exception is station 24, a real telephone: its ringer, plus a detector on 4.4kΩ that takes about 19mA RMS at 90V (station §7.9.8). Even with several stations being rung the switchboard side contributes little; the trunk side, loading the switchboard's own trunk circuits, remains the unknown.
 
 Fourth, both ends must put the same leg on the same conductor. Pole 1 puts RING_HI on TIP (§7.2); the switchboard's ring and ring-back keys put whichever leg its wiring gives them on the cord's tip. If the two disagree, an operator who rings into a trunk while this board is ringing it joins RING_HI to RING_LO through the cord — §5.3. Since there is one generator, agreeing ends are two sources in parallel, in phase, and nothing flows. Polarity is a property of the wiring, not of anything the operator does, so it is checked once at commissioning, with the generator off:
 
@@ -653,13 +643,13 @@ Both poles carry line voltage. Treat the entire relay except its coil pins as pa
 
 Base drive is (3.3 − 0.7) / 1kΩ = 2.6mA against a 29.9mA coil, a forced beta of 11.5, which saturates the 2N2222A hard. The expander sources 2.6mA comfortably against its 25mA per-pin limit, and because Qx02 switches the low side of a 5V coil the 3.3V logic rail creates no level-shifting problem.
 
-Qx02 is a 2N2222A as of Rev 5.4, replacing the 2N3904, matching station Rev 3.8 §5.2. The two boards share this part deliberately. Order a TO-92 part with EBC pinout and confirm it on the datasheet for the exact orderable part, not on the generic 2N2222A number. The original 2N2222A is a TO-18 metal can and will not fit this footprint at all; TO-92 equivalents such as the onsemi PN2222A and P2N2222A are EBC, but TO-92 parts sold as 2N2222A vary between EBC, CBE and ECB by manufacturer. The footprint is committed at layout and there are 24 of these, so settle it before the boards are ordered.
+Qx02 is a 2N2222A as of Rev 5.4, replacing the 2N3904, matching station Rev 3.8 §5.2. The two boards share this part deliberately. Order a TO-92 part with EBC pinout and confirm it on the datasheet for the exact orderable part, not on the generic 2N2222A number. The original 2N2222A is a TO-18 metal can and will not fit this footprint at all; TO-92 equivalents such as the onsemi PN2222A and P2N2222A are EBC, but TO-92 parts sold as 2N2222A vary between EBC, CBE and ECB by manufacturer. The boards are built, with eight of these here and 23 on the station boards, so check any replacement against the footprint.
 
 *Rx03 is an addition over the station board driver and it is not optional here. The MCP23017 powers up with every pin configured as an input, so Port B floats between reset and firmware configuration. On a station board a floating driver at worst closes a loop; on a trunk board it puts 90V on a line. Rx03 holds Qx02 off through that window and through any subsequent expander reset. The same resistor would be worth retrofitting to the station boards.*
 
 ## **7.4 Relay Selection**
 
-CIT Relay and Switch J104D2C5VDC.15S, the same part as the station board off-hook relay. This is deliberate: station §5.5 already calls for buying all 32 in one order against a 20-week factory lead time, and 22 stations plus 8 trunks is 30 of them, 32 with the two unfitted strips on station board 3 counted as spares.
+CIT Relay and Switch J104D2C5VDC.15S, the same part as the station board off-hook relay. This is deliberate: station §5.5 already calls for buying all 32 in one order against a 20-week factory lead time, and 23 stations (1–22 and 24) plus 8 trunks is 31 of them, 32 with the tap strip's unfitted position counted as a spare. Trunk 8's K901 has since been pulled (§4.5).
 
 | **Parameter** | **Value** | **Against the requirement** |
 | --- | --- | --- |
@@ -686,7 +676,7 @@ The open-contact dielectric strength caveat from station §5.5 applies with more
 
 The trunk board cannot detect seizure while it is ringing, because pole 2 has lifted the ring conductor off the sense resistor. Rev 4.4 had the same blind spot and papered over it by masking the seizure signal in software, which detects the answer never rather than late. Cadenced ring solves it properly and costs nothing:
 
-The cadence itself — 2s on, 4s off, and the reasoning about answer latency — is a firmware constant and lives in control.md §8.3 as of Rev 5.35. What this board requires of it is only that the relay is released for long enough each cycle for the seizure detector to settle, which at a 100ms debounce any plausible cadence satisfies.
+The cadence itself — 2s on, 4s off, and the reasoning about answer latency — is a firmware constant and lives in control.md §8.4 as of Rev 5.35. What this board requires of it is only that the relay is released for long enough each cycle for the seizure detector to settle, which at a 100ms debounce any plausible cadence satisfies.
 
 Releasing the relay mid-cycle interrupts up to 28mA at up to 127V, which is 3.6VA against the relay's 500VA rating. No zero-crossing logic is needed.
 
@@ -709,9 +699,9 @@ Recorded 2026-10-06, not adopted. As built, an answer during a 2s burst is seen 
 
 - Two loops. The AC loop — T_ring, R_series, RING, the load, TIP, C_bypass, ground — exists whenever the trunk rings and rings the bell. The DC loop — +24V, current source, LED, Dx03, TIP, the load, RING, R_series, T_ring's secondary, ground — exists only when the load passes DC, which a ringer behind its capacitor does not. The LED therefore lights on an answer and on nothing else, however many ringers are on the line: unlike sensing the ring current below, the decision does not depend on the load.
 - The current source passes DC one way only, so the ring cannot return through it as it returns through an exchange battery; C_bypass is the path. Capacitors alone, coupling the bus to TIP and RING with the feed left in place, do not work: RING is held near ground by R_LOOP, the whole swing lands on TIP, the current source conducts on every negative excursion and rectifies, and C_bypass charges until TIP swings about 22–248V — about 135V DC across the pair with the ring on top. Feed chokes would cure it, but at well over 100H per leg.
-- T_ring gives the trunks a ground-referenced source while the bus stays floating for the switchboard (§7.1.1). Grounding one leg of the bus instead is untested, and the concern is the station boards: while the operator rings a station, the bus is across a line the station board feeds from +24V and ground. One transformer serves all eight trunks, because each trunk's detector is in its own current-source path and the shared secondary may carry their DC together.
+- T_ring gives the trunks a ground-referenced source while the bus stays floating for the switchboard (§7.1.1). Grounding one leg of the bus instead is untested, and the concern is the station boards: while the operator rings a station, the bus is across a line the switchboard feeds from the common 24V battery and ground. One transformer serves all eight trunks, because each trunk's detector is in its own current-source path and the shared secondary may carry their DC together.
 - Answered during ring, the loop carries about 21V / (R_series + loop + secondary copper), 7.5–8.7mA with 2.2kΩ, with the ring current on top; the current source is out of regulation and the LED is lit. The secondary's copper costs under 1mA of that. What the DC does matter for is T_ring's core: a 50/60Hz transformer takes a third of its rated voltage at 20Hz, so a 240V winding carrying 80V is already at rated flux, and each answered trunk adds about 8mA of DC bias. A winding rated well above 240V would leave margin for that, but small 1:1 parts with such windings are hard to find; the candidate below runs at 87% instead.
-- T_ring is sized by 20Hz flux rather than by power. The load is the concurrent-ring cap (four, control.md §8.4) times the per-trunk ring current — about 6–10VA at 80V on §7.6's 20mA estimate, more for an answered trunk until the trip — and a mains part delivers only a third of its rating at 20Hz, so a part of about 30–50VA. Candidate, 2026-10-07: Triad Magnetics VPT230-220 — a 50VA toroid, 50/60Hz, two 115V primaries and two 115V secondaries (230V at 220mA in series), 4000V RMS isolation, 80mm × 33mm and 635g, wire leads, chassis mount; stocked by DigiKey and Farnell. Primaries in series across RING_HI–RING_LO, secondaries in series with one end on GND and the other RING_T; a pair phased wrong cancels to 0V, so check both before the trunks are connected. Too heavy for the board; mounted off it, like the Antek. At 20Hz a 50/60Hz winding takes 0.4 of its rating, 92V here, so 80V is 87% of rated flux — the margin at which the generator already runs the Antek (ring_generator.md §9.5), measured and working. What it does not cover is the DC: a toroid has no gap and very little magnetizing current, so the 8mA or so of an answered trunk may take the core partly into saturation on one half-cycle until the trip, about 100ms — a distorted ring and a primary current spike, not damage. Scope the primary current with a trunk answered during ring; if it shows, raise R_series or take a larger part in the same 2 × 115V family, with fewer turns per volt.
+- T_ring is sized by 20Hz flux rather than by power. The load is the concurrent-ring cap (four, control.md §8.5) times the per-trunk ring current — about 6–10VA at 80V on §7.6's 20mA estimate, more for an answered trunk until the trip — and a mains part delivers only a third of its rating at 20Hz, so a part of about 30–50VA. Candidate, 2026-10-07: Triad Magnetics VPT230-220 — a 50VA toroid, 50/60Hz, two 115V primaries and two 115V secondaries (230V at 220mA in series), 4000V RMS isolation, 80mm × 33mm and 635g, wire leads, chassis mount; stocked by DigiKey and Farnell. Primaries in series across RING_HI–RING_LO, secondaries in series with one end on GND and the other RING_T; a pair phased wrong cancels to 0V, so check both before the trunks are connected. Too heavy for the board; mounted off it, like the Antek. At 20Hz a 50/60Hz winding takes 0.4 of its rating, 92V here, so 80V is 87% of rated flux — the margin at which the generator already runs the Antek (ring_generator.md §9.5), measured and working. What it does not cover is the DC: a toroid has no gap and very little magnetizing current, so the 8mA or so of an answered trunk may take the core partly into saturation on one half-cycle until the trip, about 100ms — a distorted ring and a primary current spike, not damage. Scope the primary current with a trunk answered during ring; if it shows, raise R_series or take a larger part in the same 2 × 115V family, with fewer turns per volt.
 - After an answer the current source sees ring as well as the feed until the trip, §5's accidental-ring case: about 1.3W average in Qx03 for 100ms or so.
 - R_series does three jobs: it limits the answered loop's ring current and protects the generator, it limits the DC bias in T_ring, and it removes §5.3's hazard. With an operator ringing into a ringing trunk, the switchboard's bus now sees C_bypass, T_ring's secondary and R_series in series between TIP and RING — no low-resistance path — so reversed polarity gives about 160V RMS into about 2.3kΩ, about 70mA, and agreeing polarity gives none. The polarity check in §7.1.1 stops mattering.
 - Cost: one transformer per board and, per trunk, C_bypass, R_series and rewired relay poles, on top of §4.4's detector, which this needs — sensing at R_LOOP would see the ring current as well.
@@ -729,13 +719,13 @@ Cost: one resistor and one optocoupler per trunk, plus a firmware ring-trip path
 
 Eight trunks and the switchboard share one generator. Each ringing trunk loads it with whatever the switchboard's trunk circuit draws, and the operator can add a station ring on top at any time. Those figures are not known yet and together they decide how many trunks may ring at once.
 
-The constraint is on the generator side. If the generator is built on the 20W tap of the OSD transformer, and the switchboard draws on the order of 20mA per trunk at 90V, then eight trunks ringing simultaneously is roughly 16VA — at the limit, with no margin for the transformer's own losses. This is worth settling early because it is cheaper to fix in firmware than in magnetics.
+The constraint is on the generator side. The generator is built on a 50VA Antek AS-0522 (ring_generator.md §9), and a 50/60Hz part gives only about 0.4 of its rating at 20Hz, about 20VA. If the switchboard draws on the order of 20mA per trunk at 80V, then eight trunks ringing simultaneously is roughly 13VA, leaving little margin for the transformer's own losses and a station ring on top. This is worth settling early because it is cheaper to fix in firmware than in magnetics.
 
 - Measure the ring current drawn by one trunk with the switchboard connected, at the generator's actual output voltage, and separately the current the switchboard draws when the operator rings one station. There is no standing load to subtract — both ends isolate both legs when idle — so the budget is simply the sum of whatever is ringing at that instant.
 
-- Those two measurements now size three things rather than one: the concurrent-ring cap below, this board's F101, and the generator's @F101@ on the switchboard branch. The per-trunk figure sets ours, since our F101 carries every ringing trunk; the per-station figure sets the generator's, since its J102 branch carries only what the operator's ring key draws. Generator Rev 28 §7.6 sizes that one at 250mA on the same estimate this section calls unmeasured.
+- Those two measurements now size three things rather than one: the concurrent-ring cap below, this board's F101, and the generator's F2 on the switchboard branch. The per-trunk figure sets ours, since our F101 carries every ringing trunk; the per-station figure sets the generator's, since its J8 branch carries only what the operator's ring key draws. Generator Rev 28 §7.6 sizes that one at 250mA on the same estimate this section calls unmeasured.
 
-- Set a concurrent-ring cap in the firmware from those measurements — control.md §8.4, where the cap lives; four is the starting value there. Trunks beyond the cap queue rather than ring, with headroom for one station ring on top.
+- Set a concurrent-ring cap in the firmware from those measurements — control.md §8.5, where the cap lives; four is the starting value there. Trunks beyond the cap queue rather than ring, with headroom for one station ring on top.
 
 - Nothing is required of the trunk board for generator control. With the ESP32 now resident on the generator board (generator Rev 20 §3), enabling is entirely local to it — GPIO14 drives the IR2104 SD pins through a 5V buffer and GPIO4 reads a manual master-enable switch. The earlier proposal for a RING_GEN_EN line from the controller to the generator is withdrawn; there is no longer a wire to run.
 
@@ -823,13 +813,13 @@ Triad SP-70, swept 2026-08-20: passband loss about −7dB, likewise flat through
 
 The two low-frequency figures are not comparable — 2V against 200mV is a 20dB difference in drive, and a small core at 10 to 20Hz is exactly where level starts to matter. Some or all of the SP-70's steeper low end is likely the drive level rather than the part. The passband figures are comparable and the 1.5dB difference between them tracks the winding resistances: 38/53Ω for the TY-311P against 72/92Ω for the SP-70.
 
-The TY-311P is specified. It has lower insertion loss, it is flat where the comb and the operator tone live, and at roughly $5.67 against $20.49 it saves about $310 across the 24 needed. Its datasheet band of 300Hz to 3.5kHz understates it considerably — that specification describes a telephone application, not the limit of the part.
+The TY-311P is specified. It has lower insertion loss, it is flat where the comb and the operator tone live, and at roughly $5.67 against $20.49 it saves about $14.80 on each of the 32 needed, 24 on the station boards and 8 here. Its datasheet band of 300Hz to 3.5kHz understates it considerably — that specification describes a telephone application, not the limit of the part.
 
-The low-frequency difference is close to irrelevant in circuit. Cx04 at 0.47µF puts a 565Hz corner ahead of the primary and contributes about 29dB of attenuation on its own at 20Hz, dominating either transformer. The one case where it becomes interesting is §9.4's option of raising Cx04 to 2.2µF if trunk audio sounds thin: that moves the corner to 120Hz and lets more 20Hz ring leakage into the audio path, and the SP-70 would have been rejecting more of it. Those two decisions are linked, and if Cx04 is ever raised the low end is worth re-measuring rather than assumed.
+The low-frequency difference is close to irrelevant in circuit. Cx04 at 0.47µF puts a 565Hz corner ahead of the primary and contributes about 29dB of attenuation on its own at 20Hz, dominating either transformer. The one case where it becomes interesting is §8.1's option of raising Cx04 to 2.2µF if trunk audio sounds thin: that moves the corner to 120Hz and lets more 20Hz ring leakage into the audio path, and the SP-70 would have been rejecting more of it. Those two decisions are linked, and if Cx04 is ever raised the low end is worth re-measuring rather than assumed.
 
-One sample has been swept. Sweep two or three of the production quantity before committing all 24 to boards. What matters is not the absolute loss but the spread between units at 9kHz: if they track within a dB, one detection threshold serves every channel; if they do not, that is a per-channel calibration problem in the detector rather than an analog one, and it is much cheaper to learn on the bench than after assembly.
+One sample has been swept. Sweep two or three more of the 32 fitted. What matters is not the absolute loss but the spread between units at 9kHz: if they track within a dB, one detection threshold serves every channel; if they do not, that is a per-channel calibration problem in the detector rather than an analog one.
 
-Incidental, but worth carrying to layout: the two sweeps showed opposite phase in the passband, around 0° for one and 180° for the other, because one was connected dot-to-dot and the other reversed. Not a fault in either part. Make the footprint's dot convention explicit on the silkscreen and wire all 24 the same way — a single reversed transformer inverts one circuit's audio and nothing else, which is the kind of fault that survives a long time before anyone notices.
+Incidental, but worth carrying to any new board: the two sweeps showed opposite phase in the passband, around 0° for one and 180° for the other, because one was connected dot-to-dot and the other reversed. Not a fault in either part. Make the footprint's dot convention explicit on the silkscreen and wire all 32 the same way — a single reversed transformer inverts one circuit's audio and nothing else, which is the kind of fault that survives a long time before anyone notices.
 
 ## **8.4 Audio Connectors — J104, J105**
 
@@ -923,7 +913,7 @@ Trunks share the pilot comb with the stations and are identified by exactly the 
 | 7 | 31 | 752 | 8812.50 Hz | 31 |
 | 8 | 32 | 760 | 8906.25 Hz | 32 |
 
-All three station boards are built (station Rev 3.35), so slots 1–22 are stations, slots 23 and 24 are left allocated to the operator tap and audience monitor strips and unused (station Rev 3.40), and the trunks are at 25–32 on pair 4. Through Rev 5.36 this section described slots 17–24 as free pending the third board and warned against renumbering the trunks into them; the warning is moot now but the reason — reflashing pilot assignments on working hardware to solve a cosmetic problem — still applies to any future renumbering.
+All three station boards are built (station Rev 3.35), so slots 1–22 and 24 are stations, slot 23 is left allocated to the operator tap strip and its pilot is not generated (station §7.9.6, pilot-map.md), and the trunks are at 25–32 on pair 4. If slots are ever renumbered, the reason not to move the trunks still applies: it means reflashing pilot assignments on working hardware to solve a cosmetic problem.
 
 Pilot injection is continuous except during the ring-on interval, when the relay lifts Tx01 off the line and the trunk's pilot is absent from the pair for 2 seconds in every 6. This costs nothing in practice — a trunk that is being rung is by definition not yet patched to anything, and the pilot returns within one FFT block of the relay releasing. It does mean pilot detection on that channel should be suppressed while the trunk is ringing, which §8.1.1 asks for anyway on transient grounds.
 
@@ -966,8 +956,8 @@ The I²C master is the Olimex ESP32-POE-ISO on the ring generator board (generat
 The bus uses a 6P6C modular connector, distinct from the RJ45 used for trunk lines and the D-Sub25 used for audio. Three signal classes, three connector types, and no way to cross them with a cable that seats properly.
 
 ```text
-  ring generator ---[RJ11]--- station 1 ---[RJ11]--- station 2 ---[RJ11]---[station 3]---[RJ11]--- TRUNK
-   (master, 1x)              (2x, thru)          (2x, thru)      (capacity)       (1x, end)
+  ring generator ---[RJ11]--- station 1 ---[RJ11]--- station 2 ---[RJ11]--- station 3 ---[RJ11]--- TRUNK
+   (master, 1x)              (2x, thru)          (2x, thru)          (2x, thru)         (1x, end)
 
    J101, 6P6C, ~600mm total bus length
 ```
@@ -981,7 +971,7 @@ The bus uses a 6P6C modular connector, distinct from the RJ45 used for trunk lin
 | 5 | GND | 2 (2–5) | Board ground — SCL return |
 | 6 | — | 3 (1–6) | /RESET return — paired with /RESET at position 1 |
 
-Each signal has its return on its own concentric pair — SCL with the ground at position 5, SDA with the ground at position 3, /RESET with the ground at position 6 — which is the same pair discipline the RJ45 arrangement used. Positions 1 and 6 are unused, so a standard four-conductor cord occupying positions 2 to 5 fits exactly.
+Each signal has its return on its own concentric pair — SCL with the ground at position 5, SDA with the ground at position 3, /RESET with the ground at position 6 — which is the same pair discipline the RJ45 arrangement used. Positions 1 and 6 carry /RESET and its return, so the cord must be six-conductor (§13); a four-conductor cord on positions 2 to 5 leaves a working bus with no hardware reset.
 
 Within that constraint the ordering still matters, and it is worth setting down why the grounds are interleaved rather than grouped. Putting SCL and SDA on adjacent conductors would couple the clock edge straight into the data line:
 
@@ -1002,7 +992,7 @@ A 0.66V dip takes SDA to exactly VIH, and a false edge on SDA while SCL is high 
 
 *Fit no pull-ups on this board. Generator Rev 20 §4.4 places the single 2.2kΩ pair on the generator board and states that station and trunk boards must not fit their own. The rev 2 board has no pull-up footprints at all, which settles the risk the earlier DO NOT FIT footprints carried — a bare footprint invites someone to populate it (Rev 5.42).*
 
-There is no INT line, which is correct because this board polls rather than using interrupt-on-change (station §9.5). The reason is sharper here than on a station board: during an accidental ring the seizure input produces a 20Hz pulse train, so one trunk being rung into would generate 40 interrupts per second for something that is not even a state change. Polling Port A of three expanders at 200Hz — four with the third station board fitted — costs roughly 6% of a 100kHz bus and gives the debounce in §11.1 the sample density it needs.
+There is no INT line, which is correct because this board polls rather than using interrupt-on-change (station §9.6). The reason is sharper here than on a station board: during an accidental ring the seizure input produces a 20Hz pulse train, so one trunk being rung into would generate 40 interrupts per second for something that is not even a state change. Polling Port A of four expanders at 200Hz costs roughly 6% of a 100kHz bus and gives the debounce in §11.1 the sample density it needs.
 
 The single expander here adds about 10pF. With 2.2kΩ pull-ups and roughly 50pF of total bus capacitance the rise time is about 94ns against the 1µs I²C budget, so at 600mm no bus buffer is needed and the P82B96 footprint recommended in earlier revisions of this document can be dropped.
 
@@ -1010,7 +1000,7 @@ Positions 1 and 6 of the 6P6C carry /RESET and its return, from GPIO5 on the gen
 
 R101, a 10kΩ pull-up to +3.3V, holds /RESET here as on the station boards; note that this is the opposite of the DO NOT FIT rule for the I²C pull-ups. The reasoning is in station §9.4: a static line driven by a CMOS output does not care about three pull-ups in parallel, and an unplugged board must not leave pin 18 floating. /RESET also takes a third input of TVS101.
 
-The consequence to weigh is sharper here than on a station board. A reset returns the expander to IODIR = 0xFF, which releases every ring relay — Rx03 (§7.3) is what holds the drivers off through the window, and that argument is unchanged. But releasing a ring relay mid-cadence opens the contacts at an arbitrary point in the 20Hz waveform rather than at a cadence boundary, which is the click §9.5 quantifies and the switching discipline §7.6 exists to avoid. Never assert /RESET while ring is applied. At startup, and on a detected bus fault with ring already inhibited, it is exactly the right tool.
+The consequence to weigh is sharper here than on a station board. A reset returns the expander to IODIR = 0xFF, which releases every ring relay — Rx03 (§7.3) is what holds the drivers off through the window, and that argument is unchanged. But releasing a ring relay mid-cadence opens the contacts at an arbitrary point in the 20Hz waveform rather than at a cadence boundary, which is the click §8.1.1 quantifies and the switching discipline §7.6 exists to avoid. Never assert /RESET while ring is applied. At startup, and on a detected bus fault with ring already inhibited, it is exactly the right tool.
 
 Filter /RESET at U101: C19, 100nF from pin 18 to GND, as close to the pin as the layout allows (Rev 5.40). The rev 2 board carries it as a bodge; at rev 3 it takes C110. The line runs the length of the bus cord and every board with only 10kΩ pull-ups holding it up, and the MCP23017 resets on a pulse of about a microsecond. Before C19 a ring relay switching on this board reset the expander intermittently — every trunk then reads seized, since IPOL is cleared — and with it fitted not once. With R101 it is a 1ms time constant, inside control.md §6.2's 2ms pulse and 5ms settle.
 
@@ -1024,7 +1014,7 @@ control.md §6.3, §8.1 and §8.2. Port A polled at 200Hz; seized after 100ms co
 
 ## **11.2 Trunk State Machine**
 
-control.md §8.2. IDLE, RINGING, SEIZED, RING_ON_TRUNK, with RING_ON_TRUNK a report rather than a mode.
+control.md §8.3. IDLE, RINGING, SEIZED, RING_ON_TRUNK, with RING_ON_TRUNK a report rather than a mode.
 
 ## **11.3 MQTT Topics**
 
@@ -1040,28 +1030,28 @@ mqtt.md §8 for the protocol and control.md §10 for the actions. The three guar
 
 A single 24V supply feeds everything: the trunk loops, the trunk and station board rails, and the switchboard itself. This is the right decision and it is what a real exchange does — common battery is the defining feature of the architecture the 551 was built for. It also disposes of the labelling hazard that station §10.1 was written around, since there are no longer two 24V supplies to confuse.
 
-It changes the sizing question completely, though, and the LRS-35-24 is not adequate. The reason is not the trunk board — it is that the station loop current is now drawn from this supply. Station §5.2 puts each off-hook station at 60–70mA through R3, and the switchboard is what feeds that, so the station loops dominate everything else on the board side. The system as built (station Rev 3.40) is 22 stations on three boards plus 8 trunks, 30 loops; the 24-circuit column below is the earlier two-board build and is kept because the supply choice was argued from both:
+It changes the sizing question completely, though, and the LRS-35-24 is not adequate. The reason is not the trunk board — it is that the station loop current is now drawn from this supply. Station §5.2 puts each off-hook station at 60–70mA through its Rx03, and the switchboard is what feeds that, so the station loops dominate everything else on the board side. The system as built is 23 stations (1–22 and 24) on three boards plus 8 trunks, 31 loops. The table counts all 32 circuits, so it is one station loop high, the tap strip's:
 
-| **Load** | **24 circuits** | **32 circuits** | **Notes** |
-| --- | --- | --- | --- |
-| Station loops | 1120mA | 1680mA | 70mA each, all off-hook. 16 or 24 stations. Station §5.2. |
-| 8 trunk loops | 226mA | 226mA | 28mA each, fed by the trunk board. Unchanged. |
-| Station board rails | 142mA | 213mA | 71mA per board into its DC-DC module |
-| Trunk board rails | 65mA | 65mA | Relay coils and logic, excluding the loop feeds above |
-| Subtotal, known | 1553mA | 2184mA | 37.3W / 52.4W |
-| Switchboard lamps, relays | UNKNOWN | UNKNOWN | Estimate 500–1500mA. Must be measured — see below. |
-| Ring generator input | UNKNOWN | UNKNOWN | H-bridge into T1 plus a TSR 1-24120 for the gate drivers. Scales with concurrent ring load; near quiescent when nothing is ringing. The ESP32 is PoE-powered and draws nothing from this rail. |
-| Realistic total | 2.4–4.1A | 3.0–4.7A | 56–97W / 72–112W |
+| **Load** | **32 circuits** | **Notes** |
+| --- | --- | --- |
+| Station loops | 1680mA | 70mA each, all off-hook, 24 stations. Station §5.2. |
+| 8 trunk loops | 226mA | 28mA each, fed by the trunk board. |
+| Station board rails | 213mA | 71mA per board into its DC-DC module |
+| Trunk board rails | 65mA | Relay coils and logic, excluding the loop feeds above |
+| Subtotal, known | 2184mA | 52.4W |
+| Switchboard lamps, relays | UNKNOWN | Estimate 500–1500mA. Must be measured — see below. |
+| Ring generator input | UNKNOWN | H-bridge into T1 plus a TSR 1-24120 for the gate drivers. Scales with concurrent ring load; near quiescent when nothing is ringing. The ESP32 is PoE-powered and draws nothing from this rail. |
+| Realistic total | 3.0–4.7A | 72–112W |
 
-Specify the Mean Well LRS-150-24: 24V at 6.5A (156W), 89% efficient, output adjustable over 21.6–28.8V, 159 × 97 × 30mm. Dropping from 32 circuits to 24 saves 631mA, which is real but does not change the answer, because the two unmeasured terms dominate the uncertainty either way:
+Specify the Mean Well LRS-150-24: 24V at 6.5A (156W), 89% efficient, output adjustable over 21.6–28.8V, 159 × 97 × 30mm. The two unmeasured terms dominate the uncertainty:
 
-| **Supply** | **24 circuits** | **32 circuits** | **Verdict** |
-| --- | --- | --- | --- |
-| LRS-35-24 (1.5A) | 157–270% | 199–312% | Undersized by 2–3× |
-| LRS-100-24 (4.5A) | 52–90% | 66–104% | Adequate at 24 circuits only if the switchboard is modest; fails at 32 |
-| LRS-150-24 (6.5A) | 36–62% | 46–72% | Correct. Covers both build stages. |
+| **Supply** | **Load** | **Verdict** |
+| --- | --- | --- |
+| LRS-35-24 (1.5A) | 199–312% | Undersized by 2–3× |
+| LRS-100-24 (4.5A) | 66–104% | Fails at the top of the estimate |
+| LRS-150-24 (6.5A) | 46–72% | Correct. |
 
-The LRS-100-24 is tempting at 24 circuits and should still be declined. At the top of the estimate it runs 90% loaded, which is no place to be for an enclosed convection-cooled supply in a warm rack — the LRS series derates above 50°C — and it has no room at all for a third station board. Since the system is explicitly built out in stages (station §1), buying the 150 now avoids buying a supply twice for the sake of a few dollars.
+The LRS-100-24 is tempting and should still be declined. At the top of the estimate it runs past 100% loaded, which is no place to be for an enclosed convection-cooled supply in a warm rack — the LRS series derates above 50°C.
 
 *Two differences from the LRS-35 worth catching at build time. The LRS-150 has an AC input select switch for 115V or 230V rather than the LRS-35's universal input — set it before first power-on, because getting it wrong destroys the supply. And the adjustment range is wide: set the output to 24.0V at the terminals under load rather than accepting the factory setting, since the relay coil margin in station §5.4 is calculated against the 5V rail at its lower limit and everything upstream feeds into it.*
 
@@ -1073,9 +1063,9 @@ Measure the switchboard's draw before ordering — idle, with a typical number o
 
 ## **12.1.1 What This Changes for the Station Boards**
 
-Station §10.1 draws a hard distinction between the loop supply and the board supply and says the two must never be tied together. With one common battery they are tied, at the PSU terminals, by design. That section needs revisiting, and the revision is narrower than it first looks.
+Station §10.1 once drew a hard distinction between the loop supply and the board supply and said the two must never be tied together. With one common battery they are tied, at the PSU terminals, by design, and that section now says so.
 
-The hazard station §10.1 was actually guarding against is deriving board power from tip and ring, which would put a standing load on the loop and read as a supervision fault. That remains prohibited and nothing here changes it. What the section additionally recommended — an isolated DC-DC module so board ground and battery ground do not become common — can be relaxed to the non-isolated Traco or Murata part already specified, on one condition: the 24V distribution must be a true star from the PSU terminals, with a separate pair to the switchboard and a separate pair to each interface board.
+The hazard station §10.1 was actually guarding against is deriving board power from tip and ring, which would put a standing load on the loop and read as a supervision fault. That remains prohibited and nothing here changes it. What the section additionally recommended — an isolated DC-DC module so board ground and battery ground do not become common — is relaxed to the non-isolated Traco or Murata part specified, on one condition: the 24V distribution must be a true star from the PSU terminals, with a separate pair to the switchboard and a separate pair to each interface board.
 
 The reason isolation was wanted was to keep the boards' logic ground off a conductor carrying loop current. Star wiring achieves the same thing directly. Daisy-chaining does not: 1.5A of station loop current at 22 stations returning through a shared conductor would put tens of millivolts of drop between one board's ground and another's, and that offset lands on the I²C bus reference shared by every expander. This was a minor concern at 300mA and is a real one at an amp.
 
@@ -1090,7 +1080,7 @@ The reason isolation was wanted was to keep the boards' logic ground off a condu
 
 Size for the all-on case. Eight trunks seized simultaneously is not a pathological condition on a switchboard — it is a busy Saturday — and a rail that sags under it presents as intermittent loop-current faults that are very hard to diagnose from the software side.
 
-The trunk board is a small fraction of the system load — about 290mA of the 2.4–4.1A total in §12.1, and it does not change with the station count. It is not what sizes the supply; the station loops and the switchboard are.
+The trunk board is a small fraction of the system load — about 290mA of the 3.0–4.7A total in §12.1, and it does not change with the station count. It is not what sizes the supply; the station loops and the switchboard are.
 
 ## **12.3 Converter Selection**
 
@@ -1118,7 +1108,7 @@ Deleting it has a benefit beyond the eight parts. Eight 100µF plus the 1000µF 
 
 *As built, with Cx01 fitted: the board has powered up repeatedly on the bench, including through a 0.1A supply current limit, without opening F102. The inrush concern above has not appeared; the case for leaving Cx01 off at rev 3 rests on the part count and the topology argument.*
 
-The station board never had the equivalent and does not need one. Its per-station capacitors are the 10µF relay-coil reservoirs on the 5V rail, which serve a real inductive load, and its single 1000µF at the 24V input earns its place because a 330Ω resistive feed does put audio-band current into the shared rail. Station §10.4 records a related correction — 100µF per relay coil reduced to 10µF because a switching module has a maximum output capacitance. Distributed bulk specified once and never re-examined is a recurring theme in this design and worth watching for.
+The station board never had the equivalent and does not need one. Its per-station capacitors are the 10µF relay-coil reservoirs on the 5V rail, which serve a real inductive load, and it has no 1000µF at the 24V input: station Rev 3.23 deleted the one Rev 3.19 had added, since that board's 24V rail carries no loop current and no audio (station §10.7). Station §10.4 records a related correction — 100µF per relay coil reduced to 10µF because a switching module has a maximum output capacitance. Distributed bulk specified once and never re-examined is a recurring theme in this design and worth watching for.
 
 - The eight Rx06 ground returns must not share trace impedance. Audio does not pass through Rx06 (§8.1), so this is a second-order path — but it is the one that remains after the rail is bypassed. Through Rev 5.27 this was written as "star the returns to a single point"; as of Rev 5.28 the board has a solid In1 ground plane, whose impedance is below any star's, and each Rx06 returns to the plane by its own via. The requirement is unchanged, the star is not drawn.
 
@@ -1136,7 +1126,7 @@ The fuse does open, and it is worth showing rather than assuming. The LRS-150-24
 
 The reason to prefer the clamp over a series diode is compliance, and on this board it is not a small point. A series Schottky drops about 0.4V at the 250mA this board draws, and that 0.4V comes off the top of the loop feed — the one quantity §3.3 has already had to fight for. The clamp costs nothing in normal operation because it carries nothing.
 
-It also makes the §3.3 budget honest. That table lists four fixed drops — Rx02, Rx05, Dx03 and Rx06 — and does not include D101, so the 15.6V of compliance and the 554Ω of cord circuit were computed from a full 24V at Qx01's emitter. With a series D101 that was optimistic by roughly 0.4V and the real figures were nearer 15.2V and 540Ω. With the clamp, the numbers as printed are correct. This change does not add compliance so much as stop the document overstating it.
+It also makes the §3.3 budget honest. That table lists four fixed drops — Rx02, Rx05, Dx03 and Rx06 — and does not include D101, so the 16.2–16.5V of compliance and the 575–585Ω of line are computed from a full 24V at Qx01's emitter. A series D101 would take roughly 0.4V and 14Ω off them. With the clamp, the numbers as printed are correct.
 
 - 47µF at 50V plus 100nF at the DC-DC input pins, close to the pins, in addition to the 1000µF audio-band bulk above. The input loop of a buck converter is the noisiest current path on the board.
 
@@ -1152,11 +1142,11 @@ Confirm the module's maximum capacitive load before committing the 220µF at the
 
 The omission is at the LDO, and it is the same on both board types: the 3.3V rail has bulk at U103's output but nothing at its input pin. The 220µF sits at the converter output with trace inductance in between. Fit 10µF plus 100nF at U103's input, and add a 100nF ceramic at its output alongside the existing 10µF — an aluminium electrolytic alone has poor impedance exactly where the regulator's loop needs it. One more 10µF and two more 100nF, both already on the board in quantity.
 
-The 1000µF stays at one on this board. Station Rev 3.19 §10.7 adds the same part there for a reason that does not apply here — a 330Ω resistive feed puts audio-band current into the shared rail, where this board's current sources present roughly 600kΩ and keep it out. That asymmetry is worth understanding rather than standardising away: the two boards need the same capacitor for opposite reasons, and only one of them needs it badly.
+The 1000µF stays at one on this board. The station board has none: station Rev 3.23 §10.7 deleted it, because that board's 24V rail carries no loop current and no audio. This board's rail carries the loop current, and its current sources, at roughly 600kΩ, keep the audio out of it. That asymmetry is worth understanding rather than standardising away.
 
 # **13. Bill of Materials**
 
-Per trunk, ×8 on the board, unless marked otherwise. Designators are the KiCad references on the rev 2 board as annotated (Rev 5.42). Strip parts are numbered per trunk sheet with x = trunk number + 1, so Rx06 is R206 on trunk 1 through R906 on trunk 8; root-sheet parts are numbered from 101. The notes give each part's former name in this document. C18 and C19 are not on the PCB — see their rows.
+Per trunk, ×8 on the board, unless marked otherwise. Designators are the KiCad references on the rev 2 board as annotated (Rev 5.42). Strip parts are numbered per trunk sheet with x = trunk number + 1, so Rx06 is R206 on trunk 1 through R906 on trunk 8; root-sheet parts are numbered from 101. The notes give each part's former name in this document. C18 and C19 are not on the PCB — see their rows. Trunk 8 differs from this table: K901 and D903 are out, R906 is 330Ω with C_RB across it, and U901 is on its AC input (§4.5). The KiCad trunk schematic still draws Rx05, Rx06 and Rx07 at 100Ω, 150Ω and 470Ω; the boards are reworked to the values here, 33Ω, 220Ω and 150Ω, and Mark will edit the drawing to show it.
 
 | **Designator** | **Value / Part** | **Description / Notes** |
 | --- | --- | --- |
@@ -1168,12 +1158,12 @@ Per trunk, ×8 on the board, unless marked otherwise. Designators are the KiCad 
 | Cx02 ×8 | 1nF ceramic | Current source loop compensation, Qx03 base to emitter. Fit a footprint accepting 100pF–10nF — see §3.2.2. Formerly C_C. |
 | Rx05 ×8 | 33Ω, 1W — Stackpole RSF1JT33R0 | Fault limiting, not thermal relief — see §3.2.4. 1W is for the Qx03-short case (0.46W into a dead short). 33Ω from Rev 5.44 (was 100Ω, and 220Ω before that), for the compliance the 551's dial relay needs: about 440Ω with the operator in after dialling (§3.3.3). Formerly R1. |
 | Dx03 ×8 | 1N4007 | Blocks reverse current during an accidental ring. Formerly D1. |
-| Rx06 ×8 | 220Ω, 2W, 1% — Stackpole RSF2FT220R | Loop current sense. 220Ω from Rev 5.41 (was 150Ω), to drive Ux01 past its DC threshold; 1% from Rev 5.43, since −5% halves the turn-on margin — see §4.2. 2W covers a shorted Qx03, about 1.0W even into a dead short. Formerly R_LOOP. |
+| Rx06 ×8 | 220Ω, 2W, 1% — Stackpole RSF2FT220R | Loop current sense. 220Ω from Rev 5.41 (was 150Ω), to drive Ux01 past its DC threshold; 1% from Rev 5.43, since −5% halves the turn-on margin — see §4.2. 2W covers a shorted Qx03, about 1.57W even into a dead short. Formerly R_LOOP. |
 | Rx07 ×8 | 150Ω, 0.25W, 1% metal film — e.g. Yageo MFR-25FBF52-150R | Sets Ux01 input current, 3.0–4.4mA. 150Ω from Rev 5.41 (was 470Ω, which held Ux01 inside its hysteresis band); 1% from Rev 5.43 — see §4.2. Formerly R_DET. |
 | Ux01 ×8 | HCPL3700M (onsemi) | Seizure detect, DC input mode — pins 2/3 driven, pins 1/4 OPEN. 8-pin PDIP. Note this is the opposite wiring from the station board ring detector. Formerly OC1. |
 | Rx12 ×8 | 4.7kΩ, 0.25W | Ux01 output pull-up to 3.3V. Formerly R2. |
 | Cx05 ×8 | 0.1µF ceramic | Ux01 V_CC bypass, pins 8–5, at the device. Required. Formerly C5. |
-| Kx01 ×8 | CIT J104D2C5VDC.15S | DPDT ring relay, 5V/167Ω/29.9mA coil, sealed THT. Same part as the station off-hook relay — order the whole system quantity at once against the 20-week lead time: 8 here plus 22 on the station boards (the tap and monitor strips fit none). Formerly RLY1. |
+| Kx01 ×8 | CIT J104D2C5VDC.15S | DPDT ring relay, 5V/167Ω/29.9mA coil, sealed THT. Same part as the station off-hook relay — order the whole system quantity at once against the 20-week lead time: 8 here, K901 since pulled (§4.5), plus 23 on the station boards (the tap strip fits none). Formerly RLY1. |
 | Qx02 ×8 | 2N2222A (TO-92, EBC) | Relay driver. Formerly Q2. |
 | Rx01 ×8 | 1kΩ, 0.25W | Qx02 base resistor. Formerly R4. |
 | Rx03 ×8 | 10kΩ, 0.25W | Qx02 base pulldown. Not optional — see §7.3. Formerly R_pd. |
@@ -1204,15 +1194,15 @@ Per trunk, ×8 on the board, unless marked otherwise. Designators are the KiCad 
 | (F101, F102) | 5x20mm PC-mount fuse block, ×2 | Littelfuse 64900001039, 649 series PC-mount block, 5x20mm, 6.3A / 250VAC, solder lug. One for F102, one for F101. Same holder on all three board types. Formerly F2, F1. |
 | J104, J105 | DB25 FEMALE, R/A, 4-40 | Analog I/O to the A32, TASCAM analog pinout. J104 = 8 board outputs to A32 inputs; J105 = 8 A32 outputs to board inputs. Gender is female — see §13.1. Formerly J1, J2. |
 | J101 | 6P6C modular jack, R/A | I²C bus in. One only — the trunk board is last in the chain. ALL SIX POSITIONS WIRED: SCL, SDA and two grounds on 2–5, /RESET and its return on 1 and 6 — pinout in §10.4. Cords must be six-conductor; a 6P4C cord seats and leaves a working bus with no hardware reset. Corrected at Rev 5.25, having described the pre-Rev-5.8 wiring. Part number in §13.1. Formerly J3. |
-| TVS101 | Littelfuse SP721APP, 3pF SCR/diode rail-clamp array | ESD and mis-plug protection on SDA and SCL. 8-PDIP through-hole, 6 inputs, 3pF per line. Rail clamp, not a fixed-breakdown TVS: V+ (pin 8) to +3.3V, V- (pin 4) to GND, SDA and SCL to two of the six inputs, four spare. Sacrificial after a mis-plug — keep spares and consider a socket, since it is a DIP anyway. See §8.6. Formerly TVS2. |
-| C18 | 0.1µF ceramic, 50V | Bypass across TVS101, pin 8 (V+) to pin 4 (V−), at the device. The SP721 clamps by conducting the transient from its IN pin into V+, so V+ must source that current locally or it lifts while the clamp is working. TVS101 sits at J101, away from U101 and the LDO, so C101 and C108 are too far to serve. Root sheet, not per trunk. Added at Rev 5.27 — see §10.5. Not on the rev 2 board; waits for rev 3. |
+| TVS101 | Littelfuse SP721APP, 3pF SCR/diode rail-clamp array | ESD and mis-plug protection on SDA, SCL and /RESET. 8-PDIP through-hole, 6 inputs, 3pF per line. Rail clamp, not a fixed-breakdown TVS: V+ (pin 8) to +3.3V, V- (pin 4) to GND, SDA, SCL and /RESET to three of the six inputs, three spare. Sacrificial after a mis-plug — keep spares and consider a socket, since it is a DIP anyway. See §8.6. Formerly TVS2. |
+| C18 | 0.1µF ceramic, 50V | Bypass across TVS101, pin 8 (V+) to pin 4 (V−), at the device. The SP721 clamps by conducting the transient from its IN pin into V+, so V+ must source that current locally or it lifts while the clamp is working. TVS101 sits at J101, away from U101 and the LDO, so C101 and C108 are too far to serve. Root sheet, not per trunk. Added at Rev 5.27 — see §8.6. Not on the rev 2 board; waits for rev 3. |
 | J103 | 2-pin screw terminal | Board supply in: +24V BRD, GND. Formerly J5. |
 | J102 | 2-pin screw terminal, 5.00mm, 300V | Ring bus in: RING_HI, RING_LO. On Shore OSTTC020162 (DigiKey ED2600-ND), 5.00mm pitch, 300V, 15A, 14-22 AWG, side entry, blue. NOT the same part as J103: that is the OSTTE020104, 3.50mm pitch and 125V, which is inadequate here — 100V RMS ring is 141V peak, above that block's rating entirely. 300V gives 2.1x margin, in line with the 250V film capacitors and 300V cable elsewhere in this zone. The two are different colours, blue against black, so the ring bus terminal is visually distinct from the 24V input on the same board. Own zone, 3mm creepage, physically separate from the low-voltage connectors. Formerly J6. |
 | J7A101, J7B101 | RJ45 jack, shielded, R/A | Trunk tip/ring to the switchboard, four trunks per connector. Pinout in §8.5. The only RJ45 on the board — the connector type signals hazardous voltage. Shield to chassis at this end only. Part number in §13.1. Formerly J7A, J7B. |
 | R102, R103 | 0Ω, 0.25W | D-Sub ground pins to board GND, one per DB25: R102 for J104, R103 for J105. **DO NOT FIT** — footprints only, unfitted on the rev 2 board, so the shields are grounded at the A32 end alone (§8.4). 100Ω in parallel with 10nF is the middle position in the same footprint, if ring events click. Formerly JP4 (one link in the design; the board has one per DB25). |
 | Cable — trunk lines | Cat5e, 300V (CM/CMR) | Voltage rating is not optional at 141V peak. Check the jacket print — patch cords are often marked 30V or 72V. |
-| Cable — I²C | 4- or 6-conductor modular, STRAIGHT-THROUGH | Not a standard voice line cord — those are reversed and short the bus to ground. See §10.4. |
-| PSU | Mean Well LRS-150-24 | 24V, 6.5A, 156W enclosed. Chassis mount, off-board, common to the whole system including the switchboard. Sized for 24 circuits with headroom for 32 — see §12.1. Replaces the LRS-35-24, undersized by 2–3×. Check the 115/230V input switch before first power-on. |
+| Cable — I²C | 6-conductor modular, STRAIGHT-THROUGH | Not a standard voice line cord — those are reversed and short the bus to ground. See §10.4. |
+| PSU | Mean Well LRS-150-24 | 24V, 6.5A, 156W enclosed. Chassis mount, off-board, common to the whole system including the switchboard. Sized for the 32 circuits — see §12.1. Replaces the LRS-35-24, undersized by 2–3×. Check the 115/230V input switch before first power-on. |
 
 ## **13.1 Connector Part Numbers**
 
@@ -1224,7 +1214,7 @@ All three are through-hole, right-angle, board-edge parts. Prices and stock are 
 | J101 | Amphenol ICC 87180-066LF | — | 6P6C, right angle, unshielded, through hole. About $1.88. Qty 1. Würth 615006138421 (~$0.58) or Assmann A-2004-1-4-N-R (~$0.72) are equivalent for this purpose; at one per board the price is irrelevant, so pick on footprint and availability. |
 | J104, J105 | NorComp 182-025-213R561 | — | Qty 2. 25-position receptacle, female sockets, right-angle through hole, solder, gold contacts, nickel-plated steel shell, board lock, integral 4-40 female screwlocks on the mating side, 5A per contact, PA9T dielectric, −55°C to +105°C. DigiKey 182-125FE-ND. Replaces the Amphenol ICC DBM25S500MN, which DigiKey does not stock. Screwlocks are part of the connector — no separate hardware line. The 182-025-213R531 is the same part with a plain threaded shell and needs two SFSO4401NR screwlocks each, which saves nothing once counted. Backset is 0.318 in (8.08mm) either way — confirm against the board edge before committing the footprint, particularly with two of these alongside the RJ45 jacks. 16-week manufacturer lead time despite stock, so order all six at once. |
 
-*The DB25 gender needs settling before ordering, and earlier revisions of this document had it wrong. They specified male. The convention across TASCAM-pinout gear — including the A32 — is a female socket on the equipment and a male plug on the loom, so a board-to-A32 run is a male-to-male analog snake, which is a stock item. That means the trunk board should present female, not male. Confirm against the A32 before ordering, but do not assume male just because the board is the **"**source**"** end.*
+*The DB25 gender is female, and earlier revisions of this document had it wrong, specifying male. The convention across TASCAM-pinout gear — including the A32 — is a female socket on the equipment and a male plug on the loom, so a board-to-A32 run is a male-to-male analog snake, which is a stock item, and the trunk board presents female even though it is the **"**source**"** end.*
 
 J104 and J105 need 4-40 female screwlocks on the board side so the loom's jackscrews have something to bite. On most D-Sub bodies those are a separate line item; the connector specified in §13 has them integral to the mating-side flange, so there is nothing extra to order. If that part is ever substituted, check the flange feature.
 
@@ -1244,7 +1234,7 @@ J104 and J105 need 4-40 female screwlocks on the board side so the loom's jacksc
 
 - Node A and node B are the only two nets that are line-side when the relay is released and board-side when it is thrown. Keep both short and keep them inside the relay footprint's shadow rather than running them across the strip — they carry the audio and they sit between two high-voltage zones.
 
-- Qx03 dissipates 0.44W steady and 1.3W averaged during an accidental ring. Give each one a clip-on heatsink and the clearance to use it, and do not bury the eight of them in the middle of the board where the heat has nowhere to go.
+- Qx03 dissipates 0.46W steady and 1.3W averaged during an accidental ring. Give each one a clip-on heatsink and the clearance to use it, and do not bury the eight of them in the middle of the board where the heat has nowhere to go.
 
 - Four layers: top / In1 GND / In2 power / bottom, the generator board's layer order with In2 carrying the three low-voltage rails as a split pour. Both inner layers stop 3mm short of the high-voltage edge — rule area on In1 and In2, drawn by hand, because KiCad's clearance constraint is same-layer only and the netclass rule will not keep a plane from running under the ring spine. Stack-up, split lines and rule areas are in trunk_schematic_guide §7.5.
 
@@ -1258,7 +1248,7 @@ J104 and J105 need 4-40 female screwlocks on the board side so the loom's jacksc
 
 # **15. Safety Notes**
 
-- This board originates ring voltage. That is the single most important difference from the station boards. 90V RMS at 20Hz (127V peak, up to 141V peak no-load) is present on J102, on the ring bus spine and on both relay NO contacts, and because the generator is shared with the switchboard it runs continuously rather than only while a trunk is ringing (§7.6). Assume the bus is live whenever the system is powered. The only things that stop it are the GPIO4 master enable switch and the GPIO14 shutdown line, both on the ring generator board — nothing on the trunk board can make the bus safe. No operator action is required to put voltage on it.
+- This board originates ring voltage. That is the single most important difference from the station boards. About 80V RMS at 20Hz (113V peak) is present on J102, on the ring bus spine and on both relay NO contacts, and because the generator is shared with the switchboard it runs continuously rather than only while a trunk is ringing (§7.6). Assume the bus is live whenever the system is powered. The only things that stop it are the GPIO4 master enable switch and the GPIO14 shutdown line, both on the ring generator board — nothing on the trunk board can make the bus safe. No operator action is required to put voltage on it.
 
 - J7A101 and J7B101 carry 141V peak. RJ45 is used for nothing else on this board or elsewhere in the system, so the connector type itself is the warning — keep it that way. Use 300V-rated cable; many Cat5e patch cords are rated 30V or 72V and are not suitable. Note that a 6P6C I²C plug will physically enter an RJ45 jack (§8.6).
 
@@ -1268,7 +1258,7 @@ J104 and J105 need 4-40 female screwlocks on the board side so the loom's jacksc
 
 - One common 24V battery now feeds the switchboard, both board types and all loops, so board ground and switchboard battery negative are the same node. Deriving board power from tip and ring is still prohibited (station §10.1), and the 24V distribution must be a star from the PSU terminals — see §12.1.1.
 
-- Relay contacts stand off up to 165V peak when open (§7.4). Verify contact-to-contact dielectric strength from the datasheet rather than the distributor attribute table. Note that the relevant ring figure throughout is the generator's 141V peak no-load output, not the 127V peak of the 90V RMS nominal, because the bus idles unloaded.
+- Relay contacts stand off up to 165V peak when open (§7.4). Verify contact-to-contact dielectric strength from the datasheet rather than the distributor attribute table. Note that the bus idles unloaded, so the generator's no-load output is the figure that applies; this document's ratings are taken against the earlier 141V peak (§7.1).
 
 - The board dissipates roughly 7W with all trunks seized, most of it in the eight current sources, and each Qx03 reaches 1.3W if ring is applied to its trunk. Ventilate the enclosure. The relay coil margin in station §5.4 degrades with temperature and this board runs warmer than a station board.
 
@@ -1282,8 +1272,8 @@ Everything below is a number this design assumes rather than knows. Each has a f
 
 | **Item** | **Why it matters** | **Section** |
 | --- | --- | --- |
-| Dial contact bounce through the 551 cord circuit | control.md Rev 24's two-sample filter assumes every bounce is shorter than one 5ms sample; the Rev 5.41 detector follows bounce faithfully. Measure on SEIZE or across Rx06 at a high sample rate while dialling. | §4.2 |
-| ~~551 trunk cord circuit DC resistance~~ | Measured at Rev 5.41: 134–211Ω through the switchboard to a desk set, 357Ω to a station-board station; compliance 505–530Ω. §3.3.1 is not needed. | §3.3.3 |
+| ~~Dial contact bounce through the 551 cord circuit~~ | Measured 2026-10-05 (control.md Rev 26): bounce only at the start of a break, re-closes of 0.96ms at most, well inside the two-sample filter. | §4.2 |
+| ~~551 trunk cord circuit DC resistance~~ | Measured: 134–211Ω through the switchboard to a desk set, 357Ω to a station-board station, about 440Ω with the dial relay held; compliance 575–585Ω. §3.3.1 is not needed. | §3.3.3 |
 | Switchboard trunk supervisory relay operate current | Bounds how far loop current can be reduced; gates the cheapest compliance fix | §3.3.1 |
 | ~~HCPL3700M DC input forward drop at 6mA~~ | Closed at Rev 5.41: the DC input is a threshold buffer, V_TH+ 3.35–4.05V; measured 3.28V at 1.90mA with the Rev 5.40 values. | §4.2 |
 | ~~Current source loop stability into the real line~~ | Measured at Rev 5.44: dial makes settle in under 40µs with no ringing, steady state 25–29mV p-p; Cx02 stays 1nF. | §3.3.3 |
@@ -1294,9 +1284,9 @@ Everything below is a number this design assumes rather than knows. Each has a f
 | 40kHz carrier residue at the A32 input during ring | Folds to 8kHz, on the doorstep of the trunk pilot comb | §8.1.2 |
 | Ring crosstalk into an adjacent trunk pair in the same cable | Predicted −93dB; a quick confirmation with one trunk ringing and a tone on its neighbour | §8.5 |
 | RJ45 jack dielectric withstanding voltage | Not in the distributor attributes; J7A101/J7B101 carry 141V peak | §13.1 |
-| A32 D-Sub gender | Decides whether the board takes female sockets and a male-to-male loom | §13.1 |
+| ~~A32 D-Sub gender~~ | Settled: female sockets on the board and a male-to-male loom. | §13.1 |
 | Which bus leg the switchboard puts on tip | Decides whether the open NO contact sees 0V or 141V during an accidental ring | §7.4 |
-| Generator output under 1, 4 and 8 trunk load | Confirms 85–100V RMS is held; the 20W tap may be the binding limit | §7.1 |
+| Generator output under 1, 4 and 8 trunk load | Confirms how far it falls from about 80V RMS no-load; the transformer at 20Hz may be the binding limit | §7.1 |
 | SEIZE pulse pattern under applied ring | Confirms the 27ms / 100ms discrimination margin on real hardware | §5.2 |
 | Cx04 switching transient at the relay | Predicted 19mA peak, 282µs. Confirm it does not upset pilot detection. | §8.1.1 |
 | Cord-pull transient at the jack | Scope tip-ring as a cord is pulled from a seized trunk; confirms Dx01 clamping and cord circuit inductance | §6.1 |
@@ -1305,9 +1295,17 @@ Everything below is a number this design assumes rather than knows. Each has a f
 | Trunk-to-trunk audio crosstalk | Expected below −90dB. If measured above the floor, the shared path is the rail (C102) or the ground returns — no inductor footprint exists to stuff, by decision at Rev 5.29 | §12.4 |
 | 5V rail under 8 coils energised | Relay pull-in margin is calculated against the rail's lower limit | §12.2 |
 
-Two of these gate the layout rather than the bring-up. The cord circuit resistance decides Rx05 and therefore whether Qx03 needs a real heatsink, and the ring current per trunk decides the ring bus copper width and the fuse. Measure both before the board is cut; the rest can wait for a populated board.
+The board is built and the cord circuit resistance is measured, so Rx05 is settled. The ring current per trunk is still open and decides the fuse (§12.5).
 
 # **17. Revision History**
+
+## **17.57 Changes in Rev 5.57**
+
+— §4.5 gives the ATA's figures as measured, Mark, 2026-10-30: 48 V on-hook, 30 mA in the loop, ring set to 55 Vrms.
+
+— Superseded values and out-of-date text corrected, Mark's request, 2026-10-30. §3.2.2, §3.2.4, §3.3.1 and §3.3.2 state the current Rx05, Rx06 and Rx07, 33Ω, 220Ω and 150Ω, without the patches that had gathered on them, and the compliance and fault tables are recalculated with §4.2's model of Ux01 and of Qx01 clamping Rx02. §4.5 records the bench results and the program consequences as made, and R906's drop is recalculated with U901's clamp current: about 7.7 V and 0.18 W, calculated and not measured, where it said 9.9 V and 0.3 W; C_RB with R906 at 20 Hz is about 70 Ω, not 59 Ω. Trunk 8's mod is pointed to from §1, §2, §7 and §13. The generator is about 80V RMS no-load (§7.1), station 24 is counted, the build stages and the 24-circuit columns of §12.1 are gone, /RESET is on the six-conductor cord and on TVS101, the station 1000µF deleted at station Rev 3.23 is no longer described as fitted, and references to other sections and documents are corrected. §13 notes that the KiCad trunk schematic still draws Rev 5.40's values.
+
+— No code consequence.
 
 ## **17.56 Changes in Rev 5.56**
 

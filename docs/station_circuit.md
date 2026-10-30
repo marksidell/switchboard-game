@@ -2,13 +2,13 @@
 
 **Station Interface Circuit Design**
 
-*Rev 3.50. The changes in each revision are in §14.*
+*Rev 3.52. The changes in each revision are in §14.*
 
 # 1. Overview
 
 Each station interface circuit presents itself to the 551 switchboard as a subscriber station. The switchboard provides 24V DC loop current; the station circuit closes the loop (goes off-hook) on command via a relay. Each station detects incoming ring signal, passes bidirectional balanced audio to and from the Ferrofish A32 converter, and injects a pilot tone that allows the game controller to determine which stations are connected to each other through the switchboard.
 
-Boards carry 8 strips each and three are built, 24 strips in all. Twenty-three are stations, 1–22 and 24. Strip 7 of the last board — A32 channel 23 — is not: it is stuffed as the operator tap (§7.9). Strip 8 — A32 channel 24 — is station 24, a real telephone (§7.9.8, Rev 3.49); it carried the audience monitor output from Rev 3.40 to Rev 3.48. All boards are identical; the only per-board difference is the MCP23017 address strap and the A32 D-Sub connector they land on. Rev 3.5 through Rev 3.34 described a staged build of two boards with the third as populated-later capacity; as of Rev 3.35 all three are built and the build state is no longer a variable in this document.
+Boards carry 8 strips each and three are built, 24 strips in all. Twenty-three are stations, 1–22 and 24. Strip 7 of the last board — A32 channel 23 — is not: it is stuffed as the operator tap (§7.9). Strip 8 — A32 channel 24 — is station 24, a real telephone (§7.9.8, Rev 3.49; its section sits under §7.9, Operator Tap Option, though it is not a tap); it carried the audience monitor output from Rev 3.40 to Rev 3.48. All boards are identical; the only per-board difference is the MCP23017 address strap and the A32 D-Sub connector they land on. Rev 3.5 through Rev 3.34 described a staged build of two boards with the third as populated-later capacity; as of Rev 3.35 all three are built and the build state is no longer a variable in this document.
 
 Alongside the stations the switchboard carries 8 trunk circuits, designed separately. They are referenced throughout this document wherever they affect the station design, which is in three places: they share the pilot tone comb (§8), they consume the remaining audio channels (§6), and they take the fourth MCP23017 address on the same I²C bus (§9.2). Thirty-two circuits in total.
 
@@ -179,9 +179,9 @@ TIP  o────────┬──── to ring detector and relay
 RING o────────┴──── to ring detector and relay
 ```
 
-Dx01 is a P6KE120CA bidirectional transient voltage suppressor. Standoff voltage is 102V and breakdown 114–126V — the 120 in the part number is nominal breakdown, not standoff. Both are well above the 24V normal loop voltage, so it does not affect normal operation. The 127V ring voltage peak exceeds the breakdown, so the TVS conducts on the peaks; its rated clamp is 165V, the ceiling on what it lets through. Peak pulse power rating is 600W, adequate for sustained ring conditions.
+Dx01 is a P6KE120CA bidirectional transient voltage suppressor. Standoff voltage is 102V and breakdown 114–126V — the 120 in the part number is nominal breakdown, not standoff. Both are well above the 24V normal loop voltage, so it does not affect normal operation. Ring is about 80V RMS, 113V peak with no load (generator §9.4), so a part at the 114V bottom of the breakdown range may just conduct on the peaks and one at the 126V top will not; the 90V RMS, 127V peak used elsewhere in this document is the earlier design figure, at which it conducts on the peaks. Its rated clamp is 165V, the ceiling on what it lets through. The 600W is a peak pulse rating and says nothing about conduction sustained over a long ring.
 
-The trunk board uses a different part and this is deliberate, correcting an earlier statement here that the two boards share one. The trunk board fits a P6KE150CA (128V standoff, 143–158V breakdown). The reason is directionality: a station only ever receives ring, so mild conduction on the peaks is the protection doing its job, whereas the trunk board originates ring at 127V peak nominal and up to 141V peak no-load, and a 120V-class part there would conduct on every cycle of every ring — loading the generator, distorting the waveform and dissipating power for nothing. Do not standardise the two boards on a single TVS for the sake of a shorter parts list; the correct part on each board is set by that board’s own ring voltage, not by the other board’s.
+The trunk board uses a different part and this is deliberate, correcting an earlier statement here that the two boards share one. The trunk board fits a P6KE150CA (128V standoff, 143–158V breakdown). The reason is directionality: a station only ever receives ring, so mild conduction on the peaks is the protection doing its job, whereas the trunk board originates ring. This was decided at 127V peak nominal and up to 141V peak no-load, the 100V RMS generator of the time, at which a 120V-class part there would conduct on every cycle of every ring — loading the generator, distorting the waveform and dissipating power for nothing. The generator is now about 113V peak (above), and the trunk board keeps the higher part. Do not standardise the two boards on a single TVS for the sake of a shorter parts list; the correct part on each board is set by that board’s own ring voltage, not by the other board’s.
 
 With the line clamped at 165V, worst-case detector input current is (165 − 5) / 20,000 = 8.0mA, far below the HCPL3700M’s 140mA surge rating for 3ms pulses and its 50mA average input rating. The detector cannot be damaged by anything the TVS lets through.
 
@@ -246,13 +246,13 @@ CIT Relay and Switch J104D2C5VDC.15S. DPDT (2 Form C), 5V coil, through-hole PC 
 
  
 
-Base drive: with Rx01 at 1kΩ the base current is (3.3 − 0.7) / 1000 = 2.6mA against a 29.9mA coil, a forced beta of 11.5. The 2N2222A is deeply saturated at that ratio, so Vᴄᴱ(sat) is around 0.1V and the coil sees close to the full rail. The MCP23017 sources 2.6mA comfortably against its 25mA per-pin limit, and because Qx01 switches the low side of a 5V coil the 3.3V logic rail creates no level-shifting problem. Rx02 draws 0.26mA of the base current at 3.3V, which is immaterial against the 2.6mA available.
+Base drive: with Rx01 at 1kΩ the base current is (3.3 − 0.7) / 1000 = 2.6mA against a 29.9mA coil, a forced beta of 11.5. The 2N2222A is deeply saturated at that ratio, so Vᴄᴱ(sat) is around 0.1V and the coil sees close to the full rail. The MCP23017 sources 2.6mA comfortably against its 25mA per-pin limit, and because Qx01 switches the low side of a 5V coil the 3.3V logic rail creates no level-shifting problem. Rx02 draws 0.07mA of the base current, with the base at about 0.7V, which is immaterial against the 2.6mA available.
 
 Qx01 is a 2N2222A as of Rev 3.8, replacing the 2N3904 specified through Rev 3.7. The change is one of stock on hand rather than performance — the 2N2222A has more collector-current headroom and a marginally lower Vᴄᴱ(sat) than the part it replaces, and neither matters at 30mA into a 167Ω coil. Nothing else in this section changes.
 
-What does need attention is the pinout. Order a TO-92 part with EBC pinout and confirm it on the datasheet for the exact orderable part, not on the generic 2N2222A number. The original 2N2222A is a TO-18 metal can and will not fit this footprint at all; TO-92 equivalents such as the onsemi PN2222A and P2N2222A are EBC, but TO-92 parts sold as 2N2222A vary between EBC, CBE and ECB by manufacturer. The footprint is committed at layout and there are 24 of these, so settle it before the boards are ordered.
+What does need attention, on any replacement, is the pinout. Use a TO-92 part with EBC pinout and confirm it on the datasheet for the exact orderable part, not on the generic 2N2222A number. The original 2N2222A is a TO-18 metal can and will not fit this footprint at all; TO-92 equivalents such as the onsemi PN2222A and P2N2222A are EBC, but TO-92 parts sold as 2N2222A vary between EBC, CBE and ECB by manufacturer. The footprint is committed on the board, so check before fitting one.
 
-Use the same part on the trunk board. Mixing pinouts across board types, or across the two station boards and the third when it is fitted, builds a trap for whoever populates the last board — which will probably be you, a year from now, working from this document rather than from memory.
+Use the same part on the trunk board. Mixing pinouts across board types, or across station boards, builds a trap for whoever replaces one — which will probably be you, a year from now, working from this document rather than from memory.
 
 Rx02 is new in this revision and it is not decoration. The MCP23017 powers up with every pin configured as an input, so Port B floats from the moment power is applied until firmware finishes configuring the expander — and again after any subsequent expander reset. A floating base on a small-signal NPN is not reliably off. On a station board the worst case is a station that answers itself before the software is running, which is untidy rather than dangerous; the trunk board has the same window and there a floating driver puts 90V on a line. The resistor costs nothing and the two boards should not differ on this.
 
@@ -275,7 +275,7 @@ Available assumes a 5V rail at its lower tolerance limit less Qx01’s saturatio
 
 Two practical points. The footprint changes from the G5V-1: 2 Form C means eight pins rather than six, and that footprint repeats eight times per board, so pull the actual package dimensions before committing the per-station strip layout.
 
-Second, this part carries a 20-week manufacturer lead time even though distributor stock is currently deep. At roughly $1.39 in hundreds, buy the whole system quantity plus spares in a single order rather than per board — 22 for the three station boards (the tap and monitor strips fit none) and eight for the trunks, 30 in all, and 32 counting those two strips’ unstuffed positions as spares. A four-month wait for a second order would be an avoidable and irritating way to stall the project.
+Second, this part carries a 20-week manufacturer lead time even though distributor stock is currently deep. At roughly $1.39 in hundreds, buy the whole system quantity plus spares in a single order rather than per board — 23 for the three station boards (the tap strip fits none) and eight for the trunks, 31 in all, and 32 counting the tap strip’s unstuffed position as a spare. A four-month wait for a second order would be an avoidable and irritating way to stall the project.
 
 One figure to confirm from the datasheet rather than the distributor attribute table: dielectric strength between open contacts. The open contacts stand off 127V peak during ring, and up to 165V if Dx01 is conducting. Parts in this class are normally rated 750–1000 VAC contact-to-contact, so this should be a non-issue, but the attribute table lists only maximum switching voltage, which is a different specification. With the double-pole break each gap sees roughly half of it in any case.
 
@@ -296,13 +296,13 @@ With the eight trunk circuits included, the system consumes exactly that:
 | A32 analog I/O | 32 in / 32 out | 24 + 8 = 32 | 0 |
 | ADAT link at 48kHz | 32 in / 32 out | 32 | 0 |
 | A32 D-Sub25 pairs | 4 (8 channels each) | 3 station + 1 trunk | 0 |
-| MCP23017 addresses | 8 (0x20–0x27) | 4 mandatory + 4 optional | 0 if LEDs fitted |
+| MCP23017 addresses | 8 (0x20–0x27) | 4, one per board | 4 (0x24–0x27), unused |
 
  
 
-This is worth flagging clearly, because it is a change in kind rather than degree. Rev 3.1 had eight spare channels, a spare D-Sub pair and a spare board slot. The trunks consume all of it. At full build the system is exactly full, and every one of the four limits above lands on the same number at the same time — which is elegant, but it means there is no longer any margin anywhere for a fifth D-Sub of anything.
+This is worth flagging clearly, because it is a change in kind rather than degree. Rev 3.1 had eight spare channels, a spare D-Sub pair and a spare board slot. The trunks consume all of it. As built the system is exactly full, and the first three limits above land on the same number at the same time — which is elegant, but it means there is no longer any margin anywhere for a fifth D-Sub of anything.
 
-All three station boards are built (Rev 3.35), so the four limits above are reached now rather than at some future full build. Twenty-three of the 24 station channels carry stations. Channel 23 is the operator tap (§7.9.6), which consumes an A32 channel in both directions like any other strip; channel 24 is station 24, the real telephone (§7.9.8).
+All three station boards are built (Rev 3.35), so those three limits are reached now rather than at some future full build. Twenty-three of the 24 station channels carry stations. Channel 23 is the operator tap (§7.9.6), which consumes an A32 channel in both directions like any other strip; channel 24 is station 24, the real telephone (§7.9.8).
 
 The practical consequence: a fourth station board cannot be added without expanding the audio hardware. The options at that point are a second A32 with a second Digiface USB, clock-locked and aggregated at the host, or moving the A32-to-host link to MADI. The A32 has MADI on board and MADI carries 64 channels at 48kHz, so a single RME MADI interface in place of the Digiface USB would double the channel budget over one cable and leave the station boards untouched. If there is any real prospect of going past 32 circuits, choosing MADI now rather than later avoids buying the Digiface twice.
 
@@ -360,7 +360,7 @@ A32 ANALOG OUT (+) ──── Rx10 (1kΩ) ──── Tx01 secondary hot
 A32 ANALOG OUT (−) ──── Rx11 (1kΩ) ──── Tx01 secondary cold
 ```
 
-There is no hardware attenuator in this path as of Rev 3.16 — see below. The transmit signal is the sum of voice audio and the two ID tones, mixed in software before the DAC. No hardware mixing is required.
+There is no hardware attenuator in this path as of Rev 3.16 — see below. The transmit signal is the sum of voice audio and the pilot tone, mixed in software before the DAC. No hardware mixing is required.
 
 RV1 is deleted. Earlier revisions carried a 10kΩ dual-gang trim pot here as an optional transmit attenuator, and flagged it as a deletion candidate because the A32 has switchable analog reference levels of +4dBu, +13dBu and +20dBu per channel plus digital gain trim from −8dBu to +20dBu in 1dB steps, all recallable from the front panel. That covers everything RV1 was there to do, and does it with recall.
 
@@ -376,9 +376,9 @@ Measured, 2026-08-24, Analog Discovery 3 network analyser, 10Hz to 100kHz. Triad
 
 Triad SP-70, swept 2026-08-20: passband loss about −7dB, likewise flat through the comb and past the operator tone. Low end −18dB at 10Hz. Driven at 2V.
 
-The TY-311P is specified. It has lower insertion loss, it is flat where the comb and the operator tone live, and at roughly $5.67 against $20.49 it saves about $310 across the 24 needed. Its datasheet band of 300Hz to 3.5kHz understates it considerably — that specification describes a telephone application, not the limit of the part.
+The TY-311P is specified. It has lower insertion loss, it is flat where the comb and the operator tone live, and at roughly $5.67 against $20.49 it saves about $356 across the 24 needed. Its datasheet band of 300Hz to 3.5kHz understates it considerably — that specification describes a telephone application, not the limit of the part.
 
-One sample has been swept. Sweep two or three of the production quantity before committing all 24 to boards. What matters is not the absolute loss but the spread between units at 9kHz: if they track within a dB, one detection threshold serves every channel; if they do not, that is a per-channel calibration problem in the detector rather than an analog one, and it is much cheaper to learn on the bench than after assembly.
+One sample has been swept. The spread between the 24 on the boards is not recorded; sweep two or three to find it. What matters is not the absolute loss but the spread between units at 9kHz: if they track within a dB, one detection threshold serves every channel; if they do not, that is a per-channel calibration problem in the detector rather than an analog one, and it is much cheaper to learn on the bench than after assembly.
 
 Incidental, but worth carrying to layout: the two sweeps showed opposite phase in the passband, around 0° for one and 180° for the other, because one was connected dot-to-dot and the other reversed. Not a fault in either part. Make the footprint's dot convention explicit on the silkscreen and wire all 24 the same way — a single reversed transformer inverts one circuit's audio and nothing else, which is the kind of fault that survives a long time before anyone notices.
 
@@ -386,7 +386,7 @@ Station circuits carry voice audio (300–3400Hz) and the pilot tone comb (6000.
 
 This is the most consequential downstream effect of moving off ultrasonic identification. The old plan needed a Jensen JT-11P-1 or Lundahl LL1527 at every station purely to reach 27.7kHz, and even then the insertion loss at the top of the band was an open question that had to be settled on the bench before 24 units could be ordered. At 8.9kHz that risk disappears. Ordinary 600Ω:600Ω telephone and line-matching transformers reach this comfortably, and the part becomes a cost and availability decision rather than a technical constraint.
 
-Do still measure one before committing to 24. Standard telephone transformers begin rolling off above roughly 4kHz, so expect some attenuation at the top of the comb — a few dB is typical and entirely workable. What matters is that the rolloff is gradual and repeatable, not that it is flat. Sweep 300Hz to 10kHz and record the insertion loss at each pilot frequency.
+The sweep above shows the TY-311P does not roll off there. Other standard telephone transformers begin rolling off above roughly 4kHz, so measure any substitute: expect some attenuation at the top of the comb — a few dB is typical and entirely workable. What matters is that the rolloff is gradual and repeatable, not that it is flat. Sweep 300Hz to 10kHz and record the insertion loss at each pilot frequency.
 
 If the loss at the top of the comb is significant, pre-emphasise the pilot injection level per station in software to equalise the received magnitudes. This is cheap to do and it is worth doing even for a few dB, because it keeps every station’s pilot at a similar level at the far end and lets one threshold value serve all of them. The ratiometric threshold in §8.4 already tolerates unequal levels, so this is refinement rather than necessity.
 
@@ -394,7 +394,7 @@ If the loss at the top of the comb is significant, pre-emphasise the pilot injec
 
 Audio terminates in two D-Sub25 connectors in TASCAM analog pinout, mating with the A32 through a standard male-to-male analog loom with no breakout. J104 carries the board’s eight outputs to the A32 analog input connector; J105 carries the A32’s eight analog outputs back to the board. Channel n on the connector is station n on that board.
 
-Both are female sockets. Earlier revisions of this document specified male, which is wrong, and the trunk document carried the same error before correcting it. The convention across TASCAM-pinout equipment — the A32 included — is a female socket on the gear and a male plug on the loom, so a board-to-A32 run is a male-to-male analog snake, which is a stock item. Do not assume male on the grounds that the board is the source end. Confirm against the A32 before ordering. Note that the trunk document refers to the unit as the A32 Pro: both carry 32 analog channels on four D-Sub25 pairs in each direction with the TASCAM analog pinout, so nothing in this section changes either way, but the digital transport differs and the ADAT budget in §6 assumes the A32. Settle which unit is in the rack before the looms are made up.
+Both are female sockets. Earlier revisions of this document specified male, which is wrong, and the trunk document carried the same error before correcting it. The convention across TASCAM-pinout equipment — the A32 included — is a female socket on the gear and a male plug on the loom, so a board-to-A32 run is a male-to-male analog snake, which is a stock item. Do not assume male on the grounds that the board is the source end. The unit in the rack is the A32 Pro, called the A32 throughout this document: 32 analog channels on four D-Sub25 pairs in each direction with the TASCAM analog pinout, on the ADAT link of §6.
 
 The eight ground pins on each connector are left floating at this board, on the assumption that they are commoned at the A32, and the reasoning is the same as trunk §8.4. Tx01 isolates, Rx08 to Rx11 run between the winding and the converter, and board GND is in none of it. Grounding them at both ends closes a loop that encircles the rack: board GND to the PSU, PSU to mains earth, earth to the A32 chassis, chassis to the cable ground pins, and back to the board. Eight audio channels sharing that loop is the classic way to acquire mains hum and its harmonics. Grounding at one end only is the standard answer, and the A32 is the end that should have it.
 
@@ -443,13 +443,15 @@ One case survives and is worth naming because people are surprised by it: a 6P6C
 
 That control is TVS101, a Littelfuse SP721APP rail-clamp array on SDA and SCL, the same part the trunk and generator boards fit, with a 100nF bypass across its pins 8 and 4 at the device — specified since Rev 3.26 but not on the rev 2 board, so it waits for the next revision (§11). The SP721 does not shunt to ground — it conducts the transient from the IN pin into V+ — so V+ has to be able to source that current locally, or it lifts during the event and the clamp degrades exactly when it is working. Only the V+ side needs it: V− is pin 4 and goes straight to GND, so bypassing that to ground is a zero-length connection. The series resistor the same datasheet note suggests is not fitted, because that note covers automotive load-dump and reverse-battery conditions and series resistance in the V+ feed would raise the clamp’s dynamic impedance. If the station involved is on-hook the array simply clamps. If ring is present, 127V arrives and the array fails short, which pulls the bus down and halts the system rather than passing ring voltage to four expanders and the master. A failure that stops the game is a far better outcome than one that destroys the control system, and the array costs about 3pF against a bus with a large timing margin.
 
-The SP721APP is an 8-PDIP with six protected inputs, clamping each to V+ (pin 8, here +3.3V) or V− (pin 4, here GND) through SCR/diode structures that trigger one VBE beyond the rail. It is specified over the smaller surface-mount ESD arrays because the rest of this board is through-hole and its 3pF per line costs nothing against the bus budget in §9.5 — 6pF on top of roughly 50pF. Four of its six inputs are unused.
+The SP721APP is an 8-PDIP with six protected inputs, clamping each to V+ (pin 8, here +3.3V) or V− (pin 4, here GND) through SCR/diode structures that trigger one VBE beyond the rail. It is specified over the smaller surface-mount ESD arrays because the rest of this board is through-hole and its 3pF per line costs nothing against the bus budget in §9.5 — 6pF on top of roughly 50pF. /RESET takes a third input (§9.4); the other three are unused.
 
 Treat it as sacrificial. Steering 127V into a 3.3V rail is not a rated condition for any part, and it is not meant to be survivable — it is meant to stop the system. Keep spares, and a socket is worth considering given it is a DIP.
 
 Group J7A101 and J7B101 at the high-voltage edge of the board with J104, J105 and the I²C jacks at the opposite edge, and mark the boundary on the silkscreen. Colour-code cables and jacks consistently across every board — station and trunk lines in one colour, I²C cords in another. That is now a convenience rather than the primary control, which is the right place for it to be.
 
 ## 7.9 Operator Tap Option
+
+Station 24, the real telephone on board 3 strip 8, is not a tap. Its section is §7.9.8, here because the strip was the neighbour of the tap and carried the monitor before it; the section numbers are left as they are.
 
 The operator’s talking path needs two things from this system. It needs the 9000.00Hz operator tone injected into it so the game can tell which circuit the operator is patched to, which generator §15 previously provided. And, new at this revision, it needs a tap so the audience loudspeaker can carry what the operator hears and the operator’s own voice.
 
@@ -514,17 +516,17 @@ Low-frequency corner. Cx01 at 0.47µF against the 56kΩ loop puts the corner nea
 
 ## 7.9.4 Where to Tap
 
-The same point generator §15.5 specified for the injector: across tip and ring of the operator’s talking path, on the line side of the 63 induction coil — not the transmitter side, which sits in a DC loop with the carbon element and the 12AD retard coil at a few ohms. Identify the pair on the switchboard itself rather than from the drawing.
+The same point generator §15.4 specified for the injector: across tip and ring of the operator’s talking path, on the line side of the 63 induction coil — not the transmitter side, which sits in a DC loop with the carbon element and the 12AD retard coil at a few ohms. Identify the pair on the switchboard itself rather than from the drawing.
 
 The tap point now determines what the audience hears as well as where the tone goes in, which raises the stakes on getting it right. Across the talking path you get the far end plus the operator’s own sidetone, which is the mix wanted. Across the receiver alone you get the far end, and the operator’s voice only at whatever level the switchboard’s hybrid sets — which will be too quiet, and the monitor would then need a second source after all, which is the outcome this whole arrangement exists to avoid. Confirm it on the bench before committing the wiring.
 
-The run to the switchboard is line wiring like the station and trunk lines: one pair of 300V Cat5e, landed on the tap strip’s RJ45 position per §7.7. The transformer is the galvanic barrier and Rx04/Rx05 limit fault current into it, exactly the arrangement generator §15.5 argued for and for exactly the same reasons. Nothing about that argument changes by moving the transformer from the generator board to a station strip.
+The run to the switchboard is line wiring like the station and trunk lines: one pair of 300V Cat5e, landed on the tap strip’s RJ45 position per §7.7. The transformer is the galvanic barrier and Rx04/Rx05 limit fault current into it, exactly the arrangement generator §15.4 argued for and for exactly the same reasons. Nothing about that argument changes by moving the transformer from the generator board to a station strip.
 
 ## 7.9.5 Bench Verification
 
 The transformer is working into a much higher impedance than it was swept at. §7.5’s measurement drove the TY-311P in a 600Ω system; here the primary sees 44kΩ and the secondary about 12kΩ. Leakage inductance ringing against winding self-capacitance can produce a high-frequency peak in a lightly loaded transformer that does not appear at all in a matched sweep, so the earlier flat result does not carry over and has to be re-measured in this configuration.
 
-Sweep the assembled tap network, 20Hz to 20kHz, with a 600Ω source at the operator terminals and 10kΩ across the A32 input pair standing in for the converter. Expect about −15dB, flat, with the low-frequency corner near 12Hz. If a peak appears above 8kHz, damp the secondary — 2.2kΩ across Tx01's secondary to start, reduced until it flattens — and re-sweep. The rev 2 board has no footprint for it (it was R13 until Rev 3.43), so on the tap strip (board 3 strip 7) it is a resistor bodged across T801's secondary pads; nothing is fitted until the measurement asks for it.
+Sweep the assembled tap network, 20Hz to 20kHz, with a 600Ω source at the operator terminals and 10kΩ across the A32 input pair standing in for the converter. Expect about −15dB, flat, with the low-frequency corner near 6Hz (§7.9.3). If a peak appears above 8kHz, damp the secondary — 2.2kΩ across Tx01's secondary to start, reduced until it flattens — and re-sweep. The rev 2 board has no footprint for it (it was R13 until Rev 3.43), so on the tap strip (board 3 strip 7) it is a resistor bodged across T801's secondary pads; nothing is fitted until the measurement asks for it.
 
 Confirm the A32 analog input impedance from the Ferrofish specification rather than taking the 10kΩ used above. Every receive-level figure in §7.9.3 depends on it, and it is the one number in the chain that came from an assumption rather than a datasheet.
 
@@ -542,11 +544,11 @@ One question the bench cannot answer: whether 9000Hz survives the switchboard’
 
 Strip 7 of board 3 — A32 channel 23 — is the designated tap, and the rest of this document assumes it. Strip 8 of the same board is station 24, a real telephone (§7.9.8, Rev 3.49). Stations are therefore 1–22 and 24.
 
-Rev 3.24 through Rev 3.34 designated station 8 on board 1, and recorded the last strip of the last board as the alternative, rejected because in a two-board build it would have meant putting the tap on station 16 and moving it when the third board arrived. With all three boards built (Rev 3.35) that objection was gone and the tap moved to board 3 strip 8, for contiguous station numbering and a place at the end of the I²C chain and of the station channels rather than in the middle of both. Rev 3.40 moves it one strip over, to strip 7, so that strip 8’s A32 output can carry the audience monitor. The advantages are unchanged, and the tap and the monitor now sit side by side on one board. Nothing electrical changes: the tap is a stuffing option on a strip that is identical on every board (§7.9.1), and moving it is a matter of which strip gets the Rx04/Rx05 pair and omits its relay and ring detector (§7.9.7).
+Rev 3.24 through Rev 3.34 designated station 8 on board 1, and recorded the last strip of the last board as the alternative, rejected because in a two-board build it would have meant putting the tap on station 16 and moving it when the third board arrived. With all three boards built (Rev 3.35) that objection was gone and the tap moved to board 3 strip 8, for contiguous station numbering and a place at the end of the I²C chain and of the station channels rather than in the middle of both. Rev 3.40 moves it one strip over, to strip 7, so that strip 8’s A32 output can carry the audience monitor. The advantages were unchanged, and the tap and the monitor sat side by side on one board until Rev 3.49. Nothing electrical changes: the tap is a stuffing option on a strip that is identical on every board (§7.9.1), and moving it is a matter of which strip gets the Rx04/Rx05 pair and omits its relay and ring detector (§7.9.7).
 
 Channel cost. The tap consumes A32 channel 23 in both directions — the output carries the operator tone, the input carries the default monitor source (§8.8). Channel 24 is station 24 (Rev 3.49). The system is 23 stations, 8 trunks and the tap, which is all 32 A32 channels in both directions; the monitor is on the Digiface's own analog output. Rev 3.35 through Rev 3.39 gave the tap channel 24, left no A32 output for the loudspeaker, and sent the monitor out of the Digiface USB instead; §8.8 keeps that route as the fallback.
 
-Slots 23 and 24 of the pilot comb (bins 688 and 696, 8062.50Hz and 8156.25Hz) go unused while those two strips are the tap and the monitor. Leave them allocated rather than reassigning them. The detector needs no change either way, and a strip reverted to station service gets its pilot back with no firmware edit.
+Slot 23 of the pilot comb (bin 688, 8062.50Hz) goes unused while that strip is the tap; slot 24 (bin 696, 8156.25Hz) is station 24’s pilot. Leave slot 23 allocated rather than reassigning it. The detector needs no change either way, and a strip reverted to station service gets its pilot back with no firmware edit.
 
 ## 7.9.7 Stuffing
 
@@ -572,7 +574,7 @@ Cx01 stays fitted and is doing the same job it does everywhere else. Rx03 does n
 
 ## 7.9.8 Station 24: the Real Telephone Strip
 
-Rev 3.49, real_phone.md Rev 2 (option B, adopted 2026-10-23). Strip 8 of board 3 is station 24: a real telephone, wired across the strip's line pair at the game box (J7B101 pins 7 and 8) and cabled to switchboard jack 10. From Rev 3.40 to Rev 3.48 the strip carried the audience monitor output; the monitor is now on the Digiface's own analog output (audio.md Rev 24).
+Rev 3.49, real_phone.md Rev 2 (option B, adopted 2026-10-23). Strip 8 of board 3 is station 24: a real telephone, wired across the strip's line pair at the game box (J7B101 pins 7 and 8) and cabled to switchboard jack 18. From Rev 3.40 to Rev 3.48 the strip carried the audience monitor output; the monitor is now on the Digiface's own analog output (audio.md Rev 24).
 
 Nothing on the strip feeds the loop. The switchboard's line circuit does, through the phone, so Rx03 is not fitted: the line's DC must be the phone's own for the hook detector to see it. The strip's relay connects the transformer to the line through Cx01, which blocks DC, so closing it changes nothing the switchboard or the detector sees, and the strip is then a line interface in both directions like any station: its pilot, the operator tone, play, listen and the monitor source all work on A32 channel 24.
 
@@ -590,11 +592,11 @@ Nothing on the strip feeds the loop. The switchboard's line circuit does, throug
 
 **Hook detector.** The ring-detector footprint, DC-coupled and with 4.4kΩ in place of 20kΩ, bridges the line and senses its voltage: it conducts while the phone is on-hook and the line sits near 24V, and releases when the phone is lifted and pulls the line down. Measured 2026-10-23 (real_phone.md §5): on-hook 24V, 23.5V with the detector's load; lifted 5.5V, with the answer cord in 7.9V, keyed 7.0V, patched to a station 7.9V. Turn-off is guaranteed below 1.00mA, (7.9 − 4.2) / 4.4kΩ = 0.84mA; turn-on above 3.11mA, (23.5 − 5.5) / 4.4kΩ = 4.1mA. The lamp does not light with the detector's load across an idle line.
 
-**As built (2026-10-23).** Rx06 and Rx07 are 2.2kΩ ¼W for now, the only ones to hand; the 2W parts are on order (Mark). On-hook each dissipates about 39mW. Ringing puts about 0.8W in each, three times the rating: a ring of a few seconds has not hurt them so far, but keep rings on the phone's jack (18 since 2026-10-24) short until the 2W parts are fitted.
+**As built.** Rx06 and Rx07 are 2.2kΩ 2W (Mark, 2026-10-30); ¼W parts were fitted until those came (2026-10-23). On-hook each dissipates about 39mW, and ringing puts about 0.8W in each.
 
 **Ringing.** The operator may ring the phone. The detector then releases near each zero crossing only, about 1.9ms in each 25ms (measured), shorter than the 5ms poll; the firmware latches the change in the expander (control.md §7.4). Rx06 and Rx07 dissipate about 0.8W each at 90V rms, 40% of the PR02's rating.
 
-**A cord at the jack.** Plugging a cord into jack 10 or pulling it out opens the line for 29–192ms (measured); the firmware's hook debounce, 400ms, rides over it (control.md §7.4, Rev 38).
+**A cord at the jack.** Plugging a cord into jack 18 or pulling it out opens the line for 29–192ms (measured); the firmware's hook debounce, 400ms, rides over it (control.md §7.4, Rev 38).
 
 **Transmission.** Measured with the phone off-hook and corded to station 22, both relays closed: 1kHz crosses in 9.3dB each way, reciprocal, against about 5dB for a station–trunk cord pair (audio-io.md). The extra is the phone's own load and T901 bridging it.
 
@@ -614,11 +616,11 @@ This replaces the two-tone DTMF-style scheme used through Rev 3.0. The reasons i
 
 —  The comb lives in the audio band, which is what allows 48kHz operation and everything that follows from it.
 
-## 8.1 Why 6–8kHz Rather Than Ultrasonic
+## 8.1 Why 6–9kHz Rather Than Ultrasonic
 
 The pilots need to be outside the voice band but inside something a 600Ω telephone transformer will actually pass. Placing them just above the voice band satisfies both. A telephone receiver rolls off hard above 3.4kHz, so a pilot an octave above that is heavily attenuated at the earpiece even though it is nominally within human hearing, and at −40dBFS injection it is inaudible in practice.
 
-The change in transformer requirement is the real prize. Rev 3.0 asked the transformer to pass 27.7kHz, which ruled out ordinary telephone transformers and forced a Jensen or Lundahl part at every one of 24 stations. At 8.2kHz the requirement is ordinary. See §7.5.
+The change in transformer requirement is the real prize. Rev 3.0 asked the transformer to pass 27.7kHz, which ruled out ordinary telephone transformers and forced a Jensen or Lundahl part at every one of 24 stations. At 9kHz the requirement is ordinary. See §7.5.
 
 The trade-off is that the pilots are now inside the passband of the audio path rather than above it, so they are present in the recorded signal. Low-pass the receive audio at 4kHz before it is used as voice — the line is band-limited to 300–3400Hz anyway, so nothing is lost — and run the identification FFT on the unfiltered signal. Filter for listening, transform for detection.
 
@@ -670,7 +672,7 @@ The comb carries 32 slots: 24 stations and 8 trunk circuits. Trunks are designed
 
  
 
-Slots 23 and 24 stay in the table and in the comb but are not generated while board 3’s strips 7 and 8 are the operator tap and the audience monitor (§7.9.6). Stations in service are 1–22.
+Slot 23 stays in the table and in the comb but is not generated while board 3’s strip 7 is the operator tap (§7.9.6). Slot 24 is station 24, the real telephone on strip 8 (§7.9.8). Stations in service are 1–22 and 24.
 
 Trunk circuits occupy the top eight slots. Numbering runs from trunk 1 to trunk 8; the slot number in the combined space is 24 plus the trunk number, which is what the detector in §8.7 reports.
 
@@ -691,9 +693,9 @@ The full comb now spans 6000.00Hz to 8906.25Hz. That top figure was already anti
 
 One slot above the comb is now spoken for. Bin 768, exactly 9000.00Hz, carries the operator tone injected into the operator's talking path at the switchboard. As of Rev 3.24 that tone is generated by the host as an ordinary A32 output stream on the operator tap strip’s channel (§7.9) rather than by the ring generator board’s ESP32; the frequency, the injection point and the detector are unchanged. It continues the same eight-bin spacing and is one more bin in an FFT already computed: every station and trunk channel checks bin 768 alongside the comb, and a circuit that hears it is bridged by the operator — see §8.7. That is how the game learns which station or trunk the operator is patched to, which the switchboard gives no electrical indication of.
 
-Bins 776 and upward are reserved rather than free. Generator §15.6 records a deferred extension putting a distinct tone on each of the ten cord pairs, which would identify the cord as well as the connection. If anything else ever wants a comb slot, take it from below bin 512, not above 768.
+Bins 776 and upward are reserved rather than free. Generator §15.5 records a deferred extension putting a distinct tone on each of the ten cord pairs, which would identify the cord as well as the connection. If anything else ever wants a comb slot, take it from below bin 512, not above 768.
 
-What it does cost is the spare capacity. All 32 slots are now allocated, where Rev 3.1 held eight in reserve against a fourth station board. If a fourth board is ever added, extend the comb upward to slots 33–40 — bins 768 to 824, 9000.00Hz to 9656.25Hz — and give those slots to the new stations. Do not renumber the trunks to keep station numbering contiguous with slot numbering; renumbering means reflashing pilot assignments on working hardware to solve a cosmetic problem. Note that a fourth station board runs into the channel limit in §6 before it runs into the comb.
+What it does cost is the spare capacity. All 32 slots are now allocated, where Rev 3.1 held eight in reserve against a fourth station board. If a fourth board is ever added, give the new stations slots 33–40, taken from below bin 512 as above: bin 768 is the operator tone and 776 upward are reserved. Do not renumber the trunks to keep station numbering contiguous with slot numbering; renumbering means reflashing pilot assignments on working hardware to solve a cosmetic problem. Note that a fourth station board runs into the channel limit in §6 before it runs into the comb.
 
 Neighbouring pilots are eight bins apart across the whole comb, including the station-to-trunk boundary, so the guard bins used for the noise-floor estimate in §8.4 stay clear everywhere.
 
@@ -813,7 +815,7 @@ The deaf state is the local health check. A station always hears its own pilot, 
 
 Cross-check reciprocity as a second layer. If station 4 reports trunk 2 as its peer, trunk 2 should report station 4. A one-sided report points to a transmit or receive fault on one of the two rather than a real connection change, and catching it here is much easier than debugging it from the game logic later. Publish the result to the peer topics in §9.10 so the mismatch is visible in the log rather than only inside the audio program.
 
-There is no reciprocity check for op, because the tap strip does not detect. Its health check is the one in §8.4: its own tone returns on its own receive channel, and if that goes, no circuit will hear the operator either. Two related consequences are worth knowing. When the operator is bridged across a connected pair, both ends report op, which is correct and not a fault. And the op flag says the operator is bridged, not which cord or which end was plugged first — generator §15.6 records the deferred cord-tone extension that would add that.
+There is no reciprocity check for op, because the tap strip does not detect. Its health check is the one in §8.4: its own tone returns on its own receive channel, and if that goes, no circuit will hear the operator either. Two related consequences are worth knowing. When the operator is bridged across a connected pair, both ends report op, which is correct and not a fault. And the op flag says the operator is bridged, not which cord or which end was plugged first — generator §15.5 records the deferred cord-tone extension that would add that.
 
 Load is negligible. Thirty-two real 4096-point FFTs every 43ms is under a million operations per second on a machine that is already handling 32 channels of audio, and it comes with a full spectrum per channel for free, which is worth having during commissioning.
 
@@ -872,18 +874,18 @@ Note that U101 is exactly full: eight ring-detect inputs and eight relay drives 
 
 ## 9.2 Addressing
 
-The MCP23017 has three address pins, giving eight addresses from 0x20 to 0x27. With one mandatory expander per board the address plan is straightforward and exactly fills the space at the 24-station target. Three station boards and one trunk board is the whole mandatory allocation; there is no fourth station board, and 0x23 belongs to the trunk:
+The MCP23017 has three address pins, giving eight addresses from 0x20 to 0x27. With one expander per board the address plan is straightforward. Three station boards and one trunk board is the whole allocation; there is no fourth station board, and 0x23 belongs to the trunk:
 
 | **Board** | **Stations** | **U101 address** |
 | --- | --- | --- |
 | 1 | 1–8 | 0x20  (A2:A0 = 000) |
 | 2 | 9–16 | 0x21  (A2:A0 = 001) |
-| 3 | 17–22, tap, monitor | 0x22  (A2:A0 = 010) |
+| 3 | 17–22, tap, 24 | 0x22  (A2:A0 = 010) |
 | Trunk | — (8 trunks) | 0x23  (A2:A0 = 011) |
 
  
 
-Strap A0–A2 with SW101, the 3-position DIP switch, rather than hard-wiring. Every station board is then identical and interchangeable, which matters when one comes off the rack for repair and matters more when the third board is fitted and has to take 0x22 without rework. The trunk board does the opposite — its address pins are wired straight to +3.3V and GND, no switch and no links — because there is exactly one of it and nothing to distinguish; see trunk §10.2. That difference between the two boards is deliberate, not an inconsistency between the documents.
+Strap A0–A2 with SW101, the 3-position DIP switch, rather than hard-wiring. Every station board is then identical and interchangeable, which matters when one comes off the rack for repair. The trunk board does the opposite — its address pins are wired straight to +3.3V and GND, no switch and no links — because there is exactly one of it and nothing to distinguish; see trunk §10.2. That difference between the two boards is deliberate, not an inconsistency between the documents.
 
 SW101 alone is not enough, and this is a correction rather than an addition. The MCP23017's three address pins have no internal pull-up or pull-down and have to be biased externally, so a bank of three SPST switches defines the address in one position and leaves it floating in the other. Rev 3.5 through Rev 3.24 specified the switch and no resistors, which would have produced a board whose address depended on leakage and on what was next to it — and an expander that answers intermittently at the wrong address is a fault that presents as a bus problem rather than a strapping one.
 
@@ -903,7 +905,7 @@ If a further expander is ever needed the escape hatch is cheap: the ESP32 has tw
 
 The ESP32 GPIO pins are not 5V tolerant. The MCP23017 will run from 1.8V to 5.5V and would work fine at 5V, but its bus pull-ups would then sit at 5V and would damage the ESP32. Run Vᴅᴅ on every expander from the 3.3V rail. The relay coils stay on 5V; because Qx01 switches the low side, nothing crosses between the two domains.
 
-This is the most likely thing to get wrong when adapting a Raspberry Pi design, since the Pi tolerates the same mistake no better but the older schematic shows a 5V part.
+The Rev 2.1 schematic, drawn for a Raspberry Pi master, shows a 5V part. Do not copy it: the Pi tolerates the mistake no better than the ESP32.
 
 ## 9.4 Bus Topology and Connectors — J101, J102
 
@@ -939,11 +941,11 @@ Use straight-through cords and verify rather than assume. Standard voice line co
 
 Positions 1 and 6 carry /RESET and its return. The line comes from GPIO5 on the Olimex, arrives at J101, passes through to J102 in parallel with SDA and SCL, and goes to pin 18 of U101. Generator §4.7 owns the design; what matters on this board is four things.
 
-First, fit a 10kΩ pull-up to +3.3V on the /RESET line on every board — R102 (§11). This is deliberately the opposite of the DO NOT FIT rule for the I²C pull-ups in §9.3. On a static line driven by a CMOS output, three 10kΩ resistors in parallel are 3.3kΩ and nothing notices; what they buy is that a board unplugged from the chain still holds its own expander out of reset rather than leaving pin 18 floating, which the MCP23017 does not tolerate.
+First, fit a 10kΩ pull-up to +3.3V on the /RESET line on every board — R102 (§11). This is deliberately the opposite of the rule for the I²C pull-ups in §9.5. On a static line driven by a CMOS output, four 10kΩ resistors in parallel, the trunk board’s included, are 2.5kΩ and nothing notices; what they buy is that a board unplugged from the chain still holds its own expander out of reset rather than leaving pin 18 floating, which the MCP23017 does not tolerate.
 
 Second, /RESET now leaves the board on a jack that a station line can be mis-plugged into, so it takes a third input of TVS101 alongside SDA and SCL. The SP721APP has six inputs and this is the third — see §7.8.
 
-Third, and this is the part worth thinking about before using it: a reset drops every off-hook relay on the board. The MCP23017 returns to IODIR = 0xFF with every pin an input, Rx02 holds the drivers off, and any station that was connected is released. That is the same window §5.2 describes at power-on, with the difference that it can now be entered on command. Firmware should assert /RESET at startup and on a detected bus fault, not as routine housekeeping.
+Third, and this is the part worth thinking about before using it: a reset drops every off-hook relay on the board. The MCP23017 returns to IODIR = 0xFF with every pin an input, Rx02 holds the drivers off, and any station that was connected is released. That is the same window §5.3 describes at power-on, with the difference that it can now be entered on command. Firmware should assert /RESET at startup and on a detected bus fault, not as routine housekeeping.
 
 Fourth, filter the line at the pin: 100nF from U101 pin 18 to GND, as close to the pin as the layout allows (Rev 3.43). The rev 2 boards carry it as a bodge; it takes C109 at the next revision. /RESET is a long, high-impedance line — the cord, every board, and only 10kΩ pull-ups holding it up — and the MCP23017 resets on a pulse of about a microsecond. On the bench, a relay switching on the board reset the expander about once per board test until the capacitor was fitted, and never after. With R102 it is a 1ms time constant, well inside the 2ms pulse and 5ms settle of control.md §6.2.
 
@@ -973,7 +975,7 @@ That isolation is worth paying for in this application. The controller shares an
 
 There is a trap in the power budget worth stating plainly. 802.3af nominally delivers 12.95W to the powered device, which looks like ample headroom to run relays from the Ethernet cable. It is not available. The ESP32-POE-ISO achieves its isolation with a 2W DC-DC converter, and that converter, not the PoE standard, is the binding constraint. The ESP32 itself draws 50–200mA depending on mode, so essentially nothing is left over.
 
-Power the controller from PoE and everything else from a local supply. Twenty-four station relays alone come to about 4W at 5V, with the trunk board and logic rails on top, so the station and trunk boards need their own PSU regardless — see §10. Grounds must still be common between the controller and the boards for I²C to work; the isolation is on the Ethernet side, not the I²C side.
+Power the controller from PoE and everything else from a local supply. Twenty-three station relays alone come to about 3.4W at 5V, with the trunk board and logic rails on top, so the station and trunk boards need their own PSU regardless — see §10. Grounds must still be common between the controller and the boards for I²C to work; the isolation is on the Ethernet side, not the I²C side.
 
 ## 9.9 Switch Requirements
 
@@ -991,7 +993,7 @@ Moved to mqtt.md §2 at Rev 3.34: QoS 1 throughout, state retained and commands 
 
 ## 9.12 Failure Handling
 
-Moved at Rev 3.34. The protocol — birth message and last will on ctl/status, the two heartbeats and why both are needed, the sync handshake — is mqtt.md §8. What the ESP32 does about each failure, including the full list of conditions on which every relay is released, is control.md §10. The broker security note is mqtt.md §9. What stays here is the hardware fact those sections rest on: nothing on the host can open a relay, so every failsafe has to be in the controller, and Rx02 (§5.2) is what holds the relays off before the controller is running at all.
+Moved at Rev 3.34. The protocol — birth message and last will on ctl/status, the two heartbeats and why both are needed, the sync handshake — is mqtt.md §8. What the ESP32 does about each failure, including the full list of conditions on which every relay is released, is control.md §10. The broker security note is mqtt.md §9. What stays here is the hardware fact those sections rest on: nothing on the host can open a relay, so every failsafe has to be in the controller, and Rx02 (§5.3) is what holds the relays off before the controller is running at all.
 
 # 10. Power
 
@@ -1029,7 +1031,7 @@ Two consequences land back on this board. First, set the LRS-150 output to 24.0V
 
  
 
-Size for the all-on case, not a typical case. The whole point of the switchboard is that an operator can be working many circuits at once, and a supply that sags when the room gets busy presents as intermittent loop-current faults that are very hard to diagnose from the software side. Across three station boards and one trunk board that is 32 coils, roughly 957mA of 5V load and about 285mA on the 24V bus.
+Size for the all-on case, not a typical case. The whole point of the switchboard is that an operator can be working many circuits at once, and a supply that sags when the room gets busy presents as intermittent loop-current faults that are very hard to diagnose from the software side. Across three station boards and one trunk board that is 31 coils, the tap strip having none, roughly 927mA of 5V load and about 277mA on the 24V bus.
 
 Rail tolerance matters more than the headline current here. The relay coil margin in §5.4 is calculated against the 5V rail at its lower limit, so a converter that sags under the all-on load eats directly into pull-in margin. Size for the all-on case and check the rail under it rather than assuming.
 
@@ -1041,7 +1043,7 @@ Prefer a 36V-rated part over the common 28V-maximum modules such as the Recom R-
 
 Derive 3.3V with an LDO from the 5V rail rather than a second switcher. The load is about 50mA at a 1.7V drop, so dissipation is 85mW and almost any small LDO will do. An LDO also gives the logic rail good rejection of whatever the switcher is doing, which is worth having on the rail that feeds the ring detector outputs.
 
-Note the package. SOT-223, specified through earlier revisions, is surface mount and sits oddly on a board that is otherwise entirely through-hole — the same objection that ruled out the SS34 for D101 and kept TVS101 on the SP721APP. The MCP1826S-3302E/AB in TO-220-3 is the through-hole variant and is what this design uses. Thermally it is enormous overkill for 85mW and that costs nothing; the price is board area, roughly 10 × 4.5mm plus height, one per board. Confirm the tab connection on the datasheet before layout — on most 3-pin TO-220 regulators it is common with the ground pin, which is harmless, but it is exposed metal near the 24V rail. The AMS1117-3.3 named as an alternative in earlier revisions exists only in SOT-223 and is dropped.
+Note the package. SOT-223, specified through earlier revisions, is surface mount and sits oddly on a board that is otherwise entirely through-hole — the same objection that ruled out the SS34 for D101 and kept TVS101 on the SP721APP. The MCP1826S-3302E/AB in TO-220-3 is the through-hole variant and is what this design uses. Thermally it is enormous overkill for 85mW and that costs nothing; the price is board area, roughly 10 × 4.5mm plus height, one per board. Confirm the tab connection on the datasheet — on most 3-pin TO-220 regulators it is common with the ground pin, which is harmless, but it is exposed metal near the 24V rail. The AMS1117-3.3 named as an alternative in earlier revisions exists only in SOT-223 and is dropped.
 
 ## 10.4 Capacitive Load at the Converter Output
 
@@ -1105,7 +1107,7 @@ Worth stating what the loop current does come from, since §10.2 has caused conf
 | Rx01 ×8 | 1kΩ, 0.25W | Qx01 base resistor. Formerly R4. |
 | Qx01 ×8 | 2N2222A (TO-92, EBC) | NPN relay driver transistor. Formerly Q2. |
 | Dx02 ×8 | 1N4148 | Relay flyback diode. Formerly D5. |
-| Kx01 ×8 | CIT J104D2C5VDC.15S | DPDT (2 Form C) off-hook relay, 5V/167Ω/29.9mA coil, sealed THT. Both poles used — one per leg. 20-week factory lead time. 22 across the three boards — the tap and monitor strips on board 3 fit none — order the system quantity in one order, with the trunk board's 8 on top. Formerly RLY1. |
+| Kx01 ×8 | CIT J104D2C5VDC.15S | DPDT (2 Form C) off-hook relay, 5V/167Ω/29.9mA coil, sealed THT. Both poles used — one per leg. 20-week factory lead time. 23 across the three boards — the tap strip on board 3 fits none — order the system quantity in one order, with the trunk board's 8 on top. Formerly RLY1. |
 | Cx01 ×8 | 0.47µF, 250V film | Tx01 primary DC block and ring overlap protection. Formerly C3. |
 | Tx01 ×8 | Triad TY-311P, 600Ω:600Ω | Audio isolation transformer. Needs usable response to ~9kHz only — see §7.5. Specialty wideband parts no longer required. Formerly T2. |
 | Rx08, Rx09 ×8 | 1kΩ, 0.25W matched pair | Receive balanced output series resistors. Formerly R5, R6. |
@@ -1129,21 +1131,21 @@ Worth stating what the loop current does come from, since §10.2 has caused conf
 | R105, R106 | 0Ω | D-Sub ground pins to board GND, one per DB25: R105 for J104, R106 for J105. **DO NOT FIT** — footprints only, unfitted on the rev 2 board; the D-Sub grounds float at the board — see §7.6. |
 | J101, J102 | Amphenol ICC 87180-066LF | 6P6C modular jack, right angle, unshielded, THT. I²C in and out — two per station board, wired in parallel. Würth 615006138421 or Assmann A-2004-1-4-N-R equivalent. Pinout in §9.4. Formerly J3A, J3B. |
 | J7A101, J7B101 | Amphenol ICC RJHSE5380 | RJ45 shielded right-angle jack, EMI finger, no LEDs or magnetics, gold 50µin. Station tip/ring, four stations per connector. Pinout in §7.7. 14-week factory lead time — buy spares in the first order. Confirm dielectric withstanding voltage from the Amphenol datasheet; the distributor attribute table lists none. Formerly J7A, J7B. |
-| TVS101 | Littelfuse SP721APP, 3pF SCR/diode rail-clamp array | ESD and mis-plug protection on SDA and SCL. 8-PDIP through-hole, 6 inputs, 3pF per line. Rail clamp, not a fixed-breakdown TVS: V+ (pin 8) to +3.3V, V- (pin 4) to GND, SDA and SCL to two of the six inputs, four spare. Sacrificial after a mis-plug — keep spares and consider a socket, since it is a DIP anyway. See §7.8. Not optional now that RJ45 is on the board. Formerly TVS2. |
+| TVS101 | Littelfuse SP721APP, 3pF SCR/diode rail-clamp array | ESD and mis-plug protection on SDA, SCL and /RESET. 8-PDIP through-hole, 6 inputs, 3pF per line. Rail clamp, not a fixed-breakdown TVS: V+ (pin 8) to +3.3V, V- (pin 4) to GND, SDA, SCL and /RESET to three of the six inputs, three spare. Sacrificial after a mis-plug — keep spares and consider a socket, since it is a DIP anyway. See §7.8. Not optional now that RJ45 is on the board. Formerly TVS2. |
 | — | 0.1µF ceramic, 50V | Bypass across TVS101, pin 8 (V+) to pin 4 (V−), at the device. **Not on the rev 2 board** — specified since Rev 3.26 and missed in the drawing; it waits for the next board revision (TODO.md). The SP721 clamps by conducting the transient from its IN pin into V+, so V+ must source that current locally or it lifts while the clamp is working. TVS101 sits at J101/J102 by design, away from U101 and the LDO, so C101 and C107 are too far to serve. Formerly C18. |
 | J103 | 2-pin screw terminal | Board supply in: +24V BRD, GND. Star-wired from the PSU terminals — see §10.1. Formerly J5. |
-| J106 | 2-pin screw terminal | MONITOR: the audience monitor output on board 3 strip 8’s transmit pair, pin 2 AOUT+_8 (hot), pin 1 AOUT−_8 (cold), at the J105 side of R910/R911. Fitted on every board; used on board 3 only — see §7.9.8. New on the rev 2 board. |
+| J106 | 2-pin screw terminal | MONITOR, unused since Rev 3.49: it carried the audience monitor output on board 3 strip 8’s transmit pair, pin 2 AOUT+_8 (hot), pin 1 AOUT−_8 (cold), at the J105 side of R910/R911. Fitted on every board — see §7.9.8. New on the rev 2 board. |
 | SW101 | CTS 206-3ST | MCP23017 address strap A0–A2. SPST, 3 position, through hole, slide actuator, 2.54mm pitch in a DIP-6 footprint, 50mA / 24VDC. Top tape and bottom epoxy seal — worth the small premium over the unsealed 206-3, because this switch is set once and then left for years, and flux ingress presents later as an expander that intermittently vanishes from the bus. Not the right-angle variants (206-3RAS, 194-3MST, 195-3MSN); those actuate off the board edge. Formerly SW1. |
-| Rx02 ×8 | 10kΩ, 0.25W | Qx01 base pulldown. Not optional — holds the driver off while Port B floats between reset and configuration. See §5.2. Formerly R_pd. |
+| Rx02 ×8 | 10kΩ, 0.25W | Qx01 base pulldown. Not optional — holds the driver off while Port B floats between reset and configuration. See §5.3. Formerly R_pd. |
 | R102 | 10kΩ, 0.25W | /RESET pull-up to +3.3V, one per board. Fitted on every expander board — deliberately the opposite of the rule that leaves the bus pull-ups to the generator, and for the reason in §9.4. Required in the text since Rev 3.11; the designator is new in Rev 3.25. Formerly R18. |
 | C109 (bodge) | 0.1µF ceramic, 50V | /RESET filter, U101 pin 18 to GND, at the pin. One per board. With R102 a 1ms time constant, so a spike coupled into the bus cord cannot reset the expander, while a deliberate reset — 2ms low, 5ms settle (control.md §6.2) — still works. Added at Rev 3.43 — see §9.4. Bodged onto the rev 2 boards; C109 is its designator at the next revision. Formerly C19. |
 | R101, R103, R104 | 10kΩ, 0.25W | MCP23017 address bias: A0, A1, A2 to +3.3V, with SW101 closing each pin to ground. New in Rev 3.25. Without them the address pins are undefined with the switch open — see §9.2. Three per board. Formerly R19, R20, R21. |
 | Cable — station lines | Cat5e, 300V (CM/CMR) | Voltage rating is not optional at 127V peak. Check the jacket print — patch cords are often marked 30V or 72V. |
-| Cable — I²C | 4- or 6-conductor modular, STRAIGHT-THROUGH | Not a standard voice line cord — those are reversed and short the bus to ground. See §9.4. |
+| Cable — I²C | 6-conductor modular, STRAIGHT-THROUGH | Not a standard voice line cord — those are reversed and short the bus to ground. See §9.4. |
 
  
 
-Three boards: 24 of each per-strip part and 3 × U101, less the parts §7.9.7 and §7.9.8 leave off the tap and monitor strips. No pull-ups on this board in either case — the single 2.2kΩ pair for the whole bus is on the ring generator board (its R1 and R2), and this board has no footprints for them.
+Three boards: 24 of each per-strip part and 3 × U101, less the parts §7.9.7 and §7.9.8 leave off the tap strip and station 24’s. No pull-ups on this board in either case — the single 2.2kΩ pair for the whole bus is on the ring generator board (its R1 and R2), and this board has no footprints for them.
 
 # 12. PCB Layout Notes
 
@@ -1165,7 +1167,7 @@ Three boards: 24 of each per-strip part and 3 × U101, less the parts §7.9.7 an
 
 —  Place the DC-DC converter, its input capacitors and its output capacitor in one tight corner well away from the transformer strip and both D-Sub connectors, with a ground pour between. Its switching node and input loop are the only radiators on an otherwise passive board, and the audio lines are the only thing on the board that would care.
 
-—  Keep the 24V board input entirely separate from the tip and ring traces — different connector, different side of the board, clearly labelled on the silkscreen. These are two unrelated 24V supplies and the consequence of bridging them is a switchboard that reads every station as off-hook.
+—  Keep the 24V board input entirely separate from the tip and ring traces — different connector, different side of the board, clearly labelled on the silkscreen. They come from one battery (§10.1) but meet only at the PSU terminals, and the consequence of bridging them on the board is a switchboard that reads every station as off-hook.
 
 —  Place the two DB25 connectors on the board edge with the eight balanced pairs routed as differential pairs with matched length. Keep them away from the relay bank and the ring detector strip.
 
@@ -1175,7 +1177,7 @@ Three boards: 24 of each per-strip part and 3 × U101, less the parts §7.9.7 an
 
 —  Place Rx04 and Rx05 inside the per-station strip so the strip stays a single replicated block — they are unstuffed on seven strips out of eight and must not become a reason to hand-place one of them. Rx04 and Rx05 sit directly across the Kx01 pole A and pole B NO contacts, in the high-voltage zone with the same 3mm creepage as the ring detector section. They are placed on all eight strips because the strip is laid out once and replicated; a do-not-populate flag in the schematic does not remove a footprint from the board, so replication and correct stuffing are not in tension (§7.9.1). Mark them on silkscreen as tap-only: a strip with Rx04/Rx05 fitted AND Kx01 fitted leaves 22kΩ permanently bridging the contacts, which puts Cx01 and Tx01 partly on the line with the station on-hook. That is a wiring fault, and it is invisible once the board is in the rack.
 
-—  The audience monitor output leaves on J106, a two-way terminal on strip 8’s transmit pair, J105 side of R910 and R911, at the low-voltage edge with J104 and J105 (§7.9.8). It is on the rev 2 board, as asked for here at Rev 3.40. It must not be RJ45 (§7.7) or 6P6C (§7.8), and it is neither.
+—  J106, a two-way terminal on strip 8’s transmit pair, J105 side of R910 and R911, sits at the low-voltage edge with J104 and J105. It is on the rev 2 board, as asked for here at Rev 3.40, for the audience monitor output, and has been unused since the monitor moved at Rev 3.49 (§7.9.8). It must not be RJ45 (§7.7) or 6P6C (§7.8), and it is neither.
 
 # 13. Safety Notes
 
@@ -1192,6 +1194,18 @@ Three boards: 24 of each per-strip part and 3 × U101, less the parts §7.9.7 an
 —  Do not connect station boards to a live PSTN line. Designed for 551 switchboard connection only.
 
 # 14. Revision History
+
+## 14.52 Changes in Rev 3.52
+
+— Text that no longer described the boards as built or contradicted itself is corrected, Mark's request, 2026-10-30. The wording is changed only where it misled, and sections are not renumbered. Station 24 is on jack 18 and strip 8 is no longer written of as the monitor: relay count (31 with the trunks), coil load, slots 23 and 24, the address table, J106 (unused). §1 and §7.9 point to §7.9.8. Ring against Dx01 is about 113V peak, and the 600W is stated as a pulse rating (§4.1). /RESET is on a third TVS101 input, so three are spare, and four boards' pull-ups are 2.5kΩ. Fourth-board slots come from below bin 512. The MCP23017 address limit has four spare; three limits are full (§6). Figures corrected: Rx02 0.07mA, $356, the tap corner 6Hz. Cross-references corrected to §5.3, §9.5 and generator §15.4 and §15.5. Stale build-state wording is corrected in §5.3, §7.5, §7.6, §8.1, §9.3 and §10.3.
+
+— No code consequence.
+
+## 14.51 Changes in Rev 3.51
+
+— Station 24's Rx06 and Rx07 are the 2W parts, as fitted (§7.9.8), Mark, 2026-10-30. The schematic guide is archived, in `docs/archive/`.
+
+— No code consequence.
 
 ## 14.50 Changes in Rev 3.50
 

@@ -1,5 +1,7 @@
 # Ring Generator Board — KiCad Schematic Drawing Guide
 
+*Archived 2026-10-30. A record of how this schematic was drawn; the board is built and this guide is not kept current, so its footprints, pin names and some parts have gone stale. The schematic in `kicad/` is what was built.*
+
 > **Follows `ring_generator.md` Rev 72 for designators, 2026-10-05.** Every reference in this guide's tables, netlists and prose is the board's as built (`kicad/control`), the names `ring_generator.md` uses from Rev 72. The board was drawn with a different assignment from the one this guide planned; §1's table maps the guide's planned references and the document's former names to the board. The wiring this guide describes is still its pre-build plan where the board differs — the 74HCT04 gate assignment, J1's four pins, the SP721 pins — and `ring_generator.md` §5.1, §10 and §11 are the authority for what was built. §4 is a record and keeps the names it was written with.
 
 Derived from ring generator Rev 32 §10 and §11, and the KiCad library plan.

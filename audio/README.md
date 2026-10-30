@@ -16,8 +16,10 @@ and three threads:
 | analysis | 32 × 4096-point FFT per hop, the pilot detector | normal |
 | MQTT | libmosquitto, file loading, all publishing | normal (it is the main thread) |
 
-They share two lock-free queues and nothing else. Nothing allocates, logs, locks or
-touches a file in the audio thread.
+They share three lock-free queues, the hop snapshots, the sample rings of the recording
+and its playback, and some atomics (`audio.md` §3). Nothing allocates, logs, locks or
+touches a file in the audio thread, except when recovering from an xrun, when the
+deadline has already been missed.
 
 ## Build
 
@@ -51,11 +53,9 @@ this program's: `/etc/sbgame/mqtt-audio.pass`, 640 `root:sidell`, made with the 
 by the steps in `host/README.md`, and user `sbgame-audio` is its broker entry.
 
 The channel map is `audio.md` §2 and `docs/pilot-map.md`: stations on document channels
-1–22, the operator tap on 23, the audience monitor out of 24 — the A32 output wired to
-the loudspeaker amplifier — and trunks on 25–32. `--monitor-ch 33,34` sends the monitor
-to the Digiface's own analog pair instead, which is what Rev 1 to Rev 6 did and is the
-fallback if the A32 output proves unsuitable; those channels are silent otherwise.
-Capture channel 24 is read by nothing. The map in use is printed at startup, beside the
+1–22 and 24, the operator tap on 23, and trunks on 25–32. The audience monitor is on the
+Digiface's own analog pair, 33 and 34, and the installation uses 33 (`--monitor-ch 33`).
+All 32 capture channels are read. The map in use is printed at startup, beside the
 negotiated ALSA parameters, so a wiring check can be made from the journal.
 
 Without hardware, an ALSA loopback card is enough to exercise everything but the
@@ -101,12 +101,12 @@ The wav directory does not exist yet — no content is authored. Create
 
 ## Commissioning
 
-`audio.md` §15 is the order, and none of it has been done: every level here is the
-document's figure and not a measurement. The first two steps need nothing but the
+`audio.md` §15 is the order, §14 has the levels the installation sets, and §16 those
+still at the document's figure. The first two steps need nothing but the
 switchboard and a terminal:
 
 1. `mosquitto_sub -v -t 'sbgame/#'` with no game program. Every circuit — stations
-   1–22, trunks 1–8, and nothing under `station/23` or `station/24` — should show
+   1–22 and 24, trunks 1–8, and nothing under `station/23` — should show
    `peer` empty, `op` off, `optone` ok and `audio_status` online within a second. A
    `deaf` is a wiring fault on that circuit's own strip or D-Sub channel.
 2. `sbaudio --dump station/5 10 > clock.csv` with nothing patched. Station 5's own pilot

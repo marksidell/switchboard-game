@@ -220,10 +220,11 @@ private:
     bool test_on_[chan::N_PLAY_CH + 1] = { false };
     bool mon_out_[chan::N_PLAY_CH + 1] = { false };  // --monitor-ch, by channel
 
-    // ---- monitor (audio.md 10): capture 23 (the tap) -> mon_hp_ ->
-    // mon_lp_[0..3] -> + a file on prog_[MONITOR_PROG] through its own mon_lp_ ->
-    // gain -> lim_ -> mon_row_ -> the playback channels --monitor-ch names,
-    // 24 by default
+    // ---- monitor (audio.md 10.1): the source's capture (the tap, 23, unless
+    // named) -> mon_hp_ -> mon_lp_[0..3] -> gate_dly_ -> the gate -> the peer
+    // boost -> + a file on prog_[MONITOR_PROG] through its own mon_lp_ -> gain ->
+    // lim_ -> mon_row_ -> the playback channels --monitor-ch names, 33 and 34 by
+    // default
     Biquad                   mon_hp_;       // 150 Hz high-pass
     std::vector<Biquad>      mon_lp_;       // elliptic low-pass, 4 sections
     BiquadState              mon_hp_s_;

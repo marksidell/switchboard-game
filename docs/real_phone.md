@@ -1,9 +1,9 @@
-# 551 Switchboard Simulator — A Real Telephone on the Board (Proposal)
+# 551 Switchboard Simulator — A Real Telephone on the Board (Decision Record)
 
-Rev 4 — 2026-10-30. Adopted, option B (Mark, 2026-10-23). The parts of it that are
-design go into `station_circuit.md`, `audio.md`, `pilot-map.md`, `control.md`, `mqtt.md`
-and `game_control.md` (§6 below), and this document becomes the record of how the
-decision was reached.
+Rev 5 — 2026-10-30. Adopted, option B (Mark, 2026-10-23). The design is now in
+`station_circuit.md` §7.9.8, `audio.md`, `pilot-map.md`, `control.md` §7.4, `mqtt.md` and
+`game_control.md` §8. This document is the record of how the decision was reached, and
+its proposal text is as it was then.
 
 ## 1. What it is for
 
@@ -28,7 +28,7 @@ phone is off-hook.
 ## 3. Hardware: board 3 strip 8
 
 The phone uses board 3 strip 8's line pair. The pair already runs from the switchboard to
-the game box and is unused on the line side: the strip carries the audience monitor
+the game box and was unused on the line side: the strip carried the audience monitor
 (J7B101 pins 7/8; station §7.9.8). The phone is wired across it at the game box.
 It is cabled to switchboard jack 18, room 203 (Mark, 2026-10-24; jack 10, room 405, from
 2026-10-23): bundle 2,
@@ -131,30 +131,11 @@ The worst off-hook case, 7.9 V, is 0.6 V under the 8.5 V limit: 0.84 mA against 
 1.00 mA worst-case turn-off. The §3.1 values stand. (2 × 2.4 kΩ would split the margin
 more evenly, 3.75 mA on and 0.77 mA off, but 2.2 kΩ meets both worst cases.)
 
-## 6. If adopted
-
-**Hardware and the circuit plan:**
-
-- `station_circuit.md`: strip 8 becomes a phone line interface (relay, Cx01, Tx01; no
-  Rx03), with the hook detector of §3.1.
-- `pilot-map.md` and `audio.md`: slot 24 becomes a circuit again. The monitor defaults
-  to 33/34.
-
-**Control and wire:**
-
-- `control.md`: the hook input; masking it during ringing; the relay under game
-  command.
-- `mqtt.md`: a hook topic, e.g. `sbgame/phone/hook`, and the relay command.
-
-**Game and content:**
-
-- `game_control.md`: a free-call mode outside the deal, which is not scored and keeps
-  the called room busy for dealing. Each room's guest comes from the game's `occupants`.
-- `script.yml`: a new `freecall:` section. Per guest: a greeting that names them, about
-  10–14 vague replies cycled without end, and a "who is this?" — about 15 × 22 ≈ 330 clips,
-  rendered as every other line is. The guest nudges after about 8 s of silence.
-
 ## Revision History
+
+### Changes in Rev 5
+
+- Retitled a decision record, and §6's list of what adoption would change removed, since all of it is done (Mark, 2026-10-30).
 
 ### Changes in Rev 4
 

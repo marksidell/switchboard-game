@@ -1,9 +1,10 @@
 # Host configuration — portland
 
 The broker, the page's web server and the certificate renewal hook, as they
-stand on the Linux host. `mqtt.md` §9 and §9.1 are the specification; this
-directory is what was actually installed, so that rebuilding the host is a
-checkout and a `make install` rather than an afternoon of reading.
+stand on the Linux host. `mqtt.md` §9 specifies the broker and its access list;
+this directory is what was actually installed, so that rebuilding the host is a
+checkout and a `make install` rather than an afternoon of reading. The
+certificate, the name and nginx's settings have their only description here.
 
 ```sh
 make diff       what on the host differs from this tree
@@ -70,6 +71,85 @@ make install
 `certbot certonly` writes `/etc/letsencrypt/renewal/game.kr3am.org.conf` itself;
 it is not kept here, because recreating it by hand rather than by that command
 would leave the account and the plugin out of step with it.
+
+## nginx
+
+`etc/nginx/sites-available/sbgame` is enabled, with the distribution's default
+site removed; `make install` does both. nginx terminates TLS, serves the page's
+files and proxies `/mqtt` to Mosquitto (`mqtt.md` §9).
+
+- `listen 443 ssl http2` is the form Ubuntu 24.04's nginx 1.24 takes. The
+  `http2 on` directive is 1.25.1 and later.
+- The read and send timeouts are an hour because a game can sit idle between
+  calls and the socket must not be dropped for it.
+- The master process runs as root and reads the certificate straight from
+  `/etc/letsencrypt/live`, so no copy of the key is made.
+- The page's files are read by the worker, as `www-data`, from `/srv/sbgame/web`,
+  which is world-readable.
+
+## The certificate
+
+Let's Encrypt, for `game.kr3am.org`, by the DNS-01 challenge through Route 53:
+
+```sh
+apt install certbot python3-certbot-dns-route53
+certbot certonly --dns-route53 -d game.kr3am.org
+```
+
+The plugin writes the TXT record `_acme-challenge.game.kr3am.org`, waits for it
+to propagate, and removes it after validation. It uses the AWS credentials of the
+user certbot runs as, which is root, from `/root/.aws/credentials`. Those belong
+to an IAM user whose policy, `iam/certbot-route53.json`, allows only what the
+plugin needs: `route53:ListHostedZones` and `route53:GetChange` on everything,
+and `route53:ChangeResourceRecordSets` on kr3am.org's hosted zone alone.
+
+The credentials go under `[default]`, in the root account, which has no other
+AWS use. The last section below says why.
+
+**Renewal.** The certbot package installs a systemd timer that runs `certbot
+renew` twice a day, and a certificate is renewed once it is within 30 days of
+expiry. No cron job is written. Renewal needs the host to reach Let's Encrypt and
+Route 53, which it does at home. On the road it may not, and does not need to: a
+certificate last renewed at home has at least 30 days left.
+
+**Handing it to nginx.** Nothing is copied and the key never leaves
+`/etc/letsencrypt/live`. The deploy hook,
+`etc/letsencrypt/renewal-hooks/deploy/nginx`, mode 755, which certbot runs after
+each successful renewal, only runs `systemctl reload nginx`.
+
+**Reload, not restart.** A reload starts new worker processes with the new
+certificate and lets the old ones finish their connections, so no client is
+disconnected. This matters because a restart of Mosquitto drops every client: the
+ESP32 releases every relay on losing the broker (`mqtt.md` §8.2), and the game
+program stops a game in progress (`game_control.md` §2). A reload of nginx touches
+neither, since their connections are to Mosquitto, which is not reloaded at all.
+
+## The name
+
+`game.kr3am.org` resolves to portland's address. That address is the same at home
+and on the travel router, whose LAN mirrors the home subnet and its reservations.
+How the name reaches the iPad differs by place:
+
+- **At home**, public DNS: an A record in Route 53, in the kr3am.org zone,
+  `game.kr3am.org` to portland's address. OPNsense's resolver returns it as it does
+  for portland's existing Route 53 name on the other domain. No entry on OPNsense.
+- **On the road**, the GL.iNet Slate 7: NETWORK → DNS → Edit Hosts, one line with
+  the same name and address. It answers without an upstream, so it works at a venue
+  with no internet, and it is not subject to the router's filtering of public
+  answers that point at private addresses. If AdGuard Home is turned on in that
+  router, the router stops consulting Edit Hosts, and the entry moves to AdGuard
+  Home's DNS rewrites.
+
+The iPad takes its DNS from whichever router it is on, so it needs no setting of
+its own. The certificate's challenge TXT record sits in the same zone during issue
+and renewal and does not disturb the A record.
+
+If the host's address ever changes, the Route 53 record and the Edit Hosts line
+change together.
+
+A certificate validates offline once issued, so the page works at a venue with no
+internet. What must be right is the name, which the travel router answers without
+an upstream, and the iPad's clock, which iOS keeps.
 
 ## The Stream Deck
 
