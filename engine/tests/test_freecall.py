@@ -1,4 +1,4 @@
-"""Free calls, Lenny mode (game_control.md §4.12, Rev 74), against the echoing
+"""Free calls, Lenny mode (game_control.md §8, Rev 74), against the echoing
 fake controller and audio program of the sim harness. No broker, no hardware.
 
     cd engine && PYTHONPATH=.:tests ./.venv/bin/python tests/test_freecall.py

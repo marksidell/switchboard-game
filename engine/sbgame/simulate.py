@@ -3,7 +3,7 @@ operator, so the game can be played before the boards exist.
 
 The PCBs have not arrived. Without them the game program starts, deals a call,
 and stops at once: every scene wait fails with `Offline` because neither
-`ctl/status` nor `ctl/audio_status` is online, and game_control.md §3 says
+`ctl/status` nor `ctl/audio_status` is online, and game_control.md §2 says
 losing a client stops the game. That is correct, and it makes the page
 untestable. This fills both roles on the real broker.
 

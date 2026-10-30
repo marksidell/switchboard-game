@@ -1,4 +1,4 @@
-"""Free calls, Lenny mode (game_control.md §4.12, Rev 74).
+"""Free calls, Lenny mode (game_control.md §8, Rev 74).
 
 A real person lifts the telephone on station 24, or calls the public line
 (trunk 8, the Grandstream ATA) from outside. The operator answers and puts

@@ -1,6 +1,6 @@
 # The status page
 
-game_control.md §2 and §7. Served by nginx from `/srv/sbgame/web`; its MQTT
+game_control.md §13.1 and §11. Served by nginx from `/srv/sbgame/web`; its MQTT
 socket is proxied to Mosquitto on the path `/mqtt` (mqtt.md §9).
 
 ```text
@@ -39,7 +39,7 @@ here — only a map of retained topic values and a render that reads it.
 
 `manifest.webmanifest` and `sw.js` make it installable: Add to Home Screen on
 the iPad and it opens without Safari's bars, landscape, on the dark background
-(game_control.md §7.3). iOS reads the `apple-*` tags rather than the manifest
+(game_control.md §11.3). iOS reads the `apple-*` tags rather than the manifest
 for that, so both are in `index.html` and have to agree.
 
 The service worker is not really about being offline. The page is served from

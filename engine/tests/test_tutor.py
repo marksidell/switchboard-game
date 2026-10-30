@@ -1,4 +1,4 @@
-"""Tutor mode (game_control.md §4.9, Rev 29).
+"""Tutor mode (game_control.md §7, Rev 29).
 
 Her lines are checked where they are made, in the loader; then the flows are
 run with her, against the echoing fake, for the order of her lines against

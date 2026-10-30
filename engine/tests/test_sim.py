@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO, format="%(relativeCreated)6.0f %(name)-6
 log = logging.getLogger("test")
 
 D = 0.02  # echo delay
-HOLD = 2 * D  # Board.HOLD at the tests' speed (game_control.md §5, Rev 45)
+HOLD = 2 * D  # Board.HOLD at the tests' speed (game_control.md §4, Rev 45)
 
 
 class FakeLink:

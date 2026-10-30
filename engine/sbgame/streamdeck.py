@@ -1,4 +1,4 @@
-"""The Stream Deck program (game_control.md §7.4).
+"""The Stream Deck program (game_control.md §10).
 
 An Elgato Stream Deck+ on USB carries the game's controls; the page shows the
 game. This drives the deck. It is a process of its own, not part of the game

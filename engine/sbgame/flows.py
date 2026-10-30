@@ -1,4 +1,4 @@
-"""The five call flows (game_control.md §4.3, §5, §6.1).
+"""The five call flows (game_control.md §3.3, §4, §3.2).
 
 One coroutine per scene shape. Each drives the hardware, moves the call
 through the §3.2 stages, reports the §3.3 "connected" milestone to the
@@ -865,7 +865,7 @@ async def outside_to_station(ctx: Ctx, trunk: int) -> Outcome:
     caller, called = f"trunk/{trunk}", f"station/{sc.to_station}"
     try:
         await ctx.slots.set(ctx.call, "trunk", caller)
-        await ctx.hw.short_ring(trunk)          # game_control.md §4.3, Rev 28
+        await ctx.hw.short_ring(trunk)          # game_control.md §3.3, Rev 28
         try:
             await _answer(ctx, caller)
         finally:
@@ -935,7 +935,7 @@ async def to_operator(ctx: Ctx, trunk: int | None = None) -> Outcome:
             await ctx.hw.hook(sc.from_station, True)
         else:
             await ctx.slots.set(ctx.call, "trunk", caller)
-            await ctx.hw.short_ring(trunk)      # game_control.md §4.3, Rev 28
+            await ctx.hw.short_ring(trunk)      # game_control.md §3.3, Rev 28
         try:
             await _answer(ctx, caller)
         except TimeoutError:

@@ -1,4 +1,4 @@
-"""The game (game_control.md §3 to §8).
+"""The game (game_control.md §2 to §13.2).
 
 One object owns everything with a lifetime: the deck, the pacing, the eight
 slots, the tallies, the running scene tasks and the `after:` timers. The MQTT

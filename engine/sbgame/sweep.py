@@ -1,4 +1,4 @@
-"""Board sweeps from the Stream Deck (game_control.md §7.6, Rev 50).
+"""Board sweeps from the Stream Deck (game_control.md §11.5, Rev 50).
 
 A check of the cabling after a recabling, with no game running: `trunks`
 gives each trunk one short ring in turn, so its lamp latches on the

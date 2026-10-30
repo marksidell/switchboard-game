@@ -1,4 +1,4 @@
-"""Diagnostics from the page (game_control.md §7.5, Rev 25).
+"""Diagnostics from the page (game_control.md §11.4, Rev 25).
 
 One test at a time per target and kind, each a toggle: `hook` takes a station
 off-hook, `ring` rings a trunk in the controller's cadence, `tone` is the audio

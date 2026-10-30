@@ -1,4 +1,4 @@
-"""Calls in progress, their stages, and the tallies (game_control.md §5, §6.1).
+"""Calls in progress, their stages, and the tallies (game_control.md §4, §3.2).
 
 Eight slots, because the page shows eight and a ninth call is not started.
 Each slot is a handful of retained topics under `game/call/<1-8>/`, and this
@@ -100,7 +100,7 @@ class Slots:
         # publish(key, value) -> awaitable; Link.state in the real program.
         self._publish = publish
         self._calls: dict[int, Call] = {}
-        # Tutor mode (game_control.md §4.9): no stage has a deadline, so the
+        # Tutor mode (game_control.md §7): no stage has a deadline, so the
         # page shows none.
         self.timeless = False
 

@@ -1,4 +1,4 @@
-"""When the next call starts (game_control.md §4.1 to §4.3).
+"""When the next call starts (game_control.md §5.1 to §5.4).
 
 Manual: the page asks, one tap one call.
 
@@ -35,7 +35,7 @@ import time
 from dataclasses import dataclass, field
 
 
-# Tutor first, as the deck cycles them (game_control.md §4.9, Rev 32): manual
+# Tutor first, as the deck cycles them (game_control.md §7, Rev 32): manual
 # pacing with the tutor's voice, so not automatic.
 PACES = ("tutor", "manual", "auto", "listen")
 AUTOMATIC = ("auto", "listen")     # the paces the scheduler starts calls in

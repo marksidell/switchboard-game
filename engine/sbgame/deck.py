@@ -1,4 +1,4 @@
-"""Which scene comes next (game_control.md §4.4).
+"""Which scene comes next (game_control.md §6.1).
 
 Every scene without `after:` is shuffled into a list at game start and dealt
 from, so every scene is played once before any is played twice, in an order

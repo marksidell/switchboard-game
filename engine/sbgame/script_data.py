@@ -1,7 +1,7 @@
 """script.yml, turned into what the game program needs.
 
 The loader itself is `tts.script`, shared with the speech pipeline
-(tts_task.md §3.1, game_control.md §6.3), so the file is validated in one
+(tts_task.md §3.1, game_control.md §12.1), so the file is validated in one
 place and the TTS run and the game cannot disagree about it. This module adds
 what only the game needs: each scene as a flow's worth of instructions, and
 the jack map the page draws from.
@@ -30,7 +30,7 @@ from tts.script import BRIEF_PREFIX, Script, Utterance, load
 
 
 class Shape:
-    """Which flow runs a scene. game_control.md §4.3's table, by another name."""
+    """Which flow runs a scene. game_control.md §3.3's table, by another name."""
     STATION_TO_STATION = "station_to_station"
     STATION_TO_OUTSIDE = "station_to_outside"
     OUTSIDE_TO_STATION = "outside_to_station"
@@ -365,7 +365,7 @@ def needs_trunk(sc: SceneDef) -> bool:
 
 def fit(gs: GameScript, stations: int = N_STATIONS, trunks: int = N_TRUNKS,
         out: frozenset[int] = frozenset()) -> tuple[GameScript, list[str]]:
-    """The game fitted to the circuits built (game_control.md §6.5, Rev 25).
+    """The game fitted to the circuits built (game_control.md §12.2, Rev 25).
 
     Leaves out a scene whose calling or called station is not fitted
     (fitted_stations()) or is out of service (`out`, Rev 43), or that needs a trunk

@@ -3,7 +3,7 @@
 Starts the pieces in an order that matters: the script is loaded and validated
 before anything connects, so a bad script.yml is a refusal to start with the
 faults listed, rather than a program that runs and cannot deal a call
-(game_control.md §6.3).
+(game_control.md §12.1).
 
 Then one task each for the link, the scheduler and the client watchdog, and a
 clean shutdown on SIGINT or SIGTERM — which under systemd is what `stop` and

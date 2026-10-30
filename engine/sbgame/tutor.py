@@ -1,4 +1,4 @@
-"""Tutor mode (game_control.md §4.9, Rev 29).
+"""Tutor mode (game_control.md §7, Rev 29).
 
 A senior operator's voice on the loudspeaker talks a new player through each
 call. The flows call `Tutor.say()` at each step, and wait for her to finish:

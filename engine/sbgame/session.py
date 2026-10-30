@@ -2,7 +2,7 @@
 
 One row per game in `sessions`, one per call in `calls`, one per event in
 `events`, and the deck's seed and every shuffled order in `decks` so a game can
-be replayed (game_control.md §4.4).
+be replayed (game_control.md §6.1).
 
 Every call here goes through `asyncio.to_thread`. sqlite3 blocks, and rule 4 of
 the handover is that nothing on the event loop may: a blocked loop stops the

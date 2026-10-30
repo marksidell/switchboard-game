@@ -5,7 +5,7 @@
  * nginx is unreachable the game is unreachable too. Its real jobs are
  *
  *   - to make the page installable, so it opens from the Home Screen without
- *     Safari's bars (game_control.md §7.3);
+ *     Safari's bars (game_control.md §11.3);
  *   - to open instantly from cache rather than four requests deep, which
  *     matters when the iPad has been asleep and Mark wants the board *now*;
  *   - to survive nginx restarting, a certificate reload, or the host being

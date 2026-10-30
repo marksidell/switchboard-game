@@ -1,4 +1,4 @@
-"""The page's log (game_control.md §6.2).
+"""The page's log (game_control.md §12.3).
 
 The last 50 events, newest first, one per line, republished whole on each new
 event. It is a display, not the record — the SQLite session log is the record

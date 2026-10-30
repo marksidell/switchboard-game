@@ -36,7 +36,7 @@ class Config:
     script: str = "~/s/sbgame/script.yml"
     wav_dir: str = "wav"
 
-    # ---- pacing, the starting values (game_control.md §4.3) ------------
+    # ---- pacing, the starting values (game_control.md §5.4) ------------
     # "manual pacing, gap 20, ramp 0, floor 5, jitter 0"
     pace: str = "manual"
     gap: float = 20.0
@@ -66,7 +66,7 @@ class Config:
     # always the one that fires first (mqtt.md §8.2).
     audio_margin: float = 3.0
 
-    # ---- the circuits fitted (game_control.md §6.5, Rev 25) ------------
+    # ---- the circuits fitted (game_control.md §12.2, Rev 25) ------------
     # The first `stations` of 1-22, with station 24 when it is 22 (Rev 73),
     # and the first `trunks` of 1-8. The command line's --stations and
     # --trunks override these.

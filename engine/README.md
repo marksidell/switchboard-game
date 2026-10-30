@@ -46,7 +46,7 @@ enough when its form has changed, since the installed loader is the one that
 reads it. The Home Screen page picks up a new build by itself when it next
 comes into view.
 
-**While the switchboard is being built** (game_control.md §6.5), tell the game
+**While the switchboard is being built** (game_control.md §12.2), tell the game
 how many circuits exist: `stations` and `trunks` in `host/etc/sbgame/game.toml`
 (installed to `/etc/sbgame/game.toml` by `./release`), or `--stations N` and
 `--trunks N` on the command line, which override the file. Scenes that need a
@@ -57,7 +57,7 @@ the log at start; `--check` lists them too:
 /opt/sbgame/venv/bin/sbgame --check -c /etc/sbgame/game.toml --stations 8 --trunks 2
 ```
 
-**Tutor mode** (game_control.md §4.9) is the pacing Tutor. It is
+**Tutor mode** (game_control.md §7) is the pacing Tutor. It is
 refused, on the page's error line, until every one of the tutor's lines has a
 wav in `/srv/sbgame/wav`; `tts/README.md` has how to make them.
 
@@ -104,7 +104,7 @@ against simulated boards.
 
 The PCBs have not arrived. With no controller and no audio program the game
 starts, deals a call and stops at once — every scene wait fails while a client
-it needs is down, and `game_control.md` §3 stops the game when one goes. That
+it needs is down, and `game_control.md` §2 stops the game when one goes. That
 is correct, and it makes the page untestable, so there is a stand-in:
 
 ```sh

@@ -1,4 +1,4 @@
-"""The ring cue (game_control.md §6.6, Rev 51), against FakeLink's audio program.
+"""The ring cue (game_control.md §9.2, Rev 51), against FakeLink's audio program.
 
     cd engine && PYTHONPATH=.:tests ./.venv/bin/python tests/test_cue.py
 """
