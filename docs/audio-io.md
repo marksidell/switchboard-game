@@ -2,11 +2,11 @@
 
 Status: **measured, partial.** Everything below with a number beside it was measured on
 the bench and the date is given. The channel map is complete for the hardware present;
-the Ferrofish A32 Pro of `CLAUDE.md` is not yet in the path (see Devices).
+the Ferrofish A32 Pro of the design is not yet in the path (see Devices).
 
 ## Devices
 
-`CLAUDE.md` specifies a Ferrofish A32 Pro behind the RME Digiface USB. As of 2026-09-17
+The design specifies a Ferrofish A32 Pro behind the RME Digiface USB. As of 2026-09-17
 the A32 is **not fitted**: the converter on the bench is a **Behringer ADA8200**, eight
 channels of AD/DA on one ADAT port, standing in on the first eight channels. Every level
 in this file was measured through it and will change when the A32 arrives — the channel
@@ -195,9 +195,6 @@ briefly mistaken for real crosstalk.
 
 ## Open items
 
-- `docs/pilot-map.md` does not exist. `CLAUDE.md` names it as the authoritative slot ↔
-  bin ↔ circuit table and says not to recompute the mapping inline, so it is referenced
-  here and nowhere duplicated. It needs writing.
 - The Ferrofish A32 Pro is not fitted; every level here is through an ADA8200 and will
   move when it is.
 - Headphone output gain unmeasured.

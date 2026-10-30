@@ -1,27 +1,9 @@
 # 551 Switchboard Simulator — A Real Telephone on the Board (Proposal)
 
-Rev 3 — 2026-10-24. Adopted, option B (Mark, 2026-10-23). The parts of it that are
+Rev 4 — 2026-10-30. Adopted, option B (Mark, 2026-10-23). The parts of it that are
 design go into `station_circuit.md`, `audio.md`, `pilot-map.md`, `control.md`, `mqtt.md`
 and `game_control.md` (§6 below), and this document becomes the record of how the
 decision was reached.
-
-## Changes in Rev 3
-
-- §3: the phone's line moved to switchboard jack 18, room 203 (Mark, 2026-10-24). Jack 10
-  is uncabled.
-
-## Changes in Rev 2
-
-- Adopted, option B, on board 3 strip 8 (Mark, 2026-10-23). The monitor already runs on
-  the Digiface 33/34.
-- §3: the phone's line is on switchboard jack 10, room 405.
-- §5: the bench measurements are in. The phone pulls the line to 7.9 V at most, under
-  the 8.5 V the §3.1 values need, and the 4.4 kΩ load neither lights the lamp nor sags
-  the line much (23.5 V). The §3.1 values stand.
-
-## Changes in Rev 1
-
-—  First version, from the discussion between Mark and Claude Code on 2026-10-17.
 
 ## 1. What it is for
 
@@ -171,3 +153,27 @@ more evenly, 3.75 mA on and 0.77 mA off, but 2.2 kΩ meets both worst cases.)
 - `script.yml`: a new `freecall:` section. Per guest: a greeting that names them, about
   10–14 vague replies cycled without end, and a "who is this?" — about 15 × 22 ≈ 330 clips,
   rendered as every other line is. The guest nudges after about 8 s of silence.
+
+## Revision History
+
+### Changes in Rev 4
+
+- The changes in each revision moved from the top of the document to the end, newest first, as `game_control.md` Rev 95 (Mark, 2026-10-30). No change of substance.
+
+### Changes in Rev 3
+
+- §3: the phone's line moved to switchboard jack 18, room 203 (Mark, 2026-10-24). Jack 10
+  is uncabled.
+
+### Changes in Rev 2
+
+- Adopted, option B, on board 3 strip 8 (Mark, 2026-10-23). The monitor already runs on
+  the Digiface 33/34.
+- §3: the phone's line is on switchboard jack 10, room 405.
+- §5: the bench measurements are in. The phone pulls the line to 7.9 V at most, under
+  the 8.5 V the §3.1 values need, and the 4.4 kΩ load neither lights the lamp nor sags
+  the line much (23.5 V). The §3.1 values stand.
+
+### Changes in Rev 1
+
+—  First version, from the discussion between Mark and Claude Code on 2026-10-17.

@@ -141,7 +141,7 @@ a privileged port — libwebsockets creates the socket after Mosquitto drops fro
 root to the `mosquitto` user — and it advertises HTTP/2 in ALPN without being
 able to speak it, so a browser gets nothing. `socket_domain ipv4` and an
 ambient `CAP_NET_BIND_SERVICE` with `SecureBits=keep-caps` were both tried and
-neither helped. nginx does both jobs; `mqtt.md` §1.17 records it.
+neither helped. nginx does both jobs; `mqtt.md` §12.17 records it.
 
 **The Route 53 credentials must be `[default]`.** `certbot renew` runs from
 `certbot.timer` with an empty environment, so a named profile is invisible to

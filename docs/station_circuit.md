@@ -2,7 +2,7 @@
 
 **Station Interface Circuit Design**
 
-*Rev 3.49 — 8 Strips Per Board, Three Boards (23 Stations, One a Real Telephone, and the Operator Tap) Plus 8 Trunk Circuits, HCPL3700M Ring Detection, DPDT Double-Pole Off-Hook, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Station Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, 32-Slot Pilot Tone Comb, the Operator Tap Option on One Strip, Common-Battery Power*
+*Rev 3.50. The changes in each revision are in §14.*
 
 # 1. Overview
 
@@ -44,329 +44,6 @@ CONTROL PATH
 
 The ESP32 and the host exchange state over MQTT: the ESP32 reports debounced ring-detect events, the host commands off-hook. Keeping ring detection and relay control on the ESP32 means loop supervision timing does not depend on the host audio thread, and the ESP32 releases every relay on its own if it loses the host — see §9.12.
 
-## 1.2 Summary of Changes from Rev 2.1
-
-—  Ring detector rebuilt around the HCPL3700M threshold-sensing optocoupler. Its internal diode bridge, threshold comparator and hysteresis replace the 4N35, the external D1–D4 bridge and the collector pull-up network — 4 diodes per station removed.
-
-—  Board density raised from 6 to 8 stations. Total capacity raised from 12 stations (2 boards) to 24 stations (3 boards).
-
-—  One MCP23017 per board now serves both functions: Port A = 8 ring-detect inputs, Port B = 8 off-hook outputs. This is an exact fit and removes the second mandatory expander.
-
-—  Raspberry Pi replaced by an ESP32 as I²C master and digital I/O controller. Logic rail is 3.3V throughout — the MCP23017 must not be run at 5V (see §9.3).
-
-—  Focusrite Scarlett 18i20 replaced by a Ferrofish A32 on D-Sub25, feeding an RME Digiface USB over ADAT, running at 48kHz. All 24 stations fit with eight channels spare, and the system stays coherent to 32 — see §6.
-
-—  Two-tone DTMF-style identification abandoned in favour of a pilot tone comb: one tone per circuit, 6000.00–8906.25Hz on exact FFT bins, detected with a 4096-point FFT. This is what allows 48kHz operation, and it reduces identification to one tone and one bin lookup per station — see §8.
-
-—  Audio transformer requirement relaxed from 27.7kHz to 8.2kHz as a direct result. Specialty wideband transformers are no longer required at every station — see §7.5. This removes the highest-risk and most expensive component in the design.
-
-—  Pilot comb extended from 24 assigned slots to all 32, adding the 8 trunk circuits at bins 704–760. The audio channel budget, the D-Sub pairs and the I²C address space are all now exactly full — see §6.
-
-—  ESP32 to host link changed from USB CDC serial to MQTT over PoE Ethernet, with the broker on the Linux box. Controller becomes an Olimex ESP32-POE-ISO — see §9.7 to §9.12.
-
-—  Off-hook relay changed from SPDT to DPDT (CIT J104D2C5VDC.15S) and now breaks both tip and ring rather than tip alone — see §5.1. Two gaps share the ring standoff, the on-hook station stays balanced on the pair, and R3, C3 and T2 all lift clear of the line.
-
-—  Board rails now generated locally by a 24V→5V DC-DC module per board — see §10.3.
-
-—  Power architecture changed to one common 24V battery feeding the switchboard, both board types, all loops and the ring generator, replacing the separate board supply of Rev 3.2. Star distribution from the PSU terminals becomes a requirement, and the isolated DC-DC is relaxed to the non-isolated part — see §10.1. Supply changes to a Mean Well LRS-150-24.
-
-—  Corrected: the trunk board does not share the station board’s TVS. Trunk uses P6KE150CA, station keeps P6KE120CA — see §4.1.
-
-—  Corrected: the trunk MQTT topics do not share the station topic shape. A trunk has no hook to set and needs a ring command — see §9.12.
-
-—  Corrected: J1 and J2 are D-Sub25 FEMALE, not male. Earlier revisions of both this and the trunk document had this wrong — see §7.6.
-
-—  Station tip and ring move to two shielded RJ45 jacks, four stations each, one twisted pair per station — see §7.7. RJ45 now means telephone line and nothing else anywhere in the system.
-
-—  I²C moves from a 4-pin header to two 6P6C modular jacks per station board, positions 2–5 with the grounds interleaved — see §9.4. Master is the ESP32 on the ring generator board; station boards fit no pull-ups and there is no INT conductor.
-
-—  R_pd (10kΩ base to ground) added to every relay driver. Port B floats between reset and configuration — see §5.2.
-
-—  TVS2 rail-clamp array added on SDA/SCL. A 6P6C plug fits an RJ45 jack, and RJ45 now carries line voltage on this board — see §7.8.
-
-—  Rev 3.5: build state stated throughout. Three boards and 24 stations is the design capacity and is what the rack, the loom and the address plan are sized for; two boards and 16 stations is the present build. The third board is a populated-later slot, not a redesign.
-
-—  Rev 3.5 corrected: the address table gave 0x23 to a spare fourth station board and the text below it gave 0x23 to the trunk board. The trunk board has it. There is no fourth station board — see §9.2.
-
-—  Rev 3.5 corrected: address strapping. The station boards use SW1, the trunk board uses hard 0Ω links, and the two are different on purpose — see §9.2.
-
-—  Rev 3.5 corrected: the I²C master pins. GPIO17 clocks the Ethernet PHY on the ESP32-POE-ISO and was never available; the bus is now SDA on GPIO13 and SCL on GPIO16 — see generator Rev 16 §3.1. Nothing on this board changes.
-
-—  Rev 3.5 corrected: relay order quantity. 24 for the present build, 32 at full capacity — see §11.
-
-—  Rev 3.6: cross-references follow the generator to Rev 15 and the trunk document to Rev 5.2. The generator's gate-drive logic moves to 5V on a 74HCT02 with its shutdown line buffered, correcting an IR2104 threshold figure. Nothing on the station board changes — the I²C pins, the address plan and the 6P6C pinout are all unaffected.
-
-—  Rev 3.7: fuse and fuse holder part numbers specified. All five fuses in the system are socketed 5x20mm cartridges in the same block — see §11.
-
-—  Rev 3.8: Q2 relay driver changed from 2N3904 to 2N2222A on both board types. Verify the TO-92 pinout against the specific orderable part before layout — see §5.2.
-
-—  Rev 3.9: D6 changed from SS34 to 1N5822. 1N5822, 3A / 40V, DO-201AD axial. The SS34 named through earlier revisions is an SMA/DO-214AC surface-mount part with no through-hole version. 3A is oversized against a 250-500mA fuse and deliberately so: a slow-blow fuse carries well above its rating for some time before it opens. Forward drop is unchanged at roughly 0.3-0.4V.
-
-—  Rev 3.10: TVS2 specified as the Littelfuse SP721APP, a through-hole rail-clamp array at 3pF per line rather than the 1pF earlier revisions assumed — see §7.8.
-
-—  Rev 3.11: hardware /RESET added on 6P6C positions 1 and 6, driven from the generator board and reaching pin 18 of every expander. Adds a 10kΩ pull-up per board and a third TVS2 input; requires six-conductor cords — see §9.4.
-
-—  Rev 3.12: J1 and J2 changed from the Amphenol ICC DBM25S500MN, which DigiKey does not stock, to the NorComp 182-025-213R531. Same gender, orientation, termination and gold contacts, with board locks — see §11.
-
-—  Rev 3.13: SW1 specified as the CTS 206-3ST, sealed, top-actuated — see §11. Silkscreen legend for the address positions added to §9.2.
-
-—  Rev 3.14: J1 and J2 changed to the NorComp 182-025-213R561, the same connector with integral 4-40 female screwlocks rather than a plain threaded shell. The separate screwlock line item is deleted; footprint and backset are unchanged — see §11.
-
-—  Rev 3.15 corrected: U4 is specified in TO-220-3 (MCP1826S-3302E/AB), not SOT-223. SOT-223 is surface mount and contradicted the through-hole build of every other part on the board. The AMS1117-3.3 alternative is dropped — it exists only in SOT-223 — see §10.3.
-
-—  Rev 3.16: RV1 deleted from both board types. The A32's recallable per-channel trim covers it, and a dual-gang through-hole trimmer is not a catalogue part — see §7.4.
-
-—  Rev 3.17: the 5V bulk capacitor is specified at 25V rather than 10V. Derating only; capacitance unchanged — see §10.4.
-
-—  Rev 3.18: bin 768 (9000.00Hz) allocated to the operator tone — generator Rev 21 §15. No change to this board; the transformer sweep target moves from 8906.25Hz to 9000Hz.
-
-—  Rev 3.19: rail capacitors reviewed against the datasheets. Local input and output decoupling added at the LDO, which had none of its own, and a 1000µF audio-band bulk added at the 24V input — this board feeds its loops through 330Ω, not through a current source, so it needs that bulk more than the trunk board does. No new part numbers — see §10.6 and §10.7.
-
-—  Rev 3.20: D6 moves from series to a shunt clamp across +24V BRD and GND, blowing F1 on a reversed supply instead of blocking. Correct change, wrong reason as stated — see the Rev 3.23 note below and §10.5.
-
-—  Rev 3.21: D-Sub ground pins specified. Floating at this board with an unstuffed 0Ω link footprint to board GND — grounded at the A32 end only, matching trunk Rev 5.21 — see §7.6.
-
-—  Rev 3.22: T2 specified as the Triad TY-311P on measured evidence, matching trunk Rev 5.22. Flat at 9kHz with −5.5dB passband loss, better than the SP-70 and far better than its own datasheet band suggests — see §7.5 and trunk §8.3.
-
-—  Rev 3.23 corrects Rev 3.19 and Rev 3.20. Both described R3 as this board's loop feed drawing from +24V BRD. It is not: R3 sits in the tip-ring loop behind the relay contacts and the switchboard supplies the current, as §1 and §5.1 have said throughout. The 1000µF added at Rev 3.19 on that mistaken basis is deleted — this board's 24V rail carries only the DC-DC converters — see §10.7.
-
-## 1.3 Changes in Rev 3.24
-
-—  One station strip can now be stuffed as an operator tap instead of a station — a bridging transformer coupling across the operator’s talking path. Station 8 is designated. See §7.9.
-
-—  The tap is bidirectional, and that is the point of it. It injects the 9000.00Hz operator tone, and it returns the operator’s own audio for the audience monitor loudspeaker. Both directions use one transformer.
-
-—  The operator tone injector is deleted from the ring generator board. Generator §15 built it around a filtered square wave from GPIO15 with its own transformer T3; the tone is now an ordinary A32 output stream on the tap strip’s channel. GPIO15 is freed and T3, its filter and its coupling network come out of the generator build.
-
-—  New §8.8 covers the audience monitor feed: the split between the raw stream for pilot detection and a low-pass filtered copy for the loudspeaker, and why that filter is not analog.
-
-—  Configuration is a stuffing option, not a jumper. An earlier sketch called for jumpers to break the station line network out of circuit; §7.2 already does that when RLY1 releases, so the jumpers were solving a problem the relay had already solved. See §7.9.1.
-
-—  R11 and R12 added to the BOM as per-strip footprints, fitted on the tap strip only, plus R13 as a footprint against a possible transformer resonance. Two resistors are the whole hardware addition — C3 already blocks DC on the primary, so the tap needs no coupling capacitor of its own.
-
-## 1.4 Changes in Rev 3.25
-
-—  The MCP23017 address pins are biased. SW1 does not on its own define an address: A0–A2 have no internal pull-up or pull-down, so three SPST switches leave them undefined in one of their two positions. Rev 3.5 through Rev 3.24 specified the switch and no biasing resistors at all. R19, R20 and R21 are added — 10kΩ from each address pin to +3.3V, with SW1 closing each pin to ground. See §9.2.
-
-—  R17 assigned to the Vᴄᴄ series element at OC1. §3.6 has asked for the footprint since Rev 3.0 and §12 repeats the request, but it had no designator and no line in §11, so it existed only as prose. Eight per board, fitted as a 0Ω link.
-
-—  R18 assigned to the /RESET pull-up. §9.4 has required it on every expander board since Rev 3.11 with the same problem: named in the text, absent from the BOM. One per board.
-
-—  C15, C16 and C17 assigned to the LDO capacitors added at Rev 3.19 §10.6. These were already inside the purchased quantities — twelve 0.1µF and ten 10µF per board only reconcile with them counted — but they had no designators, so the §11 table and the parts on order disagreed.
-
-—  T2 has no screen. §7.3 showed a screen/shield connection to chassis ground and §12 asked for all of them to star to one point. The TY-311P is a four-pin part, and the symbol drawn for it — switchboard:XFMR_TY-311P, against the matching footprint of the same name — has four pins; there is no such terminal on either. Both passages are corrected. What survives of the intent is the D-Sub ground handling in §7.6, which is a separate mechanism and unchanged.
-
-—  R1a and R1b are not valid reference designators. A KiCad reference is a letter prefix and a number, so the pair is drawn as R14 and R15 with the document name carried in a Function field. §11 is annotated; the part, the value and the position are unchanged.
-
-—  The operator tap is replicated on every strip rather than on one. §7.9.1 already put the footprints on all eight; this revision states why it also has to be true in the schematic, and what it costs in the exported BOM. See §7.9.1.
-
-## **1.5 Changes in Rev 3.26**
-
-—  C18 added, 100nF across TVS2 pins 8 and 4 at the device. TVS2 has been specified since Rev 3.10 with no bypass. The SP721 does not shunt to ground; it conducts the transient from the IN pin into V+, so V+ has to source that current locally or it lifts during the event — degrading the clamp and injecting the transient into the +3.3V rail that U1 and the master share. §12 deliberately places TVS2 at J3A/J3B, away from U1 and the LDO, so C6 and C8 are the length of the board away and cannot serve. One per board, not per station. See §9.5.
-
-—  C18 rather than C13, C14 or the free C1 and C2. The station board has no C13 or C14 — the 1000µF withdrawn at Rev 3.23 (§10.7) never carried a designator — but the trunk board does have both, one live and one retired, and a reader moving between the two documents should not have to remember which board is which. C18 is free on both and is the same number for the same part in the same role on each. The trunk board takes C18 at trunk Rev 5.27 and the generator, which numbers functionally, takes C_TVS2 at generator Rev 34.
-
-—  What is deliberately not fitted. The datasheet note asks for bypass on both V+ and V− and for a series resistor in the supply feed. V− is pin 4 and goes straight to GND, so bypassing it is a zero-length connection with nothing to add. The series resistor belongs to the automotive load-dump and reverse-battery case the note is written for; nothing here sees a reverse battery, and series resistance in the V+ feed would raise the clamp’s dynamic impedance, which is the opposite of the intent. Recorded so a later reader comparing the board against the datasheet sees two decisions rather than two omissions.
-
-—  The SP721 pinout is confirmed against the Littelfuse datasheet, revision GD 07/10/24 — IN on 1–3 and 5–7, V− on 4, V+ on 8. Rev 3.10 recorded V+ on pin 8 and V− on pin 4 and was right. No change; noted so the check is on the record and need not be repeated.
-
-—  Parts already on the board: the 0.1µF is stocked in quantity and the BOM count for this board goes from twelve per board to thirteen. Nothing new is purchased.
-
-## **1.6 Changes in Rev 3.27**
-
-—  R11 and R12 go from 22.1kΩ to 22kΩ, 0.25W 1% metal film, matched. No circuit change: 22kΩ is what generator §15.2 specified, and the station design carried it as 22.1kΩ only because Rev 3.24 recorded that 22.0k is E24 and “not stocked in 1% metal film”. That was wrong — 1% metal film is sold at E24 values as well as E96, and 22kΩ 1% is being bought. Every figure in §7.9.3 was computed from 44.2kΩ and moves by 0.5% at most; the loading, fault current, receive and injection levels are restated at 44kΩ and are the same numbers to the precision they were given. The matching requirement is unchanged and is the reason the part is 1%. Changed in §7.9.1, §7.9.2, §7.9.3, §11 and §12, and in the BOM, the library plan, the DigiKey upload, the station schematic guide and generator §15.4.
-
-—  This is not the R1a/R1b change PROJECT_INDEX.md pencilled in for Rev 3.27. That change waits on the measured Antek output and takes whatever revision number is next when it comes.
-
-## **1.7 Changes in Rev 3.28**
-
-—  Operator connection is detected on each circuit’s own receive channel, not on the tap strip’s receive channel. Rev 3.24 through Rev 3.27 said the opposite: §8.8 called the tap reading “the better one” and §8.3 said the operator tone tells the game which circuit the operator is patched to, while the detector in §8.7 searched only comb bins 512–760 and never looked at bin 768 on any circuit channel. Neither reading was actually being produced. The tap-channel reading was also the wrong shape: the operator legitimately bridges both ends of a cord pair at once, so the tap hears two pilots in normal service, which the §8.7 detector reports as a fault. See §8.7.
-
-—  The choice between the two places to detect it was made deliberately. Detecting bin 768 per circuit gives one more return value from an FFT already computed, a single-valued retained MQTT topic per circuit that matches the shape of every other state topic, and a result that survives a fault in the tap strip’s own receive path. Detecting on the tap channel would need a second detector with set-valued output and a set-valued topic, and the game would have to diff successive sets to learn which circuit joined or left. The tap strip’s own transmit path is still checked, by its own tone returning on its own channel (§8.4), so nothing is lost by not detecting there.
-
-—  §8.7: identify_peer() gains an op return value from bin 768. The zero-or-one rule is restated as applying to the comb only; the operator tone is checked independently and may be present with or without a peer.
-
-—  §8.8: the tap strip’s receive channel is monitor-only. The “both readings should agree” cross-check is withdrawn. The software filter and its specification are unchanged; the reasons for rejecting an analog filter are restated without the pilot-detection argument.
-
-—  §9.10: sbgame/station/<n>/op and sbgame/trunk/<n>/op added, "on" | "off", host → broker, retained, published by the same process as the peer topics. §7.9.6 no longer credits the tap input with connectivity detection.
-
-—  §9.10 also specifies the peer payload, which no earlier revision had: a circuit id when connected, an empty retained message for idle (clearing the stored value, as fault already does), and the literal strings "ambiguous" and "deaf" for the two diagnostic states so they cannot be mistaken for a peer id. This is new specification rather than a correction; it was left open until now and the op topic made the gap obvious.
-
-—  Cross-document: generator §15.3’s closing paragraph and its pointer to station §8.8 describe the withdrawn tap-channel reading and want the same correction at the generator’s next revision. Trunk §9’s note that a trunk carries the operator tone whenever the operator is patched to it is already consistent with this revision and needs no change.
-
-—  No hardware change. Firmware and host software consequence only, and none of it on ring/ring.ino.
-
-## **1.8 Changes in Rev 3.29**
-
-—  The MQTT topic prefix changes from sw/ to sbgame/ throughout §9.10 and §9.12, and in the Rev 3.28 entries above, which now read as the topics are. No topic below the prefix changes. Nothing in firmware or host code carries the old prefix yet, so this is the last point at which the rename is free.
-
-—  Why. sw/ was chosen for brevity and never justified. Two letters that could mean switch, software or southwest are not a safe first segment on a broker that may one day be shared with anything else on the museum network. sbgame/ names the exhibit, is unlikely to collide with anything, and is still one segment so wildcard subscriptions such as sbgame/+/+/op work unchanged. sb/ was considered for being easier to type and rejected for having the same weakness as sw/; the prefix is typed once into each codebase and thereafter comes from shell history.
-
-—  Trunk §1.1 and §11.3 and generator §15.3 follow at trunk Rev 5.30 and generator Rev 54.
-
-## **1.9 Changes in Rev 3.30**
-
-—  §9.10’s topic table gets a header row and a key. It had four columns and no header since the table was written, so a reader had to infer that the second column is publisher → consumer and the third is the payload, and "host" was never defined in the section — §1.1 names the Linux box the host, §9.10 did not. Two lines in particular were unreadable cold: `hook/set host -> ESP32` did not say what host was, and `peer host -> broker circuit id` did not say that the connected circuit’s identity is the payload.
-
-—  "host → broker" is replaced by "host → any". Every message goes through the broker, so the old wording said nothing; what it meant is that the audio process publishes and there is no single consumer — the game logic, a monitoring UI and the log all subscribe.
-
-—  The circuit id format is specified for the first time: `station/<n>` or `trunk/<n>`, the same two segments the topic names use, so a peer payload prefixed with `sbgame/` is that circuit’s topic root. §8.7’s code returns a tuple; the host formats it as this string at publish time. No earlier revision said what a "circuit id" looked like on the wire.
-
-—  The table is now a Markdown table. It had been fixed-width text lines separated by blank lines — an artefact of the docx extraction — which a renderer runs together as prose, so the columns the header names did not exist on screen. The ctl rows gain the payloads the prose in §9.12 already gives them.
-
-—  Trunk §11.3 takes the same header and key at trunk Rev 5.31. No hardware, firmware or topic change.
-
-## **1.10 Changes in Rev 3.31**
-
-—  Formatting only. Every circuit diagram, pin list, calculation listing, stuffing table and the §8.7 Python listing — fourteen blocks — is now inside a fenced code block. They had been fixed-width text with a blank line between every row, an artefact of the original docx extraction, which a Markdown renderer collapses into run-together prose with the alignment lost. The §8.7 listing was the worst case: its `# slots 1-24 …` comment rendered as a top-level heading. Same sweep on the trunk document at Rev 5.32 and the generator at Rev 55. No word of the content changes.
-
-—  One sentence added to the §9.10 key: the circuit id on the wire is station/<n> or trunk/<n> and never the 1–32 slot number, which is internal to §8.7’s detector. The Rev 3.30 key gave the format without saying what it was not, and §8.3 and §8.7 use "slot" and "combined space" enough that a reader could reasonably assume the flat number was the id.
-
-## **1.11 Changes in Rev 3.32**
-
-—  A heartbeat from the ESP32 to the host is added: sbgame/ctl/esp_heartbeat, every second from the main loop after the I²C poll, payload uptime in seconds, not retained. The host treats two missed beats as ESP32-down. The existing host → ESP32 heartbeat is renamed sbgame/ctl/host_heartbeat so the pair are distinguishable; its behaviour is unchanged. §9.10 and §9.12.
-
-—  Why it was missing. Every revision since the MQTT link was introduced had the host heartbeat only, on the reasoning that the ESP32’s MQTT keepalive plus the LWT already told the host when the controller was gone. That reasoning was never written down in §9.12, and when it is written down its gap is visible: keepalive proves the network stack is alive, not the main loop, and with an MQTT client that pings from its own task a wedged main loop is invisible to the broker. The same argument the section already makes for the host direction — a healthy connection says nothing about the process behind it — applies to the ESP32 and was not applied. Found by a reader asking where the ESP32’s heartbeat was.
-
-—  The beat is published after the I²C poll deliberately, so it proves the loop that drives relays rather than any task that happens to be scheduled. Firmware consequence, on the Claude Code side when the MQTT firmware is written; nothing in ring/ring.ino today.
-
-—  Trunk §11.4 follows at Rev 5.33.
-
-## **1.12 Changes in Rev 3.33**
-
-—  The two host programs are named, and every host-published topic is assigned to one of them. The host runs two separate programs beside the broker: the audio program, in C++, which owns the A32 and publishes peer, op and its own audio_status; and the game program, in Python, which is the game logic and publishes hook/set, ring/set, game_heartbeat and sync. Earlier revisions said "the host", "the audio process" and "the game logic" interchangeably, and §8.7’s listing being Python made it easy to read the detector as part of the game program. It is not; §8.7 now says the listing is the specification and the implementation is C++. §1.1, §8.7, §9.10, §9.12.
-
-—  sbgame/ctl/host_heartbeat, introduced at Rev 3.32, becomes sbgame/ctl/game_heartbeat, because it is the game program’s and the audio program’s liveness is a different question. Same behaviour.
-
-—  sbgame/ctl/audio_status added: the audio program’s birth message and LWT, "online" | "offline", retained, the same mechanism as the ESP32’s ctl/status. It exists because peer and op are retained, so an audio program that has died leaves the last topology it saw on the broker looking current; the game program must treat those values as stale while audio_status is offline. No heartbeat for the audio program yet — its main loop is the audio callback, and if that stops the A32 stream stops with it, which is a different and louder failure than a wedged ESP32 loop.
-
-—  Trunk §11.3 and §11.4 follow at Rev 5.34.
-
-## **1.13 Changes in Rev 3.34**
-
-—  The MQTT design and the firmware behaviour move out of this document into two new ones. §9.10, §9.11 and §9.12 go to mqtt.md, which tables every message by publisher — ESP32, audio program, game program — rather than by board; §3.7 and the firmware half of §9.12 go to control.md, which specifies the controller as one program for the first time. §9.7’s reasoning for MQTT over Ethernet goes with them. Each section is left as a heading with a pointer so cross-references in this document and the others still land, and the change entries from Rev 3.28 to Rev 3.33 stay here as the record of how the design was arrived at; mqtt.md §10 summarises them.
-
-—  Nothing in the design changes in the move. This document now owns the station hardware and says where each message about it comes from; it no longer says what a message looks like on the wire or what the controller does with it.
-
-## **1.14 Changes in Rev 3.35**
-
-—  Three station boards are built, and the operator tap moves from station 8 (board 1, strip 8) to station 24 (board 3, strip 8). Stations are 1–23, contiguous. Rev 3.5 through Rev 3.34 described a two-board build with the third board as populated-later capacity, and Rev 3.24 chose station 8 for the tap because the last strip of the last board would have moved when the third board arrived. With all three built that objection is gone; §7.9.6 records the reversal and what the alternative buys. Nothing electrical changes — the tap is a stuffing option on identical strips.
-
-—  Consequence: the audience monitor has no A32 output. It was on output 17, free only while board 3 was unfitted; §8.8 now carries this as an open item that blocks the monitor rather than a deferred one, with the Digiface’s own analog output as the likely answer, to be confirmed.
-
-—  Build-state statements swept: §1, §1.1, §6, §7.9.6, §7.9.7, §8.8, §9.4, §9.5 and §11.
-
-## **1.15 Changes in Rev 3.36**
-
-—  The audience monitor output is settled: RME Digiface USB playback channels 33/34, its own TRS line/phones jack, +9.5dBu. §8.8. The A32pro’s rear Main Out is recorded as unusable for the purpose — a monitor mirror of one existing channel, not an addressable 33rd output — with the analog-input-24-plus-external-filter arrangement kept as the fallback. Closes the item Rev 3.35 opened.
-
-## **1.16 Changes in Rev 3.37**
-
-—  §8.8: the Digiface channels 33/34 route is confirmed on the host — class-compliant under Linux, 34 playback channels at 48kHz, S32_LE, tone on 33/34 heard at the phones jack — and the level and driver facts the audio program needs are recorded. No design change. The BOM’s relay count is 23 station relays plus 8 trunk, and the R11/R12 fit note names station 24. The comb slot left unused by the tap is 24 (bin 696), not 8. Trunk Rev 5.37, generator Rev 57, control.md Rev 3 and mqtt.md Rev 3 follow.
-
-## **1.17 Changes in Rev 3.38**
-
-—  §9.10’s summary follows mqtt.md Rev 5 and audio.md Rev 1: the game program now also commands the audio program — play/set, listen/set per circuit, tone/set per trunk, and the monitor and test tone under audio/ — and the audio program echoes each as retained state. Rev 3.34 through Rev 3.37 said the game program commands hook/set and ring/set only, which was complete when written and became a stale cross-reference the moment mqtt.md Rev 5 was. One sentence; no hardware change and nothing else in this document names a topic.
-
-## 1.18 Changes in Rev 3.39
-
-—  Cross-reference only. `esp32.md` is `control.md` and `ring/esp32.ino` is `control/control.ino` as of 2026-09-19 (control.md Rev 9); every reference in this document follows, the Rev 3.34 and Rev 3.37 entries included. The `ring/ring.ino` name in the Rev 3.28 and Rev 3.32 entries is history and stays. No hardware change.
-
-## 1.19 Changes in Rev 3.40
-
-—  The audience monitor moves from the Digiface USB’s own analog output (playback 33/34, settled at Rev 3.36) to A32 balanced output channel 24, station board 3 strip 8. To free that channel the operator tap moves from strip 8 to strip 7 of the same board — A32 channel 23 — and stations are 1–22. Mark’s decision, 2026-09-23. §7.9.6 and the new §7.9.8.
-
-—  What it buys. A balanced output whose level the A32 sets per channel, recallable from its front panel, where the Digiface jack is unbalanced and fixed at +9.5dBu with no TotalMix under Linux to trim it (§8.8, Rev 3.37) — which left the audio program’s own gain as the only control ahead of the amplifier. The monitor also comes out of the same converter as every other channel. What it costs is one station: 22 rather than 23. Comb slots 23 and 24 (bins 688 and 696) both go unused.
-
-—  How the signal leaves the board. Strip 8’s transmit audio arrives on J2 channel 8 like any other strip’s, but this board has no connector for anything except a station line on the far side of T2. Until the next board revision adds one, a shielded pair is soldered to the J2-side pads of the unfitted R7 and R8 — J2 pins 1 and 14 — with its shield to J2 pin 2, and run to the amplifier. Nothing else on the strip is fitted except R2. §7.9.8, with a layout note in §12 for the next revision.
-
-—  The Digiface route is not withdrawn as wrong. It was confirmed on the host at Rev 3.37 and still works; it becomes the fallback, trading places with the A32 route that displaced it. §8.8.
-
-—  Swept: title, §1, §5.5, §6, §7.9.6, §7.9.7, §7.9.8 (new), §8.3, §8.8, §9.2, §10.1, §11 and §12. audio.md Rev 7, mqtt.md Rev 9, control.md Rev 10, trunk Rev 5.39 and generator Rev 62 follow. The audio program and the controller firmware each have a code consequence, on the Claude Code side.
-
-## 1.20 Changes in Rev 3.41
-
-—  The audience loudspeaker is no longer fed from the tap strip alone. The audio program can take the monitor from any station’s or trunk’s receive channel as well as from the tap’s, and the game program points it at the calling line of the call the operator most recently answered. Mark’s decision, 2026-09-24; audio.md Rev 8 §10.3 and game_control.md Rev 6 §6.4 carry it. The operator leaves a call when she throws the ring key to ring the called party, so a monitor fed only from her talking path carried each request and none of the conversation. A calling line’s receive channel carries both sides: its own transmit returns at full strength, since the interface has no hybrid (§8.4), and the far end arrives through the cord.
-
-—  §8.8 is corrected: it said the tap strip’s receive channel feeds the loudspeaker and that this is its only job. Monitoring is still its only job, since it takes no part in detection, but it is now the default monitor source rather than the only one. §7.9 and §7.9.6 follow in a sentence each, and the §9.10 summary names the new command (mqtt.md Rev 13).
-
-—  No hardware change. The §8.8 filter already removes a circuit channel’s own pilot, its peer’s pilot and the operator tone, as it removes the tone and pilots from the tap channel.
-
-## 1.21 Changes in Rev 3.42
-
-—  §4.1 and the §11 BOM row are corrected: they gave the P6KE120CA a 120V standoff. The 120 in the part number is nominal breakdown. The datasheet figures are 102V standoff, 114–126V breakdown and 165V clamp, as `trunk_circuit.md` §6 already had them. The clamp figure used in §4.1 and §5.5 moves from 167V to the datasheet’s 165V, and the worst-case detector current from 8.1mA to 8.0mA.
-
-—  No hardware change. The part is the same, the 24V loop is still far below standoff, and the 127V ring peak is still above breakdown, so the §4.1 reasoning stands.
-
-## 1.22 Changes in Rev 3.43
-
-—  C19 added: 100nF from U1 pin 18 (/RESET) to GND, at the pin, one per board (§9.4, §11). Found on the bench, 2026-10-03, with station board 1 and the trunk board wired together and the serial console attached through repeated board tests: both expanders came back at their power-on configuration — IODIR FF, IPOL 00 — about once per run, each time while a ring relay or an off-hook relay switched. Raising the 24V supply's current limit from 0.1A to 1A changed nothing. With 100nF bodged across pin 18 and ground on both boards there was no reset in twelve runs, against four in the four runs before it. /RESET crosses the bus cord and every board with nothing on it but a 10kΩ pull-up, and the MCP23017 resets on a pulse of about a microsecond, so a spike coupled into the cord was enough. R18 and C19 make a 1ms time constant, and boards in parallel keep it at 1ms; control.md §6.2 holds /RESET low for 2ms and waits 5ms after releasing it, so the deliberate reset still works with no firmware change.
-
-—  The present boards carry C19 as a bodge. The next board revision gives it a footprint at U1 pin 18. Schematic: the root sheet as annotated runs C101–C108, so C19 takes C109 there.
-
-## 1.24 Changes in Rev 3.45
-
-—  The audience monitor cable's shield is not connected at the board (§7.9.8). J106 has hot and cold only, and Rev 3.44 sent the shield to the channel 8 D-Sub ground, J105 pin 2. Mark's decision, 2026-10-05: leave it unconnected at this end, on the same reasoning as §7.6, which earths an audio connection's screen at one end only — the far end — to keep it out of the loop through board GND, the PSU and mains earth. The shield is earthed at the amplifier. If the monitor hums or picks up ring clicks, the remedy is the same as §7.6's: try it, and connect at the board only if that is better.
-
-—  No hardware change.
-
-
-—  R105 and R106 are footprints left unfitted, not fitted as Rev 3.44 recorded (Mark, 2026-10-05). The D-Sub ground pins float at the board, as §7.6 intends, so the A32 cable shields, like J106's, are earthed at the far end alone. §7.6, the §11 row and the schematic guide follow.
-## 1.23 Changes in Rev 3.44
-
-—  The document now names every part by its KiCad designator as annotated on the rev 2 board, the board in hand on all three positions. The eight strips are eight instances of one sheet, numbered 2xx for strip 1 to 9xx for strip 8; a strip part is written with x for the hundreds digit, so Rx03 is R203 on strip 1 and R903 on strip 8. Root-sheet parts keep their own numbers. Change entries before this one keep the names they were written with. The former names, in the §11 BOM notes as well:
-
-| **Former** | **Now** | **Former** | **Now** | **Former** | **Now** |
-| --- | --- | --- | --- | --- | --- |
-| C3 | Cx01 | R7, R8 | Rx10, Rx11 | C8 | C107 |
-| C9 | Cx02 | R11, R12 | Rx04, Rx05 | C10, C11, C12 | C102, C103, C104 |
-| C4 | Cx03 | R_pd | Rx02 | C15, C16, C17 | C105, C106, C108 |
-| C5 | Cx04 | T2 | Tx01 | D6 | D101 |
-| TVS1 | Dx01 | OC1 | Ux01 | F1 with FH1 | F101 |
-| D5 | Dx02 | U1 | U101 | J1, J2 | J104, J105 |
-| RLY1 | Kx01 | U3, U4 | U102, U103 | J3A, J3B | J101, J102 |
-| Q2 | Qx01 | TVS2 | TVS101 | J5 | J103 |
-| R4 | Rx01 | SW1 | SW101 | J7A, J7B | J7A101, J7B101 |
-| R3 | Rx03 | R18 | R102 | R19, R20, R21 | R101, R103, R104 |
-| R1a, R1b | Rx06, Rx07 | R2 | Rx12 | C6 | C101 |
-| R5, R6 | Rx08, Rx09 | C19 (bodge) | C109 at the next revision | | |
-
-—  The document follows the rev 2 board as built (Mark, 2026-10-05):
-   - U2 and C7, the optional second expander and its decoupling, are removed. The board has no footprint for them and none will be fitted; 0x24–0x27 are unused (§9.1, §9.2).
-   - R9 and R10 are removed: the board has no pull-up footprints. The bus's pull-ups are the generator board's R1 and R2 (§9.5).
-   - R13, the tap-strip secondary damping, and R17, the Ux01 supply series element, have no footprints. R13 becomes a bodge across T801's secondary if the §7.9.5 sweep asks for it; Ux01 pin 8 goes straight to +3.3V (§3.6).
-   - The TVS101 bypass (C18, Rev 3.26) is not on the board. It was missed in the drawing and waits for the next revision (§7.8, §11, §12; TODO.md).
-   - The D-Sub ground links are two 0Ω resistors, R105 for J104 and R106 for J105, fitted (§7.6).
-   - J106, a two-way MONITOR terminal on strip 8's transmit pair, is on the board: the connector §12 asked for at Rev 3.40 (§7.9.8). "The next board revision" now means rev 3.
-
-—  No electrical change; the design is unchanged apart from recording the board as it is.
-## 1.25 Changes in Rev 3.46
-
-—  §8.7: a comb pilot counts toward the peer only if it is also within PEER_WINDOW_DB, 40dB to start with, of the circuit's own pilot. Found on the bench, 2026-10-15, with the trunk board cabled straight to station board 1: every idle trunk reported `ambiguous`, hearing two or three other trunks 20–39dB above the noise floor against MARGIN_DB's 20. `pilot_loopback_test`, with the comb at −12dBFS on trunk outputs 25–32 and capture on 25–32: own return −16.8dBFS on all eight; each trunk hears two of the trunks in its group of four (1–4, 5–8) at about −89dBFS and the third at about −101, the other group at −101 to −130. The same measurement with the cable open at the board end read −140 to −145 throughout, so the A32, the Digiface and the cable are clean and the coupling is on the trunk board — most likely the traces between the transformers and the D-Subs, which run parallel with little room between them (Mark). With all eight stations off-hook: own −30.7dBFS, trunk to station −33.8, trunk to trunk −108 to −117. The board is not changing, so the detector works around it.
-
-—  No hardware change. Code consequence: `--peer-window-db` in the audio program (audio.md Rev 13).
-
-## 1.26 Changes in Rev 3.47
-
-—  §8.7: the operator tone counts only within OP_WINDOW_DB, 20dB to start with, of the circuit's own pilot, as a comb pilot does within PEER_WINDOW_DB since Rev 3.46. Found on the bench, 2026-10-15, after the board tests: the page showed `op` on, steady or flickering, on stations 7, 14, 15, 16, 21 and 22 and trunks 5, 6 and 8 with nothing bridged. `tone_monitor` driving the tap's channel 23 at 9kHz and −18dBFS: the tap's own return −23.2dBFS; station 22, the next strip on board 3, −103.8; station 15 −110.3; trunks 5 and 8 about −119; the rest −125 to −150. The per-bin floor is near −140dBFS, so 20dB of MARGIN_DB passes leakage down to about −120. Station 22's own pilot returns at −57.6dBFS from −40, so the leak there is 46dB under it: outside PEER_WINDOW_DB by 6dB, too little against the difference between the floors at bins 680 and 768, and station 22 still read `op` on with the 40dB window. A real bridge should put the operator tone above the own pilot — the tap sends it 22dB hotter than a pilot, and a peer arrived 3dB under the own pilot on the bench — so 20dB is 26dB clear of the leak and leaves a bridge about 37dB to lose. (Trunk 7 read −53dBFS in the same measurement because board 3 was still cabled straight to the trunks, trunk 7 to the tap strip; that one was real.)
-
-—  No hardware change. Code consequence: `--op-window-db` in the audio program (audio.md Rev 14). The operator tone's level on a bridged circuit through the switchboard is unmeasured; audio.md §15 step 6 measures it.
-
-## 1.27 Changes in Rev 3.48
-
-—  §8.7: the windows compare absolute bin levels, and PEER_WINDOW_DB comes down from 40dB to 25dB. Found on the switchboard, 2026-10-16, with the trunks cabled to it on their two shielded Cat 6 cables, four trunks to a cable: the detector published false trunk-to-trunk peers hundreds of times in fifteen minutes. `pilot_loopback_test` on trunks 25–32 at −12dBFS, own return −16.8dBFS throughout:
-
-| Trunks wired to | Within a cable | Across the cables | Noise, trunks 1–3 |
-| --- | --- | --- | --- |
-| nothing (board only) | 84–88dB under own, neighbours only | 95–125dB | −108 to −111dBFS |
-| the cables, open at the far end | 53–58dB, every pair alike | 84–87dB | −109 to −111dBFS |
-| the switchboard | 47–52dB, every pair | 50–80dB | −92 to −96dBFS |
-
-The cable alone accounts for most of it, and the coupling is the same between every pair in a cable — the signature of a line not balanced to ground coupling through the cable's capacitance, not of twisted-pair crosstalk; a hypothesis, not confirmed. The cabling cannot change (Mark), so the detector works around it. The detector measured the same crosstalk 12–21dB under the own pilot, because each level was taken against its own bin's floor and the floors differ; compared absolutely, as the windows now do, it read 44–52dB, agreeing with the bench tool. A cord from station 1 to trunk 5, both ends, read 3–4dB under the own pilot. 25dB leaves the peer 21dB to lose, for the operator bridging on and for station-to-station cords, not yet measured, and keeps 19dB clear of the crosstalk.
-
-—  No hardware change. Code consequence: audio.md Rev 15.
-
-
 # 2. Functional Block Diagram (One Station)
 
 ```text
@@ -404,9 +81,6 @@ Tx01 secondary: fully floating 600Ω winding
 The switchboard applies approximately 90V RMS AC at 20Hz across tip and ring when ringing a station. The HCPL3700M is a threshold-sensing AC/DC-to-logic optocoupler rather than a plain phototransistor coupler, and it absorbs most of the discrete circuitry the Rev 2.1 detector needed.
 
 
-## 1.28 Changes in Rev 3.49
-
-—  Board 3 strip 8 becomes station 24, a real telephone, following real_phone.md Rev 2 (option B, Mark, 2026-10-23); §7.9.8 is rewritten for it. The relay, Cx01, Tx01 and Rx08–Rx11 are fitted, Rx03 is not, and the ring-detector footprint is a DC hook detector across the line (2.2kΩ + 2.2kΩ 2W, Cx03 a 0Ω link). The phone is cabled to switchboard jack 10. The audience monitor leaves A32 output 24 for the Digiface's analog output, 33 and 34 (audio.md Rev 24). Stations are 1–22 and 24. The bench measurements are in §7.9.8. control.md Rev 33–38, mqtt.md Rev 43–44 and pilot-map.md follow.
 ## 3.1 Why This Part Changes the Circuit
 
 —  Internal diode bridge across the AC input pins. The external D1–D4 1N4007 bridge is deleted — 32 diodes removed from a fully populated 3-board system — while full-wave behaviour, and therefore the 40Hz pulsed output, is retained.
@@ -1049,7 +723,7 @@ Each circuit channel answers two questions from one FFT: which other circuit, if
 
 The first question is answered from the comb. This switchboard makes point-to-point connections only — no conferencing, no bridging a third station onto a cord. The detector should therefore expect exactly zero or one comb pilot above threshold, and treat anything else as a fault to be reported rather than a result to be acted on.
 
-The second is answered from bin 768, the operator tone from the tap strip (§7.9, §8.8). It is not a comb slot and is never counted toward the zero-or-one rule. Its presence on a circuit channel means the operator is bridged to that circuit; its absence means the operator is not. Earlier revisions detected the operator on the tap strip’s receive channel instead — §1.7 records why that was withdrawn.
+The second is answered from bin 768, the operator tone from the tap strip (§7.9, §8.8). It is not a comb slot and is never counted toward the zero-or-one rule. Its presence on a circuit channel means the operator is bridged to that circuit; its absence means the operator is not. Earlier revisions detected the operator on the tap strip’s receive channel instead — §14.28 records why that was withdrawn.
 
 ```python
 import numpy as np
@@ -1143,17 +817,17 @@ There is no reciprocity check for op, because the tap strip does not detect. Its
 
 Load is negligible. Thirty-two real 4096-point FFTs every 43ms is under a million operations per second on a machine that is already handling 32 channels of audio, and it comes with a full spectrum per channel for free, which is worth having during commissioning.
 
-A comb pilot counts only if it is MARGIN_DB above its floor and also no more than PEER_WINDOW_DB below the circuit's own pilot, comparing the two bins' absolute levels. The second test is what separates a peer from crosstalk. Every circuit transmits its pilot at the same level, so a peer's pilot and a neighbour's leakage differ only in the path they took: a cord, which costs a few dB to a few tens of dB, or a coupling on the board, which costs 70dB or more. Measured on the trunk board, 2026-10-15 (§1.25): a station cabled straight to a trunk arrived 3dB under the trunk's own pilot, and trunk-to-trunk crosstalk 72dB under it idle and 77dB or more with the loops closed. The noise floor does not scale with the pilots, so a threshold on the floor alone has to sit between the two by absolute level, and the own pilot moves 14dB as a trunk's loop opens and closes. The operator tone is held to a window of its own, OP_WINDOW_DB (Rev 3.47). It leaks from the tap strip into other channels as the pilots leak between trunks, 46dB under the own pilot on station 22, the strip beside the tap, and since it is sent 22dB hotter than a pilot that leak sits further above the floor still. Bridged on through a cord it should arrive above the own pilot, so its window can be the tighter one: 20dB to start with.
+A comb pilot counts only if it is MARGIN_DB above its floor and also no more than PEER_WINDOW_DB below the circuit's own pilot, comparing the two bins' absolute levels. The second test is what separates a peer from crosstalk. Every circuit transmits its pilot at the same level, so a peer's pilot and a neighbour's leakage differ only in the path they took: a cord, which costs a few dB to a few tens of dB, or a coupling on the board, which costs 70dB or more. Measured on the trunk board, 2026-10-15 (§14.46): a station cabled straight to a trunk arrived 3dB under the trunk's own pilot, and trunk-to-trunk crosstalk 72dB under it idle and 77dB or more with the loops closed. The noise floor does not scale with the pilots, so a threshold on the floor alone has to sit between the two by absolute level, and the own pilot moves 14dB as a trunk's loop opens and closes. The operator tone is held to a window of its own, OP_WINDOW_DB (Rev 3.47). It leaks from the tap strip into other channels as the pilots leak between trunks, 46dB under the own pilot on station 22, the strip beside the tap, and since it is sent 22dB hotter than a pilot that leak sits further above the floor still. Bridged on through a cord it should arrive above the own pilot, so its window can be the tighter one: 20dB to start with.
 
 The windows compare absolute bin levels, not each bin's level above its own floor (Rev 3.48). The floor is local to each bin, and two bins' floors need not agree: with the trunks on the switchboard they differed by 15–30dB, enough to make crosstalk 44dB down look 12dB down. The margin test stays against the floor, because that question — is anything there at all — is about the floor.
 
-Set MARGIN_DB, PEER_WINDOW_DB and OP_WINDOW_DB empirically against a real cord-pair connection rather than a loopback, since the peer pilot has crossed the switchboard and the loopback path flatters it. The peer through the switchboard will be lower than the direct-cable figure above, and lower again with the operator bridged on; PEER_WINDOW_DB must take the weakest of those, and OP_WINDOW_DB the operator tone on a circuit she is bridged to, each with room to spare, and stay clear of the crosstalk. 25dB is the starting value, from the switchboard as cabled (§1.27): a peer through a cord 3–4dB under the own pilot, trunk crosstalk 44dB or more under it. Then confirm the setting by verifying that no circuit reports ambiguous with every cord in the switchboard patched at once — with all 32 pilots live this is also the worst case for crosstalk between adjacent D-Sub channels.
+Set MARGIN_DB, PEER_WINDOW_DB and OP_WINDOW_DB empirically against a real cord-pair connection rather than a loopback, since the peer pilot has crossed the switchboard and the loopback path flatters it. The peer through the switchboard will be lower than the direct-cable figure above, and lower again with the operator bridged on; PEER_WINDOW_DB must take the weakest of those, and OP_WINDOW_DB the operator tone on a circuit she is bridged to, each with room to spare, and stay clear of the crosstalk. 25dB is the starting value, from the switchboard as cabled (§14.48): a peer through a cord 3–4dB under the own pilot, trunk crosstalk 44dB or more under it. Then confirm the setting by verifying that no circuit reports ambiguous with every cord in the switchboard patched at once — with all 32 pilots live this is also the worst case for crosstalk between adjacent D-Sub channels.
 
 ## 8.8 Audience Monitor Feed
 
-The audience loudspeaker is fed from one receive channel at a time. By default it is the operator tap strip’s. During a game it is the calling line of the call the operator most recently answered, chosen by the game program (audio.md §10.3, game_control.md §6.4). Rev 3.24 through Rev 3.40 fed it from the tap strip alone. The operator leaves a call when she throws the ring key to ring the called party, so the tap carried each request and none of the conversation; §1.20 records the change.
+The audience loudspeaker is fed from one receive channel at a time. By default it is the operator tap strip’s. During a game it is the calling line of the call the operator most recently answered, chosen by the game program (audio.md §10.3, game_control.md §6.4). Rev 3.24 through Rev 3.40 fed it from the tap strip alone. The operator leaves a call when she throws the ring key to ring the called party, so the tap carried each request and none of the conversation; §14.41 records the change.
 
-Feeding the loudspeaker is the tap channel’s only job: operator connectivity is detected per circuit from bin 768 (§8.7), and the tap channel takes no part in it. Rev 3.24 through Rev 3.27 had the tap channel doing detection as well, and treated its reading as the authoritative one; §1.7 records why that was withdrawn. A station or trunk channel used as the source keeps its other jobs. The monitor reads a copy of it.
+Feeding the loudspeaker is the tap channel’s only job: operator connectivity is detected per circuit from bin 768 (§8.7), and the tap channel takes no part in it. Rev 3.24 through Rev 3.27 had the tap channel doing detection as well, and treated its reading as the authoritative one; §14.28 records why that was withdrawn. A station or trunk channel used as the source keeps its other jobs. The monitor reads a copy of it.
 
 Listening needs the pilots gone. The tap channel carries the operator tone at close to full level plus the pilots of whichever circuits the operator is bridged to, anywhere from 6000.00Hz to 8906.25Hz. A circuit channel carries its own pilot at full strength, its peer’s pilot, and the operator tone while she is bridged to it. All of it sits above the content: speech is pre-rendered at 16kHz with period band-limiting and the switchboard path is 300–3400Hz, so nothing wanted lives above about 3.5kHz.
 
@@ -1516,3 +1190,377 @@ Three boards: 24 of each per-strip part and 3 × U101, less the parts §7.9.7 an
 —  One common 24V battery feeds the switchboard, both board types and all loops, so board ground and switchboard battery negative are the same node. Deriving board power from tip and ring is still prohibited — it places a permanent load on the loop that the switchboard reads as a supervision fault — and the 24V distribution must be a star from the PSU terminals. See §10.1.
 
 —  Do not connect station boards to a live PSTN line. Designed for 551 switchboard connection only.
+
+# 14. Revision History
+
+## 14.50 Changes in Rev 3.50
+
+— The document made readable, Mark's request, 2026-10-30, as `game_control.md` Rev 95. The line under the title had grown into a list of topics and now gives only the revision. The changes in each revision move out of the Overview to this section at the end of the document, newest first, where the entries had been in the Overview, with Rev 3.49 in §3. The entries for Rev 3.5 to Rev 3.23 had been one list and now have a section each. The text of each entry is unchanged except for references to the renumbered sections, and wording that said an entry was "above". A new revision is added at the top of this section, and the line under the title changes only its number.
+
+— No code consequence.
+
+## 14.49 Changes in Rev 3.49
+
+—  Board 3 strip 8 becomes station 24, a real telephone, following real_phone.md Rev 2 (option B, Mark, 2026-10-23); §7.9.8 is rewritten for it. The relay, Cx01, Tx01 and Rx08–Rx11 are fitted, Rx03 is not, and the ring-detector footprint is a DC hook detector across the line (2.2kΩ + 2.2kΩ 2W, Cx03 a 0Ω link). The phone is cabled to switchboard jack 10. The audience monitor leaves A32 output 24 for the Digiface's analog output, 33 and 34 (audio.md Rev 24). Stations are 1–22 and 24. The bench measurements are in §7.9.8. control.md Rev 33–38, mqtt.md Rev 43–44 and pilot-map.md follow.
+
+## 14.48 Changes in Rev 3.48
+
+—  §8.7: the windows compare absolute bin levels, and PEER_WINDOW_DB comes down from 40dB to 25dB. Found on the switchboard, 2026-10-16, with the trunks cabled to it on their two shielded Cat 6 cables, four trunks to a cable: the detector published false trunk-to-trunk peers hundreds of times in fifteen minutes. `pilot_loopback_test` on trunks 25–32 at −12dBFS, own return −16.8dBFS throughout:
+
+| Trunks wired to | Within a cable | Across the cables | Noise, trunks 1–3 |
+| --- | --- | --- | --- |
+| nothing (board only) | 84–88dB under own, neighbours only | 95–125dB | −108 to −111dBFS |
+| the cables, open at the far end | 53–58dB, every pair alike | 84–87dB | −109 to −111dBFS |
+| the switchboard | 47–52dB, every pair | 50–80dB | −92 to −96dBFS |
+
+The cable alone accounts for most of it, and the coupling is the same between every pair in a cable — the signature of a line not balanced to ground coupling through the cable's capacitance, not of twisted-pair crosstalk; a hypothesis, not confirmed. The cabling cannot change (Mark), so the detector works around it. The detector measured the same crosstalk 12–21dB under the own pilot, because each level was taken against its own bin's floor and the floors differ; compared absolutely, as the windows now do, it read 44–52dB, agreeing with the bench tool. A cord from station 1 to trunk 5, both ends, read 3–4dB under the own pilot. 25dB leaves the peer 21dB to lose, for the operator bridging on and for station-to-station cords, not yet measured, and keeps 19dB clear of the crosstalk.
+
+—  No hardware change. Code consequence: audio.md Rev 15.
+
+## 14.47 Changes in Rev 3.47
+
+—  §8.7: the operator tone counts only within OP_WINDOW_DB, 20dB to start with, of the circuit's own pilot, as a comb pilot does within PEER_WINDOW_DB since Rev 3.46. Found on the bench, 2026-10-15, after the board tests: the page showed `op` on, steady or flickering, on stations 7, 14, 15, 16, 21 and 22 and trunks 5, 6 and 8 with nothing bridged. `tone_monitor` driving the tap's channel 23 at 9kHz and −18dBFS: the tap's own return −23.2dBFS; station 22, the next strip on board 3, −103.8; station 15 −110.3; trunks 5 and 8 about −119; the rest −125 to −150. The per-bin floor is near −140dBFS, so 20dB of MARGIN_DB passes leakage down to about −120. Station 22's own pilot returns at −57.6dBFS from −40, so the leak there is 46dB under it: outside PEER_WINDOW_DB by 6dB, too little against the difference between the floors at bins 680 and 768, and station 22 still read `op` on with the 40dB window. A real bridge should put the operator tone above the own pilot — the tap sends it 22dB hotter than a pilot, and a peer arrived 3dB under the own pilot on the bench — so 20dB is 26dB clear of the leak and leaves a bridge about 37dB to lose. (Trunk 7 read −53dBFS in the same measurement because board 3 was still cabled straight to the trunks, trunk 7 to the tap strip; that one was real.)
+
+—  No hardware change. Code consequence: `--op-window-db` in the audio program (audio.md Rev 14). The operator tone's level on a bridged circuit through the switchboard is unmeasured; audio.md §15 step 6 measures it.
+
+## 14.46 Changes in Rev 3.46
+
+—  §8.7: a comb pilot counts toward the peer only if it is also within PEER_WINDOW_DB, 40dB to start with, of the circuit's own pilot. Found on the bench, 2026-10-15, with the trunk board cabled straight to station board 1: every idle trunk reported `ambiguous`, hearing two or three other trunks 20–39dB above the noise floor against MARGIN_DB's 20. `pilot_loopback_test`, with the comb at −12dBFS on trunk outputs 25–32 and capture on 25–32: own return −16.8dBFS on all eight; each trunk hears two of the trunks in its group of four (1–4, 5–8) at about −89dBFS and the third at about −101, the other group at −101 to −130. The same measurement with the cable open at the board end read −140 to −145 throughout, so the A32, the Digiface and the cable are clean and the coupling is on the trunk board — most likely the traces between the transformers and the D-Subs, which run parallel with little room between them (Mark). With all eight stations off-hook: own −30.7dBFS, trunk to station −33.8, trunk to trunk −108 to −117. The board is not changing, so the detector works around it.
+
+—  No hardware change. Code consequence: `--peer-window-db` in the audio program (audio.md Rev 13).
+
+## 14.45 Changes in Rev 3.45
+
+—  The audience monitor cable's shield is not connected at the board (§7.9.8). J106 has hot and cold only, and Rev 3.44 sent the shield to the channel 8 D-Sub ground, J105 pin 2. Mark's decision, 2026-10-05: leave it unconnected at this end, on the same reasoning as §7.6, which earths an audio connection's screen at one end only — the far end — to keep it out of the loop through board GND, the PSU and mains earth. The shield is earthed at the amplifier. If the monitor hums or picks up ring clicks, the remedy is the same as §7.6's: try it, and connect at the board only if that is better.
+
+—  No hardware change.
+
+
+—  R105 and R106 are footprints left unfitted, not fitted as Rev 3.44 recorded (Mark, 2026-10-05). The D-Sub ground pins float at the board, as §7.6 intends, so the A32 cable shields, like J106's, are earthed at the far end alone. §7.6, the §11 row and the schematic guide follow.
+
+## 14.44 Changes in Rev 3.44
+
+—  The document now names every part by its KiCad designator as annotated on the rev 2 board, the board in hand on all three positions. The eight strips are eight instances of one sheet, numbered 2xx for strip 1 to 9xx for strip 8; a strip part is written with x for the hundreds digit, so Rx03 is R203 on strip 1 and R903 on strip 8. Root-sheet parts keep their own numbers. Change entries before this one keep the names they were written with. The former names, in the §11 BOM notes as well:
+
+| **Former** | **Now** | **Former** | **Now** | **Former** | **Now** |
+| --- | --- | --- | --- | --- | --- |
+| C3 | Cx01 | R7, R8 | Rx10, Rx11 | C8 | C107 |
+| C9 | Cx02 | R11, R12 | Rx04, Rx05 | C10, C11, C12 | C102, C103, C104 |
+| C4 | Cx03 | R_pd | Rx02 | C15, C16, C17 | C105, C106, C108 |
+| C5 | Cx04 | T2 | Tx01 | D6 | D101 |
+| TVS1 | Dx01 | OC1 | Ux01 | F1 with FH1 | F101 |
+| D5 | Dx02 | U1 | U101 | J1, J2 | J104, J105 |
+| RLY1 | Kx01 | U3, U4 | U102, U103 | J3A, J3B | J101, J102 |
+| Q2 | Qx01 | TVS2 | TVS101 | J5 | J103 |
+| R4 | Rx01 | SW1 | SW101 | J7A, J7B | J7A101, J7B101 |
+| R3 | Rx03 | R18 | R102 | R19, R20, R21 | R101, R103, R104 |
+| R1a, R1b | Rx06, Rx07 | R2 | Rx12 | C6 | C101 |
+| R5, R6 | Rx08, Rx09 | C19 (bodge) | C109 at the next revision | | |
+
+—  The document follows the rev 2 board as built (Mark, 2026-10-05):
+   - U2 and C7, the optional second expander and its decoupling, are removed. The board has no footprint for them and none will be fitted; 0x24–0x27 are unused (§9.1, §9.2).
+   - R9 and R10 are removed: the board has no pull-up footprints. The bus's pull-ups are the generator board's R1 and R2 (§9.5).
+   - R13, the tap-strip secondary damping, and R17, the Ux01 supply series element, have no footprints. R13 becomes a bodge across T801's secondary if the §7.9.5 sweep asks for it; Ux01 pin 8 goes straight to +3.3V (§3.6).
+   - The TVS101 bypass (C18, Rev 3.26) is not on the board. It was missed in the drawing and waits for the next revision (§7.8, §11, §12; TODO.md).
+   - The D-Sub ground links are two 0Ω resistors, R105 for J104 and R106 for J105, fitted (§7.6).
+   - J106, a two-way MONITOR terminal on strip 8's transmit pair, is on the board: the connector §12 asked for at Rev 3.40 (§7.9.8). "The next board revision" now means rev 3.
+
+—  No electrical change; the design is unchanged apart from recording the board as it is.
+
+## 14.43 Changes in Rev 3.43
+
+—  C19 added: 100nF from U1 pin 18 (/RESET) to GND, at the pin, one per board (§9.4, §11). Found on the bench, 2026-10-03, with station board 1 and the trunk board wired together and the serial console attached through repeated board tests: both expanders came back at their power-on configuration — IODIR FF, IPOL 00 — about once per run, each time while a ring relay or an off-hook relay switched. Raising the 24V supply's current limit from 0.1A to 1A changed nothing. With 100nF bodged across pin 18 and ground on both boards there was no reset in twelve runs, against four in the four runs before it. /RESET crosses the bus cord and every board with nothing on it but a 10kΩ pull-up, and the MCP23017 resets on a pulse of about a microsecond, so a spike coupled into the cord was enough. R18 and C19 make a 1ms time constant, and boards in parallel keep it at 1ms; control.md §6.2 holds /RESET low for 2ms and waits 5ms after releasing it, so the deliberate reset still works with no firmware change.
+
+—  The present boards carry C19 as a bodge. The next board revision gives it a footprint at U1 pin 18. Schematic: the root sheet as annotated runs C101–C108, so C19 takes C109 there.
+
+## 14.42 Changes in Rev 3.42
+
+—  §4.1 and the §11 BOM row are corrected: they gave the P6KE120CA a 120V standoff. The 120 in the part number is nominal breakdown. The datasheet figures are 102V standoff, 114–126V breakdown and 165V clamp, as `trunk_circuit.md` §6 already had them. The clamp figure used in §4.1 and §5.5 moves from 167V to the datasheet’s 165V, and the worst-case detector current from 8.1mA to 8.0mA.
+
+—  No hardware change. The part is the same, the 24V loop is still far below standoff, and the 127V ring peak is still above breakdown, so the §4.1 reasoning stands.
+
+## 14.41 Changes in Rev 3.41
+
+—  The audience loudspeaker is no longer fed from the tap strip alone. The audio program can take the monitor from any station’s or trunk’s receive channel as well as from the tap’s, and the game program points it at the calling line of the call the operator most recently answered. Mark’s decision, 2026-09-24; audio.md Rev 8 §10.3 and game_control.md Rev 6 §6.4 carry it. The operator leaves a call when she throws the ring key to ring the called party, so a monitor fed only from her talking path carried each request and none of the conversation. A calling line’s receive channel carries both sides: its own transmit returns at full strength, since the interface has no hybrid (§8.4), and the far end arrives through the cord.
+
+—  §8.8 is corrected: it said the tap strip’s receive channel feeds the loudspeaker and that this is its only job. Monitoring is still its only job, since it takes no part in detection, but it is now the default monitor source rather than the only one. §7.9 and §7.9.6 follow in a sentence each, and the §9.10 summary names the new command (mqtt.md Rev 13).
+
+—  No hardware change. The §8.8 filter already removes a circuit channel’s own pilot, its peer’s pilot and the operator tone, as it removes the tone and pilots from the tap channel.
+
+## 14.40 Changes in Rev 3.40
+
+—  The audience monitor moves from the Digiface USB’s own analog output (playback 33/34, settled at Rev 3.36) to A32 balanced output channel 24, station board 3 strip 8. To free that channel the operator tap moves from strip 8 to strip 7 of the same board — A32 channel 23 — and stations are 1–22. Mark’s decision, 2026-09-23. §7.9.6 and the new §7.9.8.
+
+—  What it buys. A balanced output whose level the A32 sets per channel, recallable from its front panel, where the Digiface jack is unbalanced and fixed at +9.5dBu with no TotalMix under Linux to trim it (§8.8, Rev 3.37) — which left the audio program’s own gain as the only control ahead of the amplifier. The monitor also comes out of the same converter as every other channel. What it costs is one station: 22 rather than 23. Comb slots 23 and 24 (bins 688 and 696) both go unused.
+
+—  How the signal leaves the board. Strip 8’s transmit audio arrives on J2 channel 8 like any other strip’s, but this board has no connector for anything except a station line on the far side of T2. Until the next board revision adds one, a shielded pair is soldered to the J2-side pads of the unfitted R7 and R8 — J2 pins 1 and 14 — with its shield to J2 pin 2, and run to the amplifier. Nothing else on the strip is fitted except R2. §7.9.8, with a layout note in §12 for the next revision.
+
+—  The Digiface route is not withdrawn as wrong. It was confirmed on the host at Rev 3.37 and still works; it becomes the fallback, trading places with the A32 route that displaced it. §8.8.
+
+—  Swept: title, §1, §5.5, §6, §7.9.6, §7.9.7, §7.9.8 (new), §8.3, §8.8, §9.2, §10.1, §11 and §12. audio.md Rev 7, mqtt.md Rev 9, control.md Rev 10, trunk Rev 5.39 and generator Rev 62 follow. The audio program and the controller firmware each have a code consequence, on the Claude Code side.
+
+## 14.39 Changes in Rev 3.39
+
+—  Cross-reference only. `esp32.md` is `control.md` and `ring/esp32.ino` is `control/control.ino` as of 2026-09-19 (control.md Rev 9); every reference in this document follows, the Rev 3.34 and Rev 3.37 entries included. The `ring/ring.ino` name in the Rev 3.28 and Rev 3.32 entries is history and stays. No hardware change.
+
+## 14.38 Changes in Rev 3.38
+
+—  §9.10’s summary follows mqtt.md Rev 5 and audio.md Rev 1: the game program now also commands the audio program — play/set, listen/set per circuit, tone/set per trunk, and the monitor and test tone under audio/ — and the audio program echoes each as retained state. Rev 3.34 through Rev 3.37 said the game program commands hook/set and ring/set only, which was complete when written and became a stale cross-reference the moment mqtt.md Rev 5 was. One sentence; no hardware change and nothing else in this document names a topic.
+
+## 14.37 Changes in Rev 3.37
+
+—  §8.8: the Digiface channels 33/34 route is confirmed on the host — class-compliant under Linux, 34 playback channels at 48kHz, S32_LE, tone on 33/34 heard at the phones jack — and the level and driver facts the audio program needs are recorded. No design change. The BOM’s relay count is 23 station relays plus 8 trunk, and the R11/R12 fit note names station 24. The comb slot left unused by the tap is 24 (bin 696), not 8. Trunk Rev 5.37, generator Rev 57, control.md Rev 3 and mqtt.md Rev 3 follow.
+
+## 14.36 Changes in Rev 3.36
+
+—  The audience monitor output is settled: RME Digiface USB playback channels 33/34, its own TRS line/phones jack, +9.5dBu. §8.8. The A32pro’s rear Main Out is recorded as unusable for the purpose — a monitor mirror of one existing channel, not an addressable 33rd output — with the analog-input-24-plus-external-filter arrangement kept as the fallback. Closes the item Rev 3.35 opened.
+
+## 14.35 Changes in Rev 3.35
+
+—  Three station boards are built, and the operator tap moves from station 8 (board 1, strip 8) to station 24 (board 3, strip 8). Stations are 1–23, contiguous. Rev 3.5 through Rev 3.34 described a two-board build with the third board as populated-later capacity, and Rev 3.24 chose station 8 for the tap because the last strip of the last board would have moved when the third board arrived. With all three built that objection is gone; §7.9.6 records the reversal and what the alternative buys. Nothing electrical changes — the tap is a stuffing option on identical strips.
+
+—  Consequence: the audience monitor has no A32 output. It was on output 17, free only while board 3 was unfitted; §8.8 now carries this as an open item that blocks the monitor rather than a deferred one, with the Digiface’s own analog output as the likely answer, to be confirmed.
+
+—  Build-state statements swept: §1, §1.1, §6, §7.9.6, §7.9.7, §8.8, §9.4, §9.5 and §11.
+
+## 14.34 Changes in Rev 3.34
+
+—  The MQTT design and the firmware behaviour move out of this document into two new ones. §9.10, §9.11 and §9.12 go to mqtt.md, which tables every message by publisher — ESP32, audio program, game program — rather than by board; §3.7 and the firmware half of §9.12 go to control.md, which specifies the controller as one program for the first time. §9.7’s reasoning for MQTT over Ethernet goes with them. Each section is left as a heading with a pointer so cross-references in this document and the others still land, and the change entries from Rev 3.28 to Rev 3.33 stay here as the record of how the design was arrived at; mqtt.md §10 summarises them.
+
+—  Nothing in the design changes in the move. This document now owns the station hardware and says where each message about it comes from; it no longer says what a message looks like on the wire or what the controller does with it.
+
+## 14.33 Changes in Rev 3.33
+
+—  The two host programs are named, and every host-published topic is assigned to one of them. The host runs two separate programs beside the broker: the audio program, in C++, which owns the A32 and publishes peer, op and its own audio_status; and the game program, in Python, which is the game logic and publishes hook/set, ring/set, game_heartbeat and sync. Earlier revisions said "the host", "the audio process" and "the game logic" interchangeably, and §8.7’s listing being Python made it easy to read the detector as part of the game program. It is not; §8.7 now says the listing is the specification and the implementation is C++. §1.1, §8.7, §9.10, §9.12.
+
+—  sbgame/ctl/host_heartbeat, introduced at Rev 3.32, becomes sbgame/ctl/game_heartbeat, because it is the game program’s and the audio program’s liveness is a different question. Same behaviour.
+
+—  sbgame/ctl/audio_status added: the audio program’s birth message and LWT, "online" | "offline", retained, the same mechanism as the ESP32’s ctl/status. It exists because peer and op are retained, so an audio program that has died leaves the last topology it saw on the broker looking current; the game program must treat those values as stale while audio_status is offline. No heartbeat for the audio program yet — its main loop is the audio callback, and if that stops the A32 stream stops with it, which is a different and louder failure than a wedged ESP32 loop.
+
+—  Trunk §11.3 and §11.4 follow at Rev 5.34.
+
+## 14.32 Changes in Rev 3.32
+
+—  A heartbeat from the ESP32 to the host is added: sbgame/ctl/esp_heartbeat, every second from the main loop after the I²C poll, payload uptime in seconds, not retained. The host treats two missed beats as ESP32-down. The existing host → ESP32 heartbeat is renamed sbgame/ctl/host_heartbeat so the pair are distinguishable; its behaviour is unchanged. §9.10 and §9.12.
+
+—  Why it was missing. Every revision since the MQTT link was introduced had the host heartbeat only, on the reasoning that the ESP32’s MQTT keepalive plus the LWT already told the host when the controller was gone. That reasoning was never written down in §9.12, and when it is written down its gap is visible: keepalive proves the network stack is alive, not the main loop, and with an MQTT client that pings from its own task a wedged main loop is invisible to the broker. The same argument the section already makes for the host direction — a healthy connection says nothing about the process behind it — applies to the ESP32 and was not applied. Found by a reader asking where the ESP32’s heartbeat was.
+
+—  The beat is published after the I²C poll deliberately, so it proves the loop that drives relays rather than any task that happens to be scheduled. Firmware consequence, on the Claude Code side when the MQTT firmware is written; nothing in ring/ring.ino today.
+
+—  Trunk §11.4 follows at Rev 5.33.
+
+## 14.31 Changes in Rev 3.31
+
+—  Formatting only. Every circuit diagram, pin list, calculation listing, stuffing table and the §8.7 Python listing — fourteen blocks — is now inside a fenced code block. They had been fixed-width text with a blank line between every row, an artefact of the original docx extraction, which a Markdown renderer collapses into run-together prose with the alignment lost. The §8.7 listing was the worst case: its `# slots 1-24 …` comment rendered as a top-level heading. Same sweep on the trunk document at Rev 5.32 and the generator at Rev 55. No word of the content changes.
+
+—  One sentence added to the §9.10 key: the circuit id on the wire is station/<n> or trunk/<n> and never the 1–32 slot number, which is internal to §8.7’s detector. The Rev 3.30 key gave the format without saying what it was not, and §8.3 and §8.7 use "slot" and "combined space" enough that a reader could reasonably assume the flat number was the id.
+
+## 14.30 Changes in Rev 3.30
+
+—  §9.10’s topic table gets a header row and a key. It had four columns and no header since the table was written, so a reader had to infer that the second column is publisher → consumer and the third is the payload, and "host" was never defined in the section — §1.1 names the Linux box the host, §9.10 did not. Two lines in particular were unreadable cold: `hook/set host -> ESP32` did not say what host was, and `peer host -> broker circuit id` did not say that the connected circuit’s identity is the payload.
+
+—  "host → broker" is replaced by "host → any". Every message goes through the broker, so the old wording said nothing; what it meant is that the audio process publishes and there is no single consumer — the game logic, a monitoring UI and the log all subscribe.
+
+—  The circuit id format is specified for the first time: `station/<n>` or `trunk/<n>`, the same two segments the topic names use, so a peer payload prefixed with `sbgame/` is that circuit’s topic root. §8.7’s code returns a tuple; the host formats it as this string at publish time. No earlier revision said what a "circuit id" looked like on the wire.
+
+—  The table is now a Markdown table. It had been fixed-width text lines separated by blank lines — an artefact of the docx extraction — which a renderer runs together as prose, so the columns the header names did not exist on screen. The ctl rows gain the payloads the prose in §9.12 already gives them.
+
+—  Trunk §11.3 takes the same header and key at trunk Rev 5.31. No hardware, firmware or topic change.
+
+## 14.29 Changes in Rev 3.29
+
+—  The MQTT topic prefix changes from sw/ to sbgame/ throughout §9.10 and §9.12, and in the Rev 3.28 entries above, which now read as the topics are. No topic below the prefix changes. Nothing in firmware or host code carries the old prefix yet, so this is the last point at which the rename is free.
+
+—  Why. sw/ was chosen for brevity and never justified. Two letters that could mean switch, software or southwest are not a safe first segment on a broker that may one day be shared with anything else on the museum network. sbgame/ names the exhibit, is unlikely to collide with anything, and is still one segment so wildcard subscriptions such as sbgame/+/+/op work unchanged. sb/ was considered for being easier to type and rejected for having the same weakness as sw/; the prefix is typed once into each codebase and thereafter comes from shell history.
+
+—  Trunk §1.1 and §11.3 and generator §15.3 follow at trunk Rev 5.30 and generator Rev 54.
+
+## 14.28 Changes in Rev 3.28
+
+—  Operator connection is detected on each circuit’s own receive channel, not on the tap strip’s receive channel. Rev 3.24 through Rev 3.27 said the opposite: §8.8 called the tap reading “the better one” and §8.3 said the operator tone tells the game which circuit the operator is patched to, while the detector in §8.7 searched only comb bins 512–760 and never looked at bin 768 on any circuit channel. Neither reading was actually being produced. The tap-channel reading was also the wrong shape: the operator legitimately bridges both ends of a cord pair at once, so the tap hears two pilots in normal service, which the §8.7 detector reports as a fault. See §8.7.
+
+—  The choice between the two places to detect it was made deliberately. Detecting bin 768 per circuit gives one more return value from an FFT already computed, a single-valued retained MQTT topic per circuit that matches the shape of every other state topic, and a result that survives a fault in the tap strip’s own receive path. Detecting on the tap channel would need a second detector with set-valued output and a set-valued topic, and the game would have to diff successive sets to learn which circuit joined or left. The tap strip’s own transmit path is still checked, by its own tone returning on its own channel (§8.4), so nothing is lost by not detecting there.
+
+—  §8.7: identify_peer() gains an op return value from bin 768. The zero-or-one rule is restated as applying to the comb only; the operator tone is checked independently and may be present with or without a peer.
+
+—  §8.8: the tap strip’s receive channel is monitor-only. The “both readings should agree” cross-check is withdrawn. The software filter and its specification are unchanged; the reasons for rejecting an analog filter are restated without the pilot-detection argument.
+
+—  §9.10: sbgame/station/<n>/op and sbgame/trunk/<n>/op added, "on" | "off", host → broker, retained, published by the same process as the peer topics. §7.9.6 no longer credits the tap input with connectivity detection.
+
+—  §9.10 also specifies the peer payload, which no earlier revision had: a circuit id when connected, an empty retained message for idle (clearing the stored value, as fault already does), and the literal strings "ambiguous" and "deaf" for the two diagnostic states so they cannot be mistaken for a peer id. This is new specification rather than a correction; it was left open until now and the op topic made the gap obvious.
+
+—  Cross-document: generator §15.3’s closing paragraph and its pointer to station §8.8 describe the withdrawn tap-channel reading and want the same correction at the generator’s next revision. Trunk §9’s note that a trunk carries the operator tone whenever the operator is patched to it is already consistent with this revision and needs no change.
+
+—  No hardware change. Firmware and host software consequence only, and none of it on ring/ring.ino.
+
+## 14.27 Changes in Rev 3.27
+
+—  R11 and R12 go from 22.1kΩ to 22kΩ, 0.25W 1% metal film, matched. No circuit change: 22kΩ is what generator §15.2 specified, and the station design carried it as 22.1kΩ only because Rev 3.24 recorded that 22.0k is E24 and “not stocked in 1% metal film”. That was wrong — 1% metal film is sold at E24 values as well as E96, and 22kΩ 1% is being bought. Every figure in §7.9.3 was computed from 44.2kΩ and moves by 0.5% at most; the loading, fault current, receive and injection levels are restated at 44kΩ and are the same numbers to the precision they were given. The matching requirement is unchanged and is the reason the part is 1%. Changed in §7.9.1, §7.9.2, §7.9.3, §11 and §12, and in the BOM, the library plan, the DigiKey upload, the station schematic guide and generator §15.4.
+
+—  This is not the R1a/R1b change PROJECT_INDEX.md pencilled in for Rev 3.27. That change waits on the measured Antek output and takes whatever revision number is next when it comes.
+
+## 14.26 Changes in Rev 3.26
+
+—  C18 added, 100nF across TVS2 pins 8 and 4 at the device. TVS2 has been specified since Rev 3.10 with no bypass. The SP721 does not shunt to ground; it conducts the transient from the IN pin into V+, so V+ has to source that current locally or it lifts during the event — degrading the clamp and injecting the transient into the +3.3V rail that U1 and the master share. §12 deliberately places TVS2 at J3A/J3B, away from U1 and the LDO, so C6 and C8 are the length of the board away and cannot serve. One per board, not per station. See §9.5.
+
+—  C18 rather than C13, C14 or the free C1 and C2. The station board has no C13 or C14 — the 1000µF withdrawn at Rev 3.23 (§10.7) never carried a designator — but the trunk board does have both, one live and one retired, and a reader moving between the two documents should not have to remember which board is which. C18 is free on both and is the same number for the same part in the same role on each. The trunk board takes C18 at trunk Rev 5.27 and the generator, which numbers functionally, takes C_TVS2 at generator Rev 34.
+
+—  What is deliberately not fitted. The datasheet note asks for bypass on both V+ and V− and for a series resistor in the supply feed. V− is pin 4 and goes straight to GND, so bypassing it is a zero-length connection with nothing to add. The series resistor belongs to the automotive load-dump and reverse-battery case the note is written for; nothing here sees a reverse battery, and series resistance in the V+ feed would raise the clamp’s dynamic impedance, which is the opposite of the intent. Recorded so a later reader comparing the board against the datasheet sees two decisions rather than two omissions.
+
+—  The SP721 pinout is confirmed against the Littelfuse datasheet, revision GD 07/10/24 — IN on 1–3 and 5–7, V− on 4, V+ on 8. Rev 3.10 recorded V+ on pin 8 and V− on pin 4 and was right. No change; noted so the check is on the record and need not be repeated.
+
+—  Parts already on the board: the 0.1µF is stocked in quantity and the BOM count for this board goes from twelve per board to thirteen. Nothing new is purchased.
+
+## 14.25 Changes in Rev 3.25
+
+—  The MCP23017 address pins are biased. SW1 does not on its own define an address: A0–A2 have no internal pull-up or pull-down, so three SPST switches leave them undefined in one of their two positions. Rev 3.5 through Rev 3.24 specified the switch and no biasing resistors at all. R19, R20 and R21 are added — 10kΩ from each address pin to +3.3V, with SW1 closing each pin to ground. See §9.2.
+
+—  R17 assigned to the Vᴄᴄ series element at OC1. §3.6 has asked for the footprint since Rev 3.0 and §12 repeats the request, but it had no designator and no line in §11, so it existed only as prose. Eight per board, fitted as a 0Ω link.
+
+—  R18 assigned to the /RESET pull-up. §9.4 has required it on every expander board since Rev 3.11 with the same problem: named in the text, absent from the BOM. One per board.
+
+—  C15, C16 and C17 assigned to the LDO capacitors added at Rev 3.19 §10.6. These were already inside the purchased quantities — twelve 0.1µF and ten 10µF per board only reconcile with them counted — but they had no designators, so the §11 table and the parts on order disagreed.
+
+—  T2 has no screen. §7.3 showed a screen/shield connection to chassis ground and §12 asked for all of them to star to one point. The TY-311P is a four-pin part, and the symbol drawn for it — switchboard:XFMR_TY-311P, against the matching footprint of the same name — has four pins; there is no such terminal on either. Both passages are corrected. What survives of the intent is the D-Sub ground handling in §7.6, which is a separate mechanism and unchanged.
+
+—  R1a and R1b are not valid reference designators. A KiCad reference is a letter prefix and a number, so the pair is drawn as R14 and R15 with the document name carried in a Function field. §11 is annotated; the part, the value and the position are unchanged.
+
+—  The operator tap is replicated on every strip rather than on one. §7.9.1 already put the footprints on all eight; this revision states why it also has to be true in the schematic, and what it costs in the exported BOM. See §7.9.1.
+
+## 14.24 Changes in Rev 3.24
+
+—  One station strip can now be stuffed as an operator tap instead of a station — a bridging transformer coupling across the operator’s talking path. Station 8 is designated. See §7.9.
+
+—  The tap is bidirectional, and that is the point of it. It injects the 9000.00Hz operator tone, and it returns the operator’s own audio for the audience monitor loudspeaker. Both directions use one transformer.
+
+—  The operator tone injector is deleted from the ring generator board. Generator §15 built it around a filtered square wave from GPIO15 with its own transformer T3; the tone is now an ordinary A32 output stream on the tap strip’s channel. GPIO15 is freed and T3, its filter and its coupling network come out of the generator build.
+
+—  New §8.8 covers the audience monitor feed: the split between the raw stream for pilot detection and a low-pass filtered copy for the loudspeaker, and why that filter is not analog.
+
+—  Configuration is a stuffing option, not a jumper. An earlier sketch called for jumpers to break the station line network out of circuit; §7.2 already does that when RLY1 releases, so the jumpers were solving a problem the relay had already solved. See §7.9.1.
+
+—  R11 and R12 added to the BOM as per-strip footprints, fitted on the tap strip only, plus R13 as a footprint against a possible transformer resonance. Two resistors are the whole hardware addition — C3 already blocks DC on the primary, so the tap needs no coupling capacitor of its own.
+
+## 14.23 Changes in Rev 3.23
+
+—  Rev 3.23 corrects Rev 3.19 and Rev 3.20. Both described R3 as this board's loop feed drawing from +24V BRD. It is not: R3 sits in the tip-ring loop behind the relay contacts and the switchboard supplies the current, as §1 and §5.1 have said throughout. The 1000µF added at Rev 3.19 on that mistaken basis is deleted — this board's 24V rail carries only the DC-DC converters — see §10.7.
+
+## 14.22 Changes in Rev 3.22
+
+—  Rev 3.22: T2 specified as the Triad TY-311P on measured evidence, matching trunk Rev 5.22. Flat at 9kHz with −5.5dB passband loss, better than the SP-70 and far better than its own datasheet band suggests — see §7.5 and trunk §8.3.
+
+## 14.21 Changes in Rev 3.21
+
+—  Rev 3.21: D-Sub ground pins specified. Floating at this board with an unstuffed 0Ω link footprint to board GND — grounded at the A32 end only, matching trunk Rev 5.21 — see §7.6.
+
+## 14.20 Changes in Rev 3.20
+
+—  Rev 3.20: D6 moves from series to a shunt clamp across +24V BRD and GND, blowing F1 on a reversed supply instead of blocking. Correct change, wrong reason as stated — see the Rev 3.23 note below and §10.5.
+
+## 14.19 Changes in Rev 3.19
+
+—  Rev 3.19: rail capacitors reviewed against the datasheets. Local input and output decoupling added at the LDO, which had none of its own, and a 1000µF audio-band bulk added at the 24V input — this board feeds its loops through 330Ω, not through a current source, so it needs that bulk more than the trunk board does. No new part numbers — see §10.6 and §10.7.
+
+## 14.18 Changes in Rev 3.18
+
+—  Rev 3.18: bin 768 (9000.00Hz) allocated to the operator tone — generator Rev 21 §15. No change to this board; the transformer sweep target moves from 8906.25Hz to 9000Hz.
+
+## 14.17 Changes in Rev 3.17
+
+—  Rev 3.17: the 5V bulk capacitor is specified at 25V rather than 10V. Derating only; capacitance unchanged — see §10.4.
+
+## 14.16 Changes in Rev 3.16
+
+—  Rev 3.16: RV1 deleted from both board types. The A32's recallable per-channel trim covers it, and a dual-gang through-hole trimmer is not a catalogue part — see §7.4.
+
+## 14.15 Changes in Rev 3.15
+
+—  Rev 3.15 corrected: U4 is specified in TO-220-3 (MCP1826S-3302E/AB), not SOT-223. SOT-223 is surface mount and contradicted the through-hole build of every other part on the board. The AMS1117-3.3 alternative is dropped — it exists only in SOT-223 — see §10.3.
+
+## 14.14 Changes in Rev 3.14
+
+—  Rev 3.14: J1 and J2 changed to the NorComp 182-025-213R561, the same connector with integral 4-40 female screwlocks rather than a plain threaded shell. The separate screwlock line item is deleted; footprint and backset are unchanged — see §11.
+
+## 14.13 Changes in Rev 3.13
+
+—  Rev 3.13: SW1 specified as the CTS 206-3ST, sealed, top-actuated — see §11. Silkscreen legend for the address positions added to §9.2.
+
+## 14.12 Changes in Rev 3.12
+
+—  Rev 3.12: J1 and J2 changed from the Amphenol ICC DBM25S500MN, which DigiKey does not stock, to the NorComp 182-025-213R531. Same gender, orientation, termination and gold contacts, with board locks — see §11.
+
+## 14.11 Changes in Rev 3.11
+
+—  Rev 3.11: hardware /RESET added on 6P6C positions 1 and 6, driven from the generator board and reaching pin 18 of every expander. Adds a 10kΩ pull-up per board and a third TVS2 input; requires six-conductor cords — see §9.4.
+
+## 14.10 Changes in Rev 3.10
+
+—  Rev 3.10: TVS2 specified as the Littelfuse SP721APP, a through-hole rail-clamp array at 3pF per line rather than the 1pF earlier revisions assumed — see §7.8.
+
+## 14.9 Changes in Rev 3.9
+
+—  Rev 3.9: D6 changed from SS34 to 1N5822. 1N5822, 3A / 40V, DO-201AD axial. The SS34 named through earlier revisions is an SMA/DO-214AC surface-mount part with no through-hole version. 3A is oversized against a 250-500mA fuse and deliberately so: a slow-blow fuse carries well above its rating for some time before it opens. Forward drop is unchanged at roughly 0.3-0.4V.
+
+## 14.8 Changes in Rev 3.8
+
+—  Rev 3.8: Q2 relay driver changed from 2N3904 to 2N2222A on both board types. Verify the TO-92 pinout against the specific orderable part before layout — see §5.2.
+
+## 14.7 Changes in Rev 3.7
+
+—  Rev 3.7: fuse and fuse holder part numbers specified. All five fuses in the system are socketed 5x20mm cartridges in the same block — see §11.
+
+## 14.6 Changes in Rev 3.6
+
+—  Rev 3.6: cross-references follow the generator to Rev 15 and the trunk document to Rev 5.2. The generator's gate-drive logic moves to 5V on a 74HCT02 with its shutdown line buffered, correcting an IR2104 threshold figure. Nothing on the station board changes — the I²C pins, the address plan and the 6P6C pinout are all unaffected.
+
+## 14.5 Changes in Rev 3.5
+
+—  Rev 3.5: build state stated throughout. Three boards and 24 stations is the design capacity and is what the rack, the loom and the address plan are sized for; two boards and 16 stations is the present build. The third board is a populated-later slot, not a redesign.
+
+—  Rev 3.5 corrected: the address table gave 0x23 to a spare fourth station board and the text below it gave 0x23 to the trunk board. The trunk board has it. There is no fourth station board — see §9.2.
+
+—  Rev 3.5 corrected: address strapping. The station boards use SW1, the trunk board uses hard 0Ω links, and the two are different on purpose — see §9.2.
+
+—  Rev 3.5 corrected: the I²C master pins. GPIO17 clocks the Ethernet PHY on the ESP32-POE-ISO and was never available; the bus is now SDA on GPIO13 and SCL on GPIO16 — see generator Rev 16 §3.1. Nothing on this board changes.
+
+—  Rev 3.5 corrected: relay order quantity. 24 for the present build, 32 at full capacity — see §11.
+
+## 14.0 Summary of Changes from Rev 2.1
+
+—  Ring detector rebuilt around the HCPL3700M threshold-sensing optocoupler. Its internal diode bridge, threshold comparator and hysteresis replace the 4N35, the external D1–D4 bridge and the collector pull-up network — 4 diodes per station removed.
+
+—  Board density raised from 6 to 8 stations. Total capacity raised from 12 stations (2 boards) to 24 stations (3 boards).
+
+—  One MCP23017 per board now serves both functions: Port A = 8 ring-detect inputs, Port B = 8 off-hook outputs. This is an exact fit and removes the second mandatory expander.
+
+—  Raspberry Pi replaced by an ESP32 as I²C master and digital I/O controller. Logic rail is 3.3V throughout — the MCP23017 must not be run at 5V (see §9.3).
+
+—  Focusrite Scarlett 18i20 replaced by a Ferrofish A32 on D-Sub25, feeding an RME Digiface USB over ADAT, running at 48kHz. All 24 stations fit with eight channels spare, and the system stays coherent to 32 — see §6.
+
+—  Two-tone DTMF-style identification abandoned in favour of a pilot tone comb: one tone per circuit, 6000.00–8906.25Hz on exact FFT bins, detected with a 4096-point FFT. This is what allows 48kHz operation, and it reduces identification to one tone and one bin lookup per station — see §8.
+
+—  Audio transformer requirement relaxed from 27.7kHz to 8.2kHz as a direct result. Specialty wideband transformers are no longer required at every station — see §7.5. This removes the highest-risk and most expensive component in the design.
+
+—  Pilot comb extended from 24 assigned slots to all 32, adding the 8 trunk circuits at bins 704–760. The audio channel budget, the D-Sub pairs and the I²C address space are all now exactly full — see §6.
+
+—  ESP32 to host link changed from USB CDC serial to MQTT over PoE Ethernet, with the broker on the Linux box. Controller becomes an Olimex ESP32-POE-ISO — see §9.7 to §9.12.
+
+—  Off-hook relay changed from SPDT to DPDT (CIT J104D2C5VDC.15S) and now breaks both tip and ring rather than tip alone — see §5.1. Two gaps share the ring standoff, the on-hook station stays balanced on the pair, and R3, C3 and T2 all lift clear of the line.
+
+—  Board rails now generated locally by a 24V→5V DC-DC module per board — see §10.3.
+
+—  Power architecture changed to one common 24V battery feeding the switchboard, both board types, all loops and the ring generator, replacing the separate board supply of Rev 3.2. Star distribution from the PSU terminals becomes a requirement, and the isolated DC-DC is relaxed to the non-isolated part — see §10.1. Supply changes to a Mean Well LRS-150-24.
+
+—  Corrected: the trunk board does not share the station board’s TVS. Trunk uses P6KE150CA, station keeps P6KE120CA — see §4.1.
+
+—  Corrected: the trunk MQTT topics do not share the station topic shape. A trunk has no hook to set and needs a ring command — see §9.12.
+
+—  Corrected: J1 and J2 are D-Sub25 FEMALE, not male. Earlier revisions of both this and the trunk document had this wrong — see §7.6.
+
+—  Station tip and ring move to two shielded RJ45 jacks, four stations each, one twisted pair per station — see §7.7. RJ45 now means telephone line and nothing else anywhere in the system.
+
+—  I²C moves from a 4-pin header to two 6P6C modular jacks per station board, positions 2–5 with the grounds interleaved — see §9.4. Master is the ESP32 on the ring generator board; station boards fit no pull-ups and there is no INT conductor.
+
+—  R_pd (10kΩ base to ground) added to every relay driver. Port B floats between reset and configuration — see §5.2.
+
+—  TVS2 rail-clamp array added on SDA/SCL. A 6P6C plug fits an RJ45 jack, and RJ45 now carries line voltage on this board — see §7.8.

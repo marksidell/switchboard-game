@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 94 — Start and Stop, Tutor, Manual, Automatic and Listen Call Pacing, Automatic with a Ramp and Jitter and Listen with a Pause of Its Own, Scenes Dealt from a Shuffled Deck, Lines That Wait for the Operator, Pauses and Ringback Within a Call, What the Operator Says, Tallies, Calls in Progress and the Log, the Switchboard's Jacks and Labels from script.yml, the Audience Loudspeaker Following the Call the Operator Last Answered, an iPad Page Served by nginx over HTTPS at game.kr3am.org and Talking MQTT over Secure WebSockets, the Game's Controls on a Stream Deck+, Only Active Scenes Played, the Guest in Each Room Named on Its Jack, Long-Distance Time and Charges Rung In to the Hotel, Circuit Diagnostics and a Chosen Next Scene from the Page, a Game Fitted to the Circuits Built, a Tutor Who Talks a New Player Through Each Call, Starting with One Call of Each Kind, and an Introduction a Part at a Time, with the Key She Asks For Flashing, and Repeat Help, and Trunks Out of Service, and the Board's Rows in the 551's Order, with the Tutor's Ring Lines Named for the Station, and a Scenario of Calls Arriving Together After the Tenth Call, with a Station Found Engaged, and a Scenario Chosen from the Page on a Clear Board, Starting by Itself, and Then Not Dealt Again, and a Sweep of the Trunks or the Stations from the Stream Deck, and Ringback on the Loudspeaker While the Operator Rings a Station, and a Line's Momentary Break Not Shown as a Fault, and a Key to the Lamps on a Long Press of Tools, and Help on a Long Press of the Pacing Buttons and the Steppers, and the Tutor's Prompts Said Shortly Once Each Has Been Said Twice, with More Help for the Full Line, and Fast Busy and a Failed Call for a Number Dialled Too Long or Too Short, and a Game Left Alone for Ten Minutes Stopped, and the Tutor Stopping Mid-Word Once the Player Has Done What She Asks, and Telling Her When a Call Is for Her, and No Silence When the Player Goes Wrong, and Recording the Loudspeaker, and the Sweeps from the Deck and the Page Both, the Switchboard Power Cut on Stop and on the Deck, and a Chosen Scenario Waiting for Next Call or the Schedule Like Any Chosen Scene, and the Switchboard Switched Off and On from the Page, and Reset During a Game with the Calls Riding Through, and the End of a Call Between Rooms Left to Next Call, and the Host's Public Address in the Health Column, and the Digits to Dial Said One at a Time, and Every Call Ended by Her Line and Next Call, and the Public Address Shown as Offline or Error When It Cannot Be Found, and the Public Trunk's Registration, and Station 24, a Real Telephone, and Free Calls Answered Lenny-Style, and the Page's State Rebuilt on Every Reconnect, and a Free Call's "Hello?" Sooner After a Line, Heard Over Its Own Lines, and Fast Busy for a Number Dialled Short, and a Room Answering 4s After It Is Rung, 3s in a Game, and the Real Telephone Moved to Jack 18, and a Misdial Dialled Again, and a Call Rung In on the Trunk Free Longest, and the Wrong Cord Rung Told by the Tutor, and a Rear Cord Plugged into a Trunk, Which Does Not Answer It*
+*Rev 95. The changes in each revision are in §11.*
 
 # 1. Overview
 
@@ -20,685 +20,6 @@ The Stream Deck program follows the same design for the same reason (§7.4). It 
 
 The game program, the page and the Stream Deck program are written by Claude Code to this document, like `control/control.ino` to `control.md` and `sbaudio` to `audio.md`.
 
-## 1.1 Changes in Rev 1
-
-— New document, 2026-09-24. Mark's requirements: start and stop the game; call rate either manual — a button on the page starts the next call — or automatic, the next call starting a set number of seconds after the operator has connected the current one; optionally a rate that rises over the game; tallies of calls handled, successes and failures; and a display of the state of everything, initially for Mark's own use at the bench.
-
-— Option B of the discussion that produced it: the page talks MQTT to Mosquitto over WebSockets, and Mosquitto serves the page's files from its `http_dir`. The alternative — an aiohttp server inside the game program pushing state over its own WebSocket — was less code in the browser but more on the host, and would have taken the display down with the game program.
-
-— Deferred at Mark's request: a new call arriving before the operator has connected the current one (§4.5).
-
-## 1.2 Changes in Rev 2
-
-— Which scene comes next (§4.4). Rev 1 said scenes are drawn at random, following script.yml's "Order" comment, and did not say how. An independent draw per call can repeat a scene while others have not been played. Mark wants every scene played before any repeats, in a random order. At game start the game program now shuffles every scene without `after:` into a list, the deck, and deals from it. When the deck runs out it is reshuffled, so a long game does not run out of calls. The deck is internal to the game program. The page is not told the order and does not need it, so `mqtt.md` does not change.
-
-— A scene that cannot be dealt because one of its lines is busy stays at its place in the deck, and the next dealable scene is taken instead. Rev 1 said only that such a scene "is not drawn", which with a deck would either lose it or stall the game behind it.
-
-— Two rules for `after:` scenes that the deck makes necessary. A line that a waiting `after:` scene will use counts as busy, so the deck does not deal a scene that would collide with a caller about to call back. And an `after:` scene follows only if the scene it follows was connected. Rev 1 started it whenever the earlier scene ended, which would have `nbn-trace` asking where a call came from when the call never reached the room.
-
-— The shuffle's seed and the dealt order go into the SQLite session log, so a game can be replayed at the bench.
-
-## 1.3 Changes in Rev 3
-
-— People are now checked as well as lines (§4.4). Rev 2 held back a scene only if one of its lines was busy. The script has the same person on different lines: Pike calls room service from room 214, takes the reporter's call in room 214, and calls a cab from the lobby. With only lines checked, `pike-taxi` could be dealt while he was on the phone in his room. A scene is now held back if any of its lines or any of its people (script.yml `person:` under `calling` and `called`) is busy.
-
-— Outside lines count as lines, as Mark decided. Rev 2 said "lines" without saying whether that meant outside names or only stations. Two calls to Sunny Hill Pizza now cannot overlap. The `operator` outside line counts like any other.
-
-— An `after:` scene whose lines or people are busy when its delay runs out waits until they are free, then starts. Rev 2 reserved its lines only from when it was scheduled. A call already in progress at that moment could still be holding one of them.
-
-## 1.4 Changes in Rev 4
-
-— Next Call no longer carries a call number (§4.1), at Mark's request, because the game program keeps its own count. Rev 1 to Rev 3 had the page send one more than `started`, and the game program ignored anything else, so a resent command or a double tap started one call. Now a resent command cannot happen, because the command goes out at QoS 0. A double tap is prevented by the page disabling the button until the call starts. `mqtt.md` Rev 11 records `next/set` as the second event in the design.
-
-## 1.5 Changes in Rev 5
-
-— The page draws the switchboard as it is (§7.1): three rows of ten station jacks, numbered 1–30, over one row of ten trunk jacks. Each jack carries the label written on the board, such as `463` or `lobby`. Rev 1 to Rev 4 drew 22 station tiles and 8 trunk tiles in game circuit order, each named from script.yml. That order is not the board's order, and the operator never sees the circuit numbers.
-
-— A new file, `wiring.yml`, maps game circuits to switchboard jacks and gives each jack its label (§6.3). Mark wires the 22 station circuits to whichever of the 30 station jacks he chooses, and the 8 trunk circuits to trunk jacks 1–8. The game program is the only program that reads the file. It publishes the map to the broker for the page. The controller and the audio program keep working in circuit numbers and never see jacks. `mqtt.md` Rev 12 adds the `board/` topics and removes `station/<n>/name`, which the jack labels replace.
-
-— Tiles are simplified (§7.1). Mark expects the Rev 1 tile to be too crowded. A tile now shows the jack's label and number and one state at a time. Tapping it opens every topic for that jack's circuit. Rev 1 put all of them on the tile.
-
-— A wiring check is added to commissioning (§9): ring each jack from the switchboard, and the matching tile on the page should flash. It uses only existing topics.
-
-## 1.6 Changes in Rev 6
-
-— The audience loudspeaker follows the calls (§6.4). Mark's decision, 2026-09-24. Until now the loudspeaker carried the operator tap alone (audio.md §10). The operator leaves a call when she throws the ring key to ring the called party, and does not come back to it, so the audience heard each request and then nothing of the conversation written for it. The game program now points the monitor at the calling line of the call the operator most recently answered, with `audio/monitor/source/set` (audio.md Rev 8 §10.3, mqtt.md Rev 13). That line's receive channel carries the caller, the operator while she is on the line, and the called party once the cord is up.
-
-— The switch is made when the operator answers the new call, not when the call starts. Mark's first proposal was the start of the call. There is nothing on the calling line until the operator answers: a calling station is off-hook and silent, and a calling trunk is ringing, which puts a relay click on its channel at every cadence edge (trunk §8.1.1). Switching at the answer also leaves the audience on the current conversation until the operator actually picks up the next caller.
-
-— The source goes back to the operator tap when a game starts and when it stops (§3).
-
-— The page shows the monitor's source in its health area (§7.1), and the log records each move (§6.2). One commissioning step (§9) and one open item (§10) are added.
-
-## 1.7 Changes in Rev 7
-
-— The jack assignments move into script.yml, and `wiring.yml` is dropped (§6.3). Mark's decision, 2026-09-24. Rev 5 specified `wiring.yml` as a separate file mapping circuits to jacks, with labels. It was never written. Each entry under script.yml's `stations:` now carries two more keys: `switchboard:`, the jack the station's circuit is cabled to (1–30), and `label:`, the text on the board at that jack. `number:` is unchanged and is still the game's circuit. A station's name, circuit, jack and label are now in one place, which is where the script's author already looks.
-
-— Trunks are not in script.yml, so trunk circuit n is on trunk jack n, fixed, for n = 1–8, as Mark cables them. Trunk jacks 9 and 10 carry nothing, and no trunk jack has a label. Rev 5's `wiring.yml` allowed trunk labels, and labels on station jacks with nothing cabled. Neither is carried forward: a jack that no station entry names is drawn as an empty outline.
-
-— The checks at load follow (§6.3), and they belong in the one script.yml loader that the TTS task and the game program share (`tts_task.md` §3.1). Code consequence for Claude Code: the loader checks `switchboard:` and `label:` as well. `mqtt.md` Rev 14 corrects the `board/` rows, which said the map came from `wiring.yml`. No topic changes.
-
-## 1.8 Changes in Rev 8
-
-— The page is served over HTTPS as `https://game.kr3am.org/` and connects over secure WebSockets (§2), following mqtt.md Rev 15 §9, 2026-09-24, at Mark's request. Rev 1 to Rev 7 had the bookmark `http://<host>.local:9001/` and a `ws://` connection. The certificate, its renewal and how the name resolves are specified in mqtt.md §9.1 and §9.2, and are not repeated here.
-
-— The page takes its WebSocket scheme from its own: `wss://` when loaded over `https:`, `ws://` when loaded over `http:`. Rev 1 to Rev 7 said `ws://` + `location.host`, which Safari refuses from an HTTPS page as mixed content. Code consequence for Claude Code, when the page is written.
-
-— Commissioning (§9) follows. Steps 1 and 2 check the listener on 443 and the name and certificate from another machine. Step 10 is new: it checks whether Mosquitto reloads a renewed certificate on SIGHUP without dropping its clients. The answer decides whether renewal can safely happen during a game (mqtt.md §9.1).
-
-— The page is now a secure origin, which lets it ask for a screen wake lock rather than rely on Auto-Lock being off (§7.3). Not specified; an open item (§10).
-
-## 1.9 Changes in Rev 9
-
-— Follows mqtt.md Rev 16, 2026-09-24. At home `game.kr3am.org` resolves from a public A record in Route 53; on the road the Slate 7's Edit Hosts line still answers it. Rev 8 said the name resolves only on the local network, through a host entry on both routers. §2 and the §9 preamble follow. Nothing on the page changes.
-
-## 1.10 Changes in Rev 10
-
-— The page is served by nginx, not by Mosquitto (§2), 2026-09-24. Rev 8 and Rev 9 had one Mosquitto listener on 443 serving the files through `http_dir` and carrying the page's MQTT connection. On portland that listener will not bind a privileged port, because libwebsockets creates its socket after Mosquitto drops from root, and it advertises HTTP/2 in ALPN without being able to serve it, so a browser negotiating HTTP/2 — which is the default — receives nothing. `mqtt.md` Rev 17 §1.17 records both, and what was tried before giving up on them.
-
-— nginx now holds the certificate, serves `/srv/sbgame/web` on 443, and reverse-proxies the page's socket to Mosquitto on loopback. The bookmark, the name, the certificate and `sbgame-web` are unchanged, and the page still has one origin and one port.
-
-— The page's socket takes the path `/mqtt`. It is what nginx routes on, and it is the whole of the page's change: `location.host` and the `wss://` rule of §2 stand. The page had not been written, so the path cost nothing.
-
-— §9 step 10 is withdrawn and replaced. It chose between a SIGHUP reload and a 04:00 restart, a question that only existed while Mosquitto held the certificate. An nginx reload disconnects nobody and does not touch Mosquitto's clients at all. What remains worth checking is the renewal itself, which `certbot renew --dry-run` does against staging without spending one of the five duplicate certificates a week Let's Encrypt allows.
-
-## 1.11 Changes in Rev 11
-
-— Every station jack can carry a label, cabled or not (§6.3). Mark's decision, 2026-09-25. The switchboard has 30 station jacks and the game 22 station circuits, and the board's designation strips are labelled at every jack. Rev 7 let a label live only on a station entry, so a jack no entry named was drawn as an empty outline, and §10 asked where the other labels should go. They go in a new top-level list in script.yml, `jacks:`, one item per jack: `jack:` (1–30), `label:`, and `station:`, the script.yml station cabled to it, left out for a jack with nothing cabled.
-
-— `switchboard:` and `label:` leave the station entries, which carry `number:` alone. A station entry is now the game's circuit and nothing about the board; the board is `jacks:`. Rev 7's reason for putting them together — one place to look — is kept by the list being in the same file, next to `stations:`.
-
-— A labelled jack with no circuit is drawn as a working jack at rest (§7.1): its label, its jack number and an unlit lamp, like any idle jack. The operator sees the board as built, not which jacks are wired. A jack `jacks:` does not list keeps Rev 7's empty outline. Tapping a labelled, uncabled jack shows its circuit as none.
-
-— The load checks follow (§6.3). Code consequence for Claude Code: the shared loader checks `jacks:` and rejects `switchboard:` and `label:` on a station entry, the game program builds the `board/` map from `jacks:`, and the page draws labelled uncabled jacks as working. `mqtt.md` Rev 18 corrects the `board/` rows to match. No topic changes. Trunk jacks are unchanged: trunk n on trunk jack n, no labels.
-
-— The page is rearranged (§7.1), Mark's request, 2026-09-25, from the first look at it on the iPad. The health column took 380px beside the board, leaving each tile about 71 points wide, and one-word labels such as "Housekeeping" were clipped and two-word ones wrapped out of the tile. The board now takes the whole width; the calls table has the log under it, and health sits in a narrow column beside those two. A label that still does not fit is set smaller rather than clipped, and every label is set at that one size, so the board does not mix sizes.
-
-— The §10 item "Labels on jacks the game does not use" is closed. The item named a station entry with no `number:` as one way to do it; a separate list was chosen instead, so that a station entry always means a circuit.
-
-## 1.12 Changes in Rev 12
-
-— Automatic pacing gains `jitter` (§4.3), Mark's decision, 2026-09-25. Rev 1 to Rev 11 waited exactly `gap_now` before every automatic call, a rhythm a player learns within a few calls. Each wait is now drawn evenly from `gap_now × (1 ± jitter/100)`, with `jitter` a percentage from 0 to 100 set on the page like the other three. Its mean is still `gap_now`, so `gap`, `ramp` and `floor` keep their meaning and the game is no harder or easier on average, only less regular.
-
-— Bounded and even, not exponential. Calls at a real switchboard arrive nearly at random, which is an exponential wait between them, but at a mean of 20s that puts four waits in ten under 10s and one in twenty over a minute — a dead stretch for the player and the audience. The even spread keeps every wait within a known band. The exponential form, and calls that arrive whether or not the operator is ready (§4.5), stay available for when the game is played on the hardware.
-
-— `floor` bounds `gap_now`, the centre of the spread, not each wait, so near the floor some waits fall a little below it. Holding each wait to the floor instead would raise the short ones to it and lift the mean above `gap_now` exactly where the ramp is meant to be steadiest.
-
-— The draws come from the game's seed (§4.4), so a replay draws the same waits, and `jitter` is recorded with the other pacing values in the session record. Its starting value is 0, from the configuration file, so nothing changes until it is set.
-
-— `mqtt.md` Rev 19 adds `game/jitter` and `game/jitter/set`. Code consequence for Claude Code: the scheduler, the configuration, the session record and a fourth stepper on the page.
-
-## 1.13 Changes in Rev 13
-
-— The game's controls move to an Elgato Stream Deck+ (§7.4), Mark's decision, 2026-09-25. The iPad becomes mostly a display. Eight keys carry Start, Stop, the pacing, Next Call, the tallies and the clients' health, and the four dials set `gap`, `ramp`, `floor` and `jitter`, with the touch strip above them showing the values. Stop needs a second press within 3s, as on the page.
-
-— The deck is driven by a program of its own, `sbgame-streamdeck`, on the host. It is not part of the game program, for the reason the page is not (§1): it shows what the broker reports, keeps working and shows the game offline when the game program is down, and a USB fault cannot touch a game in progress. It connects as a new broker user, `sbgame-deck`, with the page's access list (`mqtt.md` Rev 20). It publishes the page's commands, so the game program is unchanged.
-
-— Considered and not adopted: Elgato's own software with a community MQTT plugin, which needs a Windows or macOS machine and cannot draw the game's state on the keys; and Bitfocus Companion's generic MQTT module, which runs on Linux but keeps the layout in its own database rather than in this repository and this document.
-
-— The page keeps its controls, behind a Controls switch in the top bar that shows or hides them on that iPad (§7.1). Mark's decision, 2026-09-25: the deck carries the controls, and the page's stay available if the deck is not there. Both publish the same commands, so both work at once. `sbgame-web` keeps its write access (`mqtt.md` §9).
-
-— A dial reports relative steps and every command but Next Call is absolute (§7.2). The program therefore turns steps into a new absolute value, starting from the echoed value and adding every step made since, and publishes that (§7.4). Code consequence for Claude Code: the program, its unit and udev rule under `host/`, and later the page's top bar.
-
-## 1.14 Changes in Rev 14
-
-— Every scene in script.yml carries `active: true` or `active: false` (§4.4, §6.3), at Mark's request, 2026-09-26. He wants to write new cast and scenes before their wavs exist. Until now every scene was built at load, and a missing wav stopped the game program from starting. The game program now builds, deals and follows only active scenes, and reads wavs only for them. An inactive scene is still loaded and checked, and the TTS run still renders it, so a scene is written as `active: false`, rendered, and switched on once its wavs are in place. Every scene in the file at this revision is `active: true`.
-
-— The key is required, not defaulted, so a scene cannot be switched on or off by omission. An active `after:` scene naming an inactive scene is rejected, since it could never play. An inactive `after:` scene following an active one is allowed; it is simply not played. Code consequence for Claude Code: the shared loader checks the key and gives `Script.active_scenes()`; the game program builds from that. No topic changes.
-
-## 1.15 Changes in Rev 15
-
-— Commissioning record only. §9 step 11, the Stream Deck, was run on portland on 2026-09-26, with Mark at the deck and the page. Everything passed. Fast Next Call presses needed the audio program running and were checked once it was. No behaviour changes.
-
-— Two host snags met on the way, both fixed in `host/`, not here. `libhidapi-libusb0` was not installed; the Stream Deck steps in `host/README.md` now install it. The udev rule names the `sbgame-deck` group, which did not exist when `make install` triggered udev, so the deck stayed `root:root` until udev was triggered again; `make sbgame-install` now triggers it after making the user.
-
-## 1.16 Changes in Rev 16
-
-— A third pacing, **Listen** (§4.2), Mark's request, 2026-09-26. It is for showing the game: the next call waits until the board is empty — the last call has ended and no `after:` scene is waiting — so calls never overlap and the room hears every conversation to its hang-up. Automatic pacing times from the connection, so the next call can arrive mid-conversation and the operator's answer takes the loudspeaker away from it (§6.4). Listen is the other half of that open item (§10): it keeps the loudspeaker on each conversation by never starting two.
-
-— A third value of `pace`, not a special value of `gap`. Listen still wants a pause after the hang-up, and `gap`, `ramp`, `floor` and `jitter` keep their meaning, counted from the end instead of the connection. `mqtt.md` Rev 21 adds `"listen"` to `pace` and `pace/set`. "Automatic pacing" in this document now means auto or listen wherever the two behave alike: the first call at once (§3), the dials and steppers, the countdown.
-
-— The deck has no key to spare, so its pacing key cycles Manual → Auto → Listen → Manual, and shows all three names, the echoed one lit, so the choices can be read off the key (§7.4). Presses count from the last press while its echo is outstanding, as a dial's detents do, so two quick presses go two places. Going from Auto to Manual passes through Listen and from Manual to Listen through Auto; the pass is a fraction of a second, and a call is started on the way only if `gap_now` is shorter than that. The page gains a third segment (§7.1).
-
-— Code consequence for Claude Code, made the same day: the scheduler, the configuration check, the deck's pacing key and the page. The game program's tests cover the schedule in listen, including a waiting `after:` scene holding it; the deck's tests cover the cycle.
-
-## 1.17 Changes in Rev 17
-
-— Listen gets one value of its own, `pause`, in place of auto's four (§4.2, §4.3), Mark's decision, 2026-09-27. Rev 16 ran listen on `gap`, `ramp`, `floor` and `jitter`, counted from the end of a call. But listen is for entertaining with the conversations, not for pressure: Mark wants the next call a few seconds after the last one ends, every time. So listen waits `pause` seconds, 0–60, starting at 3 from the configuration file, with no ramp and no jitter. Auto's four are untouched by listen, so switching between a demonstration and a real game needs nothing reset.
-
-— Considered and not adopted: a separate set of all four for each pace. Eight values, with dials and steppers whose meaning changes with the pace, for three knobs listen has no use for.
-
-— In listen the first dial sets `pause` and the other three rest, dimmed and showing auto's values, as in manual (§7.4); the page shows one stepper, `pause`, in place of the four (§7.1). `mqtt.md` Rev 22 adds `game/pause` and `game/pause/set`, and the session record gains a `pause` column. Code consequence for Claude Code, made the same day.
-
-## 1.18 Changes in Rev 18
-
-— The page's countdown says "waiting" while a game runs in automatic pacing and no next call is scheduled — `next_at` empty, because in auto the latest call is not yet connected or ended, and in listen the board is not yet empty (§4.2) — and "–" when no game runs (§7.1), Mark's request, 2026-09-28. It said "–" in both. The deck's Next key already said "waiting" in that case; §7.4 now says so too. It is on the countdown rather than on the Next Call button because the button is hidden with the controls and the countdown is not.
-
-— The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
-
-## 1.94 Changes in Rev 94
-
-— A call in on a trunk is answered only when the trunk is seized as well as hearing the operator (§6.4), 2026-10-27. Played on the switchboard at 17:43, `times-pike`: the operator put the rear cord into trunk 2 and keyed in. `trunk/2/op` came on with `seize` off; the game took that as the answer, listened, and played the caller's first line at 17:43:39.5, 0.3s after the tutor began `rear-in-trunk`, so she talked over the caller. On the 551 an outside caller is not answered through a rear cord, since nothing seizes the trunk. The caller now waits, silent, until the front cord is in; the tutor's line plays alone. In tutor pacing `answer-trunk` likewise waits for `seize` alone, where it took `op` too. Played again at 18:03 with the rear cord first, then the front: the seizure came, but the listen for her answer, started 0.14s after it, never ended; that was the speech detector's floor, taken from the unseized line, and is audio.md Rev 32.
-
-— Code consequence, for Claude Code: `_answer()`; `test_flows.py`.
-
-## 1.93 Changes in Rev 93
-
-— A rear cord plugged into a trunk is told by the tutor (§6.7), Mark, 2026-10-27: "You have plugged a back cord into an outside trunk. Pull the cord out of the trunk jack and use the front cord instead." A rear cord does not seize a trunk, so a trunk that hears the operator (`trunk/<n>/op` `"on"`) while `seize` is `"off"` has one in it. Measured on the switchboard: rear cord of a pair in trunk 1, operator keyed in, no station on the pair: `op` on, `seize` off, `peer` empty. With a station off-hook on the same pair's front cord, trunk 1 seized and the two heard each other as for a correct patch, so that case cannot be told apart and is not caught; the player usually keys in after plugging in, which is. The condition must hold for 2s: a front cord's seizure comes in milliseconds, but when one is pulled with the operator in, `op` outlasts its seizure by the 1s a line's going away is held (§5, Rev 45), and 1s more is allowed beyond that.
-
-— Code consequence, for Claude Code: `rear-in-trunk` in `TUTOR_KEYS` and script.yml; `Game._rear_check()` in the board watch; `test_game.py`. The line needs rendering.
-
-## 1.92 Changes in Rev 92
-
-— In tutor pacing a caller left alone before connecting does not hang up (§5, §4.9), Mark, 2026-10-26. The session log has 10 calls of 663 failed that way, 4 of them tutored (10-17, 10-21), where the 10s ran on while she spoke and while the player thought. Tutor pacing already lifts the answer and connect timeouts, so that nobody fails for being slow while she teaches; this was the clock left. Checked at each expiry, so a pacing changed mid-call is followed. Other pacings keep the 10s.
-
-— Code consequence, for Claude Code: `_unless_abandoned()`; `test_tutor.py`.
-
-## 1.91 Changes in Rev 91
-
-— A wrong-cord line restarts the caller's wait (§5, §6.7), 2026-10-26. Played on the switchboard at 15:35: the operator answered the desk, released her key, rang the desk by mistake and heard the tutor's 7.5s `rang-caller`; by the time she rang the right room the desk had been alone for 10s and hung up, so the call failed as `cut off` with the room ringing. The caller left alone before connecting now waits its 10s (or 5s) afresh from the end of the tutor's wrong-cord line, if that ends later.
-
-— Code consequence, for Claude Code: `Ctx.hint_end`, set by `Game._hint()`; the abandon watch in `_unless_abandoned()`; `test_flows.py`.
-
-## 1.90 Changes in Rev 90
-
-— `rang-caller` no longer names a cord (§6.7), Mark, 2026-10-26: "You rang the person who called you. Ring the other cord instead, the one in the jack of the person they're calling." A call between rooms may be answered with either cord, and the game cannot tell which cord is in which jack or which switch was pulled; Rev 88's "ring the front cord" was wrong for a call answered with the front cord. `rang-trunk` keeps naming the rear cord: a trunk works only with a front cord in it. Rerendered.
-
-## 1.89 Changes in Rev 89
-
-— Ringing the caller is seen by the audio program, not the ring detector (§6.7), 2026-10-26. Tried on the switchboard: `station/1/ring` stayed off through three rings of the front desk while it was the caller, because the station board's loop load pulls the ring from 80V to 17V, below the detector's turn-on. The ring reaches the station's capture channel all the same, and the audio program now reports it as `station/<n>/ringing` (audio.md Rev 30, mqtt.md Rev 46). The other two cases worked as written.
-
-— `rang-outside` now says which way to push the switch (Mark): "Push the switch away from you, wait for dial tone, and dial." Rerendered.
-
-— Code consequence, for Claude Code: `_wrong_ring()` watches `ringing` in place of `ring` for `rang-caller`; `test_game.py`.
-
-## 1.88 Changes in Rev 88
-
-— The tutor says when the player has rung the wrong cord (new §6.7), in every pacing, Mark's request, 2026-10-26. A common mistake, his own too: on a call in from a trunk, with the rear cord in the room's jack, the player rings the front cord out of habit, because on a call from a room the front cord is the one rung; and the front cord is in the trunk. The controller already reports ringing a trunk, as `trunk/<n>/fault` `"ring_on_trunk"` (control.md §8.3), seen 20 times in play since 2026-10-19; the game ignored it. Ringing the rear cord on a call from a room rings the caller's own station, which its ring detector reports. Three new lines under `tutor:`, said once a call each, as the wrong ring ends.
-
-— Code consequence, for Claude Code: `rang-trunk`, `rang-outside` and `rang-caller` in `TUTOR_KEYS` and script.yml; `Game._wrong_ring()` in the board watch; `test_game.py`. The lines need rendering.
-
-## 1.87 Changes in Rev 87
-
-— The panic scenario's calls start four to eight seconds apart, where they started two to five (§4.10), Mark, 2026-10-25: a little too quick. Fifteen calls follow `panic`, so the whole scenario arrives over about 90s rather than about 50s.
-
-— Code consequence: none; `delay: [4, 8]` on each `panic-` scene in script.yml.
-
-## 1.86 Changes in Rev 86
-
-— A free call fixes the loudspeaker's peer boost at 6dB (§4.12, §6.4), Mark's suggestion, 2026-10-25. The boost (audio.md §10.8, Rev 28) measures the caller's line against the called party's from the files played on each. A free caller is a live person, so nothing plays on the caller's line, the measurement never completes, and the boost stays at the installation's 12dB start, set for game calls. The free calls in the 18:04 loudspeaker recording of 2026-10-24 put the called party's files 6dB under the live caller on the real telephone. At a free call's answer the game program now publishes `audio/monitor/peer/set` `"6"` before the source; every other move of the loudspeaker publishes `"auto"` (mqtt.md Rev 45, audio.md Rev 29).
-
-— Code consequence, for Claude Code: `Link.monitor_source()` takes the boost; `FREE_PEER_DB` in `freecall.py`; the simulator's echo; `test_game.py`.
-
-## 1.85 Changes in Rev 85
-
-— A call rung in on a trunk takes the free trunk whose `seize` changed longest ago, where it took the lowest-numbered free trunk (§6.5), 2026-10-24. In play: room 401's call to Ray's on trunk 1 ended when the room hung up, which dropped trunk 1's seizure with the operator's cord still in the jack. 0.7s later the next call, times-pike, rang in on trunk 1, into the jack with the old cord in it, and she saw no new call, only its countdown. The game cannot see a cord in a trunk jack without a loop, so the trunk just released is the one most likely still to have a cord in it; taking the one free longest leaves her time to clear it.
-
-— Code consequence, for Claude Code: `Board.changed_at()`; `_free_trunk()` in `game.py`; `test_game.py`.
-
-## 1.84 Changes in Rev 84
-
-— A game call's misdial can be dialled again (§5), Mark's request, 2026-10-24: he was slow finding the cab company's number, got fast busy, replugged the trunk, and nothing happened, since the call had failed when he released it. Reorder still runs until she releases the trunk, but the call now goes back to waiting for a trunk, as after a wrong number (Rev 46): a fresh seizure gets dial tone and she may dial again. The call fails as `misdialled` only if the connect timeout runs out after a reorder; otherwise as `not connected`. The caller's patience while no trunk is up stays `ABANDON`, 10s. A free call's misdial already went back to routing (Rev 80).
-
-— A trunk taken and not dialled gets reorder after 30s, where it was 15s (Rev 60), time to look a number up.
-
-— Code consequence, for Claude Code: `_reorder()` returns `"released"` and sets `Ctx.reordered`; `Misdialled` is gone; `DIAL_FIRST` 30s in `flows.py`; the tests.
-
-## 1.83 Changes in Rev 83
-
-— Station 24, the real telephone, moves from jack 10 (room 405) to jack 18 (room 203), Mark, 2026-10-24 (§6.5, real_phone.md Rev 3). Jack 10 is uncabled.
-
-— Code consequence, for Claude Code: `station: phone` on jack 18 in script.yml; the jack 10 check in `test_game.py`.
-
-## 1.82 Changes in Rev 82
-
-— In a game call a room answers 3s after the operator rings it, where it answered after 1.5s, the right party and a wrong one alike (§5), Mark's choice, 2026-10-24: 1.5s is short of a single 2s ring. A free call's room keeps its 4s (Rev 81).
-
-— Code consequence, for Claude Code: `ANSWER_AFTER` in `flows.py`, in place of `WRONG_RING` and the two 1.5s waits.
-
-## 1.81 Changes in Rev 81
-
-— A room rung for a free call answers 4s after the operator rings it, where it answered at once (§4.12), Mark's request, 2026-10-24: Thornhill picked up almost as she keyed ring. Someone has to get to the telephone. A caller who hangs up in those 4s is gone and the room never answers. Game calls keep their 1.5s (§5).
-
-— Code consequence, for Claude Code: `ROOM_ANSWER` in `freecall.py`.
-
-## 1.80 Changes in Rev 80
-
-— A free call's outside number is dialled as a game call's is (§4.12, §5 Rev 56), Mark's request, 2026-10-24: he paused after three digits to look up the rest, the 3s pause ended the number, and the real Lenny answered. The number is now seven digits, or `0` alone for the operator, and rings once 3s pass with no digit more. Short of that, 10s with no new digit gets fast busy; so does an eighth digit. Fast busy lasts until she releases the trunk or the caller goes.
-
-— Code consequence, for Claude Code: `_number()` in `freecall.py`, `DIAL_PAUSE` 10s, `DIAL_SETTLE` 3s.
-
-## 1.79 Changes in Rev 79
-
-— In a free call the answerer listens from the start of each line, the greeting and "Hello?" included, not from its end (§4.12), with the audio program's echo canceller (audio.md Rev 26, §9.4), Mark's request, 2026-10-24. A caller who answers over the end of a line — "What power?" — is now heard: if they have finished by the time the line ends, the answerer comes in after the usual 0.4s; if they are still talking, once they stop. The listen allows the line's length plus the 3s or 7s of Rev 78 for speech to start. Where the canceller has not converged, as it may not have on a trunk, the listen hears nothing during the line, which is what Rev 78 did.
-
-— Code consequence, for Claude Code: `_line()` in `freecall.py`, the listen sent before the line.
-
-## 1.78 Changes in Rev 78
-
-— A free call's answerer says "Hello?" 3s after the greeting or a line with no reply, where it waited 7s (§4.12), Mark's choice, 2026-10-24, from playing it. The line has no hybrid, so a caller who speaks over the end of a line is not heard (audio.md §9.3): Mark's "What power?" to Thornhill's "The man with the power" went unheard, and he waited over 4s before saying it again. A missed reply now gets "Hello?", which is natural after words that did not get through. After a "Hello?" the wait stays 7s, so a silent caller is not nagged. Lenny still says nothing: the original waits for the caller in silence, with room noise. Not adopted: going on to the next line after a silence, which Lenny never does.
-
-— Code consequence, for Claude Code: `LISTEN` 3s and a new `LISTEN_AGAIN` 7s in `freecall.py`.
-
-## 1.77 Changes in Rev 77
-
-— The page drops everything it holds on every connect and rebuilds from the retained topics (§7.2, Connection). Found 2026-10-24: the iPad was away while the station and trunk boards were plugged in, and on return it still showed red lamps on circuits that had gone from `deaf` back to idle. A circuit's `peer` clears by deleting its retained topic, so a page that reconnects gets nothing for it and kept the `deaf` it had. The station sweep cleared them one by one, since each step makes a fresh `deaf` and idle. The one-second hold on `deaf` (Rev 52) is dropped with the rest.
-
-— Code consequence, for Claude Code: the connect handler in `app.js`.
-
-## 1.76 Changes in Rev 76
-
-— In a free call the answerer comes in sooner after the caller stops (§4.12), Mark's request, 2026-10-23, from playing it: the game's extra listen at the end of a turn is 0.4s, down from 1s. With the audio program's own 0.8s to report silence (audio.md §9.2, the 0.5s hangover), the answerer now starts about 1.2s after the caller's last word, against about 2s before.
-
-— Code consequence, for Claude Code: `TURN_END` in `freecall.py`.
-
-## 1.75 Changes in Rev 75
-
-— A party hangs up 1.5s after its last words, not the moment they end (§4.6), Mark's request, 2026-10-23: the time it takes to put a receiver back on its hook. After a call's last line, after the operator's closing words or where a call has none, and after an engaged caller's last line, the game waits 1.5s before its stations go on-hook and its trunk tone and files stop. A call cut off, timed out or failed still ends at once.
-
-— Code consequence, for Claude Code: `HANG_UP` in `flows.py`, at the end of `_converse()`, `_closing()` and `_found_engaged()`.
-
-## 1.74 Changes in Rev 74
-
-— Free calls, "Lenny mode" (§4.12), Mark's spec of 2026-10-23 (`docs/lenny-spec.txt`, kept in §4.12's words): a real person lifts the telephone on station 24, or calls in from outside on trunk 8, the public line (trunk_circuit.md §4.5). The operator answers, and connects them to a room or dials an outside number. Whoever is there answers in character and then keeps the caller talking, the way Lenny does: a line of their own each time the caller pauses, in order, round and round, until the caller hangs up. An outside number the game does not know is answered by the real Lenny. Free calls run whether or not a game is running, alongside its calls (Mark, 2026-10-23), are not scored, and keep the lines and people they use out of the deck while they last.
-
-— script.yml gains `freecall:`: per cast member, a `greeting:`, the `lines:` said once in order, and the `loop:` said round and round after them. `lenny`, the real Lenny, is a recorded cast member: his sixteen public recordings, transcribed, in his own order (§4.12). Each line is an utterance named `free.<cast>.<n>`.
-
-— `public_trunk` in the configuration (default 8): the trunk the ATA feeds. No scene ever takes it, rings it or dials on it; it is where outside free calls come from.
-
-— Code consequence, for Claude Code: `engine/sbgame/freecall.py`; the loader's `freecall:` (`tts/script.py`) and `build()`; the routing flows leave the public trunk and a free call's circuits alone; `_held()`, `_circuits_in_calls()` and the diagnostics count free calls; the Lenny recordings into `tts/recorded/`; script.yml.
-
-## 1.73 Changes in Rev 73
-
-— Station 24, a real telephone on station board 3 strip 8, cabled to switchboard jack 10 (§6.3, §6.5), following real_phone.md Rev 2 (adopted 2026-10-23), control.md Rev 38, audio.md Rev 24 and mqtt.md Rev 44. It is a station like the others in script.yml (`stations:` number 24, on jack 10), and the board draws it there. It is **fitted when `stations` is 22**, since it is on board 3 with stations 17–22; `stations` still counts the first N of 1–22. No scene calls from it or to it yet. What happens when someone lifts it and the operator answers, the free-call mode of real_phone.md §6, is to come in a later revision (Mark, 2026-10-23). Until then, plugging into jack 10 is an unscripted patch, as on any jack the game has no call for.
-
-— The page draws station 24's tile from `lifted`, the phone's own hook, where every other station's comes from `hook`, which for 24 is the relay that connects the line to channel 24 (§7.1). Its panel shows `lifted` as well. Diagnostics reach it as any station: `hook` closes that relay.
-
-— Code consequence, for Claude Code: the loader takes station numbers 1–22 and 24 (`tts/script.py`); `fitted_stations()` in `script_data.py`, used by `fit()`, the diagnostics, the sweep and the simulator; `out_of_service.stations` takes 24; the page's `fitted()` and tile; script.yml.
-
-## 1.72 Changes in Rev 72
-
-— A `public trunk` row in the health column (§7.1), under the public address, Mark's request, 2026-10-23: whether outside callers can reach the switchboard through trunk 8's Grandstream ATA (trunk_circuit.md §4.5). It reads `registered` when the ATA's FXS port is registered, `disconnected` when it is not, `offline` when the ATA cannot be reached, and `error` when anything else stops the service from finding out — or when the last look is more than 30s old, the service having stopped. Grey unless `registered`. From `host/public_trunk` (mqtt.md Rev 41, §6.3). No tap.
-
-— Code consequence, for Claude Code: the row in `app.js`; the service in mqtt.md's consequence.
-
-## 1.71 Changes in Rev 71
-
-— The `public IP` row shows "offline" in place of the address when portland is not connected to the internet, and "error" when anything else keeps it from finding the address (§7.1), Mark's request, 2026-10-23. Rev 68 showed the last good address, grey, after a failed lookup, which looked like an answer. "offline" is `host/public_ip/error` reading `"offline"` (mqtt.md Rev 40, §6.3). "error" is any other error, or a last lookup over 11 minutes old, which means the service has stopped. Both are grey; `checked` is unchanged.
-
-— Code consequence, for Claude Code: `ipShown` in `app.js`; the service in mqtt.md's consequence.
-
-## 1.70 Changes in Rev 70
-
-— In tutor pacing every call now ends on her line in full and Next Call (§4.9), not only a call with no trunk as at Rev 67. A trunk does not show its cord after the call either, 2026-10-22, dobbs-paramount, room 105 to Paramount on trunk 1: the trunk's seizure dropped 0.27s after the game put station 13 on-hook, with both cords still in, and one second later, Rev 45's hold, her "The lamps in front of the cord pair…" was cut off for "press Next Call". The switchboard passes the station's loop through the cord to the trunk, so once the station hangs up nothing holds the trunk seized, cord or not. Rev 67's statement that a trunk is held seized while its cord is in is withdrawn. Next Call during either line cuts it short and deals, as Rev 67 had for a call with no trunk.
-
-— Fixed the same day, no specification change: a line taken as finished as soon as it started. Next Call cut the introduction short, the game stopped it and at once played answer-station, and the audio program's echo of the stop arrived after the new play had been sent; the game read that echo as the new line's end, and 20s later said it again over itself. A play now ends only on its own end: `""` counts once the file's own name has been echoed (`Board.saw`, `scenes.say`).
-
-— Code consequence, for Claude Code: `_tutor_hangup` in `game.py`, `Board.saw` and `scenes.say`; `tests/test_tutor.py`, `tests/test_sim.py` §5b.
-
-## 1.69 Changes in Rev 69
-
-— The tutor's `dial` line may say the digits to dial, one at a time, after the number as the card prints it (§4.9), Mark's request, 2026-10-22: `{number-digits}` beside `{number}`, so "dial Sunset three, two two five oh. That's seven, eight, three, two, two, five, zero." A new player does not know that the exchange's letters are dialled as digits, and "two two five oh" read as a number is not the holes to put a finger in. The digits are comma-separated, so the voice gives each a beat, and zero is "zero", not the card's "oh": she is naming a hole in the dial. `{number}` is still required; `{number-digits}` is optional, in the full line and its short form alike.
-
-— Code consequence, for Claude Code: `dial_digits` and the placeholder check in `tts/script.py`. The dial lines are rendered again. No game program change.
-
-## 1.68 Changes in Rev 68
-
-— The health column shows the host's public address (§7.1), Mark's request, 2026-10-22: a row `public IP`, the address, and under it `checked`, how long ago it was looked up — "2:10 ago", "failed 0:40 ago" when the last lookup failed, or "checking…" from a tap until the answer comes. Tapping either row asks for a lookup now. Both rows are grey when the last lookup failed, or is more than 11 minutes old, which means the service that makes it is not running. The address comes from `sbgame-publicip`, a program of its own every 5 minutes (mqtt.md Rev 39, §6.3), not from the game program, which makes no network calls during a session.
-
-— Code consequence, for Claude Code: the two rows and the tap in `app.js`; the service in mqtt.md's consequence. No game program change.
-
-## 1.67 Changes in Rev 67
-
-— In tutor pacing, the end of a call with no trunk — between two rooms, or a room's call to the operator — no longer waits for the cords out (§4.9), Mark's choice, 2026-10-21. Once the game puts the stations on-hook they draw no loop current, so their pilot tones stop and `peer` and `op` go clear whether the cords are in or out: one second after the call ended, Rev 45's hold ran out and the game took the cords for pulled, cutting her "The lamps in front of the cord pair…" off after its first words with the cords still up (17:20, hollis-valet). The pilot cannot see an on-hook station; only a trunk, which is held seized while its cord is in, still shows its cord after the call. Now a call with no trunk gets her end-of-call line in full, then "press Next Call when you are ready", and the player's Next Call is the word that the cords are out. Next Call during her line cuts it short and deals, as during the introduction. A call with a trunk waits for the cords as before. Rejected: keeping a station off-hook until its cord comes out (its supervisory lamp, which her line points to, would not light), and taking a station off-hook now and then to look for its cord (the lamp would flicker).
-
-— Code consequence, for Claude Code: `_tutor_hangup` in `game.py` and Next Call's cut-short; `tests/test_tutor.py`. No topic change.
-
-## 1.66 Changes in Rev 66
-
-— The deck's switchboard reset works during a game (§3, §7.4), Mark's request, 2026-10-20. Rev 63 refused it, since the cut drops every line on the board: the switchboard supplies the stations' loop current, and for its 1s plus the relay's times the game would read each call's cord as pulled — longer than Rev 45's one-second hold. The game program now freezes the lines through the cut instead (§5): from `ctl/power_cut` `"on"` until 1s after it returns to `"off"`, each circuit's `peer` and `op`, and each trunk's `seize`, keep the values they had, and then take their latest, through Rev 45's hold as usual. A call in progress carries on; a cord pulled during the cut is seen once it settles. A freeze whose `"off"` never comes ends after 3s. The page's `"hold"` is still refused while a game runs. Not yet seen on the switchboard: the relay is commissioned in the week of 2026-10-26, and that is when a connected call through the cut is checked (§9 step 6).
-
-— Code consequence, for Claude Code: the board's freeze in `board.py`, the game program accepting `"on"` while running, the deck's hold during a game; tests. No topic change.
-
-## 1.65 Changes in Rev 65
-
-— The switchboard can be switched off and on from the page (§7.8), Mark's request, 2026-10-20: a Switchboard section in Tools with one button, `power`, filled while the switchboard is powered, a tap switching it off and the next on again. Not the deck's 1s reset (§7.4): the switchboard stays dark until tapped on. `game/power_cut/set` gains `"hold"` and `"off"` beside Rev 63's `"on"`, passed on as `ctl/power_cut/set` (control.md Rev 32, mqtt.md Rev 38); `"hold"` is refused while a game runs, as `"on"` is, and `"off"` is always accepted. Start powers a switchboard left off (§3), since a game on a dark board cannot be played. The deck's key 5 reads "Switchboard" over "off", lit red, while it is held off (§7.4).
-
-— Code consequence, for Claude Code: the game program accepts the two values and powers the switchboard at Start; the page's button; the deck's key 5; the simulator; tests. No new topic.
-
-## 1.64 Changes in Rev 64
-
-— A chosen scenario no longer starts by itself (§4.10), Mark's request, 2026-10-19, withdrawing Rev 41. It is staged, as any chosen scene is (§4.8): in manual pacing it starts on Next Call, in automatic pacing it is the next call the schedule deals. Rev 41 started it at once on a clear board and only on Next Call or the schedule when chosen with calls on the board, so the same choice behaved two ways. Rev 41's reason, that nothing showed a choice waiting, no longer holds: the page shows the chosen scene under Next Call (§7.1). The clear board of Rev 40 stays: until it clears, Next Call is refused, "waiting for the board to clear", and the schedule deals nothing else.
-
-— Code consequence, for Claude Code: the scheduler's start on a clear board goes, with its test. No topic change.
-
-## 1.63 Changes in Rev 63
-
-— Stop cuts the switchboard's power for 1s (§3), Mark's request, 2026-10-19. A trunk rung in locks its lamp and buzzer on the switchboard until a cord goes into the jack, and Stop, which releases our ring relay, did not clear it; nothing did. The controller now drops the switchboard's 24V on `ctl/power_cut/set` (control.md Rev 31, mqtt.md Rev 37), and every relay and lamp on the switchboard drops with it. Stop sends it after the calls are torn down, so a game always ends on a dark board. A stop for the controller going offline cannot send it, and does not try.
-
-— A long press on key 5 cuts the power by hand (§7.4): held 2s with no game and no sweep running, `game/power_cut/set` `"on"`, which the game program passes on. While a game runs the deck ignores the hold, as it ignores the sweep's double press, and the game program refuses `game/power_cut/set` on `error` all the same, since the cut would drop the calls on the switchboard under the game's feet; Stop does it anyway. Key 5 because it already starts the trunk sweep, the other thing done to the board with no game running (Mark's choice, 2026-10-19; a long press on the first dial was drafted first).
-
-— Code consequence, for Claude Code: the game program sends `ctl/power_cut/set` `"on"` at the end of `stop()` when the controller is online, and accepts `game/power_cut/set`; the deck program times key 5's hold and draws it; tests for both. The firmware's half is control.md Rev 31.
-
-## 1.62 Changes in Rev 62
-
-— The sweeps come back to the Stream Deck, as at Rev 50, and stay on the page (§7.4, §7.6), Mark's request, 2026-10-18: key 5 pressed twice within 0.5s sweeps the trunks, key 6 the stations. A single press of the running sweep's own key stops it, and so does the other key pressed twice. While a sweep runs its key reads "Sweep" over "trunks" or "stations", lit teal, however the sweep was started — the key follows `game/sweep`, so a sweep started from the page shows on the deck too. Rev 50 read "Testing".
-
-— Teal (38, 128, 128), a colour of the deck's own, in place of amber on the sweep keys and on Repeat Help and More Help (§7.4), Mark's choice, 2026-10-18.
-
-— Code consequence, made the same day: keys 5 and 6 in `streamdeck.py`, and its test. No topic change.
-
-## 1.61 Changes in Rev 61
-
-— The page's Tools gains three sections under Operator (§7.1), Mark's request, 2026-10-18: Diagnostics, the board sweeps; Record, a recording of the loudspeaker; and Playback, a recording played back on it (§7.7). Tools is where the tools are, and the deck's keys keep one meaning each.
-
-— Record starts a recording, and while it runs a red dot pulsing once a second and the time recorded stand in the top bar to the right of Tools; a tap on them stops it. The audio program writes `/srv/sbgame/recordings/<YYYY-MM-DD-HH-MM-SS>.wav` and makes an MP3 beside it when it stops (audio.md Rev 22, §10.6). A recording is not part of a game: it runs with or without one, and Start and Stop leave it alone.
-
-— One at a time: Record is dimmed while a playback runs and Playback while a recording does, and the game program refuses either then. Each button, filled while its own runs, stops it on a tap, as its indicator in the top bar does.
-
-— Playback opens a list of the ten newest recordings, newest first, each with its length; a tap plays that one on the loudspeaker, in place of the monitor, at the level it was recorded (audio.md §10.7). While it plays a play triangle and the time stand in the top bar to the right of Tools, and a tap on them stops it. Not while a game runs, and Start stops one.
-
-— The sweeps move off the Stream Deck: keys 5 and 6 are the tallies again and nothing more (§7.4). Pressing a sweep's button on the page starts it, and pressing it again while it runs stops it (§7.6).
-
-— `game/record/set` and `game/playback/set`, which the game program passes to the audio program as `audio/record/set` and `audio/playback/set`, so the game program stays the only client that commands audio; the page reads `audio/record`, `audio/recordings` and `audio/playback` directly (mqtt.md Rev 36).
-
-— Code consequence, made the same day: Tools and the Recordings sheet in `index.html`, `app.js` and `style.css`; the `record` and `playback` commands in `game.py`, and Start stopping a playback; `Hw.record()` and `Hw.playback()` in `link.py`; the sweep keys out of `streamdeck.py`; the tests.
-
-## 1.60 Changes in Rev 60
-
-— An audit of where the game fell silent on a player's mistake, Mark's request, 2026-10-17, and a fix for each (§5, §4.9). Each new line is a reaction under a new top-level `reactions:` in script.yml, rendered in every cast member's voice but the operator's and the tutor's, as `<kind>.<speaker>` — 171 lines — so a party reacts in its own voice. A reaction not rendered is done without, as before.
-
-1. **She does not speak** where the game waits for her — the greeting, a reply, the closing — or spoke before the listen began. Outside tutor mode it was 30s of silence before the caller went on. Now after 6s of silence the waiting party says "Hello? Operator? Are you there?" (`nudge`), the game listens 6s more, and the line plays either way. In tutor mode her Say prompt does this already.
-2. **She rings the wrong room.** It rang out unanswered and the caller said nothing until the connect timeout. Now, 1.5s into the ring (3s since Rev 82), whoever the scenes most often have in that room answers, "Hello? … Hello? Is anybody there?" (`hello`); if the caller is patched to it, the caller says "Operator, that's not who I asked for." (`wrong`); and the room hangs up, so its cord lamp lights. Not a room already off-hook, nor the caller's own. The call goes on, and she may ring the right one. It is not a failure, since she can recover (Mark, 2026-10-17); §10's open item on a wrong party is settled this way.
-3. **She rings the right room on a cord not patched to the caller.** The room was taken off-hook and the game waited in silence for the two to be joined. Now, not joined in 8s, the room says "Hello?" (`hello`, in the called party's voice); not in 8s more, it hangs up, and she must patch and ring it again.
-4. **A trunk cord left in from an earlier call** was taken for the trunk of the next call out: dial tone went to it and her digits on the trunk she had taken were never seen. A trunk already up when a call begins to route is no longer that call's, until it is released and taken again. The same applies to the caller-left-alone check (Rev 46), which a stale trunk held off.
-5. **She takes a trunk and never dials.** Dial tone ran until the connect timeout. Now, outside tutor mode, 15s without a digit gets reorder and the call fails as `misdialled`, as a number dialled too short does (Rev 56).
-6. **In tutor mode, after a prompt's last repeat** she was silent for good, the timeouts being lifted. Now, after the second repeat, she says once "If you are not sure what to do, press Repeat Help, and I will tell you again." (`stuck`, under `tutor:`).
-
-— Code consequence for Claude Code, made the same day: `REACTIONS` and `_reactions()` in `tts/script.py`, `reactions:` and `tutor: stuck:` in script.yml; `caller_voice`, `called_voice`, `GameScript.reactions`, `occupants` and `reaction()` in `script_data.py`; `NUDGE_AFTER`, `PATCH_WAIT`, `DIAL_FIRST`, `WRONG_RING`, `_wrong_party()`, `_picks_up()`, `_fresh()`, `_note_stale()` and the nudge in `_operator_speaks()` in `flows.py`; the stuck line in `Tutor._repeat()`; the tests. No topic changes.
-
-## 1.59 Changes in Rev 59
-
-— On a call to the operator, once the caller has asked, the tutor says the call is for her before her first reply: "This call is for you, not for another line. Answer the caller yourself." (§4.9). Mark's request, 2026-10-17: the fourth lesson is such a call, and a new player expects to plug a cord in after every request. A new line under `tutor:`, `for-you`, with a short form, "This call is for you."; said on every tutored call to the operator that has a reply or a closing for her, so not on time and charges rung in on a trunk.
-
-— Code consequence for Claude Code, made the same day: `for-you` in `TUTOR_KEYS` in `tts/script.py`, its lines in script.yml, said in `to_operator()` in `flows.py`, and the test. Two lines to render, `tutor.for-you` and `brief.for-you`. No topic changes.
-
-## 1.58 Changes in Rev 58
-
-— A tutor prompt the game waits on the board after stops mid-word once the board shows the player has done it (§4.9). Mark's report, 2026-10-17: she talked on after the cord was in. Before, the condition was checked only before she began and between her repeats. Now it is checked throughout the line, and her repeats, Repeat Help and More Help stop the same way; a line cut short leaves nothing to repeat. The three prompts to centre the switch — `center`, `center-dialled`, `center-ringing` — are given the condition too, the operator off the pair's lines, so they also stop, are not said if the switch is already centred, are said again if it is not, and are offered to Repeat Help and, in short form, to More Help.
-
-— Code consequence for Claude Code, made the same day: `Tutor._line()` in `tutor.py`, `_centred()` in `flows.py`, and the test. No topic changes.
-
-## 1.57 Changes in Rev 57
-
-— A running game stops by itself after 10 minutes with nothing from the player, so Start must be pressed to play again (§3). Mark's request, 2026-10-17. Activity is what the player does: a cord in or out — a circuit's `peer` or `op`, a trunk's `seize` — a digit dialled, a station rung, and any key or button on the deck or the page. The game's own doing is not: a station taken off-hook, a trunk rung in, the tutor speaking, a call dealt on the automatic schedule. The stop is an ordinary one, logged "game stopped: no activity for 10 min", and the stopped game goes back to tutor 5 minutes later as before (§4.9, Rev 44). `idle_stop` in the configuration, 600s by default; 0 never stops.
-
-— Code consequence for Claude Code, made the same day: `idle_stop` in `config.py`; `PLAYER`, `_active_at`, its updates in `on_command()` and `watch_clients()`, and the check in `run_scheduler()`, in `game.py`; the test. No topic changes.
-
-## 1.56 Changes in Rev 56
-
-— A number dialled with too many digits or too few gets reorder, the fast busy, on the trunk until the operator releases it, and the call fails as `misdialled` (§5). Mark's request, 2026-10-17. Too many: a digit more within 3s of the last digit the number needs — the game now waits that long after the last digit before taking a number as dialled, so the extra digit can be heard; 3s is longer than a dial takes to return and run ten pulses (control.md §8). Too few: 10s after a digit with the number not complete. The failure is counted when she releases the trunk, so the fast busy is heard for as long as she stays on it; a deadline passing first fails the call as `not connected`, as before. A wrong number of the right length is unchanged: busy tone, and she may redial (Rev 46). The rule holds in tutor mode as well, where it is the one failure that is not about the cords.
-
-— Code consequence for Claude Code, made the same day: `DIAL_SETTLE`, `DIAL_PAUSE`, `_number()`, `_reorder()` and `Misdialled` in `flows.py`, `Reason.MISDIALLED` in `calls.py`, and the tests. The tone is new in the audio program, `"reorder"` on `tone/set` (audio.md Rev 20, mqtt.md Rev 35): `ToneKind::Reorder` and a row of the tone table in `engine.cpp`, its name in `net.cpp`.
-
-## 1.55 Changes in Rev 55
-
-— Once the tutor has said a prompt in full twice, she says its short form where script.yml gives one, under `tutor: brief:`, and More Help says the full line (§4.9, §7.4). Mark's request, 2026-10-17: the full prompts are right at first and too long once the player has done that step twice. Counted per prompt, not per call, since each kind of call has prompts of its own: a call out is the first to need `dial`, however many calls between rooms came before it. Every jack and number is the one prompt — `ring-front` to any room — and `dial-operator` is its own. Counted from Start, or from Tutor chosen mid-game; her own repeats, Repeat Help and More Help do not count. A short form may be given for any prompt but the introduction's three parts and the prompts before the operator speaks — `say`, `greet`, `respond` — which are short already and have a listen after them. A line with no short form is said in full every time. More Help is offered once she has finished a short line the game then waits on the player after — the answer, the switch, ring, the trunk, dial, the end of a call, "press Next Call" — for as long as Repeat Help would repeat it. A press says the full line at once; Repeat Help then repeats the full line, and More Help is done until the next short one. Her own repeats, 20s apart, say the line she last said. Short forms are rendered as `brief.<key>`, in her voice with the rest; one not yet rendered is not a gap, and she says the full line in its place.
-
-— Code consequence for Claude Code, made the same day: `tutor: brief:` in script.yml, read by `tts/script.py` (`BRIEF_KEYS`, `brief-<key>` in `Script.tutor`, rendered as `brief.<key>`, since `tutor.brief-<key>` passes the 31-character limit on a name); `Tutor.said`, `prompt_of()`, `Tutor.more()` and `more_key` in `tutor.py`; `game/tutor/more` and the `more` command outside the introduction in `game.py`; key 8 in `streamdeck.py`; the tests. One new topic, `game/tutor/more` (mqtt.md Rev 34). The short forms are to be rendered.
-
-## 1.54 Changes in Rev 54
-
-— A long press, about half a second, on a pacing button — Tutor, Manual, Automatic, Listen — or on a stepper — `pause`, `gap`, `ramp`, `floor`, `jitter`, its label or either button — opens a short help beside it: what the pacing does, or what the value means, its range, its step and its starting value (§7.1). Mark's request, 2026-10-17. Works the same with a mouse held down. The press that opens it changes nothing; a tap still does what it did. A tap elsewhere or Escape closes it, as it does every popup. The pacing buttons are drawn dimmed rather than disabled while the game program is away, so that their help still opens; a tap on one then does nothing.
-
-— Code consequence for Claude Code, made the same day: `HELP` and `showHelp()` in `web/app.js`, `data-help` and `#help` in `web/index.html`, and `web/style.css`. No topic changes.
-
-## 1.53 Changes in Rev 53
-
-— A long press on Tools, about half a second as on Next Call (§4.8), shows a key to the lamps: each state of §7.1's table, most urgent first, with the lamp drawn as on the board, lit as it is there, and a line saying what it means (§7.1). Mark's request, 2026-10-17. A tap still opens Tools; a tap elsewhere closes the key. Tools is a control, so the key is hidden with the Controls switch too.
-
-— Code consequence for Claude Code, made the same day: `#lamps` in `web/index.html`, its long press in `web/app.js`, and `web/style.css`, where the lit lamp's glow now follows `lit` on any element and not only on a tile. No topic changes.
-
-## 1.52 Changes in Rev 52
-
-— On the page, a `peer` of `"deaf"` or `"ambiguous"` makes a tile a fault only once it has stayed so for a second (§7.1); until then the tile shows the `peer` before it. Found 2026-10-17 with the station `hook` test: the lamp flashed red as the station went off-hook and again as it went back, because the relay breaks the line for a moment and the detector reports `deaf` for that long, as it does for the cord switch's 0.2s break (Rev 45). A real fault is shown a second later. The tile's panel still shows the detector's own value, and `play` `"missing"` and `fault` are shown at once. The deck shows no `peer` faults, so it is unchanged.
-
-— Code consequence for Claude Code, made the same day: `tileState()` in `web/app.js`. No topic changes.
-
-## 1.51 Changes in Rev 51
-
-— The loudspeaker plays ringback while a station reports ring (§6.6), Mark's request, 2026-10-17, so the player and the room hear the operator ringing, for as long as she holds the ringing key. Steady, not in the 2s-on cadence: it follows her key. A file on the monitor, `cue.ringback`, rendered by `tts/cue` — the period ringback of audio.md §8.2 — so the audio program is unchanged. The monitor plays one file at a time and that file is otherwise the tutor's voice; she comes first. A configuration switch, `ring_cue`, true by default. No topic changes.
-
-— Code consequence for Claude Code, made the same day: `cue.py`, started from `main.py`; `ring_cue` in `config.py`; the Stream Deck does not take the cue for her voice (§7.4's Repeat Help and the flashing key); `tts/process` leaves `cue.*` out of its check for files in no scene; `tests/test_cue.py`.
-
-## 1.50 Changes in Rev 50
-
-— A sweep of the board from the Stream Deck (§7.4, §7.6), Mark's request, 2026-10-17, for checking the cabling after a recabling. Key 5 pressed twice within 0.5s gives each trunk in turn one short ring, 2s apart, so its lamp latches; key 6 pressed twice takes each station in turn off-hook for 1s, 2s apart, in jack order — the board's rows from the top, each left to right — rather than circuit order, so the lamps light in the order the eye reads the board. Either key pressed twice during a sweep stops it. Only with no game running: the game program refuses one while a game runs, and Start, Stop and losing a client end one. Each step goes on the game log, so the page shows it, and the hardware's own echoes light the tiles. Keys 5 and 6 did nothing on a press before, and a single press still does nothing. One new command and its echo, `game/sweep/set` and `game/sweep` (mqtt.md Rev 33), covered by the access list's `game/+/set`.
-
-— Code consequence for Claude Code, made the same day: `sweep.py`, `_sweep_command()` in `game.py`, keys 5 and 6 in `streamdeck.py`, and the tests.
-
-## 1.49 Changes in Rev 49
-
-— A scenario chosen from the page counts as its once-a-game play (§4.10), Mark's request, 2026-10-16. Rev 40 left the deal after `n` calls to come regardless, and in the first play of `panic` on the switchboard it did: chosen, its sixteen calls counted as handled, so the whole scenario was dealt again the moment the board cleared, and the same rooms lit with the same complaints, which looked like callers ringing back. Choosing it again from the page still plays it.
-
-— Code consequence for Claude Code, made the same day: `_start_call()` in `game.py` and the test. No topic changes.
-
-## 1.48 Changes in Rev 48
-
-— A caller left alone hangs up after 10s, and after 5s once a wrong number has been dialled for the call (§5, `cut off`), Mark's decision, 2026-10-16. Rev 46's 20s, restarted each time the operator came back on the line, kept a call he had given up on alive while he tried the cords: a real guest left in silence hangs up, and one just told it was the wrong number sooner.
-
-— Code consequence for Claude Code, made the same day: `ABANDON`, `ABANDON_MISDIALLED` and `Ctx.misdialled` in `flows.py`, and the tests. No topic changes.
-
-## 1.47 Changes in Rev 47
-
-— The caller waits for her `closing:` (§4.7), found in a game on the switchboard, 2026-10-16: nbn-trace's guest asks "was that an outside call or from the lobby?" and hung up as the question ended, before she could answer, because a call to the operator with no conversation hangs up once its request has played. The game listens for her closing now, in every call that has one, and the tutor prompts it. Not saying it does not fail the call: she has done what it asked.
-
-— Code consequence for Claude Code, made the same day: `SceneDef.closing`, `_closing()` in `flows.py`, called at the end of a call to the operator and of a busy call, and the tests. No topic changes.
-
-## 1.46 Changes in Rev 46
-
-— Three changes from a tutored game on the switchboard, 2026-10-16 (§5). A wrong number was met with silence, which tells the operator nothing; it gets busy tone now, until she hangs the trunk up. Pulling both cords mid-call, before it was connected, left the call open for good: from routing until connection the game watched only the trunk, the caller stayed off-hook with its lamp lit, and tutor mode has no timeouts, so nothing could end it and Next Call was refused. Now a caller lost for 20s before connection — no operator on its line, patched to nothing, no trunk up — is abandoned as `cut off`. The 20s is what tells a pulled answering cord from the switch centred before the front cord goes in, which look the same, since the game cannot see a cord in a station jack. And dial tone comes a second after the seizure rather than at once, as an exchange takes a moment to answer (Mark's request; tried at half a second first, and lengthened the same afternoon).
-
-— Code consequence for Claude Code, made the same day: `_dial_tone()`, `_unless_abandoned()` and the busy tone in `_wait_for_right_number()` in `flows.py`, and the tests. No topic changes.
-
-## 1.45 Changes in Rev 45
-
-— A circuit's `peer` going empty, or its `op` going off, counts only once it has stayed so for a second, and `deaf` leaves the last `peer` standing (§5, `cut off`). Found on the switchboard, 2026-10-16: returning a cord pair's switch to its centre position, as the tutor asks once the far end answers, breaks both lines for about 0.2s. The detector reports both ends `deaf` and then idle for that long, and the game read it as a cord pulled: it ended the call with the parties still talking, and the tutor said the call was over. The same happened while the operator answered, and on every dial pulse. A real pull is now noticed a second later, which nothing in the game minds. The game program applies the hold as the messages arrive, so every wait in it sees the held value; the page and the deck show the detector's own.
-
-— Code consequence for Claude Code, made the same day: `Board.HOLD` and `Board._hold()` in `board.py`, and the tests, which run it at their own speed. No topic changes.
-
-## 1.44 Changes in Rev 44
-
-— The game starts in tutor, and returns to tutor after five minutes stopped (§4.9), Mark's request, 2026-10-16: the installation's `game.toml` sets `pace = "tutor"`, and a new setting, `idle_tutor`, 300s, returns a stopped game in another pacing to tutor. A player who has moved on to manual or auto leaves it that way, and the next visitor, who has never seen a switchboard, should meet the tutor.
-
-— Code consequence for Claude Code, made the same day: `Config.idle_tutor`, the timer in `game.py`, and the tests. No topic changes.
-
-## 1.43 Changes in Rev 43
-
-— Stations can be marked out of service (§6.5), Mark's request, 2026-10-16: `game.toml` gains `[out_of_service.stations]`, a station's number and the reason, beside Rev 36's trunks. Found on the switchboard: jacks 21–30 draw no loop current after a spark while station 3 was being moved from jack 23 to 29, so no lamp on that row lights, and the first lesson of a tutored game was a call from Housekeeping on jack 26, waiting for good. A station is out of every call, not only calls rung in, because a dead line can neither call nor be heard: its scenes are left out as if it were not fitted, `after:` chains and tutor lessons with them. Rev 36 noted stations might need this.
-
-— Code consequence for Claude Code, made the same day: `Config.stations_out()` and its check, `fit()` in `script_data.py`, the start and `--check` logs in `main.py`, and the tests. No topic changes.
-
-## 1.42 Changes in Rev 42
-
-— Dial tone stops at the first digit (§5, `dialling`), found in the first game on the switchboard, 2026-10-16. It ran on under the dialling until the whole number was in, where a real exchange drops it as the first pulse arrives. It also comes back on a fresh seizure when the operator hangs up a trunk and tries again; before, a redial got no dial tone at all.
-
-— Code consequence for Claude Code, made the same day: `_wait_for_right_number()` in `flows.py`, and the tests. No topic changes.
-
-## 1.41 Changes in Rev 41
-
-— A chosen scenario starts by itself as soon as the board is clear (§4.10), Mark's request, 2026-10-14: at once if it is clear when chosen, else the moment the last call ends, in any pacing but tutor. Rev 40 waited for Next Call or the schedule, and nothing on the deck shows that a choice is waiting. Other chosen scenes are unchanged: still the next call dealt.
-
-— Code consequence for Claude Code, made the same day: `game.py`'s scheduler loop, and the tests. No topic changes.
-
-## 1.40 Changes in Rev 40
-
-— A scenario can be chosen from the page to show it (§4.10), Mark's request, 2026-10-14, for showing the game to friends. Rev 39 let it be chosen in manual and auto only, and dealt it on top of whatever was running. Chosen, it is now allowed in listen too, still never in tutor mode, and waits for a clear board: no call in progress and no `after:` scene waiting. Until then nothing else is dealt, and Next Call is refused on `game/error`. A chosen scenario does not use up its once-a-game play after `after_handled:` calls, so it can be shown as often as wanted. The automatic deal after `after_handled:` calls is unchanged.
-
-— Code consequence for Claude Code, made the same day: `game.py` and the tests. No topic changes.
-
-## 1.39 Changes in Rev 39
-
-— A scenario: calls that arrive almost together, so the board lights up at once, Mark's request, 2026-10-14, from Remco's suggestion and Beth's story of Martha loose in the hotel. Three keys in script.yml, each usable on its own:
-
-- **`mode: concurrent`** on an `after:` scene (§4.4): it starts `delay` seconds after the scene it follows has *started*, not ended, and whether or not that scene is ever connected. It waits for a free slot as well as its lines, rather than being dropped. `delay` may be a range, `[2, 5]`, drawn evenly from the game's seed.
-- **`after_handled: <n>`** on a scene that follows none (§4.10): it is never in the deck, and is dealt once a game, as the next call after `n` calls have been handled. Not in tutor or listen pacing. While its scenario is on the board the automatic schedule waits. It stays in `game/scenes`, so it can be chosen from the page to try it.
-- **`if_busy:`** on a call from a room to a room (§4.11): caller lines played, as in a busy call, when the called station turns out to be engaged in another call. So several guests can ask for the front desk at once, and the operator tells all but one to try later. A scene with `if_busy:` does not hold its called line or person for dealing.
-
-Calls before connection in general stay deferred (§4.5); the scenario is the one place the operator is asked to route several calls at once. The first is `panic`, after the tenth call: Martha the dog loose in the hotel, a complaint from every guest room, the lobby and the restaurant, ending with Martha calling from her room to say someone is chasing her with a broom.
-
-— Code consequence for Claude Code, made the same day: the loader checks the three keys (`tts/script.py`), renders `if_busy:` lines, and gives the tutor no Say line for an operator line only a scenario uses; `script_data.py`, `deck.py`, `game.py` and `flows.py`; `busy` is also the stage of a call found engaged (§6.1); the tests. No topic changes.
-
-## 1.38 Changes in Rev 38
-
-— The tutor's `ring-front` and `ring-rear` lines are named for the station, `tutor.ring-front-room403`, not the jack, `tutor.ring-front-29` (§4.9), Mark's request, 2026-10-12. Rev 37's renumbering moved no label off its station, yet 30 of those lines looked new or changed to the TTS run, since a line's text follows its label and its name followed the jack. Named for the station, a line changes only when what she says does: a new label, or the station cabled to a jack with another. Renumbering jacks changes no file.
-
-— Code consequence for Claude Code, made the same day: the loader names the lines by station (`tts/script.py`); the game looks them up by the called line's name (`flows.py`); the 88 wavs, raw and delivered, and their manifest entries renamed, nothing rendered; the tests.
-
-## 1.37 Changes in Rev 37
-
-— The board's station rows run 21–30, 11–20, 1–10 from the top (§7.1), checked against the 551 by Mark, 2026-10-12, closing the §10 item. Rev 5 assumed jack 1 at top left. Rows still run left to right. The labels stay where they were on the board — the hotel's services on the top row, the rooms in ascending order on the two below — so script.yml's `jacks:` items move: the top row's labels go from jacks 1–10 to 21–30 and the bottom row's from 21–30 to 1–10. `hardcopy/strips.py` already printed the strips in this order.
-
-— Code consequence for Claude Code, made the same day: `app.js` draws the rows in the new order; script.yml's `jacks:` renumbered. No topic changes.
-
-## 1.36 Changes in Rev 36
-
-— Trunks can be marked out of service (§6.5), Mark's request, 2026-10-10. Ringing each of the 551's trunk jacks in turn showed two that cannot take a call rung in: jack 6's lamp lights only while ring is applied and does not latch, and jack 8's lamp does not light at all, though its relay operates. Both are faults in the switchboard, to be repaired later (TODO.md); six working trunks are enough for the game. `game.toml` gains an `[out_of_service.trunks]` table, a trunk's number and the reason, and no call is rung in on a trunk listed there. Stations may need the same later; the table takes only trunks for now.
-
-— Code consequence for Claude Code, made the same day: `Config.out_of_service` and `working_trunks()` in `config.py`, checked at load; `Game._free_trunk()` picks only from the working trunks; `main.py` fits the scenes to them and logs each trunk out of service at start and under `--check`; the tests.
-
-## 1.35 Changes in Rev 35
-
-— Repeat Help after a "Say:" prompt too (§4.9), Mark's request, 2026-10-09. Rev 34 left it out because the game listens for the operator after one, and the loudspeaker would be heard as her. Now a press there stops the listen first, she says the prompt again, and the game listens afresh. A press once the operator has started speaking is refused, so her answer is not cut off. A press does not count as one of her own repeats.
-
-— Code consequence for Claude Code, made the same day: `_operator_speaks()` in `flows.py` races the listen against the press; `Tutor.asked` and `release()` in `tutor.py`; the tests.
-
-## 1.34 Changes in Rev 34
-
-— Repeat Help (§4.9, §7.4), Mark's request, 2026-10-09: once the tutor has finished a line and the game is waiting on the player, the deck's key 7 says "Repeat Help", and a press says the line again. That covers each part of the introduction, the call steps that wait on the board — answer, the switch, ring, the trunk, dial, the end of a call — and "press Next Call when you are ready for another". Not a "Say:" prompt: the game is listening for the operator then, and the loudspeaker would be heard as her. The line stays repeatable until the player does what it asks or she says another. The game program publishes it on `game/tutor/repeat` and takes `game/repeat/set`, an event at QoS 0 (mqtt.md Rev 31).
-
-— Code consequence for Claude Code, made the same day: `Tutor.repeat()`, `repeat_key` and `hold` in `tutor.py`; the `repeat` command in `game.py`; key 7 in `streamdeck.py`; the tests.
-
-## 1.33 Changes in Rev 33
-
-— While the tutor waits for a key, the deck flashes it (§4.9, §7.4), Mark's request, 2026-10-09: More Help and Next Call after each part of the introduction but the last, Next Call alone after the last, and Next Call after a call once the cords are out and she has asked for the next. Only once she has finished speaking, so the flashing does not compete with her. The game program publishes what she is waiting for on `game/tutor/waiting`, `"more"`, `"next"` or `""` (mqtt.md Rev 30), since the deck cannot tell her waiting for Next Call from her waiting for the cords to come out.
-
-— Code consequence for Claude Code, made the same day: `_waiting()` in `game.py`; `Panel.flash()` and keys 4 and 8 in `streamdeck.py`; the tests.
-
-## 1.32 Changes in Rev 32
-
-— Tutor mode becomes a pacing, `tutor`, the first of four (§4.9), Mark's decision, 2026-10-09. It was manual pacing with tutoring in all but name: one call at a time, each on Next Call. As a switch beside the pacing it allowed tutor with auto or listen, which nobody wanted, and two controls where one will do. Moving a player on is now a change of pacing, mid-game if need be. `game/tutor/set` and `game/tutor` are withdrawn (mqtt.md Rev 29); `pace/set` takes `"tutor"`, refused while any of her lines has no wav. A configured `pace = "tutor"` falls back to manual at start-up, with a warning, while any is missing.
-
-— The deck's pacing key shows four names, Tutor first, and cycles Tutor, Manual, Auto, Listen (§7.4). Key 8 is the health lamps again, as through Rev 28, and More Help while she introduces the board; key 7 is the success percentage throughout. The page has a fourth pacing button.
-
-— Code consequence for Claude Code, made the same day: `PACES` in `pacing.py`; the switch moves into the `pace` command in `game.py`; `streamdeck.py`; `index.html` and `app.js`; the tests.
-
-## 1.31 Changes in Rev 31
-
-— The tutor's introduction is in three parts — the jacks, the cords, the switches and dial — Mark's request, 2026-10-09: all at once it was too much to take in (§4.9). After each part but the last she says to press More Help, or Next Call to start playing, and waits for one; after the last, for Next Call. This is the same in every pacing: in auto and listen the first call no longer follows the introduction by itself. More Help pressed mid-part cuts it short and goes on to the next part; Next Call at any point ends the introduction and deals the first call, as before. script.yml's `intro:` and `begin-manual:` give way to `intro-jacks:`, `intro-cords:` and `intro-switches:`.
-
-— While she introduces the board, the Stream Deck's key 7 is More Help in place of the success percentage (§7.4). It publishes `game/more/set`, an event at QoS 0 like `next/set`, guarded the same way, and the game program publishes the part she is on as `game/tutor/intro`, `"1/3"` to `"3/3"`, or `""` (mqtt.md Rev 28). The key is lit while a further part remains.
-
-— Code consequence for Claude Code, made the same day: `INTRO` in `tutor.py`; `_tutor_intro()` and the `more` command in `game.py`; key 7 in `streamdeck.py`; `tts/scenes --tutor` joins the three parts; the tests.
-
-## 1.30 Changes in Rev 30
-
-— A tutored game starts with one call of each kind (§4.9), Mark's request, 2026-10-08: between rooms, out to a number, in from outside, and to the operator, in that order, so a new player meets every interaction before the deck takes over. Each kind is a group of suitable scenes under `tutor: lessons:` in script.yml, and each game picks one from each group at random, so a restart does not repeat the last game's. The picks come from the game's seed, so a replay picks the same, and they are logged. The loader refuses a group that mixes kinds, or names a scene that is inactive, unknown or an `after:` scene. No topic changes.
-
-— Code consequence for Claude Code, made the same day: `lessons` and `scene_kind()` in `tts/script.py`; `GameScript.lessons`, fitted to the circuits built (§6.5); `pick_lessons()` and the dealing in `game.py`; `test_tutor.py`.
-
-## 1.29 Changes in Rev 29
-
-— Tutor mode (§4.9), Mark's request, 2026-10-08, in place of an instruction sheet: a new player has too many steps to take in from paper. With it on, a senior operator's voice on the audience loudspeaker says what to do at each step of a call — which cord, which jack, which switch, what to say, what to dial — at the moment the game sees the step is due, and the game waits for her. She introduces the board when the game starts. One call is in progress at a time, nothing fails for being slow, a prompt not acted on is said again, and the next call waits for the cords to come out. Her lines are rendered offline like every other, from a `tutor:` section of script.yml, one whole sentence for every jack, number and operator line they name.
-
-— The Stream Deck's key 8 is the tutor switch (§7.4). It showed three health lamps, which the page already shows; the error that turned it red is on the strip as before. `game/tutor/set` and `game/tutor` are new (mqtt.md Rev 27), and the page's state line says "Tutor" while it is on (§7.1).
-
-— She is on the loudspeaker, not in the headset, which is the reason for most of §4.9's rules. In the headset her voice would go out on the line the operator is bridged to and set off that line's speech detection. On the loudspeaker it reaches the operator's microphone acoustically, so she is still never speaking while the game listens. The audio program needed a file source on the monitor for it: audio.md Rev 11.
-
-— Code consequence for Claude Code, made the same day: `tutor.py`; hooks in `flows.py` at each step; the switch, the introduction, one call at a time and the end of a call in `game.py`; `Slots.timeless`; `script_data.py` loads her wavs, and refuses tutor mode while any is missing rather than refusing to start; the loader in `tts/script.py` renders `tutor:`; key 8 in `streamdeck.py`; `app.js`; `test_tutor.py`.
-
-## 1.28 Changes in Rev 28
-
-— A call in on a trunk is signalled with one short burst of ring, `shortring/set` (§4.3, §6.1, §6.4; mqtt.md Rev 26, control.md Rev 25), Mark's request, 2026-10-05, in place of ring in the standard cadence until answered. The trunk cannot see a seizure while it is ringing, so an operator who plugged in during a 2s ring-on interval was not seen until it ended. The 551's trunk signal latches on a short burst, so the lamp stays lit without further ring and the trunk is readable from the moment the burst ends. Nothing else about the call changes: the answer timeout runs from the start of the call as before, and an unanswered call fails as `no answer`. The game still sends `ring/set` `"off"` when the call ends, which cancels a burst that is still ringing. The page's `ring` diagnostic keeps the cadence (§7.5).
-
-— Code consequence for Claude Code, made the same day: `Hw.short_ring()` in `link.py`; `outside_to_station` and `to_operator` from an outside line call it instead of `ring_trunk(…, True)`; the simulator and the tests' fake echo a 0.5s burst on `ring`.
-
-## 1.27 Changes in Rev 27
-
-— The health column shows the controller's firmware, `ctl/firmware` (§7.1, mqtt.md Rev 25), 2026-10-01, so a stale build on the board is seen at a glance. Display only.
-
-## 1.26 Changes in Rev 26
-
-— The page lists the scenes for a chosen next scene in alphabetical order of id (§4.8), Mark's request, 2026-09-30. The page sorts them; `game/scenes` is unchanged. Code consequence for Claude Code, made the same day: `app.js`.
-
-## 1.25 Changes in Rev 25
-
-— Diagnostics from the page (§7.5), Mark's request, 2026-09-30, for bring-up and for finding a fault at the board. A station's panel takes it off-hook and plays a 1kHz tone, a run of speech, or feeds its receive channel to the loudspeaker; a trunk's panel rings it, and plays tone, speech or loudspeaker the same way; a new Tools button opens the same three for the operator tap. Each is a toggle. They run whether or not a game is running, and are kept apart from the calls: a circuit in a call refuses a test, and a circuit under test is busy for dealing (§4.4). Stop ends them all (§3). Voice on the tap needs the audio program to play a file there, which it did not; audio.md Rev 10 adds it.
-
-— A chosen next scene (§4.8). A long press on Next Call lists the scenes; the one chosen is the next dealt. `game/scenes` and `game/queue` are new, with `game/queue/set`. §10's open item "Start a named scene" is closed by it.
-
-— The game fitted to the circuits built (§6.5): the game program's configuration, and two command-line options, say how many stations and trunks exist. A scene that needs a station beyond the first `stations`, or an outside line when `trunks` is 0, is left out with the scenes that follow it; calls ring in and go out only on the first `trunks` trunks. `game/stations` and `game/trunks` say what was set, so the page offers tests only on circuits that exist.
-
-— Code consequence for Claude Code, made the same day: the game program, the page, the access list (mqtt.md Rev 23), the configuration file, and the audio program (audio.md Rev 10).
-
-## 1.24 Changes in Rev 24
-
-— A call to the operator may ring in on a trunk (§4.3, §4.6), Mark's request, 2026-09-30. Its calling line is an outside name and it has no `called:`: the game rings a free trunk, as for a call in to a room, and the operator answers it with her listening key. The rest is as for a call to the operator from a room: the request plays after she has spoken, it is connected when the request has played, and any conversation lines each wait for her. A call with a request and no conversation hangs up as soon as the request has played, without waiting for her to answer it.
-
-— It is for the long-distance operator's time and charges. After a long-distance call a guest placed is over, the long-distance operator rings the hotel with the time and the charge, once, so that the hotel can put it on the room bill, and hangs up (§4.6). Peter at the museum had it from a guest who worked as a hotel clerk: if you did not have your pencil ready you had missed it, and the hotel could not charge the room. Five scenes gain one, each an `after:` of the call it bills. A collect call, and a call placed by someone outside to a guest, are not billed to the hotel and have none. A guest who asked for time and charges still hears them from her at the end of the call as well.
-
-— An unanswered one fails as `no answer`, as any unanswered call does (§5); whether she wrote the figures down is not something the game can know.
-
-— Code consequence for Claude Code, made the same day: the game picks a free trunk for such a call as it does for a call in to a room, and the call-to-the-operator flow rings it. `test_game.py` covers it.
-
-## 1.23 Changes in Rev 23
-
-— A station jack may carry `guest:`, the name of whoever is staying in the room at that jack (§6.3), Mark's decision, 2026-09-29. It is typed on the operator's guest list card, `hardcopy/cards.py`. The card had worked out each guest's room from the scenes, which put a guest on whichever line they called from — Mr. Pike on the lobby house phone as well as in 204 — and took the names from a table of its own. The jack is where the room is, so the guest goes there too. It is left out for an unoccupied room and for a jack that is not a room.
-
-— The game does not read it. The loader refuses an empty one.
-
-— Code consequence for Claude Code, made the same day: the loader accepts the key and checks it, `test_game.py` tests the refusal, and `hardcopy/cards.py` builds the guest list from it.
-
-## 1.22 Changes in Rev 22
-
-— script.yml says what the player says (§4.7), Mark's request, 2026-09-29: an `operator:` key on each line the game waits for the operator before, naming a line under a new top-level `operator_lines:`, or giving an id and text of the scene's own. Mark wants every scene as one recording, both halves of the conversation, which needs the operator's half written and rendered. The TTS run renders the lines in the voice of a new cast member, `hotel_operator` — `operator` in the cast is already the long-distance operator.
-
-— The game ignores them: the person at the board speaks them. An `operator:` is refused where the game does not wait for her, because there the next line would play over it; and one that names no line under `operator_lines:`, or whose inline id the scene already uses. It is optional: `python -m tts.script` counts the places still without one.
-
-— Considered and not adopted: operator lines as conversation entries of their own, beside `caller:` and `called:`. That is the more natural form to write, but it changes what the flows iterate over and would make `wait:` redundant with a preceding operator line. A key on the line it precedes changes nothing the game reads.
-
-— A scene-level `closing:`, in either form, for what she says after the last line (§4.7), Mark's request, the same day: without it a call to the operator ended on the guest's question. Refused in a call where she has left the line by the end — any but a call to the operator or a busy call. The 13 such scenes each have one of their own.
-
-— Code consequence for Claude Code, made the same day: the loader, the game program's exclusion of the operator's lines from a scene (`script_data.py`), tests of the five refusals, and `tts/scenes --batch`, which writes each scene to an mp3 with the operator's lines in their places. Every place in the 105 scenes has its `operator:`: four stock lines and 25 of the scenes' own.
-
-## 1.21 Changes in Rev 21
-
-— `ringback:` is allowed on any line spoken on a trunk (§4.6), Mark's request, 2026-09-28: the called side of a call out, as in Rev 20, and now also the calling side of a call in. A long-distance operator who could not get through calls back when she has the party (script.yml, "Long distance"): the call rings in on a trunk, the hotel operator puts it through to the room, and only then does the far end ring — on the calling side. The loader's refusal now names a line spoken on a station, or in a scene where every line waits already.
-
-— Code consequence for Claude Code, made the same day: the loader's check only — the flows already rang whichever trunk the line is spoken on. A test covers ringback on the calling side of a call in.
-
-## 1.20 Changes in Rev 20
-
-— Two more keys on a conversation line, `pause:` and `ringback:` (§4.6), Mark's request, 2026-09-28. Rev 19's long-distance call runs through a chain of operators — the rate operator, then each toll center on the route answering with its town's name — as the 1950s calls did. Played back to back, the chain is a gabble; the real ones had a beat at each step while the next operator came on, and the far end rang before anyone answered. `pause:` is that beat, silence before the line; `ringback:` is ringback tone on the trunk before the line, the far end ringing.
-
-— `ringback:` is refused anywhere but a `called:` line of a call to an outside line: ringback is a trunk tone, and only there is the called side a trunk. Both are refused unless a number of seconds above 0 and at most 30.
-
-— Considered and not adopted: a gap between every pair of lines, set once for the game. It would slow every conversation, and the beats that matter are particular ones.
-
-— Code consequence for Claude Code, made the same day: the loader and the flows; the game program's tests cover both keys and the three refusals.
-
-## 1.19 Changes in Rev 19
-
-— A conversation line may wait for the operator (§4.6), Mark's request, 2026-09-28. A long-distance call from the hotel goes through the local operator: the hotel operator dials 0, the local operator answers, the hotel operator asks for long distance, and only then does the long-distance operator come on and talk to the guest. Until now a scene with a called party played its conversation straight through once connected, so there was no place for the hotel operator to speak in the middle of one. A line marked `wait: true` plays only after the operator has spoken on that line's side of the call and stopped — the listen that calls to the operator and busy scenes already make before every line.
-
-— A conversation line may name its own speaker with `person:` (§4.6). The long-distance operator is not the local operator who answered, and neither is the party she rings, but all three speak on the same trunk. The line plays on its side of the call as before; `person:` changes only whose voice the TTS run uses, and it must be in the cast.
-
-— `after:` scenes may form a chain of any length (§4.4), Mark's request, 2026-09-28: a guest whose requests to housekeeping grow more absurd call by call is a story in five calls, in order. The loader refused a scene following one that itself follows another; that rule is gone. It now refuses a scene named in two `after:`s — both followers would be scheduled together, each would hold the guest, and each would wait forever for the other to let go — and a loop of `after:`s. The game program needed no change: a follower's own follower is scheduled when it ends, as any other.
-
-— `timeout` (§5) now also covers a `wait:` line the operator never speaks before. Considered and not adopted: a new scene shape for long distance. Two keys on a line cover it, and cover a guest handing the telephone to someone else as well.
-
-— Code consequence for Claude Code, made the same day: the shared loader allows chains of `after:`s and refuses two followers and loops; it checks both keys and rejects `wait:` where every line waits already, and on a line with neither `caller:` nor `called:`; the flows listen before a `wait:` line; the game program's tests cover a wait on the trunk and both rejections.
-
 # 2. Serving the Page
 
 nginx serves the page's files over HTTPS on 443 and reverse-proxies its MQTT connection, on the path `/mqtt`, to Mosquitto's WebSockets listener on loopback. The configuration, the certificate and the name are `mqtt.md` §9. The files:
@@ -713,7 +34,7 @@ web/
 
 `web/` lives in the repository beside the game program and is installed to `/srv/sbgame/web`, readable by nginx's worker. MQTT.js is a local copy and never loaded from a CDN: on the road the travel router may have no internet, and the page would load without its library. The version copied is recorded in a comment at the top of `index.html`.
 
-Mosquitto served the files itself through Rev 9, from `http_dir` on its own TLS listener. It cannot on this host: the listener will not bind a privileged port, and it advertises HTTP/2 without being able to speak it, which a browser negotiates by default (`mqtt.md` §1.17). The page is unaffected in everything but the path.
+Mosquitto served the files itself through Rev 9, from `http_dir` on its own TLS listener. It cannot on this host: the listener will not bind a privileged port, and it advertises HTTP/2 without being able to speak it, which a browser negotiates by default (`mqtt.md` §12.17). The page is unaffected in everything but the path.
 
 The bookmark is `https://game.kr3am.org/` (Rev 8; `http://<host>.local:9001/` through Rev 7). The name resolves to the host at home and on the travel router alike: from a public Route 53 record at home and from the travel router's own host entry on the road (`mqtt.md` §9.2, Rev 9). The certificate is a real one, so Safari loads the page with no warning. The page connects to `location.host` with the path `/mqtt`, over `wss://` when it was loaded over `https:` and `ws://` otherwise, so no address, port or scheme is written into it, and it works unchanged at home and on the road. It connects as the broker user `sbgame-web`; the password is in `app.js`, which anyone who loads the page can read. That is accepted: the access list, not the password, is what stops the page commanding hardware (`mqtt.md` §9, §11).
 
@@ -799,6 +120,38 @@ Ranges, clamped by the game program and echoed as applied: `gap` 0–600s, `ramp
 **Scenes that start with another** (Rev 39). An `after:` scene marked `mode: concurrent` starts `delay` seconds after the scene it follows has *started*, not ended, and whether or not that scene is ever connected: it is scheduled as that call opens. So a chain of them puts several calls on the board almost at once. Its `delay` may be a pair, `[2, 5]`, for a wait drawn evenly between the two, from the game's seed apart from the deck's shuffle, so a replay draws the same. Like any `after:` scene its lines and people are busy while it waits, and it waits for them to come free; it waits for a free slot too (below), so a scenario longer than eight calls keeps the board full rather than losing its tail. Stop drops it. The follower it has in turn is scheduled only once it starts, so the chain pauses while the board is full.
 
 At most eight calls are in progress at once — the number of call slots (§6.1). A call that would be a ninth is not started, and is treated like a scene that cannot be dealt; a waiting `mode: concurrent` scene waits for a slot instead.
+
+## 4.5 Not Yet: Calls Before Connection
+
+Mark wants, later, a mode where a new call can arrive before the operator has connected the current one — the real pressure of a busy board. The likely form is a fixed interval, a new call every `n` seconds from the start of the last, bounded by the eight slots. It is one more value on `game/pace` and uses the same `gap`, `ramp`, `floor` and `jitter`. Not specified until it is wanted. A scenario (§4.10, Rev 39) is the one place a game asks it of the operator now.
+
+## 4.6 Lines That Wait for the Operator, and Lines by Someone Else
+
+**Hanging up** (Rev 75). After a call's last line, the parties hang up 1.5s later, not at once: the time it takes to put a receiver down. The same after the operator's closing words, or where a call to her has none, and after an engaged caller's last line.
+
+Two keys on a conversation line (Rev 19):
+
+- **`wait: true`** — the line plays only after the operator has spoken on that line's side of the call and stopped: a listen on the called circuit for a `called:` line, on the calling circuit for a `caller:` line, as in the calls to the operator. If she does not speak within the speak timeout, the call fails as `timeout` (§5). It is refused in a call to the operator and in a `busy: true` scene, where every line waits already.
+- **`person: <cast member>`** — the line is spoken by that person rather than by the scene's party on that side. It plays on the same circuit; only the voice changes.
+- **`pause: <seconds>`** (Rev 20) — silence before the line, up to 30s.
+- **`ringback: <seconds>`** (Rev 20) — ringback tone on the trunk before the line, up to 30s, stopped as the line starts. Only on a line spoken on a trunk: a `called:` line of a call to an outside line, or a `caller:` line of a call from one (Rev 21).
+
+A line's own lead-in runs in that order: the wait, then the pause, then the ringback, then the line. A cord pulled during any of them cuts the call off, as during speech (§5).
+
+The long-distance call is the case they were made for. The hotel operator dials 0 on a trunk; the local operator (`called.person`) answers, "Operator"; the hotel operator asks for long distance; the next line, marked `wait: true` and `person:` the long-distance operator, answers "Long distance", and the guest talks to her. The party she rings can speak on the trunk too, with a `person:` of their own. So can each operator on the route: she asks the rate operator for the route and the charge, then rings through each toll center on it, each answering with its town's name after a `pause:`, and the party answers after a `ringback:`.
+
+**Time and charges** (Rev 24). When a long-distance call a guest placed has ended, the long-distance operator rings the hotel to report what it cost: a call to the operator rung in on a trunk (§4.3), an `after:` of the call it bills. Its request is the whole of it — the room, the time and the charge — and it has no conversation, so the far end hangs up as soon as she has said it, whether or not the hotel operator was ready to write it down. It is not repeated. Collect calls, and calls placed from outside to a guest, have none.
+
+## 4.7 What the Operator Says
+
+The player speaks for the hotel operator, and the game only listens for her. script.yml still says what she is expected to say (Rev 22), for recordings of whole scenes (`tts/scenes --batch`) and as a prompt:
+
+- **`operator_lines:`**, at the top level — stock lines by name, each with an `id:` and `text:`. The TTS run renders them in `hotel_operator`'s voice as `operator.<id>`, so no scene may be called `operator`.
+- **`operator: <name>`**, or **`operator:`** with an `id:` and `text:`, on the request or a conversation line — what she says just before that line. The inline form is one of the scene's utterances, `<scene>.<id>`, its id unique in the scene and permanent like any other.
+
+- **`closing:`**, on a scene, in either form — what she says after the last line, before the caller hangs up. Only in a call to the operator or a busy call: in any other she has left the line by the end. The game waits for her to say it (Rev 47) — a listen on the caller's line, with the tutor's "Say:" prompt in tutor mode — and the caller hangs up after; a closing not said within the speak timeout, or cut short by her pulling the cord, is let go and the call still succeeds.
+
+`operator:` is allowed only where the game waits for her to speak: the request, a `wait: true` line, and every line of a call to the operator or a busy call (§4.6). Both are optional. The game program never plays these lines and never needs their wavs.
 
 ## 4.8 A Chosen Next Scene
 
@@ -916,38 +269,6 @@ While a free caller is routing, a game call routing at the same time does not ta
 
 **What is not done.** The game does not ring station 24 or the public line, and no scene uses either. An operator who rings station 24 rings the real phone and nothing else happens. A free call to a room that a game call has off-hook is not answered.
 
-## 4.5 Not Yet: Calls Before Connection
-
-Mark wants, later, a mode where a new call can arrive before the operator has connected the current one — the real pressure of a busy board. The likely form is a fixed interval, a new call every `n` seconds from the start of the last, bounded by the eight slots. It is one more value on `game/pace` and uses the same `gap`, `ramp`, `floor` and `jitter`. Not specified until it is wanted. A scenario (§4.10, Rev 39) is the one place a game asks it of the operator now.
-
-## 4.6 Lines That Wait for the Operator, and Lines by Someone Else
-
-**Hanging up** (Rev 75). After a call's last line, the parties hang up 1.5s later, not at once: the time it takes to put a receiver down. The same after the operator's closing words, or where a call to her has none, and after an engaged caller's last line.
-
-Two keys on a conversation line (Rev 19):
-
-- **`wait: true`** — the line plays only after the operator has spoken on that line's side of the call and stopped: a listen on the called circuit for a `called:` line, on the calling circuit for a `caller:` line, as in the calls to the operator. If she does not speak within the speak timeout, the call fails as `timeout` (§5). It is refused in a call to the operator and in a `busy: true` scene, where every line waits already.
-- **`person: <cast member>`** — the line is spoken by that person rather than by the scene's party on that side. It plays on the same circuit; only the voice changes.
-- **`pause: <seconds>`** (Rev 20) — silence before the line, up to 30s.
-- **`ringback: <seconds>`** (Rev 20) — ringback tone on the trunk before the line, up to 30s, stopped as the line starts. Only on a line spoken on a trunk: a `called:` line of a call to an outside line, or a `caller:` line of a call from one (Rev 21).
-
-A line's own lead-in runs in that order: the wait, then the pause, then the ringback, then the line. A cord pulled during any of them cuts the call off, as during speech (§5).
-
-The long-distance call is the case they were made for. The hotel operator dials 0 on a trunk; the local operator (`called.person`) answers, "Operator"; the hotel operator asks for long distance; the next line, marked `wait: true` and `person:` the long-distance operator, answers "Long distance", and the guest talks to her. The party she rings can speak on the trunk too, with a `person:` of their own. So can each operator on the route: she asks the rate operator for the route and the charge, then rings through each toll center on it, each answering with its town's name after a `pause:`, and the party answers after a `ringback:`.
-
-**Time and charges** (Rev 24). When a long-distance call a guest placed has ended, the long-distance operator rings the hotel to report what it cost: a call to the operator rung in on a trunk (§4.3), an `after:` of the call it bills. Its request is the whole of it — the room, the time and the charge — and it has no conversation, so the far end hangs up as soon as she has said it, whether or not the hotel operator was ready to write it down. It is not repeated. Collect calls, and calls placed from outside to a guest, have none.
-
-## 4.7 What the Operator Says
-
-The player speaks for the hotel operator, and the game only listens for her. script.yml still says what she is expected to say (Rev 22), for recordings of whole scenes (`tts/scenes --batch`) and as a prompt:
-
-- **`operator_lines:`**, at the top level — stock lines by name, each with an `id:` and `text:`. The TTS run renders them in `hotel_operator`'s voice as `operator.<id>`, so no scene may be called `operator`.
-- **`operator: <name>`**, or **`operator:`** with an `id:` and `text:`, on the request or a conversation line — what she says just before that line. The inline form is one of the scene's utterances, `<scene>.<id>`, its id unique in the scene and permanent like any other.
-
-- **`closing:`**, on a scene, in either form — what she says after the last line, before the caller hangs up. Only in a call to the operator or a busy call: in any other she has left the line by the end. The game waits for her to say it (Rev 47) — a listen on the caller's line, with the tutor's "Say:" prompt in tutor mode — and the caller hangs up after; a closing not said within the speak timeout, or cut short by her pulling the cord, is let go and the call still succeeds.
-
-`operator:` is allowed only where the game waits for her to speak: the request, a `wait: true` line, and every line of a call to the operator or a busy call (§4.6). Both are optional. The game program never plays these lines and never needs their wavs.
-
 # 5. Tallies
 
 Three counts per game, each zeroed at start:
@@ -970,7 +291,7 @@ A failure is logged with its reason. The reasons at Rev 1:
 
 Timeouts are the game program's configuration, not the page's, at Rev 1: 60s to answer, 90s to connect after the request has played, 30s for the operator to speak. They are starting values for play-testing.
 
-A wrong connection is logged but is not a failure on its own. From Rev 60 a wrong room rung answers, "Hello?", the caller says it is not who they asked for, and it hangs up; a right room rung on a cord not patched to the caller says "Hello?" after 8s and hangs up after 8s more; a party waiting for her to speak says "Hello? Operator?" after 6s of silence; and a trunk taken and not dialled for 15s gets reorder and fails as `misdialled` (§1.60). An operator who plugs the wrong jack and corrects it within the connect timeout has made the call. A wrong number of the right length gets busy tone on the trunk until she hangs it up (Rev 46), and she may redial; one too long or too short is `misdialled` (Rev 56). The game takes a number as dialled 3s after its last digit, so as to hear a digit too many; a fresh seizure gets dial tone again, a second after it, as on every seizure for a call out. Whether a wrong party answering should end the call is open (§10).
+A wrong connection is logged but is not a failure on its own. From Rev 60 a wrong room rung answers, "Hello?", the caller says it is not who they asked for, and it hangs up; a right room rung on a cord not patched to the caller says "Hello?" after 8s and hangs up after 8s more; a party waiting for her to speak says "Hello? Operator?" after 6s of silence; and a trunk taken and not dialled for 15s gets reorder and fails as `misdialled` (§11.60). An operator who plugs the wrong jack and corrects it within the connect timeout has made the call. A wrong number of the right length gets busy tone on the trunk until she hangs it up (Rev 46), and she may redial; one too long or too short is `misdialled` (Rev 56). The game takes a number as dialled 3s after its last digit, so as to hear a digit too many; a fresh seizure gets dial tone again, a second after it, as on every seizure for a call out. Whether a wrong party answering should end the call is open (§10).
 
 # 6. Calls in Progress, the Log and the Board
 
@@ -1059,12 +380,6 @@ The game program publishes the map retained under `board/` (`mqtt.md` §6.1): ea
 
 Recabling a station circuit to a different jack moves its `station:` from one item in `jacks:` to another. The labels stay with the jacks, and nothing else changes.
 
-## 6.5 The Circuits Fitted
-
-**Which trunk a call rings in on** (Rev 85). Of the trunks fitted, in service, idle — not seized, not ringing and not in a call — and not under test, the one whose `seize` changed longest ago. A trunk just released may still have the operator's cord in its jack.
-
-Rev 25. The switchboard is being built a board at a time, so the game program is told how many circuits exist: `stations` and `trunks` in its configuration file, each overridden by `--stations` and `--trunks` on its command line. Stations are the first `stations` of 1–22, and station 24, the real telephone, when `stations` is 22 (Rev 73); trunks are the first `trunks` of 1–8; the defaults are all of them. **Out of service** (Rev 36): a fitted trunk listed in the configuration file's `[out_of_service.trunks]` table, by number with the reason as text, is never rung in on; the game picks only from the rest, and logs each one listed at start. A call out goes on any trunk the operator takes, since the faults so far — a ring relay that does not latch, a lamp that does not light — matter only to a call rung in. A fitted station listed in `[out_of_service.stations]` (Rev 43), the same way, is in no call at all: a scene calling from it or to it is left out, as a scene on an unfitted station is, with its `after:` chain and its place in the tutor's lessons, and each one listed is logged at start. A scene is left out of the game if its calling or called line is a station that is not fitted, or if it needs an outside line and `trunks` is 0; an `after:` scene following one that is left out is left out as well, down the chain. Calls ring in and go out on trunks 1 to `trunks` only. The game program logs how many scenes it left out and why when it starts, publishes `game/stations` and `game/trunks`, and refuses a diagnostic on a circuit that is not fitted (§7.5).
-
 ## 6.4 The Audience Loudspeaker
 
 The loudspeaker carries one receive channel, chosen by the game program with `audio/monitor/source/set` (audio.md §10.3). New at Rev 6. The game program points it at the calling line of the call the operator most recently answered, and leaves it there until she answers another.
@@ -1084,6 +399,12 @@ The loudspeaker carries one receive channel, chosen by the game program with `au
 **What the game program does not do.** It does not set the monitor's gain, which is a bench and installation setting, and it does not turn the monitor on or off. It publishes a new source only on an answer, a start or a stop, and does not wait for the echo. The page shows the echo (§7.1).
 
 The log records each move as `monitor: <calling line>` against the call's number, using script.yml's line name, as the other call events do.
+
+## 6.5 The Circuits Fitted
+
+**Which trunk a call rings in on** (Rev 85). Of the trunks fitted, in service, idle — not seized, not ringing and not in a call — and not under test, the one whose `seize` changed longest ago. A trunk just released may still have the operator's cord in its jack.
+
+Rev 25. The switchboard is being built a board at a time, so the game program is told how many circuits exist: `stations` and `trunks` in its configuration file, each overridden by `--stations` and `--trunks` on its command line. Stations are the first `stations` of 1–22, and station 24, the real telephone, when `stations` is 22 (Rev 73); trunks are the first `trunks` of 1–8; the defaults are all of them. **Out of service** (Rev 36): a fitted trunk listed in the configuration file's `[out_of_service.trunks]` table, by number with the reason as text, is never rung in on; the game picks only from the rest, and logs each one listed at start. A call out goes on any trunk the operator takes, since the faults so far — a ring relay that does not latch, a lamp that does not light — matter only to a call rung in. A fitted station listed in `[out_of_service.stations]` (Rev 43), the same way, is in no call at all: a scene calling from it or to it is left out, as a scene on an unfitted station is, with its `after:` chain and its place in the tutor's lessons, and each one listed is logged at start. A scene is left out of the game if its calling or called line is a station that is not fitted, or if it needs an outside line and `trunks` is 0; an `after:` scene following one that is left out is left out as well, down the chain. Calls ring in and go out on trunks 1 to `trunks` only. The game program logs how many scenes it left out and why when it starts, publishes `game/stations` and `game/trunks`, and refuses a diagnostic on a circuit that is not fitted (§7.5).
 
 ## 6.6 The Ring Cue
 
@@ -1112,51 +433,6 @@ Each is said once a call. A ring that matches none of these — a trunk no call 
 The log records each as `wrong cord: <key>` against the call's number.
 
 # 7. The Page
-
-## 7.5 Diagnostics
-
-Rev 25. Tests of one circuit at a time, from the page, for bring-up and fault-finding. Each is a toggle: a tap starts it, and a second tap on the same command stops it. The page publishes `game/diag/<target>/<test>/set` `"on"` or `"off"`, where `<target>` is `station/<n>`, `trunk/<n>` or `tap`; the game program does the work, since only it commands the hardware (mqtt.md §6), and echoes each test's state on `game/diag/<target>/<test>`.
-
-| **Test** | **On** | **Where** |
-| --- | --- | --- |
-| `hook` | the station goes off-hook (`hook/set`) and stays so | a station's panel, on its `hook` row |
-| `ring` | the trunk rings in the standard cadence, 2s on and 4s off (`ring/set`); it stops when the trunk is seized, and after the controller's 30s ring limit (control.md §8) | a trunk's panel, on its `ring` row |
-| `tone` | the 1kHz test tone on the circuit's output channel (`audio/test/<ch>/set`) | stations, trunks and the tap |
-| `voice` | speech on the circuit: utterances from the script chosen at random, one after another, each finishing before the next | stations, trunks and the tap |
-| `monitor` | the loudspeaker is fed from the circuit's receive channel (`audio/monitor/source/set`) | stations, trunks and the tap |
-
-**Together.** `tone` and `voice` exclude each other on one target: starting either stops the other. One `monitor` runs at a time: starting it on one target ends it on any other, and anything else that moves the loudspeaker — the operator answering a call (§6.4), a game starting or stopping — ends it too. Ending a monitor test returns the loudspeaker to the tap. `hook`, `ring`, `tone` and `voice` on different targets run side by side.
-
-**With a game.** Tests run whether or not a game is running. A test on a circuit that is in a call, or that the call's slot has taken, is refused on `game/error`, and a circuit under test is busy for dealing (§4.4), so no scene is dealt onto it and no call takes that trunk. The tap belongs to no call, so its tests are always allowed; the operator hears them. Stop ends every test (§3), as does the game program losing a client or restarting.
-
-**Not fitted.** A test on a circuit beyond `stations` or `trunks` (§6.5) is refused on `game/error`, and the page does not offer it.
-
-## 7.6 Board Sweeps
-
-Rev 50. A check of the cabling, with no game running, from the page's Tools, under Diagnostics: `trunks` and `stations`, a tap to start one and a tap on the same button while it runs to stop it, the button filled while its sweep runs and dimmed while a game does (Rev 61); and from the Stream Deck (§7.4), key 5 pressed twice within 0.5s for the trunks and key 6 for the stations; a single press of the running sweep's own key stops it, as does the other key pressed twice (Rev 50 to Rev 60, and again from Rev 62). `game/sweep/set` `"trunks"` or `"stations"` starts one, and `"off"` stops it; the game program echoes the sweep running on `game/sweep`, `""` when none is.
-
-- **Trunks.** Each fitted trunk in turn, 1 to `trunks` but not the public line (§4.12, Rev 74), gets one short ring (`shortring/set`, control.md §8.4), and the next follows 2s after the 1s burst ends. Each trunk lamp that works latches and stays lit until a cord goes in and out of its jack.
-- **Stations.** Each station cabled to a jack but station 24, the real telephone, whose relay lights nothing (Rev 74), in jack order — the rows from the top, 21–30, 11–20, 1–10, each left to right (§7.1) — goes off-hook (`hook/set`) for 1s, and the next follows 2s after it goes back on-hook.
-
-Out-of-service circuits (§6.5) are swept with the rest, since a sweep is how one is found to work again; the log line says it is out of service. A circuit under a diagnostic (§7.5) is passed over, so a sweep never releases a hook the page is holding. Each step goes on the game log (§6.2), `test stations: jack 23 (463), station 11 off-hook`, so the page shows where the sweep has got to, and the circuit's own echoes light its tile.
-
-A sweep is refused on `game/error` while a game runs. Start ends one before the game starts, and so do Stop and anything else that stops a game (§3); the circuit under way is put back — the station on-hook, the burst cancelled. A new sweep ends one already running.
-
-## 7.7 Recording and Playing Back the Loudspeaker
-
-Rev 61. Two sections of Tools (§7.1), for keeping what the audience heard and hearing it again.
-
-**Record.** A tap on `record` closes Tools, as choosing a recording to play does, and publishes `game/record/set` `"on"`, which the game program passes to the audio program as `audio/record/set`, refused on `game/error` while the audio program is offline. The audio program records exactly what goes to the loudspeaker into `/srv/sbgame/recordings/<YYYY-MM-DD-HH-MM-SS>.wav`, named for the host's local time at the start, and when it stops makes an MP3 beside it, keeping both (audio.md §10.6). While `audio/record` names a file, the button reads `recording`, filled, and a tap on it publishes `"off"`; and in the top bar, to the right of Tools, stand a red dot and the time recorded, the dot lit for the first half of each second recorded and dark for the second, so it lights as the count goes up, counted from the time in the name against the host's clock (§7.2); they are there only while recording. A tap on them publishes `"off"`. `audio/record` `"failed"` — no file could be opened — shows as `record (failed)` until the next try. A recording runs with or without a game; Start and Stop leave it alone, and the audio program stops one itself after four hours.
-
-**Playback.** A tap on `play…` opens a list of the ten newest recordings, newest first, from `audio/recordings`, each as its date and time with its length. A tap on one publishes `game/playback/set` with its name, which the game program passes on as `audio/playback/set`; the audio program plays it on the loudspeaker in place of the monitor, at the level it was recorded (audio.md §10.7), and echoes the name on `audio/playback`, and `""` when it ends. While it plays, the button reads `playing`, filled, and a tap on it publishes `"stop"`; and in the top bar, to the right of Tools and of a recording's dot, stand a play triangle and the time played, there only while it plays — the length is in the list, and the bar has no room for both at the iPad's width; a tap on them publishes `"stop"`. Refused on `game/error` while a game runs, since it would play over the calls, and `play…` is dimmed then; Start stops one that is playing. A name that cannot be played comes back `"missing"`, shown as `play… (missing)`.
-
-One at a time: `record` is dimmed and does nothing while a recording plays back, and `play…` while one is being made, and the game program refuses `record/set` `"on"` during a playback and `playback/set` with a name during a recording, on `game/error`. Stopping either is always accepted.
-
-## 7.8 The Switchboard's Power
-
-Rev 65. The last section of Tools (§7.1), Switchboard, has one button, `power`. It is filled while the switchboard is powered, `ctl/power_cut` `"off"`, and plain while it is not — held off, `"hold"`, and for the 1s of a reset, `"on"` (§3, §7.4). A tap while it is filled publishes `game/power_cut/set` `"hold"`: the controller cuts the switchboard's 24V and keeps it cut (control.md §5.4). A tap while it is plain publishes `"off"`, and the switchboard is powered again; during a reset that ends the reset early. A toggle, not a pulse: the switchboard stays dark until tapped on, whatever is left on it.
-
-Not switched off while a game runs: the button is dimmed and does nothing then if the switchboard is powered, and the game program refuses `"hold"` on `game/error`. The deck's 1s reset is allowed during a game from Rev 66 (§7.4); a hold is not, since a game on a dark board cannot be played. Switching on is always accepted. Start powers a switchboard left off (§3). Dimmed too while the controller or the game program is offline. Every failsafe of the controller — the connection lost, the game heartbeat missed, a restart — powers the switchboard, and the button shows it.
 
 ## 7.1 Layout
 
@@ -1260,6 +536,51 @@ It follows every rule of §7.2. It shows only what was echoed, and a press chang
 
 **Brightness** is an option of the program, 60% by default. The deck has no screensaver in this program.
 
+## 7.5 Diagnostics
+
+Rev 25. Tests of one circuit at a time, from the page, for bring-up and fault-finding. Each is a toggle: a tap starts it, and a second tap on the same command stops it. The page publishes `game/diag/<target>/<test>/set` `"on"` or `"off"`, where `<target>` is `station/<n>`, `trunk/<n>` or `tap`; the game program does the work, since only it commands the hardware (mqtt.md §6), and echoes each test's state on `game/diag/<target>/<test>`.
+
+| **Test** | **On** | **Where** |
+| --- | --- | --- |
+| `hook` | the station goes off-hook (`hook/set`) and stays so | a station's panel, on its `hook` row |
+| `ring` | the trunk rings in the standard cadence, 2s on and 4s off (`ring/set`); it stops when the trunk is seized, and after the controller's 30s ring limit (control.md §8) | a trunk's panel, on its `ring` row |
+| `tone` | the 1kHz test tone on the circuit's output channel (`audio/test/<ch>/set`) | stations, trunks and the tap |
+| `voice` | speech on the circuit: utterances from the script chosen at random, one after another, each finishing before the next | stations, trunks and the tap |
+| `monitor` | the loudspeaker is fed from the circuit's receive channel (`audio/monitor/source/set`) | stations, trunks and the tap |
+
+**Together.** `tone` and `voice` exclude each other on one target: starting either stops the other. One `monitor` runs at a time: starting it on one target ends it on any other, and anything else that moves the loudspeaker — the operator answering a call (§6.4), a game starting or stopping — ends it too. Ending a monitor test returns the loudspeaker to the tap. `hook`, `ring`, `tone` and `voice` on different targets run side by side.
+
+**With a game.** Tests run whether or not a game is running. A test on a circuit that is in a call, or that the call's slot has taken, is refused on `game/error`, and a circuit under test is busy for dealing (§4.4), so no scene is dealt onto it and no call takes that trunk. The tap belongs to no call, so its tests are always allowed; the operator hears them. Stop ends every test (§3), as does the game program losing a client or restarting.
+
+**Not fitted.** A test on a circuit beyond `stations` or `trunks` (§6.5) is refused on `game/error`, and the page does not offer it.
+
+## 7.6 Board Sweeps
+
+Rev 50. A check of the cabling, with no game running, from the page's Tools, under Diagnostics: `trunks` and `stations`, a tap to start one and a tap on the same button while it runs to stop it, the button filled while its sweep runs and dimmed while a game does (Rev 61); and from the Stream Deck (§7.4), key 5 pressed twice within 0.5s for the trunks and key 6 for the stations; a single press of the running sweep's own key stops it, as does the other key pressed twice (Rev 50 to Rev 60, and again from Rev 62). `game/sweep/set` `"trunks"` or `"stations"` starts one, and `"off"` stops it; the game program echoes the sweep running on `game/sweep`, `""` when none is.
+
+- **Trunks.** Each fitted trunk in turn, 1 to `trunks` but not the public line (§4.12, Rev 74), gets one short ring (`shortring/set`, control.md §8.4), and the next follows 2s after the 1s burst ends. Each trunk lamp that works latches and stays lit until a cord goes in and out of its jack.
+- **Stations.** Each station cabled to a jack but station 24, the real telephone, whose relay lights nothing (Rev 74), in jack order — the rows from the top, 21–30, 11–20, 1–10, each left to right (§7.1) — goes off-hook (`hook/set`) for 1s, and the next follows 2s after it goes back on-hook.
+
+Out-of-service circuits (§6.5) are swept with the rest, since a sweep is how one is found to work again; the log line says it is out of service. A circuit under a diagnostic (§7.5) is passed over, so a sweep never releases a hook the page is holding. Each step goes on the game log (§6.2), `test stations: jack 23 (463), station 11 off-hook`, so the page shows where the sweep has got to, and the circuit's own echoes light its tile.
+
+A sweep is refused on `game/error` while a game runs. Start ends one before the game starts, and so do Stop and anything else that stops a game (§3); the circuit under way is put back — the station on-hook, the burst cancelled. A new sweep ends one already running.
+
+## 7.7 Recording and Playing Back the Loudspeaker
+
+Rev 61. Two sections of Tools (§7.1), for keeping what the audience heard and hearing it again.
+
+**Record.** A tap on `record` closes Tools, as choosing a recording to play does, and publishes `game/record/set` `"on"`, which the game program passes to the audio program as `audio/record/set`, refused on `game/error` while the audio program is offline. The audio program records exactly what goes to the loudspeaker into `/srv/sbgame/recordings/<YYYY-MM-DD-HH-MM-SS>.wav`, named for the host's local time at the start, and when it stops makes an MP3 beside it, keeping both (audio.md §10.6). While `audio/record` names a file, the button reads `recording`, filled, and a tap on it publishes `"off"`; and in the top bar, to the right of Tools, stand a red dot and the time recorded, the dot lit for the first half of each second recorded and dark for the second, so it lights as the count goes up, counted from the time in the name against the host's clock (§7.2); they are there only while recording. A tap on them publishes `"off"`. `audio/record` `"failed"` — no file could be opened — shows as `record (failed)` until the next try. A recording runs with or without a game; Start and Stop leave it alone, and the audio program stops one itself after four hours.
+
+**Playback.** A tap on `play…` opens a list of the ten newest recordings, newest first, from `audio/recordings`, each as its date and time with its length. A tap on one publishes `game/playback/set` with its name, which the game program passes on as `audio/playback/set`; the audio program plays it on the loudspeaker in place of the monitor, at the level it was recorded (audio.md §10.7), and echoes the name on `audio/playback`, and `""` when it ends. While it plays, the button reads `playing`, filled, and a tap on it publishes `"stop"`; and in the top bar, to the right of Tools and of a recording's dot, stand a play triangle and the time played, there only while it plays — the length is in the list, and the bar has no room for both at the iPad's width; a tap on them publishes `"stop"`. Refused on `game/error` while a game runs, since it would play over the calls, and `play…` is dimmed then; Start stops one that is playing. A name that cannot be played comes back `"missing"`, shown as `play… (missing)`.
+
+One at a time: `record` is dimmed and does nothing while a recording plays back, and `play…` while one is being made, and the game program refuses `record/set` `"on"` during a playback and `playback/set` with a name during a recording, on `game/error`. Stopping either is always accepted.
+
+## 7.8 The Switchboard's Power
+
+Rev 65. The last section of Tools (§7.1), Switchboard, has one button, `power`. It is filled while the switchboard is powered, `ctl/power_cut` `"off"`, and plain while it is not — held off, `"hold"`, and for the 1s of a reset, `"on"` (§3, §7.4). A tap while it is filled publishes `game/power_cut/set` `"hold"`: the controller cuts the switchboard's 24V and keeps it cut (control.md §5.4). A tap while it is plain publishes `"off"`, and the switchboard is powered again; during a reset that ends the reset early. A toggle, not a pulse: the switchboard stays dark until tapped on, whatever is left on it.
+
+Not switched off while a game runs: the button is dimmed and does nothing then if the switchboard is powered, and the game program refuses `"hold"` on `game/error`. The deck's 1s reset is allowed during a game from Rev 66 (§7.4); a hold is not, since a game on a dark board cannot be played. Switching on is always accepted. Start powers a switchboard left off (§3). Dimmed too while the controller or the game program is offline. Every failsafe of the controller — the connection lost, the game heartbeat missed, a restart — powers the switchboard, and the button shows it.
+
 # 8. What the Game Program Checks
 
 Every value arriving on `game/+/set` is checked by the game program; the access list keeps the page off hardware topics but does nothing about a bad value on the game's own. A value out of range is clamped and the applied value echoed; a value that is not understood — `run/set` other than `"on"` or `"off"`, `pace/set` other than `"tutor"`, `"manual"`, `"auto"` or `"listen"`, a number that does not parse — is dropped, logged, and reported on `game/error`. Accepted commands are logged with `page:` in front (§6.2). A command from the Stream Deck arrives on the same topic and is logged the same way; the game program cannot tell them apart and does not need to (Rev 13).
@@ -1299,3 +620,596 @@ Before step 1: the certificate is issued (`mqtt.md` §9.1), nginx is configured 
 - **The tutor and a wrong move** (§4.9). She does not say a jack or a number is wrong; her prompt only comes round again. A line per jack for "that is not room 403" would be one more template. Wants play with a new player first.
 - **The tutor's voice in the headset.** Rev 29 puts her on the loudspeaker, which the audience hears too. If the room wants her private, the headset needs her kept off the line the operator is bridged to, which the tap cannot do (§4.9).
 - **Screen wake lock** (§7.3, Rev 8). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
+
+# 11. Revision History
+
+## 11.95 Changes in Rev 95
+
+— The document made readable, Mark's request, 2026-10-30. The line under the title had grown to 3,108 characters of accumulated topics, and now gives only the revision. The subsections of §4, §6 and §7 are put in numerical order, their numbers unchanged. The changes in each revision move from §1 to this section at the end of the document, newest first, where Rev 1 to Rev 18 had been in ascending order followed by Rev 94 down to Rev 19. Each section is renumbered from §1.N to §11.N; the text of each is unchanged, except that §5's reference to Rev 60 now reads §11.60. A new revision is added at the top of this section, and the line under the title changes only its number.
+
+— No code consequence.
+
+## 11.94 Changes in Rev 94
+— A call in on a trunk is answered only when the trunk is seized as well as hearing the operator (§6.4), 2026-10-27. Played on the switchboard at 17:43, `times-pike`: the operator put the rear cord into trunk 2 and keyed in. `trunk/2/op` came on with `seize` off; the game took that as the answer, listened, and played the caller's first line at 17:43:39.5, 0.3s after the tutor began `rear-in-trunk`, so she talked over the caller. On the 551 an outside caller is not answered through a rear cord, since nothing seizes the trunk. The caller now waits, silent, until the front cord is in; the tutor's line plays alone. In tutor pacing `answer-trunk` likewise waits for `seize` alone, where it took `op` too. Played again at 18:03 with the rear cord first, then the front: the seizure came, but the listen for her answer, started 0.14s after it, never ended; that was the speech detector's floor, taken from the unseized line, and is audio.md Rev 32.
+
+— Code consequence, for Claude Code: `_answer()`; `test_flows.py`.
+
+## 11.93 Changes in Rev 93
+— A rear cord plugged into a trunk is told by the tutor (§6.7), Mark, 2026-10-27: "You have plugged a back cord into an outside trunk. Pull the cord out of the trunk jack and use the front cord instead." A rear cord does not seize a trunk, so a trunk that hears the operator (`trunk/<n>/op` `"on"`) while `seize` is `"off"` has one in it. Measured on the switchboard: rear cord of a pair in trunk 1, operator keyed in, no station on the pair: `op` on, `seize` off, `peer` empty. With a station off-hook on the same pair's front cord, trunk 1 seized and the two heard each other as for a correct patch, so that case cannot be told apart and is not caught; the player usually keys in after plugging in, which is. The condition must hold for 2s: a front cord's seizure comes in milliseconds, but when one is pulled with the operator in, `op` outlasts its seizure by the 1s a line's going away is held (§5, Rev 45), and 1s more is allowed beyond that.
+
+— Code consequence, for Claude Code: `rear-in-trunk` in `TUTOR_KEYS` and script.yml; `Game._rear_check()` in the board watch; `test_game.py`. The line needs rendering.
+
+## 11.92 Changes in Rev 92
+— In tutor pacing a caller left alone before connecting does not hang up (§5, §4.9), Mark, 2026-10-26. The session log has 10 calls of 663 failed that way, 4 of them tutored (10-17, 10-21), where the 10s ran on while she spoke and while the player thought. Tutor pacing already lifts the answer and connect timeouts, so that nobody fails for being slow while she teaches; this was the clock left. Checked at each expiry, so a pacing changed mid-call is followed. Other pacings keep the 10s.
+
+— Code consequence, for Claude Code: `_unless_abandoned()`; `test_tutor.py`.
+
+## 11.91 Changes in Rev 91
+— A wrong-cord line restarts the caller's wait (§5, §6.7), 2026-10-26. Played on the switchboard at 15:35: the operator answered the desk, released her key, rang the desk by mistake and heard the tutor's 7.5s `rang-caller`; by the time she rang the right room the desk had been alone for 10s and hung up, so the call failed as `cut off` with the room ringing. The caller left alone before connecting now waits its 10s (or 5s) afresh from the end of the tutor's wrong-cord line, if that ends later.
+
+— Code consequence, for Claude Code: `Ctx.hint_end`, set by `Game._hint()`; the abandon watch in `_unless_abandoned()`; `test_flows.py`.
+
+## 11.90 Changes in Rev 90
+— `rang-caller` no longer names a cord (§6.7), Mark, 2026-10-26: "You rang the person who called you. Ring the other cord instead, the one in the jack of the person they're calling." A call between rooms may be answered with either cord, and the game cannot tell which cord is in which jack or which switch was pulled; Rev 88's "ring the front cord" was wrong for a call answered with the front cord. `rang-trunk` keeps naming the rear cord: a trunk works only with a front cord in it. Rerendered.
+
+## 11.89 Changes in Rev 89
+— Ringing the caller is seen by the audio program, not the ring detector (§6.7), 2026-10-26. Tried on the switchboard: `station/1/ring` stayed off through three rings of the front desk while it was the caller, because the station board's loop load pulls the ring from 80V to 17V, below the detector's turn-on. The ring reaches the station's capture channel all the same, and the audio program now reports it as `station/<n>/ringing` (audio.md Rev 30, mqtt.md Rev 46). The other two cases worked as written.
+
+— `rang-outside` now says which way to push the switch (Mark): "Push the switch away from you, wait for dial tone, and dial." Rerendered.
+
+— Code consequence, for Claude Code: `_wrong_ring()` watches `ringing` in place of `ring` for `rang-caller`; `test_game.py`.
+
+## 11.88 Changes in Rev 88
+— The tutor says when the player has rung the wrong cord (new §6.7), in every pacing, Mark's request, 2026-10-26. A common mistake, his own too: on a call in from a trunk, with the rear cord in the room's jack, the player rings the front cord out of habit, because on a call from a room the front cord is the one rung; and the front cord is in the trunk. The controller already reports ringing a trunk, as `trunk/<n>/fault` `"ring_on_trunk"` (control.md §8.3), seen 20 times in play since 2026-10-19; the game ignored it. Ringing the rear cord on a call from a room rings the caller's own station, which its ring detector reports. Three new lines under `tutor:`, said once a call each, as the wrong ring ends.
+
+— Code consequence, for Claude Code: `rang-trunk`, `rang-outside` and `rang-caller` in `TUTOR_KEYS` and script.yml; `Game._wrong_ring()` in the board watch; `test_game.py`. The lines need rendering.
+
+## 11.87 Changes in Rev 87
+— The panic scenario's calls start four to eight seconds apart, where they started two to five (§4.10), Mark, 2026-10-25: a little too quick. Fifteen calls follow `panic`, so the whole scenario arrives over about 90s rather than about 50s.
+
+— Code consequence: none; `delay: [4, 8]` on each `panic-` scene in script.yml.
+
+## 11.86 Changes in Rev 86
+— A free call fixes the loudspeaker's peer boost at 6dB (§4.12, §6.4), Mark's suggestion, 2026-10-25. The boost (audio.md §10.8, Rev 28) measures the caller's line against the called party's from the files played on each. A free caller is a live person, so nothing plays on the caller's line, the measurement never completes, and the boost stays at the installation's 12dB start, set for game calls. The free calls in the 18:04 loudspeaker recording of 2026-10-24 put the called party's files 6dB under the live caller on the real telephone. At a free call's answer the game program now publishes `audio/monitor/peer/set` `"6"` before the source; every other move of the loudspeaker publishes `"auto"` (mqtt.md Rev 45, audio.md Rev 29).
+
+— Code consequence, for Claude Code: `Link.monitor_source()` takes the boost; `FREE_PEER_DB` in `freecall.py`; the simulator's echo; `test_game.py`.
+
+## 11.85 Changes in Rev 85
+— A call rung in on a trunk takes the free trunk whose `seize` changed longest ago, where it took the lowest-numbered free trunk (§6.5), 2026-10-24. In play: room 401's call to Ray's on trunk 1 ended when the room hung up, which dropped trunk 1's seizure with the operator's cord still in the jack. 0.7s later the next call, times-pike, rang in on trunk 1, into the jack with the old cord in it, and she saw no new call, only its countdown. The game cannot see a cord in a trunk jack without a loop, so the trunk just released is the one most likely still to have a cord in it; taking the one free longest leaves her time to clear it.
+
+— Code consequence, for Claude Code: `Board.changed_at()`; `_free_trunk()` in `game.py`; `test_game.py`.
+
+## 11.84 Changes in Rev 84
+— A game call's misdial can be dialled again (§5), Mark's request, 2026-10-24: he was slow finding the cab company's number, got fast busy, replugged the trunk, and nothing happened, since the call had failed when he released it. Reorder still runs until she releases the trunk, but the call now goes back to waiting for a trunk, as after a wrong number (Rev 46): a fresh seizure gets dial tone and she may dial again. The call fails as `misdialled` only if the connect timeout runs out after a reorder; otherwise as `not connected`. The caller's patience while no trunk is up stays `ABANDON`, 10s. A free call's misdial already went back to routing (Rev 80).
+
+— A trunk taken and not dialled gets reorder after 30s, where it was 15s (Rev 60), time to look a number up.
+
+— Code consequence, for Claude Code: `_reorder()` returns `"released"` and sets `Ctx.reordered`; `Misdialled` is gone; `DIAL_FIRST` 30s in `flows.py`; the tests.
+
+## 11.83 Changes in Rev 83
+— Station 24, the real telephone, moves from jack 10 (room 405) to jack 18 (room 203), Mark, 2026-10-24 (§6.5, real_phone.md Rev 3). Jack 10 is uncabled.
+
+— Code consequence, for Claude Code: `station: phone` on jack 18 in script.yml; the jack 10 check in `test_game.py`.
+
+## 11.82 Changes in Rev 82
+— In a game call a room answers 3s after the operator rings it, where it answered after 1.5s, the right party and a wrong one alike (§5), Mark's choice, 2026-10-24: 1.5s is short of a single 2s ring. A free call's room keeps its 4s (Rev 81).
+
+— Code consequence, for Claude Code: `ANSWER_AFTER` in `flows.py`, in place of `WRONG_RING` and the two 1.5s waits.
+
+## 11.81 Changes in Rev 81
+— A room rung for a free call answers 4s after the operator rings it, where it answered at once (§4.12), Mark's request, 2026-10-24: Thornhill picked up almost as she keyed ring. Someone has to get to the telephone. A caller who hangs up in those 4s is gone and the room never answers. Game calls keep their 1.5s (§5).
+
+— Code consequence, for Claude Code: `ROOM_ANSWER` in `freecall.py`.
+
+## 11.80 Changes in Rev 80
+— A free call's outside number is dialled as a game call's is (§4.12, §5 Rev 56), Mark's request, 2026-10-24: he paused after three digits to look up the rest, the 3s pause ended the number, and the real Lenny answered. The number is now seven digits, or `0` alone for the operator, and rings once 3s pass with no digit more. Short of that, 10s with no new digit gets fast busy; so does an eighth digit. Fast busy lasts until she releases the trunk or the caller goes.
+
+— Code consequence, for Claude Code: `_number()` in `freecall.py`, `DIAL_PAUSE` 10s, `DIAL_SETTLE` 3s.
+
+## 11.79 Changes in Rev 79
+— In a free call the answerer listens from the start of each line, the greeting and "Hello?" included, not from its end (§4.12), with the audio program's echo canceller (audio.md Rev 26, §9.4), Mark's request, 2026-10-24. A caller who answers over the end of a line — "What power?" — is now heard: if they have finished by the time the line ends, the answerer comes in after the usual 0.4s; if they are still talking, once they stop. The listen allows the line's length plus the 3s or 7s of Rev 78 for speech to start. Where the canceller has not converged, as it may not have on a trunk, the listen hears nothing during the line, which is what Rev 78 did.
+
+— Code consequence, for Claude Code: `_line()` in `freecall.py`, the listen sent before the line.
+
+## 11.78 Changes in Rev 78
+— A free call's answerer says "Hello?" 3s after the greeting or a line with no reply, where it waited 7s (§4.12), Mark's choice, 2026-10-24, from playing it. The line has no hybrid, so a caller who speaks over the end of a line is not heard (audio.md §9.3): Mark's "What power?" to Thornhill's "The man with the power" went unheard, and he waited over 4s before saying it again. A missed reply now gets "Hello?", which is natural after words that did not get through. After a "Hello?" the wait stays 7s, so a silent caller is not nagged. Lenny still says nothing: the original waits for the caller in silence, with room noise. Not adopted: going on to the next line after a silence, which Lenny never does.
+
+— Code consequence, for Claude Code: `LISTEN` 3s and a new `LISTEN_AGAIN` 7s in `freecall.py`.
+
+## 11.77 Changes in Rev 77
+— The page drops everything it holds on every connect and rebuilds from the retained topics (§7.2, Connection). Found 2026-10-24: the iPad was away while the station and trunk boards were plugged in, and on return it still showed red lamps on circuits that had gone from `deaf` back to idle. A circuit's `peer` clears by deleting its retained topic, so a page that reconnects gets nothing for it and kept the `deaf` it had. The station sweep cleared them one by one, since each step makes a fresh `deaf` and idle. The one-second hold on `deaf` (Rev 52) is dropped with the rest.
+
+— Code consequence, for Claude Code: the connect handler in `app.js`.
+
+## 11.76 Changes in Rev 76
+— In a free call the answerer comes in sooner after the caller stops (§4.12), Mark's request, 2026-10-23, from playing it: the game's extra listen at the end of a turn is 0.4s, down from 1s. With the audio program's own 0.8s to report silence (audio.md §9.2, the 0.5s hangover), the answerer now starts about 1.2s after the caller's last word, against about 2s before.
+
+— Code consequence, for Claude Code: `TURN_END` in `freecall.py`.
+
+## 11.75 Changes in Rev 75
+— A party hangs up 1.5s after its last words, not the moment they end (§4.6), Mark's request, 2026-10-23: the time it takes to put a receiver back on its hook. After a call's last line, after the operator's closing words or where a call has none, and after an engaged caller's last line, the game waits 1.5s before its stations go on-hook and its trunk tone and files stop. A call cut off, timed out or failed still ends at once.
+
+— Code consequence, for Claude Code: `HANG_UP` in `flows.py`, at the end of `_converse()`, `_closing()` and `_found_engaged()`.
+
+## 11.74 Changes in Rev 74
+— Free calls, "Lenny mode" (§4.12), Mark's spec of 2026-10-23 (`docs/lenny-spec.txt`, kept in §4.12's words): a real person lifts the telephone on station 24, or calls in from outside on trunk 8, the public line (trunk_circuit.md §4.5). The operator answers, and connects them to a room or dials an outside number. Whoever is there answers in character and then keeps the caller talking, the way Lenny does: a line of their own each time the caller pauses, in order, round and round, until the caller hangs up. An outside number the game does not know is answered by the real Lenny. Free calls run whether or not a game is running, alongside its calls (Mark, 2026-10-23), are not scored, and keep the lines and people they use out of the deck while they last.
+
+— script.yml gains `freecall:`: per cast member, a `greeting:`, the `lines:` said once in order, and the `loop:` said round and round after them. `lenny`, the real Lenny, is a recorded cast member: his sixteen public recordings, transcribed, in his own order (§4.12). Each line is an utterance named `free.<cast>.<n>`.
+
+— `public_trunk` in the configuration (default 8): the trunk the ATA feeds. No scene ever takes it, rings it or dials on it; it is where outside free calls come from.
+
+— Code consequence, for Claude Code: `engine/sbgame/freecall.py`; the loader's `freecall:` (`tts/script.py`) and `build()`; the routing flows leave the public trunk and a free call's circuits alone; `_held()`, `_circuits_in_calls()` and the diagnostics count free calls; the Lenny recordings into `tts/recorded/`; script.yml.
+
+## 11.73 Changes in Rev 73
+— Station 24, a real telephone on station board 3 strip 8, cabled to switchboard jack 10 (§6.3, §6.5), following real_phone.md Rev 2 (adopted 2026-10-23), control.md Rev 38, audio.md Rev 24 and mqtt.md Rev 44. It is a station like the others in script.yml (`stations:` number 24, on jack 10), and the board draws it there. It is **fitted when `stations` is 22**, since it is on board 3 with stations 17–22; `stations` still counts the first N of 1–22. No scene calls from it or to it yet. What happens when someone lifts it and the operator answers, the free-call mode of real_phone.md §6, is to come in a later revision (Mark, 2026-10-23). Until then, plugging into jack 10 is an unscripted patch, as on any jack the game has no call for.
+
+— The page draws station 24's tile from `lifted`, the phone's own hook, where every other station's comes from `hook`, which for 24 is the relay that connects the line to channel 24 (§7.1). Its panel shows `lifted` as well. Diagnostics reach it as any station: `hook` closes that relay.
+
+— Code consequence, for Claude Code: the loader takes station numbers 1–22 and 24 (`tts/script.py`); `fitted_stations()` in `script_data.py`, used by `fit()`, the diagnostics, the sweep and the simulator; `out_of_service.stations` takes 24; the page's `fitted()` and tile; script.yml.
+
+## 11.72 Changes in Rev 72
+— A `public trunk` row in the health column (§7.1), under the public address, Mark's request, 2026-10-23: whether outside callers can reach the switchboard through trunk 8's Grandstream ATA (trunk_circuit.md §4.5). It reads `registered` when the ATA's FXS port is registered, `disconnected` when it is not, `offline` when the ATA cannot be reached, and `error` when anything else stops the service from finding out — or when the last look is more than 30s old, the service having stopped. Grey unless `registered`. From `host/public_trunk` (mqtt.md Rev 41, §6.3). No tap.
+
+— Code consequence, for Claude Code: the row in `app.js`; the service in mqtt.md's consequence.
+
+## 11.71 Changes in Rev 71
+— The `public IP` row shows "offline" in place of the address when portland is not connected to the internet, and "error" when anything else keeps it from finding the address (§7.1), Mark's request, 2026-10-23. Rev 68 showed the last good address, grey, after a failed lookup, which looked like an answer. "offline" is `host/public_ip/error` reading `"offline"` (mqtt.md Rev 40, §6.3). "error" is any other error, or a last lookup over 11 minutes old, which means the service has stopped. Both are grey; `checked` is unchanged.
+
+— Code consequence, for Claude Code: `ipShown` in `app.js`; the service in mqtt.md's consequence.
+
+## 11.70 Changes in Rev 70
+— In tutor pacing every call now ends on her line in full and Next Call (§4.9), not only a call with no trunk as at Rev 67. A trunk does not show its cord after the call either, 2026-10-22, dobbs-paramount, room 105 to Paramount on trunk 1: the trunk's seizure dropped 0.27s after the game put station 13 on-hook, with both cords still in, and one second later, Rev 45's hold, her "The lamps in front of the cord pair…" was cut off for "press Next Call". The switchboard passes the station's loop through the cord to the trunk, so once the station hangs up nothing holds the trunk seized, cord or not. Rev 67's statement that a trunk is held seized while its cord is in is withdrawn. Next Call during either line cuts it short and deals, as Rev 67 had for a call with no trunk.
+
+— Fixed the same day, no specification change: a line taken as finished as soon as it started. Next Call cut the introduction short, the game stopped it and at once played answer-station, and the audio program's echo of the stop arrived after the new play had been sent; the game read that echo as the new line's end, and 20s later said it again over itself. A play now ends only on its own end: `""` counts once the file's own name has been echoed (`Board.saw`, `scenes.say`).
+
+— Code consequence, for Claude Code: `_tutor_hangup` in `game.py`, `Board.saw` and `scenes.say`; `tests/test_tutor.py`, `tests/test_sim.py` §5b.
+
+## 11.69 Changes in Rev 69
+— The tutor's `dial` line may say the digits to dial, one at a time, after the number as the card prints it (§4.9), Mark's request, 2026-10-22: `{number-digits}` beside `{number}`, so "dial Sunset three, two two five oh. That's seven, eight, three, two, two, five, zero." A new player does not know that the exchange's letters are dialled as digits, and "two two five oh" read as a number is not the holes to put a finger in. The digits are comma-separated, so the voice gives each a beat, and zero is "zero", not the card's "oh": she is naming a hole in the dial. `{number}` is still required; `{number-digits}` is optional, in the full line and its short form alike.
+
+— Code consequence, for Claude Code: `dial_digits` and the placeholder check in `tts/script.py`. The dial lines are rendered again. No game program change.
+
+## 11.68 Changes in Rev 68
+— The health column shows the host's public address (§7.1), Mark's request, 2026-10-22: a row `public IP`, the address, and under it `checked`, how long ago it was looked up — "2:10 ago", "failed 0:40 ago" when the last lookup failed, or "checking…" from a tap until the answer comes. Tapping either row asks for a lookup now. Both rows are grey when the last lookup failed, or is more than 11 minutes old, which means the service that makes it is not running. The address comes from `sbgame-publicip`, a program of its own every 5 minutes (mqtt.md Rev 39, §6.3), not from the game program, which makes no network calls during a session.
+
+— Code consequence, for Claude Code: the two rows and the tap in `app.js`; the service in mqtt.md's consequence. No game program change.
+
+## 11.67 Changes in Rev 67
+— In tutor pacing, the end of a call with no trunk — between two rooms, or a room's call to the operator — no longer waits for the cords out (§4.9), Mark's choice, 2026-10-21. Once the game puts the stations on-hook they draw no loop current, so their pilot tones stop and `peer` and `op` go clear whether the cords are in or out: one second after the call ended, Rev 45's hold ran out and the game took the cords for pulled, cutting her "The lamps in front of the cord pair…" off after its first words with the cords still up (17:20, hollis-valet). The pilot cannot see an on-hook station; only a trunk, which is held seized while its cord is in, still shows its cord after the call. Now a call with no trunk gets her end-of-call line in full, then "press Next Call when you are ready", and the player's Next Call is the word that the cords are out. Next Call during her line cuts it short and deals, as during the introduction. A call with a trunk waits for the cords as before. Rejected: keeping a station off-hook until its cord comes out (its supervisory lamp, which her line points to, would not light), and taking a station off-hook now and then to look for its cord (the lamp would flicker).
+
+— Code consequence, for Claude Code: `_tutor_hangup` in `game.py` and Next Call's cut-short; `tests/test_tutor.py`. No topic change.
+
+## 11.66 Changes in Rev 66
+— The deck's switchboard reset works during a game (§3, §7.4), Mark's request, 2026-10-20. Rev 63 refused it, since the cut drops every line on the board: the switchboard supplies the stations' loop current, and for its 1s plus the relay's times the game would read each call's cord as pulled — longer than Rev 45's one-second hold. The game program now freezes the lines through the cut instead (§5): from `ctl/power_cut` `"on"` until 1s after it returns to `"off"`, each circuit's `peer` and `op`, and each trunk's `seize`, keep the values they had, and then take their latest, through Rev 45's hold as usual. A call in progress carries on; a cord pulled during the cut is seen once it settles. A freeze whose `"off"` never comes ends after 3s. The page's `"hold"` is still refused while a game runs. Not yet seen on the switchboard: the relay is commissioned in the week of 2026-10-26, and that is when a connected call through the cut is checked (§9 step 6).
+
+— Code consequence, for Claude Code: the board's freeze in `board.py`, the game program accepting `"on"` while running, the deck's hold during a game; tests. No topic change.
+
+## 11.65 Changes in Rev 65
+— The switchboard can be switched off and on from the page (§7.8), Mark's request, 2026-10-20: a Switchboard section in Tools with one button, `power`, filled while the switchboard is powered, a tap switching it off and the next on again. Not the deck's 1s reset (§7.4): the switchboard stays dark until tapped on. `game/power_cut/set` gains `"hold"` and `"off"` beside Rev 63's `"on"`, passed on as `ctl/power_cut/set` (control.md Rev 32, mqtt.md Rev 38); `"hold"` is refused while a game runs, as `"on"` is, and `"off"` is always accepted. Start powers a switchboard left off (§3), since a game on a dark board cannot be played. The deck's key 5 reads "Switchboard" over "off", lit red, while it is held off (§7.4).
+
+— Code consequence, for Claude Code: the game program accepts the two values and powers the switchboard at Start; the page's button; the deck's key 5; the simulator; tests. No new topic.
+
+## 11.64 Changes in Rev 64
+— A chosen scenario no longer starts by itself (§4.10), Mark's request, 2026-10-19, withdrawing Rev 41. It is staged, as any chosen scene is (§4.8): in manual pacing it starts on Next Call, in automatic pacing it is the next call the schedule deals. Rev 41 started it at once on a clear board and only on Next Call or the schedule when chosen with calls on the board, so the same choice behaved two ways. Rev 41's reason, that nothing showed a choice waiting, no longer holds: the page shows the chosen scene under Next Call (§7.1). The clear board of Rev 40 stays: until it clears, Next Call is refused, "waiting for the board to clear", and the schedule deals nothing else.
+
+— Code consequence, for Claude Code: the scheduler's start on a clear board goes, with its test. No topic change.
+
+## 11.63 Changes in Rev 63
+— Stop cuts the switchboard's power for 1s (§3), Mark's request, 2026-10-19. A trunk rung in locks its lamp and buzzer on the switchboard until a cord goes into the jack, and Stop, which releases our ring relay, did not clear it; nothing did. The controller now drops the switchboard's 24V on `ctl/power_cut/set` (control.md Rev 31, mqtt.md Rev 37), and every relay and lamp on the switchboard drops with it. Stop sends it after the calls are torn down, so a game always ends on a dark board. A stop for the controller going offline cannot send it, and does not try.
+
+— A long press on key 5 cuts the power by hand (§7.4): held 2s with no game and no sweep running, `game/power_cut/set` `"on"`, which the game program passes on. While a game runs the deck ignores the hold, as it ignores the sweep's double press, and the game program refuses `game/power_cut/set` on `error` all the same, since the cut would drop the calls on the switchboard under the game's feet; Stop does it anyway. Key 5 because it already starts the trunk sweep, the other thing done to the board with no game running (Mark's choice, 2026-10-19; a long press on the first dial was drafted first).
+
+— Code consequence, for Claude Code: the game program sends `ctl/power_cut/set` `"on"` at the end of `stop()` when the controller is online, and accepts `game/power_cut/set`; the deck program times key 5's hold and draws it; tests for both. The firmware's half is control.md Rev 31.
+
+## 11.62 Changes in Rev 62
+— The sweeps come back to the Stream Deck, as at Rev 50, and stay on the page (§7.4, §7.6), Mark's request, 2026-10-18: key 5 pressed twice within 0.5s sweeps the trunks, key 6 the stations. A single press of the running sweep's own key stops it, and so does the other key pressed twice. While a sweep runs its key reads "Sweep" over "trunks" or "stations", lit teal, however the sweep was started — the key follows `game/sweep`, so a sweep started from the page shows on the deck too. Rev 50 read "Testing".
+
+— Teal (38, 128, 128), a colour of the deck's own, in place of amber on the sweep keys and on Repeat Help and More Help (§7.4), Mark's choice, 2026-10-18.
+
+— Code consequence, made the same day: keys 5 and 6 in `streamdeck.py`, and its test. No topic change.
+
+## 11.61 Changes in Rev 61
+— The page's Tools gains three sections under Operator (§7.1), Mark's request, 2026-10-18: Diagnostics, the board sweeps; Record, a recording of the loudspeaker; and Playback, a recording played back on it (§7.7). Tools is where the tools are, and the deck's keys keep one meaning each.
+
+— Record starts a recording, and while it runs a red dot pulsing once a second and the time recorded stand in the top bar to the right of Tools; a tap on them stops it. The audio program writes `/srv/sbgame/recordings/<YYYY-MM-DD-HH-MM-SS>.wav` and makes an MP3 beside it when it stops (audio.md Rev 22, §10.6). A recording is not part of a game: it runs with or without one, and Start and Stop leave it alone.
+
+— One at a time: Record is dimmed while a playback runs and Playback while a recording does, and the game program refuses either then. Each button, filled while its own runs, stops it on a tap, as its indicator in the top bar does.
+
+— Playback opens a list of the ten newest recordings, newest first, each with its length; a tap plays that one on the loudspeaker, in place of the monitor, at the level it was recorded (audio.md §10.7). While it plays a play triangle and the time stand in the top bar to the right of Tools, and a tap on them stops it. Not while a game runs, and Start stops one.
+
+— The sweeps move off the Stream Deck: keys 5 and 6 are the tallies again and nothing more (§7.4). Pressing a sweep's button on the page starts it, and pressing it again while it runs stops it (§7.6).
+
+— `game/record/set` and `game/playback/set`, which the game program passes to the audio program as `audio/record/set` and `audio/playback/set`, so the game program stays the only client that commands audio; the page reads `audio/record`, `audio/recordings` and `audio/playback` directly (mqtt.md Rev 36).
+
+— Code consequence, made the same day: Tools and the Recordings sheet in `index.html`, `app.js` and `style.css`; the `record` and `playback` commands in `game.py`, and Start stopping a playback; `Hw.record()` and `Hw.playback()` in `link.py`; the sweep keys out of `streamdeck.py`; the tests.
+
+## 11.60 Changes in Rev 60
+— An audit of where the game fell silent on a player's mistake, Mark's request, 2026-10-17, and a fix for each (§5, §4.9). Each new line is a reaction under a new top-level `reactions:` in script.yml, rendered in every cast member's voice but the operator's and the tutor's, as `<kind>.<speaker>` — 171 lines — so a party reacts in its own voice. A reaction not rendered is done without, as before.
+
+1. **She does not speak** where the game waits for her — the greeting, a reply, the closing — or spoke before the listen began. Outside tutor mode it was 30s of silence before the caller went on. Now after 6s of silence the waiting party says "Hello? Operator? Are you there?" (`nudge`), the game listens 6s more, and the line plays either way. In tutor mode her Say prompt does this already.
+2. **She rings the wrong room.** It rang out unanswered and the caller said nothing until the connect timeout. Now, 1.5s into the ring (3s since Rev 82), whoever the scenes most often have in that room answers, "Hello? … Hello? Is anybody there?" (`hello`); if the caller is patched to it, the caller says "Operator, that's not who I asked for." (`wrong`); and the room hangs up, so its cord lamp lights. Not a room already off-hook, nor the caller's own. The call goes on, and she may ring the right one. It is not a failure, since she can recover (Mark, 2026-10-17); §10's open item on a wrong party is settled this way.
+3. **She rings the right room on a cord not patched to the caller.** The room was taken off-hook and the game waited in silence for the two to be joined. Now, not joined in 8s, the room says "Hello?" (`hello`, in the called party's voice); not in 8s more, it hangs up, and she must patch and ring it again.
+4. **A trunk cord left in from an earlier call** was taken for the trunk of the next call out: dial tone went to it and her digits on the trunk she had taken were never seen. A trunk already up when a call begins to route is no longer that call's, until it is released and taken again. The same applies to the caller-left-alone check (Rev 46), which a stale trunk held off.
+5. **She takes a trunk and never dials.** Dial tone ran until the connect timeout. Now, outside tutor mode, 15s without a digit gets reorder and the call fails as `misdialled`, as a number dialled too short does (Rev 56).
+6. **In tutor mode, after a prompt's last repeat** she was silent for good, the timeouts being lifted. Now, after the second repeat, she says once "If you are not sure what to do, press Repeat Help, and I will tell you again." (`stuck`, under `tutor:`).
+
+— Code consequence for Claude Code, made the same day: `REACTIONS` and `_reactions()` in `tts/script.py`, `reactions:` and `tutor: stuck:` in script.yml; `caller_voice`, `called_voice`, `GameScript.reactions`, `occupants` and `reaction()` in `script_data.py`; `NUDGE_AFTER`, `PATCH_WAIT`, `DIAL_FIRST`, `WRONG_RING`, `_wrong_party()`, `_picks_up()`, `_fresh()`, `_note_stale()` and the nudge in `_operator_speaks()` in `flows.py`; the stuck line in `Tutor._repeat()`; the tests. No topic changes.
+
+## 11.59 Changes in Rev 59
+— On a call to the operator, once the caller has asked, the tutor says the call is for her before her first reply: "This call is for you, not for another line. Answer the caller yourself." (§4.9). Mark's request, 2026-10-17: the fourth lesson is such a call, and a new player expects to plug a cord in after every request. A new line under `tutor:`, `for-you`, with a short form, "This call is for you."; said on every tutored call to the operator that has a reply or a closing for her, so not on time and charges rung in on a trunk.
+
+— Code consequence for Claude Code, made the same day: `for-you` in `TUTOR_KEYS` in `tts/script.py`, its lines in script.yml, said in `to_operator()` in `flows.py`, and the test. Two lines to render, `tutor.for-you` and `brief.for-you`. No topic changes.
+
+## 11.58 Changes in Rev 58
+— A tutor prompt the game waits on the board after stops mid-word once the board shows the player has done it (§4.9). Mark's report, 2026-10-17: she talked on after the cord was in. Before, the condition was checked only before she began and between her repeats. Now it is checked throughout the line, and her repeats, Repeat Help and More Help stop the same way; a line cut short leaves nothing to repeat. The three prompts to centre the switch — `center`, `center-dialled`, `center-ringing` — are given the condition too, the operator off the pair's lines, so they also stop, are not said if the switch is already centred, are said again if it is not, and are offered to Repeat Help and, in short form, to More Help.
+
+— Code consequence for Claude Code, made the same day: `Tutor._line()` in `tutor.py`, `_centred()` in `flows.py`, and the test. No topic changes.
+
+## 11.57 Changes in Rev 57
+— A running game stops by itself after 10 minutes with nothing from the player, so Start must be pressed to play again (§3). Mark's request, 2026-10-17. Activity is what the player does: a cord in or out — a circuit's `peer` or `op`, a trunk's `seize` — a digit dialled, a station rung, and any key or button on the deck or the page. The game's own doing is not: a station taken off-hook, a trunk rung in, the tutor speaking, a call dealt on the automatic schedule. The stop is an ordinary one, logged "game stopped: no activity for 10 min", and the stopped game goes back to tutor 5 minutes later as before (§4.9, Rev 44). `idle_stop` in the configuration, 600s by default; 0 never stops.
+
+— Code consequence for Claude Code, made the same day: `idle_stop` in `config.py`; `PLAYER`, `_active_at`, its updates in `on_command()` and `watch_clients()`, and the check in `run_scheduler()`, in `game.py`; the test. No topic changes.
+
+## 11.56 Changes in Rev 56
+— A number dialled with too many digits or too few gets reorder, the fast busy, on the trunk until the operator releases it, and the call fails as `misdialled` (§5). Mark's request, 2026-10-17. Too many: a digit more within 3s of the last digit the number needs — the game now waits that long after the last digit before taking a number as dialled, so the extra digit can be heard; 3s is longer than a dial takes to return and run ten pulses (control.md §8). Too few: 10s after a digit with the number not complete. The failure is counted when she releases the trunk, so the fast busy is heard for as long as she stays on it; a deadline passing first fails the call as `not connected`, as before. A wrong number of the right length is unchanged: busy tone, and she may redial (Rev 46). The rule holds in tutor mode as well, where it is the one failure that is not about the cords.
+
+— Code consequence for Claude Code, made the same day: `DIAL_SETTLE`, `DIAL_PAUSE`, `_number()`, `_reorder()` and `Misdialled` in `flows.py`, `Reason.MISDIALLED` in `calls.py`, and the tests. The tone is new in the audio program, `"reorder"` on `tone/set` (audio.md Rev 20, mqtt.md Rev 35): `ToneKind::Reorder` and a row of the tone table in `engine.cpp`, its name in `net.cpp`.
+
+## 11.55 Changes in Rev 55
+— Once the tutor has said a prompt in full twice, she says its short form where script.yml gives one, under `tutor: brief:`, and More Help says the full line (§4.9, §7.4). Mark's request, 2026-10-17: the full prompts are right at first and too long once the player has done that step twice. Counted per prompt, not per call, since each kind of call has prompts of its own: a call out is the first to need `dial`, however many calls between rooms came before it. Every jack and number is the one prompt — `ring-front` to any room — and `dial-operator` is its own. Counted from Start, or from Tutor chosen mid-game; her own repeats, Repeat Help and More Help do not count. A short form may be given for any prompt but the introduction's three parts and the prompts before the operator speaks — `say`, `greet`, `respond` — which are short already and have a listen after them. A line with no short form is said in full every time. More Help is offered once she has finished a short line the game then waits on the player after — the answer, the switch, ring, the trunk, dial, the end of a call, "press Next Call" — for as long as Repeat Help would repeat it. A press says the full line at once; Repeat Help then repeats the full line, and More Help is done until the next short one. Her own repeats, 20s apart, say the line she last said. Short forms are rendered as `brief.<key>`, in her voice with the rest; one not yet rendered is not a gap, and she says the full line in its place.
+
+— Code consequence for Claude Code, made the same day: `tutor: brief:` in script.yml, read by `tts/script.py` (`BRIEF_KEYS`, `brief-<key>` in `Script.tutor`, rendered as `brief.<key>`, since `tutor.brief-<key>` passes the 31-character limit on a name); `Tutor.said`, `prompt_of()`, `Tutor.more()` and `more_key` in `tutor.py`; `game/tutor/more` and the `more` command outside the introduction in `game.py`; key 8 in `streamdeck.py`; the tests. One new topic, `game/tutor/more` (mqtt.md Rev 34). The short forms are to be rendered.
+
+## 11.54 Changes in Rev 54
+— A long press, about half a second, on a pacing button — Tutor, Manual, Automatic, Listen — or on a stepper — `pause`, `gap`, `ramp`, `floor`, `jitter`, its label or either button — opens a short help beside it: what the pacing does, or what the value means, its range, its step and its starting value (§7.1). Mark's request, 2026-10-17. Works the same with a mouse held down. The press that opens it changes nothing; a tap still does what it did. A tap elsewhere or Escape closes it, as it does every popup. The pacing buttons are drawn dimmed rather than disabled while the game program is away, so that their help still opens; a tap on one then does nothing.
+
+— Code consequence for Claude Code, made the same day: `HELP` and `showHelp()` in `web/app.js`, `data-help` and `#help` in `web/index.html`, and `web/style.css`. No topic changes.
+
+## 11.53 Changes in Rev 53
+— A long press on Tools, about half a second as on Next Call (§4.8), shows a key to the lamps: each state of §7.1's table, most urgent first, with the lamp drawn as on the board, lit as it is there, and a line saying what it means (§7.1). Mark's request, 2026-10-17. A tap still opens Tools; a tap elsewhere closes the key. Tools is a control, so the key is hidden with the Controls switch too.
+
+— Code consequence for Claude Code, made the same day: `#lamps` in `web/index.html`, its long press in `web/app.js`, and `web/style.css`, where the lit lamp's glow now follows `lit` on any element and not only on a tile. No topic changes.
+
+## 11.52 Changes in Rev 52
+— On the page, a `peer` of `"deaf"` or `"ambiguous"` makes a tile a fault only once it has stayed so for a second (§7.1); until then the tile shows the `peer` before it. Found 2026-10-17 with the station `hook` test: the lamp flashed red as the station went off-hook and again as it went back, because the relay breaks the line for a moment and the detector reports `deaf` for that long, as it does for the cord switch's 0.2s break (Rev 45). A real fault is shown a second later. The tile's panel still shows the detector's own value, and `play` `"missing"` and `fault` are shown at once. The deck shows no `peer` faults, so it is unchanged.
+
+— Code consequence for Claude Code, made the same day: `tileState()` in `web/app.js`. No topic changes.
+
+## 11.51 Changes in Rev 51
+— The loudspeaker plays ringback while a station reports ring (§6.6), Mark's request, 2026-10-17, so the player and the room hear the operator ringing, for as long as she holds the ringing key. Steady, not in the 2s-on cadence: it follows her key. A file on the monitor, `cue.ringback`, rendered by `tts/cue` — the period ringback of audio.md §8.2 — so the audio program is unchanged. The monitor plays one file at a time and that file is otherwise the tutor's voice; she comes first. A configuration switch, `ring_cue`, true by default. No topic changes.
+
+— Code consequence for Claude Code, made the same day: `cue.py`, started from `main.py`; `ring_cue` in `config.py`; the Stream Deck does not take the cue for her voice (§7.4's Repeat Help and the flashing key); `tts/process` leaves `cue.*` out of its check for files in no scene; `tests/test_cue.py`.
+
+## 11.50 Changes in Rev 50
+— A sweep of the board from the Stream Deck (§7.4, §7.6), Mark's request, 2026-10-17, for checking the cabling after a recabling. Key 5 pressed twice within 0.5s gives each trunk in turn one short ring, 2s apart, so its lamp latches; key 6 pressed twice takes each station in turn off-hook for 1s, 2s apart, in jack order — the board's rows from the top, each left to right — rather than circuit order, so the lamps light in the order the eye reads the board. Either key pressed twice during a sweep stops it. Only with no game running: the game program refuses one while a game runs, and Start, Stop and losing a client end one. Each step goes on the game log, so the page shows it, and the hardware's own echoes light the tiles. Keys 5 and 6 did nothing on a press before, and a single press still does nothing. One new command and its echo, `game/sweep/set` and `game/sweep` (mqtt.md Rev 33), covered by the access list's `game/+/set`.
+
+— Code consequence for Claude Code, made the same day: `sweep.py`, `_sweep_command()` in `game.py`, keys 5 and 6 in `streamdeck.py`, and the tests.
+
+## 11.49 Changes in Rev 49
+— A scenario chosen from the page counts as its once-a-game play (§4.10), Mark's request, 2026-10-16. Rev 40 left the deal after `n` calls to come regardless, and in the first play of `panic` on the switchboard it did: chosen, its sixteen calls counted as handled, so the whole scenario was dealt again the moment the board cleared, and the same rooms lit with the same complaints, which looked like callers ringing back. Choosing it again from the page still plays it.
+
+— Code consequence for Claude Code, made the same day: `_start_call()` in `game.py` and the test. No topic changes.
+
+## 11.48 Changes in Rev 48
+— A caller left alone hangs up after 10s, and after 5s once a wrong number has been dialled for the call (§5, `cut off`), Mark's decision, 2026-10-16. Rev 46's 20s, restarted each time the operator came back on the line, kept a call he had given up on alive while he tried the cords: a real guest left in silence hangs up, and one just told it was the wrong number sooner.
+
+— Code consequence for Claude Code, made the same day: `ABANDON`, `ABANDON_MISDIALLED` and `Ctx.misdialled` in `flows.py`, and the tests. No topic changes.
+
+## 11.47 Changes in Rev 47
+— The caller waits for her `closing:` (§4.7), found in a game on the switchboard, 2026-10-16: nbn-trace's guest asks "was that an outside call or from the lobby?" and hung up as the question ended, before she could answer, because a call to the operator with no conversation hangs up once its request has played. The game listens for her closing now, in every call that has one, and the tutor prompts it. Not saying it does not fail the call: she has done what it asked.
+
+— Code consequence for Claude Code, made the same day: `SceneDef.closing`, `_closing()` in `flows.py`, called at the end of a call to the operator and of a busy call, and the tests. No topic changes.
+
+## 11.46 Changes in Rev 46
+— Three changes from a tutored game on the switchboard, 2026-10-16 (§5). A wrong number was met with silence, which tells the operator nothing; it gets busy tone now, until she hangs the trunk up. Pulling both cords mid-call, before it was connected, left the call open for good: from routing until connection the game watched only the trunk, the caller stayed off-hook with its lamp lit, and tutor mode has no timeouts, so nothing could end it and Next Call was refused. Now a caller lost for 20s before connection — no operator on its line, patched to nothing, no trunk up — is abandoned as `cut off`. The 20s is what tells a pulled answering cord from the switch centred before the front cord goes in, which look the same, since the game cannot see a cord in a station jack. And dial tone comes a second after the seizure rather than at once, as an exchange takes a moment to answer (Mark's request; tried at half a second first, and lengthened the same afternoon).
+
+— Code consequence for Claude Code, made the same day: `_dial_tone()`, `_unless_abandoned()` and the busy tone in `_wait_for_right_number()` in `flows.py`, and the tests. No topic changes.
+
+## 11.45 Changes in Rev 45
+— A circuit's `peer` going empty, or its `op` going off, counts only once it has stayed so for a second, and `deaf` leaves the last `peer` standing (§5, `cut off`). Found on the switchboard, 2026-10-16: returning a cord pair's switch to its centre position, as the tutor asks once the far end answers, breaks both lines for about 0.2s. The detector reports both ends `deaf` and then idle for that long, and the game read it as a cord pulled: it ended the call with the parties still talking, and the tutor said the call was over. The same happened while the operator answered, and on every dial pulse. A real pull is now noticed a second later, which nothing in the game minds. The game program applies the hold as the messages arrive, so every wait in it sees the held value; the page and the deck show the detector's own.
+
+— Code consequence for Claude Code, made the same day: `Board.HOLD` and `Board._hold()` in `board.py`, and the tests, which run it at their own speed. No topic changes.
+
+## 11.44 Changes in Rev 44
+— The game starts in tutor, and returns to tutor after five minutes stopped (§4.9), Mark's request, 2026-10-16: the installation's `game.toml` sets `pace = "tutor"`, and a new setting, `idle_tutor`, 300s, returns a stopped game in another pacing to tutor. A player who has moved on to manual or auto leaves it that way, and the next visitor, who has never seen a switchboard, should meet the tutor.
+
+— Code consequence for Claude Code, made the same day: `Config.idle_tutor`, the timer in `game.py`, and the tests. No topic changes.
+
+## 11.43 Changes in Rev 43
+— Stations can be marked out of service (§6.5), Mark's request, 2026-10-16: `game.toml` gains `[out_of_service.stations]`, a station's number and the reason, beside Rev 36's trunks. Found on the switchboard: jacks 21–30 draw no loop current after a spark while station 3 was being moved from jack 23 to 29, so no lamp on that row lights, and the first lesson of a tutored game was a call from Housekeeping on jack 26, waiting for good. A station is out of every call, not only calls rung in, because a dead line can neither call nor be heard: its scenes are left out as if it were not fitted, `after:` chains and tutor lessons with them. Rev 36 noted stations might need this.
+
+— Code consequence for Claude Code, made the same day: `Config.stations_out()` and its check, `fit()` in `script_data.py`, the start and `--check` logs in `main.py`, and the tests. No topic changes.
+
+## 11.42 Changes in Rev 42
+— Dial tone stops at the first digit (§5, `dialling`), found in the first game on the switchboard, 2026-10-16. It ran on under the dialling until the whole number was in, where a real exchange drops it as the first pulse arrives. It also comes back on a fresh seizure when the operator hangs up a trunk and tries again; before, a redial got no dial tone at all.
+
+— Code consequence for Claude Code, made the same day: `_wait_for_right_number()` in `flows.py`, and the tests. No topic changes.
+
+## 11.41 Changes in Rev 41
+— A chosen scenario starts by itself as soon as the board is clear (§4.10), Mark's request, 2026-10-14: at once if it is clear when chosen, else the moment the last call ends, in any pacing but tutor. Rev 40 waited for Next Call or the schedule, and nothing on the deck shows that a choice is waiting. Other chosen scenes are unchanged: still the next call dealt.
+
+— Code consequence for Claude Code, made the same day: `game.py`'s scheduler loop, and the tests. No topic changes.
+
+## 11.40 Changes in Rev 40
+— A scenario can be chosen from the page to show it (§4.10), Mark's request, 2026-10-14, for showing the game to friends. Rev 39 let it be chosen in manual and auto only, and dealt it on top of whatever was running. Chosen, it is now allowed in listen too, still never in tutor mode, and waits for a clear board: no call in progress and no `after:` scene waiting. Until then nothing else is dealt, and Next Call is refused on `game/error`. A chosen scenario does not use up its once-a-game play after `after_handled:` calls, so it can be shown as often as wanted. The automatic deal after `after_handled:` calls is unchanged.
+
+— Code consequence for Claude Code, made the same day: `game.py` and the tests. No topic changes.
+
+## 11.39 Changes in Rev 39
+— A scenario: calls that arrive almost together, so the board lights up at once, Mark's request, 2026-10-14, from Remco's suggestion and Beth's story of Martha loose in the hotel. Three keys in script.yml, each usable on its own:
+
+- **`mode: concurrent`** on an `after:` scene (§4.4): it starts `delay` seconds after the scene it follows has *started*, not ended, and whether or not that scene is ever connected. It waits for a free slot as well as its lines, rather than being dropped. `delay` may be a range, `[2, 5]`, drawn evenly from the game's seed.
+- **`after_handled: <n>`** on a scene that follows none (§4.10): it is never in the deck, and is dealt once a game, as the next call after `n` calls have been handled. Not in tutor or listen pacing. While its scenario is on the board the automatic schedule waits. It stays in `game/scenes`, so it can be chosen from the page to try it.
+- **`if_busy:`** on a call from a room to a room (§4.11): caller lines played, as in a busy call, when the called station turns out to be engaged in another call. So several guests can ask for the front desk at once, and the operator tells all but one to try later. A scene with `if_busy:` does not hold its called line or person for dealing.
+
+Calls before connection in general stay deferred (§4.5); the scenario is the one place the operator is asked to route several calls at once. The first is `panic`, after the tenth call: Martha the dog loose in the hotel, a complaint from every guest room, the lobby and the restaurant, ending with Martha calling from her room to say someone is chasing her with a broom.
+
+— Code consequence for Claude Code, made the same day: the loader checks the three keys (`tts/script.py`), renders `if_busy:` lines, and gives the tutor no Say line for an operator line only a scenario uses; `script_data.py`, `deck.py`, `game.py` and `flows.py`; `busy` is also the stage of a call found engaged (§6.1); the tests. No topic changes.
+
+## 11.38 Changes in Rev 38
+— The tutor's `ring-front` and `ring-rear` lines are named for the station, `tutor.ring-front-room403`, not the jack, `tutor.ring-front-29` (§4.9), Mark's request, 2026-10-12. Rev 37's renumbering moved no label off its station, yet 30 of those lines looked new or changed to the TTS run, since a line's text follows its label and its name followed the jack. Named for the station, a line changes only when what she says does: a new label, or the station cabled to a jack with another. Renumbering jacks changes no file.
+
+— Code consequence for Claude Code, made the same day: the loader names the lines by station (`tts/script.py`); the game looks them up by the called line's name (`flows.py`); the 88 wavs, raw and delivered, and their manifest entries renamed, nothing rendered; the tests.
+
+## 11.37 Changes in Rev 37
+— The board's station rows run 21–30, 11–20, 1–10 from the top (§7.1), checked against the 551 by Mark, 2026-10-12, closing the §10 item. Rev 5 assumed jack 1 at top left. Rows still run left to right. The labels stay where they were on the board — the hotel's services on the top row, the rooms in ascending order on the two below — so script.yml's `jacks:` items move: the top row's labels go from jacks 1–10 to 21–30 and the bottom row's from 21–30 to 1–10. `hardcopy/strips.py` already printed the strips in this order.
+
+— Code consequence for Claude Code, made the same day: `app.js` draws the rows in the new order; script.yml's `jacks:` renumbered. No topic changes.
+
+## 11.36 Changes in Rev 36
+— Trunks can be marked out of service (§6.5), Mark's request, 2026-10-10. Ringing each of the 551's trunk jacks in turn showed two that cannot take a call rung in: jack 6's lamp lights only while ring is applied and does not latch, and jack 8's lamp does not light at all, though its relay operates. Both are faults in the switchboard, to be repaired later (TODO.md); six working trunks are enough for the game. `game.toml` gains an `[out_of_service.trunks]` table, a trunk's number and the reason, and no call is rung in on a trunk listed there. Stations may need the same later; the table takes only trunks for now.
+
+— Code consequence for Claude Code, made the same day: `Config.out_of_service` and `working_trunks()` in `config.py`, checked at load; `Game._free_trunk()` picks only from the working trunks; `main.py` fits the scenes to them and logs each trunk out of service at start and under `--check`; the tests.
+
+## 11.35 Changes in Rev 35
+— Repeat Help after a "Say:" prompt too (§4.9), Mark's request, 2026-10-09. Rev 34 left it out because the game listens for the operator after one, and the loudspeaker would be heard as her. Now a press there stops the listen first, she says the prompt again, and the game listens afresh. A press once the operator has started speaking is refused, so her answer is not cut off. A press does not count as one of her own repeats.
+
+— Code consequence for Claude Code, made the same day: `_operator_speaks()` in `flows.py` races the listen against the press; `Tutor.asked` and `release()` in `tutor.py`; the tests.
+
+## 11.34 Changes in Rev 34
+— Repeat Help (§4.9, §7.4), Mark's request, 2026-10-09: once the tutor has finished a line and the game is waiting on the player, the deck's key 7 says "Repeat Help", and a press says the line again. That covers each part of the introduction, the call steps that wait on the board — answer, the switch, ring, the trunk, dial, the end of a call — and "press Next Call when you are ready for another". Not a "Say:" prompt: the game is listening for the operator then, and the loudspeaker would be heard as her. The line stays repeatable until the player does what it asks or she says another. The game program publishes it on `game/tutor/repeat` and takes `game/repeat/set`, an event at QoS 0 (mqtt.md Rev 31).
+
+— Code consequence for Claude Code, made the same day: `Tutor.repeat()`, `repeat_key` and `hold` in `tutor.py`; the `repeat` command in `game.py`; key 7 in `streamdeck.py`; the tests.
+
+## 11.33 Changes in Rev 33
+— While the tutor waits for a key, the deck flashes it (§4.9, §7.4), Mark's request, 2026-10-09: More Help and Next Call after each part of the introduction but the last, Next Call alone after the last, and Next Call after a call once the cords are out and she has asked for the next. Only once she has finished speaking, so the flashing does not compete with her. The game program publishes what she is waiting for on `game/tutor/waiting`, `"more"`, `"next"` or `""` (mqtt.md Rev 30), since the deck cannot tell her waiting for Next Call from her waiting for the cords to come out.
+
+— Code consequence for Claude Code, made the same day: `_waiting()` in `game.py`; `Panel.flash()` and keys 4 and 8 in `streamdeck.py`; the tests.
+
+## 11.32 Changes in Rev 32
+— Tutor mode becomes a pacing, `tutor`, the first of four (§4.9), Mark's decision, 2026-10-09. It was manual pacing with tutoring in all but name: one call at a time, each on Next Call. As a switch beside the pacing it allowed tutor with auto or listen, which nobody wanted, and two controls where one will do. Moving a player on is now a change of pacing, mid-game if need be. `game/tutor/set` and `game/tutor` are withdrawn (mqtt.md Rev 29); `pace/set` takes `"tutor"`, refused while any of her lines has no wav. A configured `pace = "tutor"` falls back to manual at start-up, with a warning, while any is missing.
+
+— The deck's pacing key shows four names, Tutor first, and cycles Tutor, Manual, Auto, Listen (§7.4). Key 8 is the health lamps again, as through Rev 28, and More Help while she introduces the board; key 7 is the success percentage throughout. The page has a fourth pacing button.
+
+— Code consequence for Claude Code, made the same day: `PACES` in `pacing.py`; the switch moves into the `pace` command in `game.py`; `streamdeck.py`; `index.html` and `app.js`; the tests.
+
+## 11.31 Changes in Rev 31
+— The tutor's introduction is in three parts — the jacks, the cords, the switches and dial — Mark's request, 2026-10-09: all at once it was too much to take in (§4.9). After each part but the last she says to press More Help, or Next Call to start playing, and waits for one; after the last, for Next Call. This is the same in every pacing: in auto and listen the first call no longer follows the introduction by itself. More Help pressed mid-part cuts it short and goes on to the next part; Next Call at any point ends the introduction and deals the first call, as before. script.yml's `intro:` and `begin-manual:` give way to `intro-jacks:`, `intro-cords:` and `intro-switches:`.
+
+— While she introduces the board, the Stream Deck's key 7 is More Help in place of the success percentage (§7.4). It publishes `game/more/set`, an event at QoS 0 like `next/set`, guarded the same way, and the game program publishes the part she is on as `game/tutor/intro`, `"1/3"` to `"3/3"`, or `""` (mqtt.md Rev 28). The key is lit while a further part remains.
+
+— Code consequence for Claude Code, made the same day: `INTRO` in `tutor.py`; `_tutor_intro()` and the `more` command in `game.py`; key 7 in `streamdeck.py`; `tts/scenes --tutor` joins the three parts; the tests.
+
+## 11.30 Changes in Rev 30
+— A tutored game starts with one call of each kind (§4.9), Mark's request, 2026-10-08: between rooms, out to a number, in from outside, and to the operator, in that order, so a new player meets every interaction before the deck takes over. Each kind is a group of suitable scenes under `tutor: lessons:` in script.yml, and each game picks one from each group at random, so a restart does not repeat the last game's. The picks come from the game's seed, so a replay picks the same, and they are logged. The loader refuses a group that mixes kinds, or names a scene that is inactive, unknown or an `after:` scene. No topic changes.
+
+— Code consequence for Claude Code, made the same day: `lessons` and `scene_kind()` in `tts/script.py`; `GameScript.lessons`, fitted to the circuits built (§6.5); `pick_lessons()` and the dealing in `game.py`; `test_tutor.py`.
+
+## 11.29 Changes in Rev 29
+— Tutor mode (§4.9), Mark's request, 2026-10-08, in place of an instruction sheet: a new player has too many steps to take in from paper. With it on, a senior operator's voice on the audience loudspeaker says what to do at each step of a call — which cord, which jack, which switch, what to say, what to dial — at the moment the game sees the step is due, and the game waits for her. She introduces the board when the game starts. One call is in progress at a time, nothing fails for being slow, a prompt not acted on is said again, and the next call waits for the cords to come out. Her lines are rendered offline like every other, from a `tutor:` section of script.yml, one whole sentence for every jack, number and operator line they name.
+
+— The Stream Deck's key 8 is the tutor switch (§7.4). It showed three health lamps, which the page already shows; the error that turned it red is on the strip as before. `game/tutor/set` and `game/tutor` are new (mqtt.md Rev 27), and the page's state line says "Tutor" while it is on (§7.1).
+
+— She is on the loudspeaker, not in the headset, which is the reason for most of §4.9's rules. In the headset her voice would go out on the line the operator is bridged to and set off that line's speech detection. On the loudspeaker it reaches the operator's microphone acoustically, so she is still never speaking while the game listens. The audio program needed a file source on the monitor for it: audio.md Rev 11.
+
+— Code consequence for Claude Code, made the same day: `tutor.py`; hooks in `flows.py` at each step; the switch, the introduction, one call at a time and the end of a call in `game.py`; `Slots.timeless`; `script_data.py` loads her wavs, and refuses tutor mode while any is missing rather than refusing to start; the loader in `tts/script.py` renders `tutor:`; key 8 in `streamdeck.py`; `app.js`; `test_tutor.py`.
+
+## 11.28 Changes in Rev 28
+— A call in on a trunk is signalled with one short burst of ring, `shortring/set` (§4.3, §6.1, §6.4; mqtt.md Rev 26, control.md Rev 25), Mark's request, 2026-10-05, in place of ring in the standard cadence until answered. The trunk cannot see a seizure while it is ringing, so an operator who plugged in during a 2s ring-on interval was not seen until it ended. The 551's trunk signal latches on a short burst, so the lamp stays lit without further ring and the trunk is readable from the moment the burst ends. Nothing else about the call changes: the answer timeout runs from the start of the call as before, and an unanswered call fails as `no answer`. The game still sends `ring/set` `"off"` when the call ends, which cancels a burst that is still ringing. The page's `ring` diagnostic keeps the cadence (§7.5).
+
+— Code consequence for Claude Code, made the same day: `Hw.short_ring()` in `link.py`; `outside_to_station` and `to_operator` from an outside line call it instead of `ring_trunk(…, True)`; the simulator and the tests' fake echo a 0.5s burst on `ring`.
+
+## 11.27 Changes in Rev 27
+— The health column shows the controller's firmware, `ctl/firmware` (§7.1, mqtt.md Rev 25), 2026-10-01, so a stale build on the board is seen at a glance. Display only.
+
+## 11.26 Changes in Rev 26
+— The page lists the scenes for a chosen next scene in alphabetical order of id (§4.8), Mark's request, 2026-09-30. The page sorts them; `game/scenes` is unchanged. Code consequence for Claude Code, made the same day: `app.js`.
+
+## 11.25 Changes in Rev 25
+— Diagnostics from the page (§7.5), Mark's request, 2026-09-30, for bring-up and for finding a fault at the board. A station's panel takes it off-hook and plays a 1kHz tone, a run of speech, or feeds its receive channel to the loudspeaker; a trunk's panel rings it, and plays tone, speech or loudspeaker the same way; a new Tools button opens the same three for the operator tap. Each is a toggle. They run whether or not a game is running, and are kept apart from the calls: a circuit in a call refuses a test, and a circuit under test is busy for dealing (§4.4). Stop ends them all (§3). Voice on the tap needs the audio program to play a file there, which it did not; audio.md Rev 10 adds it.
+
+— A chosen next scene (§4.8). A long press on Next Call lists the scenes; the one chosen is the next dealt. `game/scenes` and `game/queue` are new, with `game/queue/set`. §10's open item "Start a named scene" is closed by it.
+
+— The game fitted to the circuits built (§6.5): the game program's configuration, and two command-line options, say how many stations and trunks exist. A scene that needs a station beyond the first `stations`, or an outside line when `trunks` is 0, is left out with the scenes that follow it; calls ring in and go out only on the first `trunks` trunks. `game/stations` and `game/trunks` say what was set, so the page offers tests only on circuits that exist.
+
+— Code consequence for Claude Code, made the same day: the game program, the page, the access list (mqtt.md Rev 23), the configuration file, and the audio program (audio.md Rev 10).
+
+## 11.24 Changes in Rev 24
+— A call to the operator may ring in on a trunk (§4.3, §4.6), Mark's request, 2026-09-30. Its calling line is an outside name and it has no `called:`: the game rings a free trunk, as for a call in to a room, and the operator answers it with her listening key. The rest is as for a call to the operator from a room: the request plays after she has spoken, it is connected when the request has played, and any conversation lines each wait for her. A call with a request and no conversation hangs up as soon as the request has played, without waiting for her to answer it.
+
+— It is for the long-distance operator's time and charges. After a long-distance call a guest placed is over, the long-distance operator rings the hotel with the time and the charge, once, so that the hotel can put it on the room bill, and hangs up (§4.6). Peter at the museum had it from a guest who worked as a hotel clerk: if you did not have your pencil ready you had missed it, and the hotel could not charge the room. Five scenes gain one, each an `after:` of the call it bills. A collect call, and a call placed by someone outside to a guest, are not billed to the hotel and have none. A guest who asked for time and charges still hears them from her at the end of the call as well.
+
+— An unanswered one fails as `no answer`, as any unanswered call does (§5); whether she wrote the figures down is not something the game can know.
+
+— Code consequence for Claude Code, made the same day: the game picks a free trunk for such a call as it does for a call in to a room, and the call-to-the-operator flow rings it. `test_game.py` covers it.
+
+## 11.23 Changes in Rev 23
+— A station jack may carry `guest:`, the name of whoever is staying in the room at that jack (§6.3), Mark's decision, 2026-09-29. It is typed on the operator's guest list card, `hardcopy/cards.py`. The card had worked out each guest's room from the scenes, which put a guest on whichever line they called from — Mr. Pike on the lobby house phone as well as in 204 — and took the names from a table of its own. The jack is where the room is, so the guest goes there too. It is left out for an unoccupied room and for a jack that is not a room.
+
+— The game does not read it. The loader refuses an empty one.
+
+— Code consequence for Claude Code, made the same day: the loader accepts the key and checks it, `test_game.py` tests the refusal, and `hardcopy/cards.py` builds the guest list from it.
+
+## 11.22 Changes in Rev 22
+— script.yml says what the player says (§4.7), Mark's request, 2026-09-29: an `operator:` key on each line the game waits for the operator before, naming a line under a new top-level `operator_lines:`, or giving an id and text of the scene's own. Mark wants every scene as one recording, both halves of the conversation, which needs the operator's half written and rendered. The TTS run renders the lines in the voice of a new cast member, `hotel_operator` — `operator` in the cast is already the long-distance operator.
+
+— The game ignores them: the person at the board speaks them. An `operator:` is refused where the game does not wait for her, because there the next line would play over it; and one that names no line under `operator_lines:`, or whose inline id the scene already uses. It is optional: `python -m tts.script` counts the places still without one.
+
+— Considered and not adopted: operator lines as conversation entries of their own, beside `caller:` and `called:`. That is the more natural form to write, but it changes what the flows iterate over and would make `wait:` redundant with a preceding operator line. A key on the line it precedes changes nothing the game reads.
+
+— A scene-level `closing:`, in either form, for what she says after the last line (§4.7), Mark's request, the same day: without it a call to the operator ended on the guest's question. Refused in a call where she has left the line by the end — any but a call to the operator or a busy call. The 13 such scenes each have one of their own.
+
+— Code consequence for Claude Code, made the same day: the loader, the game program's exclusion of the operator's lines from a scene (`script_data.py`), tests of the five refusals, and `tts/scenes --batch`, which writes each scene to an mp3 with the operator's lines in their places. Every place in the 105 scenes has its `operator:`: four stock lines and 25 of the scenes' own.
+
+## 11.21 Changes in Rev 21
+— `ringback:` is allowed on any line spoken on a trunk (§4.6), Mark's request, 2026-09-28: the called side of a call out, as in Rev 20, and now also the calling side of a call in. A long-distance operator who could not get through calls back when she has the party (script.yml, "Long distance"): the call rings in on a trunk, the hotel operator puts it through to the room, and only then does the far end ring — on the calling side. The loader's refusal now names a line spoken on a station, or in a scene where every line waits already.
+
+— Code consequence for Claude Code, made the same day: the loader's check only — the flows already rang whichever trunk the line is spoken on. A test covers ringback on the calling side of a call in.
+
+## 11.20 Changes in Rev 20
+— Two more keys on a conversation line, `pause:` and `ringback:` (§4.6), Mark's request, 2026-09-28. Rev 19's long-distance call runs through a chain of operators — the rate operator, then each toll center on the route answering with its town's name — as the 1950s calls did. Played back to back, the chain is a gabble; the real ones had a beat at each step while the next operator came on, and the far end rang before anyone answered. `pause:` is that beat, silence before the line; `ringback:` is ringback tone on the trunk before the line, the far end ringing.
+
+— `ringback:` is refused anywhere but a `called:` line of a call to an outside line: ringback is a trunk tone, and only there is the called side a trunk. Both are refused unless a number of seconds above 0 and at most 30.
+
+— Considered and not adopted: a gap between every pair of lines, set once for the game. It would slow every conversation, and the beats that matter are particular ones.
+
+— Code consequence for Claude Code, made the same day: the loader and the flows; the game program's tests cover both keys and the three refusals.
+
+## 11.19 Changes in Rev 19
+— A conversation line may wait for the operator (§4.6), Mark's request, 2026-09-28. A long-distance call from the hotel goes through the local operator: the hotel operator dials 0, the local operator answers, the hotel operator asks for long distance, and only then does the long-distance operator come on and talk to the guest. Until now a scene with a called party played its conversation straight through once connected, so there was no place for the hotel operator to speak in the middle of one. A line marked `wait: true` plays only after the operator has spoken on that line's side of the call and stopped — the listen that calls to the operator and busy scenes already make before every line.
+
+— A conversation line may name its own speaker with `person:` (§4.6). The long-distance operator is not the local operator who answered, and neither is the party she rings, but all three speak on the same trunk. The line plays on its side of the call as before; `person:` changes only whose voice the TTS run uses, and it must be in the cast.
+
+— `after:` scenes may form a chain of any length (§4.4), Mark's request, 2026-09-28: a guest whose requests to housekeeping grow more absurd call by call is a story in five calls, in order. The loader refused a scene following one that itself follows another; that rule is gone. It now refuses a scene named in two `after:`s — both followers would be scheduled together, each would hold the guest, and each would wait forever for the other to let go — and a loop of `after:`s. The game program needed no change: a follower's own follower is scheduled when it ends, as any other.
+
+— `timeout` (§5) now also covers a `wait:` line the operator never speaks before. Considered and not adopted: a new scene shape for long distance. Two keys on a line cover it, and cover a guest handing the telephone to someone else as well.
+
+— Code consequence for Claude Code, made the same day: the shared loader allows chains of `after:`s and refuses two followers and loops; it checks both keys and rejects `wait:` where every line waits already, and on a line with neither `caller:` nor `called:`; the flows listen before a `wait:` line; the game program's tests cover a wait on the trunk and both rejections.
+
+## 11.18 Changes in Rev 18
+— The page's countdown says "waiting" while a game runs in automatic pacing and no next call is scheduled — `next_at` empty, because in auto the latest call is not yet connected or ended, and in listen the board is not yet empty (§4.2) — and "–" when no game runs (§7.1), Mark's request, 2026-09-28. It said "–" in both. The deck's Next key already said "waiting" in that case; §7.4 now says so too. It is on the countdown rather than on the Next Call button because the button is hidden with the controls and the countdown is not.
+
+— The deck's Next Call key is lit violet, where it was amber (§7.4), Mark's choice, 2026-09-28: no other key or page colour uses violet. In listen the three resting segments of the strip are drawn dimmer than manual's, name and value alike, so the one dial that does something stands out (§7.4). Code consequence for Claude Code, made the same day: `app.js` and `streamdeck.py`.
+
+## 11.17 Changes in Rev 17
+— Listen gets one value of its own, `pause`, in place of auto's four (§4.2, §4.3), Mark's decision, 2026-09-27. Rev 16 ran listen on `gap`, `ramp`, `floor` and `jitter`, counted from the end of a call. But listen is for entertaining with the conversations, not for pressure: Mark wants the next call a few seconds after the last one ends, every time. So listen waits `pause` seconds, 0–60, starting at 3 from the configuration file, with no ramp and no jitter. Auto's four are untouched by listen, so switching between a demonstration and a real game needs nothing reset.
+
+— Considered and not adopted: a separate set of all four for each pace. Eight values, with dials and steppers whose meaning changes with the pace, for three knobs listen has no use for.
+
+— In listen the first dial sets `pause` and the other three rest, dimmed and showing auto's values, as in manual (§7.4); the page shows one stepper, `pause`, in place of the four (§7.1). `mqtt.md` Rev 22 adds `game/pause` and `game/pause/set`, and the session record gains a `pause` column. Code consequence for Claude Code, made the same day.
+
+## 11.16 Changes in Rev 16
+— A third pacing, **Listen** (§4.2), Mark's request, 2026-09-26. It is for showing the game: the next call waits until the board is empty — the last call has ended and no `after:` scene is waiting — so calls never overlap and the room hears every conversation to its hang-up. Automatic pacing times from the connection, so the next call can arrive mid-conversation and the operator's answer takes the loudspeaker away from it (§6.4). Listen is the other half of that open item (§10): it keeps the loudspeaker on each conversation by never starting two.
+
+— A third value of `pace`, not a special value of `gap`. Listen still wants a pause after the hang-up, and `gap`, `ramp`, `floor` and `jitter` keep their meaning, counted from the end instead of the connection. `mqtt.md` Rev 21 adds `"listen"` to `pace` and `pace/set`. "Automatic pacing" in this document now means auto or listen wherever the two behave alike: the first call at once (§3), the dials and steppers, the countdown.
+
+— The deck has no key to spare, so its pacing key cycles Manual → Auto → Listen → Manual, and shows all three names, the echoed one lit, so the choices can be read off the key (§7.4). Presses count from the last press while its echo is outstanding, as a dial's detents do, so two quick presses go two places. Going from Auto to Manual passes through Listen and from Manual to Listen through Auto; the pass is a fraction of a second, and a call is started on the way only if `gap_now` is shorter than that. The page gains a third segment (§7.1).
+
+— Code consequence for Claude Code, made the same day: the scheduler, the configuration check, the deck's pacing key and the page. The game program's tests cover the schedule in listen, including a waiting `after:` scene holding it; the deck's tests cover the cycle.
+
+## 11.15 Changes in Rev 15
+— Commissioning record only. §9 step 11, the Stream Deck, was run on portland on 2026-09-26, with Mark at the deck and the page. Everything passed. Fast Next Call presses needed the audio program running and were checked once it was. No behaviour changes.
+
+— Two host snags met on the way, both fixed in `host/`, not here. `libhidapi-libusb0` was not installed; the Stream Deck steps in `host/README.md` now install it. The udev rule names the `sbgame-deck` group, which did not exist when `make install` triggered udev, so the deck stayed `root:root` until udev was triggered again; `make sbgame-install` now triggers it after making the user.
+
+## 11.14 Changes in Rev 14
+— Every scene in script.yml carries `active: true` or `active: false` (§4.4, §6.3), at Mark's request, 2026-09-26. He wants to write new cast and scenes before their wavs exist. Until now every scene was built at load, and a missing wav stopped the game program from starting. The game program now builds, deals and follows only active scenes, and reads wavs only for them. An inactive scene is still loaded and checked, and the TTS run still renders it, so a scene is written as `active: false`, rendered, and switched on once its wavs are in place. Every scene in the file at this revision is `active: true`.
+
+— The key is required, not defaulted, so a scene cannot be switched on or off by omission. An active `after:` scene naming an inactive scene is rejected, since it could never play. An inactive `after:` scene following an active one is allowed; it is simply not played. Code consequence for Claude Code: the shared loader checks the key and gives `Script.active_scenes()`; the game program builds from that. No topic changes.
+
+## 11.13 Changes in Rev 13
+— The game's controls move to an Elgato Stream Deck+ (§7.4), Mark's decision, 2026-09-25. The iPad becomes mostly a display. Eight keys carry Start, Stop, the pacing, Next Call, the tallies and the clients' health, and the four dials set `gap`, `ramp`, `floor` and `jitter`, with the touch strip above them showing the values. Stop needs a second press within 3s, as on the page.
+
+— The deck is driven by a program of its own, `sbgame-streamdeck`, on the host. It is not part of the game program, for the reason the page is not (§1): it shows what the broker reports, keeps working and shows the game offline when the game program is down, and a USB fault cannot touch a game in progress. It connects as a new broker user, `sbgame-deck`, with the page's access list (`mqtt.md` Rev 20). It publishes the page's commands, so the game program is unchanged.
+
+— Considered and not adopted: Elgato's own software with a community MQTT plugin, which needs a Windows or macOS machine and cannot draw the game's state on the keys; and Bitfocus Companion's generic MQTT module, which runs on Linux but keeps the layout in its own database rather than in this repository and this document.
+
+— The page keeps its controls, behind a Controls switch in the top bar that shows or hides them on that iPad (§7.1). Mark's decision, 2026-09-25: the deck carries the controls, and the page's stay available if the deck is not there. Both publish the same commands, so both work at once. `sbgame-web` keeps its write access (`mqtt.md` §9).
+
+— A dial reports relative steps and every command but Next Call is absolute (§7.2). The program therefore turns steps into a new absolute value, starting from the echoed value and adding every step made since, and publishes that (§7.4). Code consequence for Claude Code: the program, its unit and udev rule under `host/`, and later the page's top bar.
+
+## 11.12 Changes in Rev 12
+— Automatic pacing gains `jitter` (§4.3), Mark's decision, 2026-09-25. Rev 1 to Rev 11 waited exactly `gap_now` before every automatic call, a rhythm a player learns within a few calls. Each wait is now drawn evenly from `gap_now × (1 ± jitter/100)`, with `jitter` a percentage from 0 to 100 set on the page like the other three. Its mean is still `gap_now`, so `gap`, `ramp` and `floor` keep their meaning and the game is no harder or easier on average, only less regular.
+
+— Bounded and even, not exponential. Calls at a real switchboard arrive nearly at random, which is an exponential wait between them, but at a mean of 20s that puts four waits in ten under 10s and one in twenty over a minute — a dead stretch for the player and the audience. The even spread keeps every wait within a known band. The exponential form, and calls that arrive whether or not the operator is ready (§4.5), stay available for when the game is played on the hardware.
+
+— `floor` bounds `gap_now`, the centre of the spread, not each wait, so near the floor some waits fall a little below it. Holding each wait to the floor instead would raise the short ones to it and lift the mean above `gap_now` exactly where the ramp is meant to be steadiest.
+
+— The draws come from the game's seed (§4.4), so a replay draws the same waits, and `jitter` is recorded with the other pacing values in the session record. Its starting value is 0, from the configuration file, so nothing changes until it is set.
+
+— `mqtt.md` Rev 19 adds `game/jitter` and `game/jitter/set`. Code consequence for Claude Code: the scheduler, the configuration, the session record and a fourth stepper on the page.
+
+## 11.11 Changes in Rev 11
+— Every station jack can carry a label, cabled or not (§6.3). Mark's decision, 2026-09-25. The switchboard has 30 station jacks and the game 22 station circuits, and the board's designation strips are labelled at every jack. Rev 7 let a label live only on a station entry, so a jack no entry named was drawn as an empty outline, and §10 asked where the other labels should go. They go in a new top-level list in script.yml, `jacks:`, one item per jack: `jack:` (1–30), `label:`, and `station:`, the script.yml station cabled to it, left out for a jack with nothing cabled.
+
+— `switchboard:` and `label:` leave the station entries, which carry `number:` alone. A station entry is now the game's circuit and nothing about the board; the board is `jacks:`. Rev 7's reason for putting them together — one place to look — is kept by the list being in the same file, next to `stations:`.
+
+— A labelled jack with no circuit is drawn as a working jack at rest (§7.1): its label, its jack number and an unlit lamp, like any idle jack. The operator sees the board as built, not which jacks are wired. A jack `jacks:` does not list keeps Rev 7's empty outline. Tapping a labelled, uncabled jack shows its circuit as none.
+
+— The load checks follow (§6.3). Code consequence for Claude Code: the shared loader checks `jacks:` and rejects `switchboard:` and `label:` on a station entry, the game program builds the `board/` map from `jacks:`, and the page draws labelled uncabled jacks as working. `mqtt.md` Rev 18 corrects the `board/` rows to match. No topic changes. Trunk jacks are unchanged: trunk n on trunk jack n, no labels.
+
+— The page is rearranged (§7.1), Mark's request, 2026-09-25, from the first look at it on the iPad. The health column took 380px beside the board, leaving each tile about 71 points wide, and one-word labels such as "Housekeeping" were clipped and two-word ones wrapped out of the tile. The board now takes the whole width; the calls table has the log under it, and health sits in a narrow column beside those two. A label that still does not fit is set smaller rather than clipped, and every label is set at that one size, so the board does not mix sizes.
+
+— The §10 item "Labels on jacks the game does not use" is closed. The item named a station entry with no `number:` as one way to do it; a separate list was chosen instead, so that a station entry always means a circuit.
+
+## 11.10 Changes in Rev 10
+— The page is served by nginx, not by Mosquitto (§2), 2026-09-24. Rev 8 and Rev 9 had one Mosquitto listener on 443 serving the files through `http_dir` and carrying the page's MQTT connection. On portland that listener will not bind a privileged port, because libwebsockets creates its socket after Mosquitto drops from root, and it advertises HTTP/2 in ALPN without being able to serve it, so a browser negotiating HTTP/2 — which is the default — receives nothing. `mqtt.md` Rev 17 §12.17 records both, and what was tried before giving up on them.
+
+— nginx now holds the certificate, serves `/srv/sbgame/web` on 443, and reverse-proxies the page's socket to Mosquitto on loopback. The bookmark, the name, the certificate and `sbgame-web` are unchanged, and the page still has one origin and one port.
+
+— The page's socket takes the path `/mqtt`. It is what nginx routes on, and it is the whole of the page's change: `location.host` and the `wss://` rule of §2 stand. The page had not been written, so the path cost nothing.
+
+— §9 step 10 is withdrawn and replaced. It chose between a SIGHUP reload and a 04:00 restart, a question that only existed while Mosquitto held the certificate. An nginx reload disconnects nobody and does not touch Mosquitto's clients at all. What remains worth checking is the renewal itself, which `certbot renew --dry-run` does against staging without spending one of the five duplicate certificates a week Let's Encrypt allows.
+
+## 11.9 Changes in Rev 9
+— Follows mqtt.md Rev 16, 2026-09-24. At home `game.kr3am.org` resolves from a public A record in Route 53; on the road the Slate 7's Edit Hosts line still answers it. Rev 8 said the name resolves only on the local network, through a host entry on both routers. §2 and the §9 preamble follow. Nothing on the page changes.
+
+## 11.8 Changes in Rev 8
+— The page is served over HTTPS as `https://game.kr3am.org/` and connects over secure WebSockets (§2), following mqtt.md Rev 15 §9, 2026-09-24, at Mark's request. Rev 1 to Rev 7 had the bookmark `http://<host>.local:9001/` and a `ws://` connection. The certificate, its renewal and how the name resolves are specified in mqtt.md §9.1 and §9.2, and are not repeated here.
+
+— The page takes its WebSocket scheme from its own: `wss://` when loaded over `https:`, `ws://` when loaded over `http:`. Rev 1 to Rev 7 said `ws://` + `location.host`, which Safari refuses from an HTTPS page as mixed content. Code consequence for Claude Code, when the page is written.
+
+— Commissioning (§9) follows. Steps 1 and 2 check the listener on 443 and the name and certificate from another machine. Step 10 is new: it checks whether Mosquitto reloads a renewed certificate on SIGHUP without dropping its clients. The answer decides whether renewal can safely happen during a game (mqtt.md §9.1).
+
+— The page is now a secure origin, which lets it ask for a screen wake lock rather than rely on Auto-Lock being off (§7.3). Not specified; an open item (§10).
+
+## 11.7 Changes in Rev 7
+— The jack assignments move into script.yml, and `wiring.yml` is dropped (§6.3). Mark's decision, 2026-09-24. Rev 5 specified `wiring.yml` as a separate file mapping circuits to jacks, with labels. It was never written. Each entry under script.yml's `stations:` now carries two more keys: `switchboard:`, the jack the station's circuit is cabled to (1–30), and `label:`, the text on the board at that jack. `number:` is unchanged and is still the game's circuit. A station's name, circuit, jack and label are now in one place, which is where the script's author already looks.
+
+— Trunks are not in script.yml, so trunk circuit n is on trunk jack n, fixed, for n = 1–8, as Mark cables them. Trunk jacks 9 and 10 carry nothing, and no trunk jack has a label. Rev 5's `wiring.yml` allowed trunk labels, and labels on station jacks with nothing cabled. Neither is carried forward: a jack that no station entry names is drawn as an empty outline.
+
+— The checks at load follow (§6.3), and they belong in the one script.yml loader that the TTS task and the game program share (`tts_task.md` §3.1). Code consequence for Claude Code: the loader checks `switchboard:` and `label:` as well. `mqtt.md` Rev 14 corrects the `board/` rows, which said the map came from `wiring.yml`. No topic changes.
+
+## 11.6 Changes in Rev 6
+— The audience loudspeaker follows the calls (§6.4). Mark's decision, 2026-09-24. Until now the loudspeaker carried the operator tap alone (audio.md §10). The operator leaves a call when she throws the ring key to ring the called party, and does not come back to it, so the audience heard each request and then nothing of the conversation written for it. The game program now points the monitor at the calling line of the call the operator most recently answered, with `audio/monitor/source/set` (audio.md Rev 8 §10.3, mqtt.md Rev 13). That line's receive channel carries the caller, the operator while she is on the line, and the called party once the cord is up.
+
+— The switch is made when the operator answers the new call, not when the call starts. Mark's first proposal was the start of the call. There is nothing on the calling line until the operator answers: a calling station is off-hook and silent, and a calling trunk is ringing, which puts a relay click on its channel at every cadence edge (trunk §8.1.1). Switching at the answer also leaves the audience on the current conversation until the operator actually picks up the next caller.
+
+— The source goes back to the operator tap when a game starts and when it stops (§3).
+
+— The page shows the monitor's source in its health area (§7.1), and the log records each move (§6.2). One commissioning step (§9) and one open item (§10) are added.
+
+## 11.5 Changes in Rev 5
+— The page draws the switchboard as it is (§7.1): three rows of ten station jacks, numbered 1–30, over one row of ten trunk jacks. Each jack carries the label written on the board, such as `463` or `lobby`. Rev 1 to Rev 4 drew 22 station tiles and 8 trunk tiles in game circuit order, each named from script.yml. That order is not the board's order, and the operator never sees the circuit numbers.
+
+— A new file, `wiring.yml`, maps game circuits to switchboard jacks and gives each jack its label (§6.3). Mark wires the 22 station circuits to whichever of the 30 station jacks he chooses, and the 8 trunk circuits to trunk jacks 1–8. The game program is the only program that reads the file. It publishes the map to the broker for the page. The controller and the audio program keep working in circuit numbers and never see jacks. `mqtt.md` Rev 12 adds the `board/` topics and removes `station/<n>/name`, which the jack labels replace.
+
+— Tiles are simplified (§7.1). Mark expects the Rev 1 tile to be too crowded. A tile now shows the jack's label and number and one state at a time. Tapping it opens every topic for that jack's circuit. Rev 1 put all of them on the tile.
+
+— A wiring check is added to commissioning (§9): ring each jack from the switchboard, and the matching tile on the page should flash. It uses only existing topics.
+
+## 11.4 Changes in Rev 4
+— Next Call no longer carries a call number (§4.1), at Mark's request, because the game program keeps its own count. Rev 1 to Rev 3 had the page send one more than `started`, and the game program ignored anything else, so a resent command or a double tap started one call. Now a resent command cannot happen, because the command goes out at QoS 0. A double tap is prevented by the page disabling the button until the call starts. `mqtt.md` Rev 11 records `next/set` as the second event in the design.
+
+## 11.3 Changes in Rev 3
+— People are now checked as well as lines (§4.4). Rev 2 held back a scene only if one of its lines was busy. The script has the same person on different lines: Pike calls room service from room 214, takes the reporter's call in room 214, and calls a cab from the lobby. With only lines checked, `pike-taxi` could be dealt while he was on the phone in his room. A scene is now held back if any of its lines or any of its people (script.yml `person:` under `calling` and `called`) is busy.
+
+— Outside lines count as lines, as Mark decided. Rev 2 said "lines" without saying whether that meant outside names or only stations. Two calls to Sunny Hill Pizza now cannot overlap. The `operator` outside line counts like any other.
+
+— An `after:` scene whose lines or people are busy when its delay runs out waits until they are free, then starts. Rev 2 reserved its lines only from when it was scheduled. A call already in progress at that moment could still be holding one of them.
+
+## 11.2 Changes in Rev 2
+— Which scene comes next (§4.4). Rev 1 said scenes are drawn at random, following script.yml's "Order" comment, and did not say how. An independent draw per call can repeat a scene while others have not been played. Mark wants every scene played before any repeats, in a random order. At game start the game program now shuffles every scene without `after:` into a list, the deck, and deals from it. When the deck runs out it is reshuffled, so a long game does not run out of calls. The deck is internal to the game program. The page is not told the order and does not need it, so `mqtt.md` does not change.
+
+— A scene that cannot be dealt because one of its lines is busy stays at its place in the deck, and the next dealable scene is taken instead. Rev 1 said only that such a scene "is not drawn", which with a deck would either lose it or stall the game behind it.
+
+— Two rules for `after:` scenes that the deck makes necessary. A line that a waiting `after:` scene will use counts as busy, so the deck does not deal a scene that would collide with a caller about to call back. And an `after:` scene follows only if the scene it follows was connected. Rev 1 started it whenever the earlier scene ended, which would have `nbn-trace` asking where a call came from when the call never reached the room.
+
+— The shuffle's seed and the dealt order go into the SQLite session log, so a game can be replayed at the bench.
+
+## 11.1 Changes in Rev 1
+— New document, 2026-09-24. Mark's requirements: start and stop the game; call rate either manual — a button on the page starts the next call — or automatic, the next call starting a set number of seconds after the operator has connected the current one; optionally a rate that rises over the game; tallies of calls handled, successes and failures; and a display of the state of everything, initially for Mark's own use at the bench.
+
+— Option B of the discussion that produced it: the page talks MQTT to Mosquitto over WebSockets, and Mosquitto serves the page's files from its `http_dir`. The alternative — an aiohttp server inside the game program pushing state over its own WebSocket — was less code in the browser but more on the host, and would have taken the display down with the game program.
+
+— Deferred at Mark's request: a new call arriving before the operator has connected the current one (§4.5).

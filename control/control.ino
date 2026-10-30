@@ -493,7 +493,7 @@ static void republishStep() {
   republish_row = (r + 1 < N_CIRCUITS) ? (int16_t)(r + 1) : -1;
 }
 
-/* ---- Loop timing (control.md 1.7 code consequence (a)) --------------------
+/* ---- Loop timing (control.md 12.7 code consequence (a)) --------------------
  * The 200Hz poll is only as good as the loop that runs it. Anything that holds
  * loop() - a burst of QoS 1 publishes each waiting for its PUBACK, a blocking
  * reconnect - stretches the gap between poll ticks, and every threshold in

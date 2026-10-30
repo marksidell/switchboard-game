@@ -203,7 +203,7 @@ bool Engine::prepare()
     // audio.md 10.2: the monitor is on at startup only if --monitor gives a
     // level. Started at its target rather than ramped to it - there is no
     // loudspeaker transient to avoid before the stream is running.
-    // audio.md Rev 9 1.9: a source the device does not capture is refused at
+    // audio.md Rev 9 17.9: a source the device does not capture is refused at
     // startup, as --monitor-ch already refuses an output channel it cannot
     // reach. Echoing a live line while the loudspeaker gets silence would look
     // like a quiet caller with nothing pointing at the fault.

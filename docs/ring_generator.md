@@ -2,7 +2,7 @@
 
 **Ring Generator Circuit Design**
 
-*Rev 76 — ESP32 PWM + 74HCT04 Level Translation and SD Buffer on 5V + IR2104PBF H-Bridge + IRLZ44NPBF MOSFETs + Antek AS-0522 Toroidal Transformer Driven from Its 44V Winding (OSD Black 70V Retired at Rev 48), Olimex ESP32-POE-ISO, PoE-Powered Controller, I²C Master on GPIO13/GPIO16 plus Hardware /RESET for Station and Trunk Boards via 6P6C, Common 24V Battery, 80V RMS 20Hz Output Filtered by C14 at the Winding and Split Across Two Terminals with the Switchboard Branch Fused, Ring Drive Monitor on J3, Operator Tone Moved to the Station Board, High-Frequency-Link Alternative Recorded in §9.7, Switchboard Power Cut Relay on GPIO15 (Off-Board), Optoisolated*
+*Rev 77. The changes in each revision are in §16.*
 
 # 1. Overview
 
@@ -13,354 +13,6 @@ A Traco TSR 1-24120 switching regulator (24V→12V, 1A) provides +12V VCC for th
 A master enable input on GPIO4 allows the ring generator output to be switched on or off — typically wired to a manual switch to GND. GPIO14 drives the IR2104 SD (shutdown) pins through gates 3 and 4 of the 74HCT04, cascaded as a non-inverting buffer, so SD sees a 5V logic high; a 10kΩ pull-down to GND at GPIO14 holds the H-bridge disabled at power-on.
 
 The 24V bus input is protected by a 500mA slow-blow fuse followed by a shunt Schottky reverse-polarity clamp — the fuse first, then the clamp, then the board. The fuse value is the same one the trunk board uses; the station boards fuse at 250mA, sized for their own smaller load. The 24V supply is a Mean Well LRS-150-24 shared across all boards with star wiring from the PSU terminals — see §6.
-
-## 1.1 Changes in Rev 14
-
-Rev 13 was reviewed against station Rev 3.5 and trunk Rev 5.1. The changes below are corrections and cross-document alignment; nothing in the H-bridge, transformer or waveform design has moved.
-
-— Corrected: I²C moves off GPIO17. On the ESP32-POE-ISO, GPIO17 clocks the Ethernet PHY and was never available. SDA is now GPIO13 and SCL is GPIO16 — see §3.1.
-
-— SD control moves from GPIO13 to GPIO14, which is what frees GPIO13 for SDA — see §6.
-
-— TVS2, a 3.3V rail-clamp array, added on SDA and SCL at J3. The master was the only node on the bus without one — see §4.6.
-
-— J1 (24V input) and J2 (ring output) added to the component list. Earlier revisions specified no connectors on this board at all, while the trunk board expected a ring bus feed from it — see §10.10.
-
-— The startup scan list is now driven by the configured station board count rather than hard-coded to four devices — see §4.5.
-
-— IR2104 input threshold against a 3.3V drive called out for verification, with the IRS2104PBF named as the drop-in if it proves marginal — see §8.6.
-
-— Fuse comparison corrected. 500mA here and on the trunk board, 250mA on the station boards; Rev 13 claimed all three matched.
-
-— Build state stated explicitly. Three station boards and 24 stations is the design capacity; two boards and 16 stations is the present build. The third board is a populated-later slot and changes nothing on this board but the scan list.
-
-## 1.2 Changes in Rev 15
-
-Rev 15 exists because the gate-drive logic threshold in Rev 14 was checked against the datasheet and did not survive it. The change is contained to the logic between the ESP32 and the IR2104 inputs; the H-bridge, transformer, waveform and I²C design are untouched.
-
-— Corrected: the IR2104 threshold figures. The datasheet specifies VIH at 3V minimum and VSD,TH+ at 3V minimum, both for VCC of 10V to 20V. Rev 13 and Rev 14 quoted an SD threshold of 2.1V maximum, which does not appear in the datasheet — see §8.6.
-
-— Rev 16: fuse and fuse holder part numbers specified. Earlier revisions named fuse values and never said what held them — see §10.1.
-
-— Rev 17: D1 changed from SS34 to 1N5822. Same function and forward drop; the SS34 has no through-hole package. Same change on all three board types.
-
-— Rev 18: TVS2 specified as the Littelfuse SP721APP. A rail clamp rather than a fixed-breakdown TVS, 3pF per line rather than the 1pF assumed, and through-hole — see §4.6. Same part on all three board types.
-
-— Rev 19 corrected: U_12V is the Traco TSR 1-24120, not the TSR 1-2412. The latter is a 1.2V part — the trailing zero carries the output voltage — and would have left the gate drivers below their undervoltage lockout. Specified wrongly since Rev 15; see §7.3.
-
-— Rev 20: hardware /RESET added on 6P6C positions 1 and 6, driven from GPIO5, reaching every MCP23017 in the chain. The pair was spare and the alternative use considered for it — distributing 3.3V to the other boards — was rejected because it would have put a supply return on the interleaved grounds and a live rail on a plug that fits an RJ45 telephone jack. Cords must now be six-conductor — see §4.7.
-
-— Rev 21: operator tone injector added as §15. A filtered 9000Hz square wave from GPIO15, transformer-coupled into the operator's talking path at bin 768, so the game can tell which circuit the operator is patched to. Independent of ring generation; adds three new passive values to the BOM.
-
-— Rev 22 corrected: the injector is built entirely on the generator board, not split with T3 at the switchboard as Rev 21 specified. T3's position decides which side of the isolation barrier the cable falls on, and Rev 21 put it on the side connected to the GPIO — see §15.5.
-
-— Rev 23: 10µF added on the 12V output as C_12V_BULK. The rail had 100nF of decoupling and no reservoir between gate-drive pulses — see §7.5. The TSR 1 input capacitor was checked and is already correctly specified.
-
-— Rev 24: J2 is the same 2-pin screw terminal as J1 rather than a separately specified 250V part, matching trunk Rev 5.17 J6. One connector type across both boards; the creepage and separation rules for the ring output are unchanged — see §10.10.
-
-— Rev 25 corrects Rev 24. The terminals on hand are the OSTTE020104 at 3.50mm and 125V, below the 141V peak of the ring output. J2 reverts to a separate part, the OSTTC020162 at 5.00mm and 300V, matching trunk Rev 5.18 J6. J1 keeps the OSTTE020104.
-
-— Rev 26: D1 moves from series to a shunt clamp across +24V and GND, matching station Rev 3.20 and trunk Rev 5.19. Blows F1 on a reversed supply rather than blocking, and costs no forward drop — see §7.2.
-
-— Rev 27: the operator tone injector is removed from this board. The tone is now generated by the host as an ordinary A32 output stream on the operator tap strip of station board 1 — station §7.9 — which also returns the operator’s audio for the audience monitor. GPIO15, T3, the two-pole RC filter, the 22kΩ pair and the coupling capacitors all come out of this build. §15 is retained as a record of what was there and why it moved.
-
-— Rev 28: the ring bus is split into two separately terminated branches. J2 continues to feed the trunk board's J6; a new J6 on this board feeds the switchboard's ring supply. Rev 24 through Rev 27 had both branches landing under J2's two screws. The OSTTC020162 takes one 14–22 AWG conductor per position, so that was outside the block's specification, and it also meant neither branch could be isolated for fault-finding without unwiring the other. Two terminals cost one part — see §10.10.
-
-— Rev 28: F2 added, a 250mA fast-acting fuse in series with RING_HI ahead of J6 only. The trunk branch is protected at its far end by the trunk board's own F2, and a second fuse in series with it would add a failure point without adding protection. The switchboard branch had no fuse at either end and is the longer and more exposed of the two runs. The value follows the trunk board's part rather than being calculated, and is provisional pending the ring current measurement trunk §7.6 asks for — see §7.6 here.
-
-— Rev 28: the switchboard's 24V does not pass through this board, and §7.1 now says so rather than leaving it to be inferred. It was proposed as three pairs of a Cat5e run sharing an RJ45 with the ring pair, and rejected on two grounds. This board already carries the Olimex's PoE RJ45, so a second RJ45 with 141V peak on it would sit beside a jack that goes to a switch port, with nothing to stop either cable entering the wrong one — unlike the 6P6C case in §4.1, that hazard runs both ways. And F1 is 500mA, sized for this board's own consumption, so 1A of switchboard load through J1 was never available without re-fusing at a value that defeats what F1 is there for. The switchboard now takes its own leg of the star from the PSU terminals on Anderson Powerpole connectors.
-
-— Rev 28: designator note. The new terminal is J6 rather than the next free J5. J5 means the black OSTTE020104 24V input block on both the station and the trunk boards, and a blue 300V ring terminal at J5 on this board alone would invert that meaning on one board out of three — the case §13 already worries about. J6 already means ring bus on the trunk board. J5 is deliberately left unused here. If KiCad renumbers on annotation the constraint is not the specific number: it is that the two blue ring terminals stay distinct from the black 24V input, on the silkscreen as well as in the netlist.
-
-— Rev 29: §10 component list, F1. Rev 26 through Rev 28 described F1 as "Series after D1, first component on the +24V input" — two statements that cannot both be true, and the first of them wrong since Rev 26. The entry was correct while D1 was in series; Rev 26 moved D1 to a shunt clamp and did not revisit the table. The order is the whole mechanism. With D1 upstream of the fuse, a reversed supply puts the clamp directly across the LRS-150-24 with no fuse in the fault path: F1 carries only the board’s own load current and never opens, and the 1N5822 conducts 6.5A until it fails. F1 is upstream — J1, F1, then the clamp, as §7.2 and §13 have said throughout.
-
-— Rev 29: §11 netlist, +24V_F deleted. It was the node between D1 and F1 in the series arrangement and has no counterpart in a shunt clamp, where nothing sits between them. Left in place it lists D1 cathode, already on +24V_SW, together with F1 pin1, already on +24V_IN — so the net bridges those two and shorts across the fuse. Drawn as written, F1 would have protected nothing.
-
-— Rev 29: §1 overview. Still called D1 a series Schottky diode, three revisions after it stopped being one.
-
-— Rev 29: all three are Rev 26 leftovers, and all three are in the summary and table sections rather than the design sections. §7.2 and §13 were right the whole time. This is the trunk §13 J3 failure again: a correction that landed where the reasoning lives and left the tables describing the old design.
-
-— The consequence: at a 3.3V drive both IN and SD had about 0.3V of margin against a guaranteed minimum, not the comfortable margin Rev 14 claimed for SD and flagged only as a question for IN.
-
-— 74HC02 becomes 74HCT02, running from 5V. TTL input thresholds (VIH 2.0V) take the 3.3V GPIO drive; the 5V output gives the IR2104 inputs about 2V of margin — see §5.
-
-— 5V comes from the Olimex EXT1 pin 1. The load is a milliamp or two against the ISO board's 2W budget — see §7.4.
-
-— SD is no longer driven directly from GPIO14. It goes through gates 3 and 4 of the 74HCT02 as a non-inverting buffer. Those two gates were previously unused with their inputs tied to GND — see §6.
-
-— The IRS2104PBF substitution proposed in Rev 14 §8.6 is withdrawn. It was a workaround for 3.3V drive and is not needed at 5V.
-
-— Rev 30: §6.1 and §6.2 duty polarity corrected. Both said to configure and to park the LEDC channels at 0 duty, and had said so since the channels were first specified. On an active-low drive that is the wrong end of the range. Duty 0 holds GPIO32 low, which is IN1 high and Q1 on; GPIO33 low then gives IN2 = GPIO32 AND /GPIO33 = low, which is Q4 on. Q1 and Q4 together put the full rail across the 0.63Ω primary as DC. It never fired, because SD is low at both of those moments, but §5.3 claims the bridge is off by two independent mechanisms and at 0 duty it was off by one. The park value is full scale — both pins high, both IR2104 IN pins low — which is also the boot state §5.3 describes. §12.3 now states the rule rather than leaving it to be derived from the truth table.
-
-— Rev 30: R_PWMA_PU and R_PWMB_PU added, 10kΩ each from GPIO32 and GPIO33 to +3.3V. §5.3 asserted from Rev 5 to Rev 29 that those two pins default high on boot, and nothing was fitted to make it true. GPIO32 and GPIO33 have no internal pull at reset, so both 74HCT02 inputs floated through the bootloader window and a floating HCT input can drive Gate 1 either way. This is the §5.3 half of the same defect as the bullet above, and it is the case the index calls a part named in prose that is not a part — except that here even the prose was wrong. The generator PCB is not laid out, so the two resistors cost nothing but the BOM line. BOM 10kΩ 1/4W generator column 1 → 3, total 42 → 44, no procurement impact against 50 on order.
-
-— Rev 30: §12.2 records what is actually built. The end-of-period interrupt on CH0 remains the ideal source and is still described as such, but the firmware uses a 200 µs periodic esp_timer, because reaching the LEDC overflow interrupt from the Arduino IDE means writing LEDC.int_ena directly and those register struct names move between IDF versions. The jitter earlier revisions warned about does not arise: LEDC latches duty at the next carrier period boundary, so an arbitrary write instant still lands on a period edge. Recorded because otherwise the document and the firmware disagree about something a reader would have no way to check.
-
-— Rev 30: §7 renumbering. There were two §7.5 headings — Rail Capacitors and Bulk Decoupling — and the first of them sat between §7.3 and §7.4. Rail Capacitors moves to the end of §7 as §7.7. Renumbering the later headings instead would have been tidier in sequence but would have broken every existing cross-reference to §7.4 and §7.6, including two in the component list and one in the Rev 28 change entries. Nothing in the text moved.
-
-— Rev 30: §7.4 was checked while writing the §5.3 note and is right. With PoE absent and the 24V bus live, the 74HCT02 loses its +5V, the Gate 4 output collapses, and SD is not held high. The new pull-ups do not cover that case — they run from the same Olimex +3.3V — and they do not need to.
-
-— Rev 30: a fourth Rev 26 leftover, missed at Rev 29. §7.7 described the TSR 1 as sitting at the end of a fused, diode-dropped rail. There has been no series diode since Rev 26 and so no drop; the rail is fused only. Rev 29 corrected the three occurrences that named D1 and did not catch this one, which describes the consequence of the old topology without naming the part. Grepping for the designator was not enough.
-
-— Rev 31: the 74HCT02 is no longer described as a shoot-through interlock. Rev 5 through Rev 30 called gates 1 and 2 an interlock in §1, §5, §10.4 and the document title, and §14 listed them as a continuous hardware guarantee against H-bridge shoot-through. They cannot be. Each IR2104 derives HO and LO from a single IN pin, complementary, with 520ns of internal deadtime, so no state of the gates can turn both devices in a leg on together — that protection is inside the driver, upstream of anything the 74HCT02 reaches. The gates exist for level translation: 3.3V into TTL thresholds, 5V out to a 3V IR2104 input, which is the argument §5 already made at length and which is load-bearing. The interlock is a property of the topology, not a reason for it.
-
-— Rev 31: what the topology does forbid is IN1 and IN2 both high, which is Q1 and Q2 — both high sides, both ends of the primary at +24V, no path to ground. A zero vector, not a fault. §5.2 keeps the constraint but no longer presents it as a safety mechanism.
-
-— Rev 31: §5.2 truth table, last row relabelled. It read "both inhibited — safe state" from Rev 5. Safe is right; inhibited is not. IN1 and IN2 both low puts Q3 and Q4 on, so both drivers are actively holding their leg at ground rather than being inhibited — inhibiting is what SD does. The distinction matters because this row is the park state §6.1 and §6.2 use and the boot state §5.3 relies on, and it is the only one of the four in which the bridge is genuinely off. The table itself was correct throughout; only the label was wrong.
-
-— Rev 31: BOM row 5 follows, "shoot-through interlock" → level translation. The part number, quantity and every electrical figure are unchanged; this revision corrects what the part is for, not what it is.
-
-— Rev 32: J7 and J8 added, and T1 is off-board. The document specified a transformer and never said how it attached; §10.9 gave it one line and §11 wired SW_L, SW_R, RING_HI and RING_LO straight to the winding as though the part sat on the board. It does not — the OSD Black is a distribution transformer with flying leads and no board-mount pattern. J7 takes the primary pair, J8 the 20W secondary pair. Found while writing ring_generator_schematic_guide.md, which could not name a symbol or a footprint for T1 because neither should exist.
-
-— Rev 32: J7 is the black 3.50mm OSTTE020104 and J8 the blue 5.00mm OSTTC020162, deliberately not the same part. Nothing on the primary leaves the 0 to 24V range, so the 125V block is ample there; the secondary is 141V peak and the 125V block is below its rating entirely, as J2 and J6 already record. The colour convention holds — black low-voltage, blue in the ring zone. What it does not do is key anything: these are wire-clamp blocks and any wire fits any block, so the real protection is separation and silkscreen. §9 and §13 say which swap is the destructive one and why the labels matter.
-
-— Rev 32: §10.2 gains C_12V_BULK. It has existed since Rev 23, is in the §11 netlist on +12V_VCC, is asked for in §7.7, and is counted on the generator column of the BOM — and was in every one of those places except the component list, which is where anyone drawing from §10 would look. §10.2 listed four parts where there are five. Same defect as R17 on the station board and R_RST on the trunk board, found the same way and at the same stage: writing the drawing guide. No design change and no BOM change; the count was already right.
-
-— Rev 32: §10.10 J1 value corrected, 300V → 3.50mm, 125V. The part is the OSTTE020104 and always was — J2’s own note says so two rows below, and the BOM says so. Only the value cell was wrong, and 125V is entirely adequate at 24V. It mattered because the value column is what gets copied onto a schematic symbol.
-
-— Rev 32: §11 gate resistor nets split. Each of the four read, for example, "IC1 pin7 (HO), R_G1 pin1 / R_G1 pin2, Q1 gate" — both pins of the resistor on one net, which is a short across it. A gate resistor is in series and nobody would draw it otherwise, so this was unlikely to reach copper; but §11 exists to be checked against a finished schematic and a netlist that shorts four parts cannot do that job. Now eight nets: HO_L, HO_R, LO_L, LO_R on the driver side, Q1_GATE through Q4_GATE on the gate side.
-
-— Rev 33: the IR2104 pinout was wrong and is corrected in §8.2 and in all seventeen IC1 and IC2 references in the §11 netlist. The datasheet order is 1 VCC, 2 IN, 3 /SD, 4 COM, 5 LO, 6 VS, 7 HO, 8 VB. §8.2 had 1 VB, 2 HO, 3 VS, 4 VCC, 5 LO, 6 COM, 7 IN, 8 SD — seven of eight pins wrong, with only LO on pin 5 right by coincidence. It has been wrong since §8.2 was written and every revision since has copied it forward.
-
-— Rev 33: what this would have cost. Nothing in the design changes — the connections were always correct, only the pin numbers naming them were not. But a schematic drawn from Rev 32 against a correct KiCad symbol would have put +12V on COM, ground on VS, the bootstrap capacitor on HO and the gate drive on VB, on both drivers. That is not a board that misbehaves; it is a board that destroys itself at power-on, and there is no bench symptom beforehand because the error is upstream of anything measurable. The one thing that would have caught it is the thing that did: reading the pin list against the datasheet rather than against the previous revision.
-
-— Rev 33: §3.1’s warning about the Olimex pin numbers should be read as covering every pinout in this document, not just that one. The Olimex was singled out because it is a module rather than a catalogue part, but the IR2104 is a catalogue part with a datasheet and it was the one that was wrong. Check the IRLZ44N, the 74HCT02, the SP721 and the TSR 1-24120 against their datasheets before the netlist is trusted — none of them has been verified that way, and this document is no longer evidence that they are right.
-
-— Rev 34: C_TVS2 added, 100nF across TVS2 pins 8 and 4 at the device. TVS2 has been on this board since Rev 8 with no bypass, and the SP721 datasheet asks for one. The mechanism matters more than the note: the SP721 does not shunt to ground, it conducts the transient from the IN pin into V+. That current has to be sourced locally or V+ lifts during the event, which both degrades the clamp and injects the transient into the +3.3V rail the Olimex and the expanders sit on. §4.6 deliberately places TVS2 at J3 and away from everything else, so there was nothing nearby to supply it — and on this board, unlike the trunk and station boards, there is no local +3.3V decoupling anywhere, since the rail arrives from the Olimex header rather than from an on-board LDO. Found by reading the datasheet to verify the pinout, which was correct.
-
-— Rev 34: only the V+ side is bypassed, and no series resistor is fitted. The datasheet note asks for bypass on both V+ and V− and for a series resistor in the supply feed. V− is pin 4 and goes straight to GND here, so bypassing it to ground is a zero-length connection and there is nothing to add. The series resistor belongs to the automotive load-dump and reverse-battery case the note is written for; nothing on this board sees a reverse battery, and series resistance in the V+ feed would raise the clamp’s dynamic impedance, which is the opposite of the intent. Recorded because a later reader comparing the board against the datasheet will otherwise see two omissions rather than two decisions.
-
-— Rev 34: the SP721 pinout is confirmed correct against the Littelfuse datasheet, revision GD 07/10/24 — IN on 1–3 and 5–7, V− on 4, V+ on 8. §11 assigns SDA to pin 1, SCL to pin 2 and /RESET to pin 3, all valid inputs, with the three remaining inputs open. No change. Noted so the check is on the record and does not have to be repeated.
-
-— Rev 35: the TSR 1-24120 input range is 15 to 36V, not 4.6 to 36V. §7.3 and §12.5 both carried the wider figure from Rev 19 onward. 4.6V is the minimum for the 9V-nominal members of the series — the 1.2V, 1.5V, 1.8V and 2.5V parts — and each output voltage in the family has its own input minimum; the 12V part needs 15V in. The error came from reading the series header rather than the row. Nothing in the design changes: the LRS-150-24 adjusts over roughly 21.6 to 28.8V and 15V is still well below it. What changes is the size of the margin, from an implied 17V to an actual 6.6V, and any future argument about how far the 24V rail may sag now has to start from the right number. §12.5’s shunt-clamp reasoning is unaffected — 0.4V off a 24V rail is nowhere near either figure — but the sentence said something false and is corrected.
-
-— Rev 36: the IR2104 pinout is verified against IR PD60046-S, lead assignments for the 8-lead PDIP — 1 VCC, 2 IN, 3 /SD, 4 COM, 5 LO, 6 VS, 7 HO, 8 VB. §8.2 and §11 have been right since Rev 33, but that correction stood on a reading rather than on the drawing, and this was the last of the five pinouts the boards depend on to be checked. The other four — IRLZ44N, 74HCT02, SP721 and TSR 1-24120 — were all correct as drawn. The IR2104 was the only one that was ever wrong, and it was wrong for the whole life of §8.2.
-
-— Rev 36: §8.3 gains the VBS margin. C_BOOT charges to VCC less the UF4007 drop, about 11V nominal and roughly 10.8V at the low end of the TSR’s ±2%, against a recommended VB of VS+10 to VS+20. At g_amplitude = 1.00 three consecutive steps reach 100% duty and the high side conducts for 600µs unbroken, dropping a further 0.33V at the 55µA IQBS maximum — worst case about 10.4V, a few hundred millivolts of headroom rather than volts. It is not a constraint: VS+10 is a recommended condition and the IR2104 has no VBS undervoltage lockout, only VCC, and the IRLZ44N is fully enhanced at VGS = 5V. Recorded because it is the number that decides whether g_amplitude can be raised toward 1.00, or a diode with a larger forward drop substituted, and nothing in the document said so.
-
-— Rev 36: the deadtime figure is qualified. §5 gave 520ns as though it were the specification; it is the typical, with a 400ns minimum and 650ns maximum. Nothing in the argument depends on the value — the point is that the deadtime is internal to the IR2104 and unreachable from outside — but a typical quoted as a spec is the kind of number that gets used in a later calculation as though it were guaranteed.
-
-— Rev 37: §6.1 still said GPIO32 and GPIO33 default high. Rev 30 established that they do not — neither pin has an internal pull at reset — and fitted R_PWMA_PU and R_PWMB_PU to make the claim true. §5.3 was corrected then and §6.1’s power-on bullet was not, so the document has carried both the correction and the original assertion for seven revisions. Found by a reader asking whether the SD chain was right, which it was.
-
-— Rev 37: SD is described in levels rather than states. LOW is shutdown, HIGH is enabled. "SD asserted" appeared in §5.3 and §10.4 and is correct — SD is the shutdown signal, so asserting it drives the pin down — but it reads backwards at a glance, and §7.4 already used the clearer form. Mixing the two in a document whose safety sections get scanned rather than parsed is how the failsafe gets inverted by someone reimplementing it. Same class of correction as §5.2’s "both inhibited" label at Rev 31: the substance was right and the word was wrong.
-
-— Rev 37: R_SD_PD2 added, 10kΩ from the SD net to GND. R_SD_PD is on the GPIO14 side of the buffer and only holds shutdown while the 74HCT02 is powered. The uncovered case is PoE absent with the 24V bus live: the TSR keeps +12V up and both IR2104s alive while the gate has no supply, leaving SD to whatever an unpowered CMOS output settles at. §7.4 has argued since Rev 12 that this is near 0V and it is very likely right, but the argument rests on output-stage parasitics rather than on a specified behaviour, and this is the one signal on the board where being nearly certain is not the standard. One resistor makes it deterministic. It also covers what the Rev 30 pull-ups cannot, since R_PWMA_PU and R_PWMB_PU run from the same dead +3.3V rail.
-
-— Rev 37: why the double inversion is not decorative, now stated in §5. Gate 3 inverts and Gate 4 inverts back, so GPIO14 low gives SD low and the bridge off. A single gate would put SD high when GPIO14 is low, which is what R_SD_PD does at power-on — the pull-down would then enable both drivers instead of disabling them. The buffer is what makes the pull-down mean shutdown, and neither part is optional.
-
-— Rev 38: §9.3 is not a leakage measurement and is retitled. It carried the heading Measured Leakage Inductance from Rev 9, and §8.5 cited the 14.6mH as leakage to justify the snubber. Leakage is measured with the opposite winding shorted; 508mH at the 20W tap referred to primary is 508 / 5.89² = 14.6mH exactly, which is what an open-circuit measurement gives — magnetizing inductance. Only leakage governs the snubber, so the figure the design leaned on was the wrong quantity. Leakage is now an open measurement item.
-
-— Rev 38: the snubber components are unchanged in value and are probably right, but for a reason the document did not give. R = √(L/C) with 10nF and 100Ω implies 100µH of leakage, ringing near 159kHz, sensibly above the 40kHz carrier. At the 14.6mH previously quoted the ring would be near 13kHz — below the carrier — and R would want to be about 4.3kΩ. §8.5 now derives the values instead of asserting them, and says plainly that the 100µH is inferred from the parts rather than measured.
-
-— Rev 38: R_SNB becomes a 100Ω 1W part. Dissipation is C·V²·f = 10nF × 24² × 40kHz = 230mW, and Rev 5 through Rev 37 specified 1/4W with a note to uprate it if it ran warm. 230mW in a 250mW resistor is 92% of rating; that is not a margin and the note read as though it were optional. The 1W MFR-100 is already on the BOM for trunk R1, so this costs a footprint change from DIN0207 to DIN0414 and nothing else — no new line item, no additional order.
-
-— Rev 38: C_SNB is 10nF 250V film, not 100V ceramic. §8.5 and §10.8 said ceramic from Rev 5; the BOM and the KiCad library plan have carried the Kemet R82 film part under the correct DigiKey number throughout, so only the design document was wrong. The voltage was never the problem — 100V is adequate against a 48V peak — but an X7R loses capacitance under DC bias and handles repetitive pulse current poorly, which is the entire job of a snubber capacitor.
-
-— Rev 39: §12.2 now says where its four constants come from. The constraint 20 = 40000 / (8 × 250) has been recorded since Rev 12 with no account of why those factors and not others, which is the kind of thing that gets re-derived from scratch in two years or, worse, changed without noticing what depends on it. Two of the four are forced — 20 Hz from outside, 10-bit resolution from the 80 MHz LEDC clock against a 40 kHz period. The remaining two are one decision, since their product must be 2000; 250 steps is the choice and the 200 µs step period follows.
-
-— Rev 39: the section is explicit that this is reconstruction, not recovery. It was worked out from the constraint during a conversation about how the firmware runs, not recovered from whatever was decided at Rev 12. The distinction is worth preserving — a plausible reconstruction presented as a record is worse than no record, because nobody thinks to question it.
-
-— Rev 39: one thing is flagged as genuinely lost — why the carrier is 40 kHz specifically. Above T1’s 20 kHz passband, above audibility, and low enough to leave 10-bit LEDC resolution intact are all good reasons and none of them is written down anywhere. §12.2 says so rather than inventing one.
-
-— Rev 39: §12.2 also now points at §8.3 for anyone revisiting SINE_STEPS. The step count looks like a pure software choice and is not: at g_amplitude = 1.00 three consecutive steps reach 100% duty, so the step period sets the 600 µs window of unbroken high-side conduction that the bootstrap droop is calculated against.
-
-— Rev 35: TSR 1-24120 pinout verified against the Traco datasheet of 2 July 2026 — 1 +Vin, 2 GND, 3 +Vout, SIP-3, 2 × 2.54mm pin pitch. §11 already had it right. This was the last of the two outstanding pinout checks the Rev 33 entry listed; only the IR2104’s own package drawing remains unseen, and its pin list stands on the user’s reading rather than on the document.
-
-— Rev 35: maximum output capacitance for the TSR 1 is 470µF, recorded in §7.3. This rail carries 100nF plus 10µF, so there is no constraint here and the rail can be added to freely. This does not settle the equivalent question for the TSR 2-2450 on the station and trunk boards against their 220µF — different part, different datasheet, still open.
-
-— Rev 35: §13 gains a layout note — route no traces under the converter. The datasheet asks for it explicitly. It matters more here than it would on a quieter board: this is a 500kHz buck in an unshielded plastic case, and the same board carries the I²C bus and the ring output.
-— Rev 40: the interlock is removed. Gate 2 input A moves from Gate 1’s output to GPIO33, so all four NOR gates become plain inverters and IN2 = /GPIO33. The cross-coupling dated from Rev 5, when it was believed to prevent both MOSFETs of one leg conducting together. It never could: the IR2104 derives HO and LO from a single IN pin with internal deadtime, so that state is unreachable from outside the driver. Rev 31 established this and corrected what the gates were called — the section heading, §14, the BOM description — but left the topology in place. Renaming a thing is not re-examining it.
-
-— Rev 40: what the cross-coupling actually cost. It forbade IN1 = IN2 = high, which is Q1 and Q2 — both ends of the primary at the rail, no path to ground, harmless. In exchange it put the dangerous state where an unprogrammed GPIO lands: both pins low gave Q1 and Q4, the full rail across a 0.63Ω primary as DC. That is the condition R_PWMA_PU and R_PWMB_PU were fitted for at Rev 30 and the one §6.1 and §6.2 walked into from Rev 5 to Rev 29. With the change, both pins low is the zero vector and the topology fails safe by itself. The pull-ups and the full-scale park value stay; they are now redundancy rather than the only defence.
-
-— Rev 40: nothing else moves. Same part, same gate count, same DIP-14, same firmware. Both PWM pins remain active LOW, the park value remains DUTY_MAX, the duty tables are unchanged — GPIO33 is held high through the positive half-cycle, which gave IN2 low before and gives IN2 low now. One net changes in §11: U4 pin5 leaves the IN1 net and joins GPIO33. The change also decouples the two channels, which the old arrangement did not: a glitch on GPIO32 propagated into IN2.
-
-— Rev 40: §8.6 corrected. It said the margin at a 3.3V drive was about 0.3V. The ESP32-WROOM VOH minimum is 0.8 × VDD, or 2.64V at a 3.3V rail, against the IR2104’s 3.0V VIH minimum — a margin of −0.36V. Direct drive is outside specification, not near its edge, and the section had been understating its own case since Rev 16.
-
-— Rev 40: the IRS2104 is closed on package, not on electrics. It is the correct answer to direct 3.3V drive and would delete the 74HCT02, C_U4, the +5V net and R_SD_PD2. It is surface-mount only, and this is a through-hole board whose §13 asks for the shortest gate drive loop the layout allows. Recorded in §8.6 because the electrical argument alone would invite the substitution a third time.
-
-— Rev 41: §5.3 sharpened. Its account of why R_PWMA_PU and R_PWMB_PU are fitted was written at Rev 30, when the cross-coupled gates meant a floating GPIO32 alone could put IN1 either way. With the interlock gone the case is stronger, not weaker: both gates float independently, and two of the four resulting states — IN1 high with IN2 low, or IN1 low with IN2 high — are the full rail standing across the primary. The section had been describing a one-gate problem after it became a two-gate one.
-
-— Rev 41: the two changes are recorded as addressing different failures. Rev 40 made both pins driven low safe; the pull-ups make both pins undriven determinate. Floating is not low, so one does not substitute for the other, and a reader who assumes the Rev 40 topology change makes the pull-ups redundant would be wrong. That inference is available enough that the document should close it off.
-
-— Rev 41: §5.3 now cites the two reasons that hold whatever the bridge is doing. TI SCLS065G §5.2 note 1 requires unused inputs to sit at VCC or GND and §9.1 forbids leaving inputs floating; and a floating HCT input holds both output transistors partly on, drawing supply current and liable to oscillate, for the whole bootloader window on every boot. Neither is about the H-bridge, and both would justify the resistors on their own.
-
-— Rev 42: GPIO15 takes a waveform sync output, new §12.5. High at step 0, low at step 125, giving one 20 Hz square wave per output cycle with the rising edge at phase zero. It is for bench work: triggering a scope or the Analog Discovery at a known point so the switching node, the gate drive and the secondary can be viewed against one reference. §3.2 gains the assignment, which it did not have — GPIO15 was listed there as free since Rev 27 and the section already warned that the list needs to be complete to be trusted.
-
-— Rev 42: the sync writes levels rather than toggling. A toggle that misses a tick stays inverted for as long as the generator runs, which on a trigger signal means every subsequent capture is half a cycle out with nothing to show it. Writing the level re-asserts twice per cycle, so a lost tick costs one edge and not the polarity. The pin idles low when the generator is stopped, so no trigger means the bridge is genuinely idle rather than the sync having failed.
-
-— Rev 42: GPIO15 is a strapping pin and firmware treats it as one. It must be high when the ROM bootloader samples it, and low at reset also silences the boot log, so the pin is left as an input until setup() runs and claimed only then. §3.2 has carried that warning since Rev 27; this is the first assignment to test it.
-
-— Rev 42: recorded as a debug output that nothing depends on. If GPIO15 is later wanted for a function the system needs, the sync is what goes. Worth stating because a signal that appears in §3.2 and §12.5 looks like part of the design, and this one is a test point.
-
-— Rev 43: J9 added, a 3-pin 0.1 inch header carrying GPIO4, GND and GPIO15. A shunt across pins 1 and 2 pulls the master enable low and the generator runs; pin 3 carries the §12.5 sync with its return on pin 2. GND is in the middle on purpose — the enable shunt is fitted once and the probe is used constantly, so the probe gets the short ground return, and a shunt fitted wrongly across 2 and 3 merely grounds a push-pull output.
-
-— Rev 43: this replaces a 2-pin enable header that existed on the schematic and in neither this document nor the BOM. §3.2 has described GPIO4 as a master enable since Rev 8 and §11 listed the net with a single node, the Olimex pin; ring_generator_schematic_guide.md called it out as a net that goes nowhere and asked for a text note saying what grounds it. The part was real and undocumented, which is the reverse of the usual failure here and just as easy to miss — nothing in the document contradicted it, so nothing flagged it.
-
-— Rev 43: the BOM gains two rows that were never there — the header itself and a 2.54mm shunt. The master enable had been described in prose since Rev 8 with no part counted against it, which is the defect the index calls a part named in prose is not a part. §11 also gains a GPIO15 net, which did not exist at Rev 42 because the pin went only to the Olimex.
-
-— Rev 44: the 74HCT02 becomes a 74HCT04 hex inverter, SN74HCT04N, and each signal is routed through two gates instead of one. Same DIP-14, same footprint, same HCT thresholds, same +5V rail; different symbol, different pin numbers, ten on order unaffected because none had arrived. Once Rev 40 removed the cross-coupling, all four NOR gates were inverters written the long way — two inputs tied where one would do. Six inverters carry three signals with no tied pairs to leave half-connected.
-
-— Rev 44: the point of two gates per signal is polarity. One inversion gives the active-low drive the board has had since Rev 5, and active low is the origin of every polarity defect in this document: parking LEDC at 0 duty then means IN1 high with IN2 low, which is Q1 and Q4 and the full rail across a 0.63Ω primary as DC. §6.1 and §6.2 specified that from Rev 5 to Rev 29. Two inversions give active high, so LEDC’s own power-on state of 0 duty is IN1 = IN2 = low — Q3 and Q4, primary shorted to ground. The trap is removed rather than defended against. Cost is about 20ns of propagation delay against a 25µs carrier period.
-
-— Rev 44: R_PWMA_PU and R_PWMB_PU become R_PWMA_PD and R_PWMB_PD, same 10kΩ, to GND rather than +3.3V. This is an improvement beyond the rename: the pull-ups ran from the Olimex +3.3V and were therefore unpowered in exactly the PoE-absent case §7.4 describes, where the 24V bus is live and both drivers are alive. A pull-down to ground needs no rail. §5.3’s floating-input argument is unchanged, because it was never about which rail the resistors pulled to.
-
-— Rev 44: §12.3 inverts and §5.2’s truth table inverts with it — both columns, which is the whole effect of the change. The firmware writes duty directly instead of complementing it, and parks at 0 instead of full scale. ring/ring.ino is updated to match; the waveform is unchanged at 48Vpp and 16.97 Vrms, since only the encoding moved.
-
-— Rev 44: §11 gains PWMA_MID and PWMB_MID, the nets between the first and second inverter of each PWM path. They exist for the same reason SD_N does. An earlier draft of this revision put each gate’s input and output on one net, which shorts the second inverter — the same defect Rev 32 corrected in the gate resistor nets, made again while writing the revision that cites it. Caught by counting U4 pin occurrences: every pin must appear on exactly one net, and pins 3 and 9 appeared on none.
-
-— Rev 44: the 74HCT04 pinout used in §5.1 and §11 — 1A 1, 1Y 2, 2A 3, 2Y 4, 3A 5, 3Y 6, GND 7, 4Y 8, 4A 9, 5Y 10, 5A 11, 6Y 12, 6A 13, VCC 14 — is the classic 7404 arrangement and has NOT been verified against the SN74HCT04N datasheet. It is the one thing in this revision standing on convention rather than a drawing, which is exactly how the IR2104 pinout was wrong for the whole life of §8.2. Check it before drawing the schematic.
-
-— Rev 45: the 74HCT04 pinout is verified against TI SCLS042F §4 — 1A 1, 1Y 2, 2A 3, 2Y 4, 3A 5, 3Y 6, GND 7, 4Y 8, 4A 9, 5Y 10, 5A 11, 6Y 12, 6A 13, VCC 14, which is what Rev 44 used. It was the one thing in that revision standing on convention rather than a drawing, and it happens to be the same convention the 7402 breaks. Checking it cost nothing and the alternative was finding out during bring-up.
-
-— Rev 45: the propagation delay figure is corrected. Rev 44 said the double inversion costs about 20ns; SCLS042F gives 13ns typical and 23ns maximum per gate at 5.5V, so the pair costs 26ns typical and 46ns maximum. Still a fifth of one percent of the carrier period and it changes nothing, but 20ns was a guess presented as a number.
-
-— Rev 45: SN74HCT04N is NRND — Not Recommended for New Designs — in the PDIP package, per the SCLS042F package addendum. So is the SN74HCT02N it replaces, so this is not a reason to reconsider. It is worth recording because through-hole HCT logic is thinning out generally: the search that closed the IRS2104 question found the 74HCT244 and 74HCT540 in DIP already obsolete. Buy enough for spares while the part is orderable.
-
-— Rev 45: with all six inverters carrying signal there is no unused input on the package. SCLS042F §5.2 note 1 and §9.1 both require unused inputs to be tied to VCC or GND, and a tied-off spare is a thing to forget. The 74HCT02 left none spare either, so nothing is given up.
-
-— Rev 46: R_GS3 and R_GS4 added, 10kΩ from the Q3 and Q4 gates to GND. This is a defect corrected, not an improvement: the design has never had gate-to-source resistors, and a floating MOSFET gate does not stay off. Crss couples about a ninth of any drain step onto the gate, so 24V applied to the drains deposits roughly 2V against a 1.0V threshold minimum, with nothing to bleed it away. Observed on the bench during Rev 45 bring-up with the drivers unfitted — the board sat on the supply’s current limit, +24V straight to ground. A current-limited bench supply is the only reason this cost nothing.
-
-— Rev 46: two resistors rather than four, because every DC path from the rail to ground passes through a low-side device — directly through Q3 or Q4, or through the primary as Q1, SW_L, T1, SW_R, Q4. Holding both low-side gates down removes all of them, and the Q3 and Q4 body diodes are reverse-biased whenever SW is positive so they open no alternative. A partly-on high side then does nothing: SW rises toward the rail, no current flows for want of a return, and the primary stays unenergised.
-
-— Rev 46: high-side gate-to-source resistors are recorded as deliberately absent. 10kΩ from HO to VS draws 1.1mA out of C_BOOT while the high side conducts, which over §8.3’s 600µs window is 6.6V of droop on a 100nF capacitor against the 0.33V that section calculates. 100kΩ still roughly triples the total load against the 55µA IQBS. They would add nothing the low-side pair does not already provide and would spend the margin §8.3 exists to document. Written down so the asymmetry reads as a decision rather than an oversight.
-
-— Rev 46: BOM 10kΩ 1/4W, generator 4 → 6 and total 45 → 47, still inside the 50 on order. Nothing new to buy.
-
-— Rev 47: §8.3’s bootstrap margin is measured rather than calculated, and it is worse than the calculation. At g_amplitude = 1.00, VB−VS collapses from 11.8V to about 2.6V for several milliseconds at each sine peak and HO−VS reads −9V at the same instants — one event, seen from two differential probes, with VS being dragged upward while VB stays put. At 0.90 both vanish: 11.98V held, and −494mV of ordinary undershoot on HO. The section had described 1.00 as spending the margin; it closes the refill window entirely.
-
-— Rev 47: §9.4 gains a floor on the trim value. 0.90 is what the section already expects, but nothing said 1.00 was unsafe — it read as an untrimmed default, and it was left in the firmware during bring-up for exactly that reason. A measurement calling for a trim above about 0.95 now points at the transformer tap rather than at the duty.
-
-— Rev 47: measured on the breadboard with the high-side drains disconnected, so the bridge was unloaded. The figures should be taken again once the rail is on and T1 is connected; magnetizing current and real gate charge will move them, and the refill window is where they will show up first.
-
-— Rev 48: the Rev 40 to Rev 47 change entries are moved here from §12.2. Eight revisions of change history sat in the middle of a firmware section, between the SINE_STEPS paragraph and “What is genuinely not recorded”, because an insertion anchored on a paragraph index rather than on the §1.2 heading, and each later revision appended to the wrong place without noticing. Nothing in the entries is changed; only their position. This is the index-based-insertion failure PROJECT_INDEX.md already warns about, and it went unnoticed in this document for eight revisions.
-
-— Rev 48: T1 is changed. The OSD Black 70V transformer saturates at 20Hz far below the bridge's operating point. Bench, 2026-09-04, first power-up with T1 connected and the snubber fitted: the 24V rail collapsed to about 1V for roughly 10ms of every half-cycle behind a 1A supply limit, and the primary showed a 21V sine peak that fell to zero partway through each half-cycle. A rail-voltage sweep with the limit at 1A gave 70mA at 3V, 100mA at 5V, 250mA at 7V, 450mA at 9V and the limit at 11V — current per volt flat to 5V and then climbing, which is a core reaching its volt-second limit, not a linear inductance. The knee is about 4V RMS across the 4Ω winding; the design applies 15.3V RMS. §9.5 records the finding. The label's “20Hz–20kHz ±1dB at 20W” describes the 70V side into its rated load; it does not describe the 4Ω winding at nearly twice its rated voltage.
-
-— Rev 48: an error in the history is recorded with it. §9.3 has given 14.6mH referred to the primary since Rev 9, and no revision computed the magnetizing current that implies: 15.3V RMS into 1.83Ω of reactance at 20Hz is about 8A RMS before any saturation. F1 at 500mA and the LRS-150-24 at 6.5A were never sized against that number because the number was never written down. With the replacement transformer the magnetizing current is tens of milliamps and F1 stands; the point is recorded so the check is made the next time a winding changes.
-
-— Rev 48: the replacement is an Antek AS-0522 toroidal mains transformer — 50VA, two 22V secondaries, two 115V primaries, 115/230V 50/60Hz — used in reverse. The two 22V windings in series (44V nominal) are driven by the bridge from J7; the two 115V windings in series (230V nominal) are the ring output into J8. A 44V winding rated at 50Hz takes 44 × 20/50 = 17.6V RMS at 20Hz before rated flux, and the bridge's 15.3V RMS at g_amplitude = 0.90 is 87% of that. Output at the nameplate ratio is 230/44 × 15.3 = 80V RMS; at the open-circuit ratio — 44V is the full-load figure, and a 50VA toroid at 12–14% regulation has roughly 50V of turns — about 72V RMS. Antek publishes no regulation figure, so the ratio is unknown until measured. Two units are on hand. Hammond 1182J22 and 1182G22 are the same electrical case and were the first candidates; both are factory-stock at DigiKey, and the Antek is $20 and in stock direct.
-
-— Rev 48: §9.1 to §9.4 keep their OSD figures, marked as such, until the Antek has been measured on the Analog Discovery: DC resistance of each of the four windings; open-circuit ratio, 44V series to 230V series, at a few volts at 20Hz; magnetizing inductance of the 44V series winding, open; leakage of the same winding with the 230V series winding shorted. Those four rewrite §9.2, §9.3 and §8.5 at the next revision. Leakage on a toroid is expected in the low microhenries — someone dissecting the 6V unit of the same series measured 2.5µH — against the 100µH §8.5's snubber values imply, so R_SNB is expected to fall to the tens of ohms and the ring frequency to rise toward 1MHz. Dissipation is C·V²·f and does not contain R, so the 1W part stands whatever R becomes.
-
-— Rev 48: the reversed-mains-transformer approach was considered early in the project and rejected, and the reasoning was never recorded. Reconstructed, and flagged as reconstruction: the candidate was a doorbell transformer, whose 16V or 24V winding takes only 5–8V RMS at 20Hz before saturating — the same flux limit that has now retired the OSD. The rejection was right for that part. The fix is not a different kind of transformer but a drive winding rated at least three times the drive voltage, which a 44V winding provides against 15.3V.
-
-— Rev 48: the output target changes from ~90V RMS to 70–80V RMS, recorded as the target rather than as a shortfall. 90 was never a requirement of anything downstream: telco ringing is specified at 40–130V RMS with 90 nominal, the switchboard's trunk ring relay has been operating from a lower-voltage commercial generator throughout bring-up, and vintage ringers ring from about 50V. Lower is better everywhere the operator can hold ring on — TVS clamp events, C3's current into T2 during ring overlap on the station board, R1a/R1b dissipation, the operator-tap resistors under a ring fault, and F2. Station §3.4 at 72V gives 4.5mA peak detector current against a 3.11mA worst-case threshold, 1.45× rather than the 1.8× it designed for, and a 50% rather than 63% output pulse train, which the 200Hz polling still samples five times per half-cycle. If the measured output lands near 72V, R1a/R1b go to 2 × 7.5k at station Rev 3.27; near 80V they stay. The title line changes with this.
-
-— Rev 48: g_amplitude stays at 0.90. §8.3's bootstrap refill argument is unchanged by the transformer, and 0.90 puts the toroid at 87% of rated flux. There is no reason to trim up and one to leave it; §9.4 is rewritten accordingly.
-
-— Rev 48: a firmware consequence, made on the Claude Code side per PROJECT_INDEX.md. Starting the sine at a zero crossing integrates flux from zero and puts the first half-cycle's excursion at twice the steady-state peak — about 175% of rated flux for the toroid — which saturates the core once at every power-up and puts a current spike through F1 that its slow-blow rating may not survive; §7.2 already reasons that ten times rating opens it in milliseconds. The fix is to start the duty table at its positive peak, SINE_STEPS/4, so the flux integral starts where steady-state flux is zero. §12.6 records the requirement. The OSD never showed this because it was saturated in steady state. The generator runs continuously from power-up and ring cadence is switched on the secondary by the trunk board, so the transient is once per power-up, not once per ring.
-
-— Rev 48: §8.7 adds a ring drive monitor — R_MON1 and R_MON2 (4.7k) from SW_L and SW_R into C_MON (100nF) between them, with the two filtered nodes and GND on a new 3-pin header J10. It is a balanced 170Hz low-pass that presents the 20Hz drive with the 40kHz carrier 47dB down, so what the transformer sees can be read on a scope without a filter in the instrument. Every capture of the primary during bring-up has been either aliased at low sample rate or a filled band at high rate, and the collapse of 2026-09-04 was diagnosed from the density of an aliased trace. This puts a line on the screen. Three passives already on the BOM, 1mA from the rail. GND in the middle of J10 as on J9, so a single-ended probe has its return adjacent and a differential pair lands on the outer pins.
-
-— Rev 48: C_MON is the 100nF 50V X7R already used for decoupling, not film. The filter sees ±22V; X7R capacitance falls under that bias and moves the corner, which for a viewing filter is irrelevant — at 20Hz the response is within 1% of unity across any capacitance the part could fall to. Film matters in C_SNB for pulse current and in station C4 for threshold accuracy, and neither reason applies here. The film parts that would substitute — Kemet R82 and Panasonic ECQ-E at 100nF — were on 20 to 29-week factory lead times at DigiKey at the time of writing. The ceramic adds no line item and nothing to order.
-
-— Rev 48: stale text and lost markup. Two §11 rows had lost their net names — U4 pin4 → IC1 pin2 and U4 pin8 → IC2 pin2 read as pin lists with no name column; they are IN1 and IN2, the names the schematic guide already uses. §12.4's heading had lost its heading markup. §13 still said “74HCT02”. §9, §10.10 and §11 said “4Ω primary”, “20W tap” and “141V peak” in seven places; each now names the Antek windings and the 113V peak of the new output, with the OSD figure kept where the reasoning was built on it.
-
-— Rev 48: BOM — 4.7k 0.25W generator 0 → 2, total 24 → 26, the 50 on order covers it; 100nF ceramic generator 10 → 12, total 49 → 51 against 50 on order, one short, so Buying 50 → 55 and digikey_upload.csv follows; 3-pin header generator 1 → 2 for J10 beside J9; OSD transformer generator 1 → 0, marked retired, row kept; Antek AS-0522 added, generator 1, two on hand. Nothing further to order beyond five more 100nF. Library plan: 3-pin header total 1 → 2; OSD row marked retired; Antek row added — off-board, no symbol, no footprint, the same J7/J8 arrangement.
-
-— Rev 49: no design change. §7.3 and the §10.2 row for C_12V_OUT now say what the capacitor is for. It was labelled "output bypass", which invited the question of whether it is needed given C_VCC1/C_VCC2 at the drivers and C_12V_BULK beside it. It is not needed for function — the TSR 1 regulates without it and the drivers' edge current comes from their own capacitors — and it stays for the regulator's few-hundred-kilohertz switching ripple, which the electrolytic's ESL handles poorly. A part whose purpose is not written down is a part someone will remove.
-
-— Rev 50: no design change on this board. §15.4 said the station tap's R11/R12 are 22.1kΩ; they are 22kΩ 1% metal film as of station Rev 3.27. The 22.1k value came in at station Rev 3.24 on a claim that 22.0k is not stocked in 1% metal film, which was wrong, so the station has gone back to the 22kΩ that §15.2 specified in the first place. The §15.2 note that the pair “reappears… at the catalogue value of 22.1kΩ” is left as written, since it records what Rev 27 did, with a pointer added. The fault-current figure in §15.4 is unchanged at about 2mA.
-
-— Rev 51: the four Antek measurements §9.5 asked for at Rev 48 are made, 2026-09-15 and 16, on the Analog Discovery 3 with the Impedance Analyzer Adapter. They rewrite §9.2, §9.3, §8.5 and the two provisional paragraphs of §7.6, and confirm §7.2. No part changes. The figures: 115V windings 23Ω each, 22V windings 1.1Ω each with the lead resistance nulled; open-circuit ratio 5.23, single 22V winding to single 115V winding at 2V peak; magnetizing inductance of the 44V series pair 3.10H at 20Hz and 1V, |Z| 410Ω at 71.9°; leakage of the same pair with the 230V pair shorted 160µH, flat from 1kHz to 100kHz. Series phasing of both pairs was verified by driving one 22V winding and reading the sum across each candidate series pair; both follow Antek's own convention.
-
-— Rev 51: the ratio corrects Rev 48. Rev 48 took 44V as a full-load figure, put about 50V of turns behind it and expected the open-circuit output near 72V. The measured open-circuit ratio is 5.23, which is 115/22 to three figures — the nameplate ratio is the turns ratio for this part, and the output at 15.3V RMS is 80V RMS, 113V peak, the top of the 70–80V band. Under Rev 48's own rule the station R1a/R1b stay at their present value; no station change. Regulation into the expected ring load is now calculable and is negligible — see §9.4.
-
-— Rev 51: the leakage figure corrects Rev 48, which expected low single-digit microhenries from a report on a 6V unit of the same series and said R_SNB would fall to the tens of ohms with the ring frequency rising toward 1MHz. The measured 160µH is sixty times that and within a factor of 1.6 of the 100µH §8.5's parts already implied. √(160µH / 10nF) is 126Ω, so R_SNB stays at 100Ω 1W and the ring is about 125kHz rather than 159kHz, still three times the carrier. The snubber's justification now runs forward from a measurement; §9.3's Rev 38 complaint that it ran backward from the parts is closed.
-
-— Rev 51: magnetizing inductance confirms §7.2. 3.10H at 20Hz is 390Ω of reactance, 37mA RMS at 15.3V, about 12mA of it the in-phase core-loss component — the "tens of milliamps" Rev 48 assumed, against 8A for the OSD. The 1kHz figure is 0.57H, a fifth of the 20Hz one; that is eddy-current shielding of the laminations and is why a 1kHz measurement, as §9.2 was made for the OSD, is not the number that matters at 20Hz.
-
-— Rev 51: §7.6's shorted-output paragraphs are reworked with measured resistances, and one Rev 48 statement is withdrawn. Rev 48 said the Antek's drive-side resistance was "a fraction of an ohm" and a shorted output would reflect to the bridge as "something close to a short", with F1 opening in milliseconds. The drive pair is 2.2Ω and the output pair 46Ω, which referred through 5.23² is 1.7Ω, so a shorted ring bus is about 4Ω at the bridge — roughly 3.6A RMS from 15.3V. F1 at 500mA slow-blow opens in seconds, not milliseconds; the MOSFETs and the LRS-150-24 do not notice either way. On the ring side the same short is about 0.8A, so F2 at 250mA fast still opens well ahead of F1 on the switchboard branch. The fusing order Rev 28 argued for holds; only the speed was overstated.
-
-— Rev 51: the lead colours and splices are recorded in §9 and §10.9 so the transformer can be wired from the document. Antek's sheet: each 115V winding is RED/BLACK, each 22V winding is GREEN/BLUE, PURPLE is the static shield. With the windings numbered 1 and 2 by which GREEN/BLUE pair was driven during the phasing test: drive pair splice BLUE1–GREEN2, GREEN1 and BLUE2 to J7; output pair splice RED1–BLACK2, BLACK1 and RED2 to J8. The second unit on hand has not been phased and the numbering is per unit; verify before splicing it.
-
-— Rev 51: two measurement notes for whoever repeats this. The WaveForms Impedance tool must be set to "Adapter" when the Impedance Analyzer Adapter is used; in the manual W1-C1-DUT-C2-R-GND mode the adapter's relays are not driven, no reference is in circuit, and the tool reports tens of kilohms with a "resistor too low" flag whatever the reference setting. And a 10Hz–1kHz sweep with no averaging read about 180Ω at 20Hz where the Meter view with 500ms averaging read 410Ω twice; the sweep agrees with the meter at 1kHz. The averaged single-frequency figure is the one recorded. The 20Hz point on a fast sweep is a cycle or two of data and should not be read for a low-frequency inductance.
-
-— Rev 52: first power-up with the Antek, 2026-09-16, and one part added. The drive side passed: J10 showed a clean 20Hz sine at ±22V with the rail steady and the bench supply reading 30mA — the operating-point check on §9.3's 37mA small-signal magnetizing figure, and against the 1A limit and collapsing rail of 2026-09-04. The output side did not: J8, read through an 11:1 resistive divider into the Analog Discovery, was not a sine but the 40kHz carrier at ±125V with a 20Hz duty envelope, and its peaks clipped the ±25V input — above ±250V at the winding. A 1µF 250V film capacitor from stock clipped across J8 turned it into a sine: 78.9V RMS on the DMM, about 81V read from the scope trace, against 80V predicted in §9.2. The §12.6 start at SINE_STEPS/4 was already in `ring/ring.ino` for this run — Claude Code made the change before first power-up — so the first-half-cycle saturation §12.6 describes was never exercised on the Antek; the verification capture in §12.6 is still to be made. The generator then rang a Western Electric 304 desk set — supply 30mA idle, 60mA ringing, about 9mA in phase at the bell — recorded in §9.5 as the first end-to-end ring and as a load figure heavier than service will ever present. That capacitor is C_OUT, new §9.6, and is on the BOM from the existing 1µF row.
-
-— Rev 52: why the output was the carrier. A transformer transforms voltage. The primary sees the bridge's 0/24V PWM at 40kHz and the secondary sees 5.23 times that; the 20Hz sine is only the average of the pulse train and exists on the output only after something integrates it. The magnetizing inductance integrates nothing — it is in parallel with the winding, not in series with the output. §8.7 said "the 20Hz sine exists only as the transformer's integral of it" and §12.2 relied on "T1's 20kHz passband" and on "multiples of 5kHz, which neither T1 nor a ringer passes"; all three were beliefs carried from the OSD audio transformer, whose output was never seen unsaturated, and none was ever tested. The peaks above ±250V are §9.3's 160µH of leakage — 4.4mH referred to the secondary — ringing against the winding's own stray capacitance on every PWM edge, undamped because nothing was loading it. Every downstream part in the ring zone is rated 250V or 300V against an expected 113V peak, and would have had no margin.
-
-— Rev 52: why it was not caught earlier, recorded because the document has this failure class in its history already. The transformer was reviewed as a 20Hz device — flux, magnetizing current, ratio, start phase — and never as a 40kHz transmission path. The Rev 48 list of what the transformer change touched was complete for the core and silent on the winding. The leakage was measured at Rev 51 and used only to size the snubber; 4.4mH on the secondary was one multiplication away and was not made. §8.7's own existence — a filter is needed to see a sine on the primary — implied the secondary needed one too. The lesson is the one PROJECT_INDEX.md already draws: a statement carried over from a retired part is a claim to re-derive, not a fact to cite.
-
-— Rev 52: C_OUT, sized from the Rev 51 measurements. Across J8, RING_HI to RING_LO, ahead of F2 and both branches. The 4.4mH of leakage referred to the secondary is already in series between the bridge and that node, so C_OUT makes a second-order low-pass with it: 1µF gives a corner near 2.4kHz, about 280× attenuation at 40kHz (125V pulses become under half a volt of ripple), and 8kΩ of reactance at 20Hz, 10mA reactive on the secondary and 50mA reflected to the bridge. The loop's 106Ω of copper damps it at Q ≈ 0.6 with no resistor added — the payoff for having measured Rs. A capacitor across the primary instead would sit directly on the switch nodes with nothing between it and the MOSFETs; on the secondary the leakage is in the right place. 2.2µF would give 1.6kHz and 600× at 22mA reactive; 1µF is enough.
-
-— Rev 52: what C_OUT changes elsewhere. The leakage now carries the carrier's ripple current the way a buck inductor does — up to about 0.9A peak-to-peak triangular at the primary worst case, 0.3A RMS, 0.2W in the drive copper and 0.15A RMS at 40kHz in C_OUT itself. Both are inside every rating involved and the supply's 30mA shows the average is unaffected; §9.6 gives the arithmetic. The §8.5 snubber analysis is unchanged — the turn-off ring is leakage against switch-node capacitance and C_OUT sits at the far end of the leakage — but the switch node should be scoped with C_OUT fitted, as §8.5 already asks. §7.6's fault arithmetic is unchanged: C_OUT is upstream of F2 and its 10mA never crosses the fuse, and a shorted output shorts the capacitor with the winding. §14 gains a line: C_OUT holds about 6mJ at peak and discharges through the 46Ω winding in microseconds, so there is no stored charge after power-off. §9.4's V_measured is recorded at 81V RMS; station R1a/R1b stay. §13 puts C_OUT beside J8 in the ring zone.
-
-— Rev 52: BOM — 1µF 250V film generator 0 → 1, total 16 → 17 against 20 on hand, nothing to buy. Library plan: same row 16 → 17, the generator now placing one of the footprints the station already needed. Antek row notes updated from "measure before" to the measured figures.
-
-— Rev 53: §15.3's closing paragraph withdrawn to match station Rev 3.28. It said the tap strip's receive channel gives "a second and more direct reading" of which circuits the operator is bridged to, and that the two readings should agree. Station Rev 3.28 records that neither reading was actually being produced — the station detector never looked at bin 768 on circuit channels, and the tap channel hears both ends of a cord pair in normal service, which that detector would have reported as a fault — and settles it the other way: every station and trunk channel checks bin 768 itself and reports operator presence per circuit on sbgame/<type>/<n>/op; the tap's receive channel is monitor-only. Nothing on this board changes. Recorded here because §15.3 was the document that first made the claim, and a reader following its pointer to station §8.8 would otherwise find the opposite of what it promised.
-
-— Rev 54: the MQTT topic prefix is sbgame/, not sw/, following station Rev 3.29. The Rev 53 entry above is restated with the new prefix; nothing else in this document names a topic. Nothing on this board changes and ring/ring.ino carries no topic strings.
-
-— Rev 55: formatting only. Two things. Every table in §10 and the §11 netlist had no header row — the first part or net was sitting in the header position above the `---` separator, so a renderer showed `PS1 | Mean Well LRS-150-24 | …` in bold as column headings and the real first row was missing; twelve tables, each now headed Designator / Part / Notes or Net / Connections. And the signal-path diagrams, GPIO and pin lists, truth table, bridge topology, measurement listings and firmware constants — seventeen blocks — are now fenced code blocks; they had been fixed-width text with a blank line between every row, an artefact of the docx extraction, which renders as run-together prose. Same sweep as station Rev 3.31 and trunk Rev 5.32. No word of the content changes.
-
-— Rev 56: the firmware sections move to control.md, following station Rev 3.34 and trunk Rev 5.35. §6.1, §6.2 and all of §12 are now pointers; §4.5 and the last two paragraphs of §4.7 likewise. control.md is the specification the firmware is written to and states, for the first time, the startup order across all three of the controller’s jobs and the full list of conditions on which relays are released. Nothing about the hardware on this board, and nothing in the specified firmware behaviour, changes; ring/ring.ino is unaffected and stays on the Claude Code side.
-
-— Rev 57: follows station Rev 3.35 — three station boards built. §2.2, §4.1 and §4.7 no longer describe board 3 as unfitted capacity; the I²C chain is generator, station 1, 2, 3, trunk, and the scan list is 0x20–0x23. Nothing on this board changes.
-
-— Rev 58: no design change. §9.7 records an alternative topology raised on 2026-09-18 and never considered before: a high-frequency link — a small ferrite transformer driven at tens of kilohertz, rectified to a DC bus of about 115V on the secondary side, and a second H-bridge synthesising the 20Hz sine from that bus with the same sine PWM the board already uses, into a discrete LC filter. It moves the transformer's job from 20Hz to 50kHz and shrinks the core by three orders of magnitude. It was not on the table at Rev 48: when the OSD saturated, the response was a larger core at 20Hz, and the question of whether the core had to be at 20Hz at all was not asked. §9.5's "two directions were considered" now points at §9.7 as the third.
-
-— Rev 58: the conclusion is that the present design stays. It is built, measured and has rung a bell; the alternative buys weight and volume the rack does not need, and pays for them with a 115V DC bus on the board, a second converter stage, MOSFETs and drivers in the 200V class, a current limit that the winding copper currently supplies for free, stored energy that §14 would have to address, and an inductor that the Antek's leakage currently supplies for free. §9.7 records the trade-offs, the cases in which the balance would tip, and the note that commercial 12V-to-90V 20Hz ring generator modules use exactly this topology.
-
-— Rev 59: no design change. §9.7 gains a closing paragraph on the modulator, raised the same day: an analog comparator with the 20Hz sine on one input and a high-frequency sawtooth on the other is the classical way to make this PWM, and it is what the LEDC peripheral does digitally — its counter is the sawtooth and the duty write is the sine sample. Recorded because the two are the same principle and the differences (a stepped versus continuous reference, where the amplitude trim lives, what happens when the controller hangs) are worth having in one place beside the topology alternative.
-
-— Rev 60: no design change. §9.7 gains the stage-2 filter sizing and a damping finding, and a reference. The filter is the same LC as §9.6 — 1µF and about 4.4mH, the leakage figure by construction — but a discrete inductor has a few ohms of DCR where the toroid's copper supplied 106Ω, so the same filter has Q ≈ 13 instead of 0.6 and needs damping fitted: 47–68Ω in series with the inductor, which also recovers most of the fault-current limit §9.7 listed as needing a design. The start-phase requirement of §12.6 inverts in this topology, since there is no core in the 20Hz path and the LC wants a zero-crossing start rather than a peak. The reference is the video that prompted the idea; the consumer inverter it describes is this topology with the numbers moved. Nothing on this board changes.
-
-— Rev 61: cross-reference only. The controller's specification is `control.md`, renamed from `esp32.md`, and the firmware is `control/control.ino`, renamed from `ring/esp32.ino`, both on 2026-09-19 (control.md Rev 9). Every pointer in §4.5, §4.7, §6.1, §6.2 and §12 follows, and the Rev 56 entry above now reads the new names. `ring/ring.ino` in the Rev 44, 52, 54 and 56 entries is history and stays. Nothing on this board changes.
-
-— Rev 62: cross-reference only. §15 put the operator tap on station board 1. It moved to board 3 at station Rev 3.35, and to strip 7 of that board at station Rev 3.40, when strip 8's A32 output, channel 24, became the audience monitor feed in place of the Digiface's own analog output. §15 follows; §15.5's channel-budget argument is unchanged, since all 32 A32 channels are still allocated. The Rev 27 entry keeps board 1 as history. Nothing on this board changes.
-
-— Rev 63: bench record only. §9.4 gains a second V_measured, 2026-09-25, the first run on the firmware without the arming gate (control.md Rev 11) and with the 74HCT04 fitted: 15.2V RMS drive at J10, 79.3V RMS output through the 11:1 divider, ratio 5.22, 20.0Hz. It agrees with the 2026-09-16 record and with the §9.2 prediction. Nothing on this board changes.
-
-— Rev 64: bench record only. The start-phase verification is made, 2026-09-25, and recorded in control.md §5.3 (Rev 12); §12.6 says so. The first half-cycle at J8 matches the steady state, so the peak start does what §12.6 asks on the Antek. Nothing on this board changes.
-
-— Rev 65: GPIO36 is assigned to the operator's Next Call button (§3.2), and the Olimex board in hand is recorded as Rev K, checked against Olimex's published Rev K netlist and WROOM BOM (§3.1). The button is a physical alternative to the page's Next Call: a contact that drives an optoisolator's LED from this board's 12V rail, its output transistor pulling GPIO36 to ground. GPIO36 is input-only with no internal pull-up, and Rev K fits one — R37, 10k to 3.3V — so the opto output needs nothing else on the ESP32 side. The circuit is not yet drawn; it goes in with the next schematic change. Pin choice only; nothing else on this board changes.
-
-— Rev 66: the Next Call circuit is chosen (§3.2). U_OPTO is an Isocom ISP521-1X, a single-channel phototransistor optocoupler in 4-pin DIP; R_OPTO is 2.2kΩ. The contact switches +12V to R_OPTO, and the LED's cathode goes to GND on this board. At 12V R_OPTO sets 4.9mA. At the ISP521's minimum CTR of 50% the transistor can sink 2.5mA, against the 0.33mA R37 needs to pull GPIO36 low: 7× margin. No reverse-protection diode is fitted across the LED, because a contact closure has no polarity and the cathode's ground is fixed on the board, so the LED cannot see reverse voltage. §10.3 and §11 carry the two parts. The button connector is not yet chosen.
-
-— Rev 67: no design change to this board. §9.7 records the high-frequency-link alternative as drawn to schematic on 2026-09-25, and what drawing it established. The main finding is one the Rev 58 cost list missed: the 115V bus has to float, because §7.6's single-leg fusing and the ring bus's tolerance of a ground fault depend on it, so stage 2 needs isolated drive — an NME2412SC for its 12V, two 6N137s for its PWM inputs and an ISP521-1X for SD. §9.7 also records every part chosen, the single-GPIO stage 1 that C105's DC block allows, the one-gate-per-signal level translation with pull-ups, the pin plan without the GPIO4 enable, the per-branch output fuses, the grounded scope divider and why the floating one was rejected, and the defects found in the drawing. The conclusion is unchanged: the present design stays.
-
-— Rev 68: the document follows the board as built, read from its schematic (`kicad/control/control.kicad_sch`, saved 2026-09-26) at Mark's request. The board was drawn and made before this document was checked against it, and the two differed in numbering and in one gate path. Nothing electrical is changed by this revision; the board is the authority, and the document now says what is on it.
-
-— Rev 68: connectors, MOSFETs and ICs take the board's numbers, because a document and a silkscreen that use the same designator for different parts are a trap on the bench. Connectors: 24V input J1 → J2; trunk ring branch J2 → J7; I²C 6P6C J3 → J5; switchboard ring branch J6 → J8; T1 drive winding J7 → J9; T1 output winding J8 → J6; enable and sync header J9 → J1, now 4 pins (1 GPIO4, 2 and 3 GND, 4 GPIO15); drive monitor J10 → J3, pinned 1 GND, 2 MON_B, 3 MON_A. J4, the unstuffed second-I²C footprint, is not on the board. MOSFETs: Q2 and Q3 swap — Q1 and Q2 are the left leg's high and low sides, Q3 and Q4 the right's — and R_G2/R_G3, the Q2_GATE and Q3_GATE nets and R_GS3 (now R_GS2) follow. ICs: the 74HCT04 is U1 (was U4), the IR2104s are U4 and U5 (were IC1 and IC2). Other parts keep their document names; §10 gains a Board column with each one's reference, and the netlist in §11 is checked against the schematic, which moved SDA and /RESET on the SP721 to pins 5 and 1.
-
-— Rev 68: the 74HCT04 is wired differently from §5.1's text. GPIO33 reaches IN1 (U4, the left leg) through gates 1 and 6; GPIO32 reaches IN2 (U5, the right leg) through gates 2 and 5; GPIO14 reaches SD through gates 3 and 4. Every path is still two inversions, so polarity, pull-downs and boot state are unchanged. The only consequence is that the firmware's positive half-cycle, which puts the sine on GPIO32, drives the right leg; nothing depends on the output's phase, and the start-phase verification was made on this board. §2.1, §3.2, §5, §5.1, §5.2, §5.4, §8.2 and §10.4 follow; §5.4 was also still in the 74HCT02's pin pattern, which it no longer is.
-
-— Rev 68: three parts. R_GS3 and R_GS4 (now R_GS2 and R_GS4) and C_TVS2 were missing from the schematic and are drawn in the 2026-09-26 save (R13, R14, C15), to be fitted to the built board as bodges (TODO.md). R_SD_PD2 is not fitted, and Mark's decision is to leave it off. The reason is §7.4's own argument — an unpowered 74HCT04 output is clamped to its dead VCC and holds SD near 0V — not R_SD_PD, which sits on the far side of the gate and cannot reach SD. §6 records this and the bodge if it is ever wanted. C_BULK1 is 50V as built, not 35V.
-
-— Rev 68: the change-log entries above keep the designators they were written with. Read J2, J6, J7, J8, J9, J10, IC1, IC2, U4, Q2, Q3 and R_GS3 in any entry up to Rev 67 in the old numbering. The §9.7 paragraphs added at Rev 67 describe ring2 and use ring2's references. `ring_generator_schematic_guide.md` planned a different assignment again; its tables are superseded by §10's Board column.
-
-— Rev 69: §3.4 only. The firmware now updates over Ethernet (control.md Rev 15, §2.1). Powering the Olimex from a USB port on portland instead of PoE was considered on 2026-09-26 and not taken: a USB cable joins portland's ground, and through it mains earth, to the 24V system ground that PoE's isolation keeps separate, and any program opening the serial port resets the board and drops every call. PoE stays, from a TL-SG105PE PoE switch rather than a separate injector. Nothing on this board changes.
-
-— Rev 70: build record only. R_GS2 and R_GS4 are fitted to the built board as bodges, 2026-09-26: 10k each, on the underside, across IR2104 pin 5 (LO) and pin 4 (COM) on both drivers. §8.4 records it. C_TVS2 (§4.6) is not bodged; it goes on at the next board revision (Mark, 2026-09-26). The design does not change.
-
-— Rev 71: the Next Call button is not fitted to this board (Mark, 2026-09-26). GPIO36 stays reserved for it and is unconnected on the board as built; the operator's Next Call comes from the page and the Stream Deck. §3.2 records the circuit as drawn in ring2, which changes Rev 66 in one respect: the contact switches the low side, not +12V, so the cable carries GND and a node fed from +12V through 2.2kΩ. A cable short to ground or between the two wires is then only a press, where Rev 66's arrangement put a short across the +12V rail. U_OPTO, R_OPTO and the NEXT_SW and OPTO_A nets leave §10.3 and §11.
-
-— Rev 72: every part outside the change log is named by its reference on the board as built (`kicad/control`), Mark's request of 2026-10-05, so the document, the schematic and the silkscreen use one set of names. Rev 68 had done this for connectors, MOSFETs and ICs; the resistors, capacitors and diodes kept functional names, which §10 mapped in a Board column. That column goes, and §10's notes give the old name. The change-log entries above keep the names they were written with. Read them with this table:
-
-| **Former name** | **Board** | **Former name** | **Board** | **Former name** | **Board** |
-| --- | --- | --- | --- | --- | --- |
-| C_U1 | C1 | C_BOOT1 | C9 | R_SCL | R1 |
-| C_BULK1 | C2 | C_BOOT2 | C10 | R_SDA | R2 |
-| C_BULK2 | C3 | C_VCC2 | C11 | R_PWMA_PD (R_PWMA_PU before Rev 44) | R3 |
-| C_12V_IN1 | C4 | C_SNB | C12 | R_SD_PD | R4 |
-| C_12V_IN2 | C5 | C_MON | C13 | R_PWMB_PD (R_PWMB_PU before Rev 44) | R5 |
-| C_12V_BULK | C6 | C_OUT | C14 | R_G1, R_G2, R_G3, R_G4 | R6, R7, R8, R9 |
-| C_12V_OUT | C7 | C_TVS2 | C15 (not fitted) | R_SNB | R10 |
-| C_VCC1 | C8 | D_BOOT1, D_BOOT2 | D2, D3 | R_MON2, R_MON1 | R11, R12 |
-| U_12V | U3 | TVS2 | U2 | R_GS2, R_GS4 | R13, R14 (bodged) |
-| U_ESP32 | U6 | FH1, FH2 | the holders of F1, F2 | R_SD_PD2, J4 | not on the board |
-
-§9.7 is not renamed: its designators are the `kicad/control2` schematic's. The subtitle's J10 (the ring drive monitor) is corrected to J3, which Rev 68 missed. References to the trunk and station boards follow the designators those boards carry (trunk J102 for its ring input, F101 and F102 for its fuses, station Cx03 for the ring detector's blocking capacitor). No design change.
-
-— Rev 73: no design change. §9.7 records, as being considered (Mark, 2026-10-07), a second secondary on T101 to give the trunks their own ring source: trunk_circuit.md §7.5.1 (Rev 5.49) needs a ground-referenced source in series with each trunk's DC loop for exchange-style ring trip, and the ring bus has to stay floating for the switchboard. A second winding, rectifier and bus, with a second stage 2 and its own isolated drive, provides it from the same core; on this board the same job is done by a separate 20Hz transformer off the ring bus.
-
-— Rev 74: no design change. §9.7 gains T101's winding plan on the core Mark has bought, a TDK E 25/13/7 (EF 25) — 20 primary turns of 0.5mm, about 0.11T peak at 50kHz from ±24V, and about 100 turns of 0.25mm per secondary for a 115V bus — replacing the TY-311P placeholder as the description of T101 (the drawing's symbol is unchanged). The second secondary for the trunks, being considered at Rev 73, fits the window. Material, gap and coil former are assumed (ungapped N87, B66208) until confirmed.
-
-— Rev 75: GPIO15 changes from the waveform sync to the switchboard power cut (§3.2, §7.8), Mark's request, 2026-10-19. A trunk rung in locks its lamp and buzzer on the switchboard's own battery until a cord goes in; cutting the switchboard's leg of the 24V star for 1s clears it. The relay and its driver are off this board, wired to J1 pins 4 and 3 (GPIO15 and GND) and into the switchboard's Powerpole run. Active high, with a 470Ω base pull-down strong enough to hold the transistor off against the Olimex's 10kΩ pull-up on GPIO15 through a reset. Nothing on this board changes. Firmware consequence: control.md Rev 31.
-
-— Rev 76: the power cut's driver goes behind an optoisolator (§7.8), Mark's decision, 2026-10-20, drawn by him in `kicad/power`. Rev 75's transistor tied the ESP32's ground to the 24V ground at its emitter: base current returns to the one and coil current to the other. Until now the only path between them was the I²C cable, so the relay board would have made a second and a loop. An ISP521-1X now carries GPIO15 across, and the board's two grounds have no connection. Still active high, so nothing in the firmware's sense changes; an active-low drive was considered again and rejected, because it leaves the switchboard dark whenever the ESP32 is down and needs a stronger pull-up than J1 can reach. The firmware gains a held cut at the same time (control.md Rev 32), for switching the switchboard off from the page; nothing on the relay board depends on it.
 
 # 2. Signal Path
 
@@ -1246,13 +898,13 @@ control.md §5.1 and §5.2 — the four constants and where they come from, the 
 
 control.md §3. Both PWM pins active HIGH as of Rev 44, idle at duty 0; the history of the active-low trap is kept there.
 
-## 12.5 Waveform Sync Output
-
-control.md §5.4. GPIO15, one square wave per cycle, levels written not toggled, left as an input until setup() because it is a strapping pin.
-
 ## 12.4 I²C Initialisation
 
 control.md §4.2 and §6.
+
+## 12.5 Waveform Sync Output
+
+control.md §5.4. GPIO15, one square wave per cycle, levels written not toggled, left as an input until setup() because it is a strapping pin.
 
 ## 12.6 Start Phase
 
@@ -1377,3 +1029,481 @@ The optocoupler-in-the-cable option rejected at Rev 22 stays rejected, for the s
 Ten cord pairs could each carry their own tone at bins 776, 784, 792 and upward, which would identify the cord as well as the connection. Recorded here so the comb allocation above bin 768 is understood to be reserved rather than free.
 
 The move changes the shape of this if it is ever taken up. Under the old arrangement it meant ten oscillator channels against three free GPIOs plus ten sets of filter, transformer and coupling components at the switchboard. Under the new one it means ten more A32 output channels and ten more tap strips, which the channel budget cannot currently supply — station §7.9.6 shows all 32 channels allocated at full capacity. Neither is cheap. It stays deferred, and it would need conversion capacity before it needed anything else.
+
+# 16. Revision History
+
+## 16.77 Changes in Rev 77
+
+— The document made readable, Mark's request, 2026-10-30, as `game_control.md` Rev 95. The line under the title had grown into a list of topics and now gives only the revision. The changes in each revision move out of the Overview to this section at the end of the document, newest first, where the entries from Rev 16 on had been one list under Rev 15, with Rev 35 and part of Rev 15 out of place. §12.4 and §12.5 are put in numerical order, their numbers unchanged. Each revision now has a section of its own. The text of each entry is unchanged except for references to the renumbered sections, and wording that said an entry was "above". A new revision is added at the top of this section, and the line under the title changes only its number.
+
+— No code consequence.
+
+## 16.76 Changes in Rev 76
+
+— Rev 76: the power cut's driver goes behind an optoisolator (§7.8), Mark's decision, 2026-10-20, drawn by him in `kicad/power`. Rev 75's transistor tied the ESP32's ground to the 24V ground at its emitter: base current returns to the one and coil current to the other. Until now the only path between them was the I²C cable, so the relay board would have made a second and a loop. An ISP521-1X now carries GPIO15 across, and the board's two grounds have no connection. Still active high, so nothing in the firmware's sense changes; an active-low drive was considered again and rejected, because it leaves the switchboard dark whenever the ESP32 is down and needs a stronger pull-up than J1 can reach. The firmware gains a held cut at the same time (control.md Rev 32), for switching the switchboard off from the page; nothing on the relay board depends on it.
+
+## 16.75 Changes in Rev 75
+
+— Rev 75: GPIO15 changes from the waveform sync to the switchboard power cut (§3.2, §7.8), Mark's request, 2026-10-19. A trunk rung in locks its lamp and buzzer on the switchboard's own battery until a cord goes in; cutting the switchboard's leg of the 24V star for 1s clears it. The relay and its driver are off this board, wired to J1 pins 4 and 3 (GPIO15 and GND) and into the switchboard's Powerpole run. Active high, with a 470Ω base pull-down strong enough to hold the transistor off against the Olimex's 10kΩ pull-up on GPIO15 through a reset. Nothing on this board changes. Firmware consequence: control.md Rev 31.
+
+## 16.74 Changes in Rev 74
+
+— Rev 74: no design change. §9.7 gains T101's winding plan on the core Mark has bought, a TDK E 25/13/7 (EF 25) — 20 primary turns of 0.5mm, about 0.11T peak at 50kHz from ±24V, and about 100 turns of 0.25mm per secondary for a 115V bus — replacing the TY-311P placeholder as the description of T101 (the drawing's symbol is unchanged). The second secondary for the trunks, being considered at Rev 73, fits the window. Material, gap and coil former are assumed (ungapped N87, B66208) until confirmed.
+
+## 16.73 Changes in Rev 73
+
+— Rev 73: no design change. §9.7 records, as being considered (Mark, 2026-10-07), a second secondary on T101 to give the trunks their own ring source: trunk_circuit.md §7.5.1 (Rev 5.49) needs a ground-referenced source in series with each trunk's DC loop for exchange-style ring trip, and the ring bus has to stay floating for the switchboard. A second winding, rectifier and bus, with a second stage 2 and its own isolated drive, provides it from the same core; on this board the same job is done by a separate 20Hz transformer off the ring bus.
+
+## 16.72 Changes in Rev 72
+
+— Rev 72: every part outside the change log is named by its reference on the board as built (`kicad/control`), Mark's request of 2026-10-05, so the document, the schematic and the silkscreen use one set of names. Rev 68 had done this for connectors, MOSFETs and ICs; the resistors, capacitors and diodes kept functional names, which §10 mapped in a Board column. That column goes, and §10's notes give the old name. The change-log entries above keep the names they were written with. Read them with this table:
+
+| **Former name** | **Board** | **Former name** | **Board** | **Former name** | **Board** |
+| --- | --- | --- | --- | --- | --- |
+| C_U1 | C1 | C_BOOT1 | C9 | R_SCL | R1 |
+| C_BULK1 | C2 | C_BOOT2 | C10 | R_SDA | R2 |
+| C_BULK2 | C3 | C_VCC2 | C11 | R_PWMA_PD (R_PWMA_PU before Rev 44) | R3 |
+| C_12V_IN1 | C4 | C_SNB | C12 | R_SD_PD | R4 |
+| C_12V_IN2 | C5 | C_MON | C13 | R_PWMB_PD (R_PWMB_PU before Rev 44) | R5 |
+| C_12V_BULK | C6 | C_OUT | C14 | R_G1, R_G2, R_G3, R_G4 | R6, R7, R8, R9 |
+| C_12V_OUT | C7 | C_TVS2 | C15 (not fitted) | R_SNB | R10 |
+| C_VCC1 | C8 | D_BOOT1, D_BOOT2 | D2, D3 | R_MON2, R_MON1 | R11, R12 |
+| U_12V | U3 | TVS2 | U2 | R_GS2, R_GS4 | R13, R14 (bodged) |
+| U_ESP32 | U6 | FH1, FH2 | the holders of F1, F2 | R_SD_PD2, J4 | not on the board |
+
+§9.7 is not renamed: its designators are the `kicad/control2` schematic's. The subtitle's J10 (the ring drive monitor) is corrected to J3, which Rev 68 missed. References to the trunk and station boards follow the designators those boards carry (trunk J102 for its ring input, F101 and F102 for its fuses, station Cx03 for the ring detector's blocking capacitor). No design change.
+
+## 16.71 Changes in Rev 71
+
+— Rev 71: the Next Call button is not fitted to this board (Mark, 2026-09-26). GPIO36 stays reserved for it and is unconnected on the board as built; the operator's Next Call comes from the page and the Stream Deck. §3.2 records the circuit as drawn in ring2, which changes Rev 66 in one respect: the contact switches the low side, not +12V, so the cable carries GND and a node fed from +12V through 2.2kΩ. A cable short to ground or between the two wires is then only a press, where Rev 66's arrangement put a short across the +12V rail. U_OPTO, R_OPTO and the NEXT_SW and OPTO_A nets leave §10.3 and §11.
+
+## 16.70 Changes in Rev 70
+
+— Rev 70: build record only. R_GS2 and R_GS4 are fitted to the built board as bodges, 2026-09-26: 10k each, on the underside, across IR2104 pin 5 (LO) and pin 4 (COM) on both drivers. §8.4 records it. C_TVS2 (§4.6) is not bodged; it goes on at the next board revision (Mark, 2026-09-26). The design does not change.
+
+## 16.69 Changes in Rev 69
+
+— Rev 69: §3.4 only. The firmware now updates over Ethernet (control.md Rev 15, §2.1). Powering the Olimex from a USB port on portland instead of PoE was considered on 2026-09-26 and not taken: a USB cable joins portland's ground, and through it mains earth, to the 24V system ground that PoE's isolation keeps separate, and any program opening the serial port resets the board and drops every call. PoE stays, from a TL-SG105PE PoE switch rather than a separate injector. Nothing on this board changes.
+
+## 16.68 Changes in Rev 68
+
+— Rev 68: the document follows the board as built, read from its schematic (`kicad/control/control.kicad_sch`, saved 2026-09-26) at Mark's request. The board was drawn and made before this document was checked against it, and the two differed in numbering and in one gate path. Nothing electrical is changed by this revision; the board is the authority, and the document now says what is on it.
+
+— Rev 68: connectors, MOSFETs and ICs take the board's numbers, because a document and a silkscreen that use the same designator for different parts are a trap on the bench. Connectors: 24V input J1 → J2; trunk ring branch J2 → J7; I²C 6P6C J3 → J5; switchboard ring branch J6 → J8; T1 drive winding J7 → J9; T1 output winding J8 → J6; enable and sync header J9 → J1, now 4 pins (1 GPIO4, 2 and 3 GND, 4 GPIO15); drive monitor J10 → J3, pinned 1 GND, 2 MON_B, 3 MON_A. J4, the unstuffed second-I²C footprint, is not on the board. MOSFETs: Q2 and Q3 swap — Q1 and Q2 are the left leg's high and low sides, Q3 and Q4 the right's — and R_G2/R_G3, the Q2_GATE and Q3_GATE nets and R_GS3 (now R_GS2) follow. ICs: the 74HCT04 is U1 (was U4), the IR2104s are U4 and U5 (were IC1 and IC2). Other parts keep their document names; §10 gains a Board column with each one's reference, and the netlist in §11 is checked against the schematic, which moved SDA and /RESET on the SP721 to pins 5 and 1.
+
+— Rev 68: the 74HCT04 is wired differently from §5.1's text. GPIO33 reaches IN1 (U4, the left leg) through gates 1 and 6; GPIO32 reaches IN2 (U5, the right leg) through gates 2 and 5; GPIO14 reaches SD through gates 3 and 4. Every path is still two inversions, so polarity, pull-downs and boot state are unchanged. The only consequence is that the firmware's positive half-cycle, which puts the sine on GPIO32, drives the right leg; nothing depends on the output's phase, and the start-phase verification was made on this board. §2.1, §3.2, §5, §5.1, §5.2, §5.4, §8.2 and §10.4 follow; §5.4 was also still in the 74HCT02's pin pattern, which it no longer is.
+
+— Rev 68: three parts. R_GS3 and R_GS4 (now R_GS2 and R_GS4) and C_TVS2 were missing from the schematic and are drawn in the 2026-09-26 save (R13, R14, C15), to be fitted to the built board as bodges (TODO.md). R_SD_PD2 is not fitted, and Mark's decision is to leave it off. The reason is §7.4's own argument — an unpowered 74HCT04 output is clamped to its dead VCC and holds SD near 0V — not R_SD_PD, which sits on the far side of the gate and cannot reach SD. §6 records this and the bodge if it is ever wanted. C_BULK1 is 50V as built, not 35V.
+
+— Rev 68: the change-log entries above keep the designators they were written with. Read J2, J6, J7, J8, J9, J10, IC1, IC2, U4, Q2, Q3 and R_GS3 in any entry up to Rev 67 in the old numbering. The §9.7 paragraphs added at Rev 67 describe ring2 and use ring2's references. `ring_generator_schematic_guide.md` planned a different assignment again; its tables are superseded by §10's Board column.
+
+## 16.67 Changes in Rev 67
+
+— Rev 67: no design change to this board. §9.7 records the high-frequency-link alternative as drawn to schematic on 2026-09-25, and what drawing it established. The main finding is one the Rev 58 cost list missed: the 115V bus has to float, because §7.6's single-leg fusing and the ring bus's tolerance of a ground fault depend on it, so stage 2 needs isolated drive — an NME2412SC for its 12V, two 6N137s for its PWM inputs and an ISP521-1X for SD. §9.7 also records every part chosen, the single-GPIO stage 1 that C105's DC block allows, the one-gate-per-signal level translation with pull-ups, the pin plan without the GPIO4 enable, the per-branch output fuses, the grounded scope divider and why the floating one was rejected, and the defects found in the drawing. The conclusion is unchanged: the present design stays.
+
+## 16.66 Changes in Rev 66
+
+— Rev 66: the Next Call circuit is chosen (§3.2). U_OPTO is an Isocom ISP521-1X, a single-channel phototransistor optocoupler in 4-pin DIP; R_OPTO is 2.2kΩ. The contact switches +12V to R_OPTO, and the LED's cathode goes to GND on this board. At 12V R_OPTO sets 4.9mA. At the ISP521's minimum CTR of 50% the transistor can sink 2.5mA, against the 0.33mA R37 needs to pull GPIO36 low: 7× margin. No reverse-protection diode is fitted across the LED, because a contact closure has no polarity and the cathode's ground is fixed on the board, so the LED cannot see reverse voltage. §10.3 and §11 carry the two parts. The button connector is not yet chosen.
+
+## 16.65 Changes in Rev 65
+
+— Rev 65: GPIO36 is assigned to the operator's Next Call button (§3.2), and the Olimex board in hand is recorded as Rev K, checked against Olimex's published Rev K netlist and WROOM BOM (§3.1). The button is a physical alternative to the page's Next Call: a contact that drives an optoisolator's LED from this board's 12V rail, its output transistor pulling GPIO36 to ground. GPIO36 is input-only with no internal pull-up, and Rev K fits one — R37, 10k to 3.3V — so the opto output needs nothing else on the ESP32 side. The circuit is not yet drawn; it goes in with the next schematic change. Pin choice only; nothing else on this board changes.
+
+## 16.64 Changes in Rev 64
+
+— Rev 64: bench record only. The start-phase verification is made, 2026-09-25, and recorded in control.md §5.3 (Rev 12); §12.6 says so. The first half-cycle at J8 matches the steady state, so the peak start does what §12.6 asks on the Antek. Nothing on this board changes.
+
+## 16.63 Changes in Rev 63
+
+— Rev 63: bench record only. §9.4 gains a second V_measured, 2026-09-25, the first run on the firmware without the arming gate (control.md Rev 11) and with the 74HCT04 fitted: 15.2V RMS drive at J10, 79.3V RMS output through the 11:1 divider, ratio 5.22, 20.0Hz. It agrees with the 2026-09-16 record and with the §9.2 prediction. Nothing on this board changes.
+
+## 16.62 Changes in Rev 62
+
+— Rev 62: cross-reference only. §15 put the operator tap on station board 1. It moved to board 3 at station Rev 3.35, and to strip 7 of that board at station Rev 3.40, when strip 8's A32 output, channel 24, became the audience monitor feed in place of the Digiface's own analog output. §15 follows; §15.5's channel-budget argument is unchanged, since all 32 A32 channels are still allocated. The Rev 27 entry keeps board 1 as history. Nothing on this board changes.
+
+## 16.61 Changes in Rev 61
+
+— Rev 61: cross-reference only. The controller's specification is `control.md`, renamed from `esp32.md`, and the firmware is `control/control.ino`, renamed from `ring/esp32.ino`, both on 2026-09-19 (control.md Rev 9). Every pointer in §4.5, §4.7, §6.1, §6.2 and §12 follows, and the Rev 56 entry now reads the new names. `ring/ring.ino` in the Rev 44, 52, 54 and 56 entries is history and stays. Nothing on this board changes.
+
+## 16.60 Changes in Rev 60
+
+— Rev 60: no design change. §9.7 gains the stage-2 filter sizing and a damping finding, and a reference. The filter is the same LC as §9.6 — 1µF and about 4.4mH, the leakage figure by construction — but a discrete inductor has a few ohms of DCR where the toroid's copper supplied 106Ω, so the same filter has Q ≈ 13 instead of 0.6 and needs damping fitted: 47–68Ω in series with the inductor, which also recovers most of the fault-current limit §9.7 listed as needing a design. The start-phase requirement of §12.6 inverts in this topology, since there is no core in the 20Hz path and the LC wants a zero-crossing start rather than a peak. The reference is the video that prompted the idea; the consumer inverter it describes is this topology with the numbers moved. Nothing on this board changes.
+
+## 16.59 Changes in Rev 59
+
+— Rev 59: no design change. §9.7 gains a closing paragraph on the modulator, raised the same day: an analog comparator with the 20Hz sine on one input and a high-frequency sawtooth on the other is the classical way to make this PWM, and it is what the LEDC peripheral does digitally — its counter is the sawtooth and the duty write is the sine sample. Recorded because the two are the same principle and the differences (a stepped versus continuous reference, where the amplitude trim lives, what happens when the controller hangs) are worth having in one place beside the topology alternative.
+
+## 16.58 Changes in Rev 58
+
+— Rev 58: no design change. §9.7 records an alternative topology raised on 2026-09-18 and never considered before: a high-frequency link — a small ferrite transformer driven at tens of kilohertz, rectified to a DC bus of about 115V on the secondary side, and a second H-bridge synthesising the 20Hz sine from that bus with the same sine PWM the board already uses, into a discrete LC filter. It moves the transformer's job from 20Hz to 50kHz and shrinks the core by three orders of magnitude. It was not on the table at Rev 48: when the OSD saturated, the response was a larger core at 20Hz, and the question of whether the core had to be at 20Hz at all was not asked. §9.5's "two directions were considered" now points at §9.7 as the third.
+
+— Rev 58: the conclusion is that the present design stays. It is built, measured and has rung a bell; the alternative buys weight and volume the rack does not need, and pays for them with a 115V DC bus on the board, a second converter stage, MOSFETs and drivers in the 200V class, a current limit that the winding copper currently supplies for free, stored energy that §14 would have to address, and an inductor that the Antek's leakage currently supplies for free. §9.7 records the trade-offs, the cases in which the balance would tip, and the note that commercial 12V-to-90V 20Hz ring generator modules use exactly this topology.
+
+## 16.57 Changes in Rev 57
+
+— Rev 57: follows station Rev 3.35 — three station boards built. §2.2, §4.1 and §4.7 no longer describe board 3 as unfitted capacity; the I²C chain is generator, station 1, 2, 3, trunk, and the scan list is 0x20–0x23. Nothing on this board changes.
+
+## 16.56 Changes in Rev 56
+
+— Rev 56: the firmware sections move to control.md, following station Rev 3.34 and trunk Rev 5.35. §6.1, §6.2 and all of §12 are now pointers; §4.5 and the last two paragraphs of §4.7 likewise. control.md is the specification the firmware is written to and states, for the first time, the startup order across all three of the controller’s jobs and the full list of conditions on which relays are released. Nothing about the hardware on this board, and nothing in the specified firmware behaviour, changes; ring/ring.ino is unaffected and stays on the Claude Code side.
+
+## 16.55 Changes in Rev 55
+
+— Rev 55: formatting only. Two things. Every table in §10 and the §11 netlist had no header row — the first part or net was sitting in the header position above the `---` separator, so a renderer showed `PS1 | Mean Well LRS-150-24 | …` in bold as column headings and the real first row was missing; twelve tables, each now headed Designator / Part / Notes or Net / Connections. And the signal-path diagrams, GPIO and pin lists, truth table, bridge topology, measurement listings and firmware constants — seventeen blocks — are now fenced code blocks; they had been fixed-width text with a blank line between every row, an artefact of the docx extraction, which renders as run-together prose. Same sweep as station Rev 3.31 and trunk Rev 5.32. No word of the content changes.
+
+## 16.54 Changes in Rev 54
+
+— Rev 54: the MQTT topic prefix is sbgame/, not sw/, following station Rev 3.29. The Rev 53 entry is restated with the new prefix; nothing else in this document names a topic. Nothing on this board changes and ring/ring.ino carries no topic strings.
+
+## 16.53 Changes in Rev 53
+
+— Rev 53: §15.3's closing paragraph withdrawn to match station Rev 3.28. It said the tap strip's receive channel gives "a second and more direct reading" of which circuits the operator is bridged to, and that the two readings should agree. Station Rev 3.28 records that neither reading was actually being produced — the station detector never looked at bin 768 on circuit channels, and the tap channel hears both ends of a cord pair in normal service, which that detector would have reported as a fault — and settles it the other way: every station and trunk channel checks bin 768 itself and reports operator presence per circuit on sbgame/<type>/<n>/op; the tap's receive channel is monitor-only. Nothing on this board changes. Recorded here because §15.3 was the document that first made the claim, and a reader following its pointer to station §8.8 would otherwise find the opposite of what it promised.
+
+## 16.52 Changes in Rev 52
+
+— Rev 52: first power-up with the Antek, 2026-09-16, and one part added. The drive side passed: J10 showed a clean 20Hz sine at ±22V with the rail steady and the bench supply reading 30mA — the operating-point check on §9.3's 37mA small-signal magnetizing figure, and against the 1A limit and collapsing rail of 2026-09-04. The output side did not: J8, read through an 11:1 resistive divider into the Analog Discovery, was not a sine but the 40kHz carrier at ±125V with a 20Hz duty envelope, and its peaks clipped the ±25V input — above ±250V at the winding. A 1µF 250V film capacitor from stock clipped across J8 turned it into a sine: 78.9V RMS on the DMM, about 81V read from the scope trace, against 80V predicted in §9.2. The §12.6 start at SINE_STEPS/4 was already in `ring/ring.ino` for this run — Claude Code made the change before first power-up — so the first-half-cycle saturation §12.6 describes was never exercised on the Antek; the verification capture in §12.6 is still to be made. The generator then rang a Western Electric 304 desk set — supply 30mA idle, 60mA ringing, about 9mA in phase at the bell — recorded in §9.5 as the first end-to-end ring and as a load figure heavier than service will ever present. That capacitor is C_OUT, new §9.6, and is on the BOM from the existing 1µF row.
+
+— Rev 52: why the output was the carrier. A transformer transforms voltage. The primary sees the bridge's 0/24V PWM at 40kHz and the secondary sees 5.23 times that; the 20Hz sine is only the average of the pulse train and exists on the output only after something integrates it. The magnetizing inductance integrates nothing — it is in parallel with the winding, not in series with the output. §8.7 said "the 20Hz sine exists only as the transformer's integral of it" and §12.2 relied on "T1's 20kHz passband" and on "multiples of 5kHz, which neither T1 nor a ringer passes"; all three were beliefs carried from the OSD audio transformer, whose output was never seen unsaturated, and none was ever tested. The peaks above ±250V are §9.3's 160µH of leakage — 4.4mH referred to the secondary — ringing against the winding's own stray capacitance on every PWM edge, undamped because nothing was loading it. Every downstream part in the ring zone is rated 250V or 300V against an expected 113V peak, and would have had no margin.
+
+— Rev 52: why it was not caught earlier, recorded because the document has this failure class in its history already. The transformer was reviewed as a 20Hz device — flux, magnetizing current, ratio, start phase — and never as a 40kHz transmission path. The Rev 48 list of what the transformer change touched was complete for the core and silent on the winding. The leakage was measured at Rev 51 and used only to size the snubber; 4.4mH on the secondary was one multiplication away and was not made. §8.7's own existence — a filter is needed to see a sine on the primary — implied the secondary needed one too. The lesson is the one PROJECT_INDEX.md already draws: a statement carried over from a retired part is a claim to re-derive, not a fact to cite.
+
+— Rev 52: C_OUT, sized from the Rev 51 measurements. Across J8, RING_HI to RING_LO, ahead of F2 and both branches. The 4.4mH of leakage referred to the secondary is already in series between the bridge and that node, so C_OUT makes a second-order low-pass with it: 1µF gives a corner near 2.4kHz, about 280× attenuation at 40kHz (125V pulses become under half a volt of ripple), and 8kΩ of reactance at 20Hz, 10mA reactive on the secondary and 50mA reflected to the bridge. The loop's 106Ω of copper damps it at Q ≈ 0.6 with no resistor added — the payoff for having measured Rs. A capacitor across the primary instead would sit directly on the switch nodes with nothing between it and the MOSFETs; on the secondary the leakage is in the right place. 2.2µF would give 1.6kHz and 600× at 22mA reactive; 1µF is enough.
+
+— Rev 52: what C_OUT changes elsewhere. The leakage now carries the carrier's ripple current the way a buck inductor does — up to about 0.9A peak-to-peak triangular at the primary worst case, 0.3A RMS, 0.2W in the drive copper and 0.15A RMS at 40kHz in C_OUT itself. Both are inside every rating involved and the supply's 30mA shows the average is unaffected; §9.6 gives the arithmetic. The §8.5 snubber analysis is unchanged — the turn-off ring is leakage against switch-node capacitance and C_OUT sits at the far end of the leakage — but the switch node should be scoped with C_OUT fitted, as §8.5 already asks. §7.6's fault arithmetic is unchanged: C_OUT is upstream of F2 and its 10mA never crosses the fuse, and a shorted output shorts the capacitor with the winding. §14 gains a line: C_OUT holds about 6mJ at peak and discharges through the 46Ω winding in microseconds, so there is no stored charge after power-off. §9.4's V_measured is recorded at 81V RMS; station R1a/R1b stay. §13 puts C_OUT beside J8 in the ring zone.
+
+— Rev 52: BOM — 1µF 250V film generator 0 → 1, total 16 → 17 against 20 on hand, nothing to buy. Library plan: same row 16 → 17, the generator now placing one of the footprints the station already needed. Antek row notes updated from "measure before" to the measured figures.
+
+## 16.51 Changes in Rev 51
+
+— Rev 51: the four Antek measurements §9.5 asked for at Rev 48 are made, 2026-09-15 and 16, on the Analog Discovery 3 with the Impedance Analyzer Adapter. They rewrite §9.2, §9.3, §8.5 and the two provisional paragraphs of §7.6, and confirm §7.2. No part changes. The figures: 115V windings 23Ω each, 22V windings 1.1Ω each with the lead resistance nulled; open-circuit ratio 5.23, single 22V winding to single 115V winding at 2V peak; magnetizing inductance of the 44V series pair 3.10H at 20Hz and 1V, |Z| 410Ω at 71.9°; leakage of the same pair with the 230V pair shorted 160µH, flat from 1kHz to 100kHz. Series phasing of both pairs was verified by driving one 22V winding and reading the sum across each candidate series pair; both follow Antek's own convention.
+
+— Rev 51: the ratio corrects Rev 48. Rev 48 took 44V as a full-load figure, put about 50V of turns behind it and expected the open-circuit output near 72V. The measured open-circuit ratio is 5.23, which is 115/22 to three figures — the nameplate ratio is the turns ratio for this part, and the output at 15.3V RMS is 80V RMS, 113V peak, the top of the 70–80V band. Under Rev 48's own rule the station R1a/R1b stay at their present value; no station change. Regulation into the expected ring load is now calculable and is negligible — see §9.4.
+
+— Rev 51: the leakage figure corrects Rev 48, which expected low single-digit microhenries from a report on a 6V unit of the same series and said R_SNB would fall to the tens of ohms with the ring frequency rising toward 1MHz. The measured 160µH is sixty times that and within a factor of 1.6 of the 100µH §8.5's parts already implied. √(160µH / 10nF) is 126Ω, so R_SNB stays at 100Ω 1W and the ring is about 125kHz rather than 159kHz, still three times the carrier. The snubber's justification now runs forward from a measurement; §9.3's Rev 38 complaint that it ran backward from the parts is closed.
+
+— Rev 51: magnetizing inductance confirms §7.2. 3.10H at 20Hz is 390Ω of reactance, 37mA RMS at 15.3V, about 12mA of it the in-phase core-loss component — the "tens of milliamps" Rev 48 assumed, against 8A for the OSD. The 1kHz figure is 0.57H, a fifth of the 20Hz one; that is eddy-current shielding of the laminations and is why a 1kHz measurement, as §9.2 was made for the OSD, is not the number that matters at 20Hz.
+
+— Rev 51: §7.6's shorted-output paragraphs are reworked with measured resistances, and one Rev 48 statement is withdrawn. Rev 48 said the Antek's drive-side resistance was "a fraction of an ohm" and a shorted output would reflect to the bridge as "something close to a short", with F1 opening in milliseconds. The drive pair is 2.2Ω and the output pair 46Ω, which referred through 5.23² is 1.7Ω, so a shorted ring bus is about 4Ω at the bridge — roughly 3.6A RMS from 15.3V. F1 at 500mA slow-blow opens in seconds, not milliseconds; the MOSFETs and the LRS-150-24 do not notice either way. On the ring side the same short is about 0.8A, so F2 at 250mA fast still opens well ahead of F1 on the switchboard branch. The fusing order Rev 28 argued for holds; only the speed was overstated.
+
+— Rev 51: the lead colours and splices are recorded in §9 and §10.9 so the transformer can be wired from the document. Antek's sheet: each 115V winding is RED/BLACK, each 22V winding is GREEN/BLUE, PURPLE is the static shield. With the windings numbered 1 and 2 by which GREEN/BLUE pair was driven during the phasing test: drive pair splice BLUE1–GREEN2, GREEN1 and BLUE2 to J7; output pair splice RED1–BLACK2, BLACK1 and RED2 to J8. The second unit on hand has not been phased and the numbering is per unit; verify before splicing it.
+
+— Rev 51: two measurement notes for whoever repeats this. The WaveForms Impedance tool must be set to "Adapter" when the Impedance Analyzer Adapter is used; in the manual W1-C1-DUT-C2-R-GND mode the adapter's relays are not driven, no reference is in circuit, and the tool reports tens of kilohms with a "resistor too low" flag whatever the reference setting. And a 10Hz–1kHz sweep with no averaging read about 180Ω at 20Hz where the Meter view with 500ms averaging read 410Ω twice; the sweep agrees with the meter at 1kHz. The averaged single-frequency figure is the one recorded. The 20Hz point on a fast sweep is a cycle or two of data and should not be read for a low-frequency inductance.
+
+## 16.50 Changes in Rev 50
+
+— Rev 50: no design change on this board. §15.4 said the station tap's R11/R12 are 22.1kΩ; they are 22kΩ 1% metal film as of station Rev 3.27. The 22.1k value came in at station Rev 3.24 on a claim that 22.0k is not stocked in 1% metal film, which was wrong, so the station has gone back to the 22kΩ that §15.2 specified in the first place. The §15.2 note that the pair “reappears… at the catalogue value of 22.1kΩ” is left as written, since it records what Rev 27 did, with a pointer added. The fault-current figure in §15.4 is unchanged at about 2mA.
+
+## 16.49 Changes in Rev 49
+
+— Rev 49: no design change. §7.3 and the §10.2 row for C_12V_OUT now say what the capacitor is for. It was labelled "output bypass", which invited the question of whether it is needed given C_VCC1/C_VCC2 at the drivers and C_12V_BULK beside it. It is not needed for function — the TSR 1 regulates without it and the drivers' edge current comes from their own capacitors — and it stays for the regulator's few-hundred-kilohertz switching ripple, which the electrolytic's ESL handles poorly. A part whose purpose is not written down is a part someone will remove.
+
+## 16.48 Changes in Rev 48
+
+— Rev 48: the Rev 40 to Rev 47 change entries are moved here from §12.2. Eight revisions of change history sat in the middle of a firmware section, between the SINE_STEPS paragraph and “What is genuinely not recorded”, because an insertion anchored on a paragraph index rather than on the §1.2 heading, and each later revision appended to the wrong place without noticing. Nothing in the entries is changed; only their position. This is the index-based-insertion failure PROJECT_INDEX.md already warns about, and it went unnoticed in this document for eight revisions.
+
+— Rev 48: T1 is changed. The OSD Black 70V transformer saturates at 20Hz far below the bridge's operating point. Bench, 2026-09-04, first power-up with T1 connected and the snubber fitted: the 24V rail collapsed to about 1V for roughly 10ms of every half-cycle behind a 1A supply limit, and the primary showed a 21V sine peak that fell to zero partway through each half-cycle. A rail-voltage sweep with the limit at 1A gave 70mA at 3V, 100mA at 5V, 250mA at 7V, 450mA at 9V and the limit at 11V — current per volt flat to 5V and then climbing, which is a core reaching its volt-second limit, not a linear inductance. The knee is about 4V RMS across the 4Ω winding; the design applies 15.3V RMS. §9.5 records the finding. The label's “20Hz–20kHz ±1dB at 20W” describes the 70V side into its rated load; it does not describe the 4Ω winding at nearly twice its rated voltage.
+
+— Rev 48: an error in the history is recorded with it. §9.3 has given 14.6mH referred to the primary since Rev 9, and no revision computed the magnetizing current that implies: 15.3V RMS into 1.83Ω of reactance at 20Hz is about 8A RMS before any saturation. F1 at 500mA and the LRS-150-24 at 6.5A were never sized against that number because the number was never written down. With the replacement transformer the magnetizing current is tens of milliamps and F1 stands; the point is recorded so the check is made the next time a winding changes.
+
+— Rev 48: the replacement is an Antek AS-0522 toroidal mains transformer — 50VA, two 22V secondaries, two 115V primaries, 115/230V 50/60Hz — used in reverse. The two 22V windings in series (44V nominal) are driven by the bridge from J7; the two 115V windings in series (230V nominal) are the ring output into J8. A 44V winding rated at 50Hz takes 44 × 20/50 = 17.6V RMS at 20Hz before rated flux, and the bridge's 15.3V RMS at g_amplitude = 0.90 is 87% of that. Output at the nameplate ratio is 230/44 × 15.3 = 80V RMS; at the open-circuit ratio — 44V is the full-load figure, and a 50VA toroid at 12–14% regulation has roughly 50V of turns — about 72V RMS. Antek publishes no regulation figure, so the ratio is unknown until measured. Two units are on hand. Hammond 1182J22 and 1182G22 are the same electrical case and were the first candidates; both are factory-stock at DigiKey, and the Antek is $20 and in stock direct.
+
+— Rev 48: §9.1 to §9.4 keep their OSD figures, marked as such, until the Antek has been measured on the Analog Discovery: DC resistance of each of the four windings; open-circuit ratio, 44V series to 230V series, at a few volts at 20Hz; magnetizing inductance of the 44V series winding, open; leakage of the same winding with the 230V series winding shorted. Those four rewrite §9.2, §9.3 and §8.5 at the next revision. Leakage on a toroid is expected in the low microhenries — someone dissecting the 6V unit of the same series measured 2.5µH — against the 100µH §8.5's snubber values imply, so R_SNB is expected to fall to the tens of ohms and the ring frequency to rise toward 1MHz. Dissipation is C·V²·f and does not contain R, so the 1W part stands whatever R becomes.
+
+— Rev 48: the reversed-mains-transformer approach was considered early in the project and rejected, and the reasoning was never recorded. Reconstructed, and flagged as reconstruction: the candidate was a doorbell transformer, whose 16V or 24V winding takes only 5–8V RMS at 20Hz before saturating — the same flux limit that has now retired the OSD. The rejection was right for that part. The fix is not a different kind of transformer but a drive winding rated at least three times the drive voltage, which a 44V winding provides against 15.3V.
+
+— Rev 48: the output target changes from ~90V RMS to 70–80V RMS, recorded as the target rather than as a shortfall. 90 was never a requirement of anything downstream: telco ringing is specified at 40–130V RMS with 90 nominal, the switchboard's trunk ring relay has been operating from a lower-voltage commercial generator throughout bring-up, and vintage ringers ring from about 50V. Lower is better everywhere the operator can hold ring on — TVS clamp events, C3's current into T2 during ring overlap on the station board, R1a/R1b dissipation, the operator-tap resistors under a ring fault, and F2. Station §3.4 at 72V gives 4.5mA peak detector current against a 3.11mA worst-case threshold, 1.45× rather than the 1.8× it designed for, and a 50% rather than 63% output pulse train, which the 200Hz polling still samples five times per half-cycle. If the measured output lands near 72V, R1a/R1b go to 2 × 7.5k at station Rev 3.27; near 80V they stay. The title line changes with this.
+
+— Rev 48: g_amplitude stays at 0.90. §8.3's bootstrap refill argument is unchanged by the transformer, and 0.90 puts the toroid at 87% of rated flux. There is no reason to trim up and one to leave it; §9.4 is rewritten accordingly.
+
+— Rev 48: a firmware consequence, made on the Claude Code side per PROJECT_INDEX.md. Starting the sine at a zero crossing integrates flux from zero and puts the first half-cycle's excursion at twice the steady-state peak — about 175% of rated flux for the toroid — which saturates the core once at every power-up and puts a current spike through F1 that its slow-blow rating may not survive; §7.2 already reasons that ten times rating opens it in milliseconds. The fix is to start the duty table at its positive peak, SINE_STEPS/4, so the flux integral starts where steady-state flux is zero. §12.6 records the requirement. The OSD never showed this because it was saturated in steady state. The generator runs continuously from power-up and ring cadence is switched on the secondary by the trunk board, so the transient is once per power-up, not once per ring.
+
+— Rev 48: §8.7 adds a ring drive monitor — R_MON1 and R_MON2 (4.7k) from SW_L and SW_R into C_MON (100nF) between them, with the two filtered nodes and GND on a new 3-pin header J10. It is a balanced 170Hz low-pass that presents the 20Hz drive with the 40kHz carrier 47dB down, so what the transformer sees can be read on a scope without a filter in the instrument. Every capture of the primary during bring-up has been either aliased at low sample rate or a filled band at high rate, and the collapse of 2026-09-04 was diagnosed from the density of an aliased trace. This puts a line on the screen. Three passives already on the BOM, 1mA from the rail. GND in the middle of J10 as on J9, so a single-ended probe has its return adjacent and a differential pair lands on the outer pins.
+
+— Rev 48: C_MON is the 100nF 50V X7R already used for decoupling, not film. The filter sees ±22V; X7R capacitance falls under that bias and moves the corner, which for a viewing filter is irrelevant — at 20Hz the response is within 1% of unity across any capacitance the part could fall to. Film matters in C_SNB for pulse current and in station C4 for threshold accuracy, and neither reason applies here. The film parts that would substitute — Kemet R82 and Panasonic ECQ-E at 100nF — were on 20 to 29-week factory lead times at DigiKey at the time of writing. The ceramic adds no line item and nothing to order.
+
+— Rev 48: stale text and lost markup. Two §11 rows had lost their net names — U4 pin4 → IC1 pin2 and U4 pin8 → IC2 pin2 read as pin lists with no name column; they are IN1 and IN2, the names the schematic guide already uses. §12.4's heading had lost its heading markup. §13 still said “74HCT02”. §9, §10.10 and §11 said “4Ω primary”, “20W tap” and “141V peak” in seven places; each now names the Antek windings and the 113V peak of the new output, with the OSD figure kept where the reasoning was built on it.
+
+— Rev 48: BOM — 4.7k 0.25W generator 0 → 2, total 24 → 26, the 50 on order covers it; 100nF ceramic generator 10 → 12, total 49 → 51 against 50 on order, one short, so Buying 50 → 55 and digikey_upload.csv follows; 3-pin header generator 1 → 2 for J10 beside J9; OSD transformer generator 1 → 0, marked retired, row kept; Antek AS-0522 added, generator 1, two on hand. Nothing further to order beyond five more 100nF. Library plan: 3-pin header total 1 → 2; OSD row marked retired; Antek row added — off-board, no symbol, no footprint, the same J7/J8 arrangement.
+
+## 16.47 Changes in Rev 47
+
+— Rev 47: §8.3’s bootstrap margin is measured rather than calculated, and it is worse than the calculation. At g_amplitude = 1.00, VB−VS collapses from 11.8V to about 2.6V for several milliseconds at each sine peak and HO−VS reads −9V at the same instants — one event, seen from two differential probes, with VS being dragged upward while VB stays put. At 0.90 both vanish: 11.98V held, and −494mV of ordinary undershoot on HO. The section had described 1.00 as spending the margin; it closes the refill window entirely.
+
+— Rev 47: §9.4 gains a floor on the trim value. 0.90 is what the section already expects, but nothing said 1.00 was unsafe — it read as an untrimmed default, and it was left in the firmware during bring-up for exactly that reason. A measurement calling for a trim above about 0.95 now points at the transformer tap rather than at the duty.
+
+— Rev 47: measured on the breadboard with the high-side drains disconnected, so the bridge was unloaded. The figures should be taken again once the rail is on and T1 is connected; magnetizing current and real gate charge will move them, and the refill window is where they will show up first.
+
+## 16.46 Changes in Rev 46
+
+— Rev 46: R_GS3 and R_GS4 added, 10kΩ from the Q3 and Q4 gates to GND. This is a defect corrected, not an improvement: the design has never had gate-to-source resistors, and a floating MOSFET gate does not stay off. Crss couples about a ninth of any drain step onto the gate, so 24V applied to the drains deposits roughly 2V against a 1.0V threshold minimum, with nothing to bleed it away. Observed on the bench during Rev 45 bring-up with the drivers unfitted — the board sat on the supply’s current limit, +24V straight to ground. A current-limited bench supply is the only reason this cost nothing.
+
+— Rev 46: two resistors rather than four, because every DC path from the rail to ground passes through a low-side device — directly through Q3 or Q4, or through the primary as Q1, SW_L, T1, SW_R, Q4. Holding both low-side gates down removes all of them, and the Q3 and Q4 body diodes are reverse-biased whenever SW is positive so they open no alternative. A partly-on high side then does nothing: SW rises toward the rail, no current flows for want of a return, and the primary stays unenergised.
+
+— Rev 46: high-side gate-to-source resistors are recorded as deliberately absent. 10kΩ from HO to VS draws 1.1mA out of C_BOOT while the high side conducts, which over §8.3’s 600µs window is 6.6V of droop on a 100nF capacitor against the 0.33V that section calculates. 100kΩ still roughly triples the total load against the 55µA IQBS. They would add nothing the low-side pair does not already provide and would spend the margin §8.3 exists to document. Written down so the asymmetry reads as a decision rather than an oversight.
+
+— Rev 46: BOM 10kΩ 1/4W, generator 4 → 6 and total 45 → 47, still inside the 50 on order. Nothing new to buy.
+
+## 16.45 Changes in Rev 45
+
+— Rev 45: the 74HCT04 pinout is verified against TI SCLS042F §4 — 1A 1, 1Y 2, 2A 3, 2Y 4, 3A 5, 3Y 6, GND 7, 4Y 8, 4A 9, 5Y 10, 5A 11, 6Y 12, 6A 13, VCC 14, which is what Rev 44 used. It was the one thing in that revision standing on convention rather than a drawing, and it happens to be the same convention the 7402 breaks. Checking it cost nothing and the alternative was finding out during bring-up.
+
+— Rev 45: the propagation delay figure is corrected. Rev 44 said the double inversion costs about 20ns; SCLS042F gives 13ns typical and 23ns maximum per gate at 5.5V, so the pair costs 26ns typical and 46ns maximum. Still a fifth of one percent of the carrier period and it changes nothing, but 20ns was a guess presented as a number.
+
+— Rev 45: SN74HCT04N is NRND — Not Recommended for New Designs — in the PDIP package, per the SCLS042F package addendum. So is the SN74HCT02N it replaces, so this is not a reason to reconsider. It is worth recording because through-hole HCT logic is thinning out generally: the search that closed the IRS2104 question found the 74HCT244 and 74HCT540 in DIP already obsolete. Buy enough for spares while the part is orderable.
+
+— Rev 45: with all six inverters carrying signal there is no unused input on the package. SCLS042F §5.2 note 1 and §9.1 both require unused inputs to be tied to VCC or GND, and a tied-off spare is a thing to forget. The 74HCT02 left none spare either, so nothing is given up.
+
+## 16.44 Changes in Rev 44
+
+— Rev 44: the 74HCT02 becomes a 74HCT04 hex inverter, SN74HCT04N, and each signal is routed through two gates instead of one. Same DIP-14, same footprint, same HCT thresholds, same +5V rail; different symbol, different pin numbers, ten on order unaffected because none had arrived. Once Rev 40 removed the cross-coupling, all four NOR gates were inverters written the long way — two inputs tied where one would do. Six inverters carry three signals with no tied pairs to leave half-connected.
+
+— Rev 44: the point of two gates per signal is polarity. One inversion gives the active-low drive the board has had since Rev 5, and active low is the origin of every polarity defect in this document: parking LEDC at 0 duty then means IN1 high with IN2 low, which is Q1 and Q4 and the full rail across a 0.63Ω primary as DC. §6.1 and §6.2 specified that from Rev 5 to Rev 29. Two inversions give active high, so LEDC’s own power-on state of 0 duty is IN1 = IN2 = low — Q3 and Q4, primary shorted to ground. The trap is removed rather than defended against. Cost is about 20ns of propagation delay against a 25µs carrier period.
+
+— Rev 44: R_PWMA_PU and R_PWMB_PU become R_PWMA_PD and R_PWMB_PD, same 10kΩ, to GND rather than +3.3V. This is an improvement beyond the rename: the pull-ups ran from the Olimex +3.3V and were therefore unpowered in exactly the PoE-absent case §7.4 describes, where the 24V bus is live and both drivers are alive. A pull-down to ground needs no rail. §5.3’s floating-input argument is unchanged, because it was never about which rail the resistors pulled to.
+
+— Rev 44: §12.3 inverts and §5.2’s truth table inverts with it — both columns, which is the whole effect of the change. The firmware writes duty directly instead of complementing it, and parks at 0 instead of full scale. ring/ring.ino is updated to match; the waveform is unchanged at 48Vpp and 16.97 Vrms, since only the encoding moved.
+
+— Rev 44: §11 gains PWMA_MID and PWMB_MID, the nets between the first and second inverter of each PWM path. They exist for the same reason SD_N does. An earlier draft of this revision put each gate’s input and output on one net, which shorts the second inverter — the same defect Rev 32 corrected in the gate resistor nets, made again while writing the revision that cites it. Caught by counting U4 pin occurrences: every pin must appear on exactly one net, and pins 3 and 9 appeared on none.
+
+— Rev 44: the 74HCT04 pinout used in §5.1 and §11 — 1A 1, 1Y 2, 2A 3, 2Y 4, 3A 5, 3Y 6, GND 7, 4Y 8, 4A 9, 5Y 10, 5A 11, 6Y 12, 6A 13, VCC 14 — is the classic 7404 arrangement and has NOT been verified against the SN74HCT04N datasheet. It is the one thing in this revision standing on convention rather than a drawing, which is exactly how the IR2104 pinout was wrong for the whole life of §8.2. Check it before drawing the schematic.
+
+## 16.43 Changes in Rev 43
+
+— Rev 43: J9 added, a 3-pin 0.1 inch header carrying GPIO4, GND and GPIO15. A shunt across pins 1 and 2 pulls the master enable low and the generator runs; pin 3 carries the §12.5 sync with its return on pin 2. GND is in the middle on purpose — the enable shunt is fitted once and the probe is used constantly, so the probe gets the short ground return, and a shunt fitted wrongly across 2 and 3 merely grounds a push-pull output.
+
+— Rev 43: this replaces a 2-pin enable header that existed on the schematic and in neither this document nor the BOM. §3.2 has described GPIO4 as a master enable since Rev 8 and §11 listed the net with a single node, the Olimex pin; ring_generator_schematic_guide.md called it out as a net that goes nowhere and asked for a text note saying what grounds it. The part was real and undocumented, which is the reverse of the usual failure here and just as easy to miss — nothing in the document contradicted it, so nothing flagged it.
+
+— Rev 43: the BOM gains two rows that were never there — the header itself and a 2.54mm shunt. The master enable had been described in prose since Rev 8 with no part counted against it, which is the defect the index calls a part named in prose is not a part. §11 also gains a GPIO15 net, which did not exist at Rev 42 because the pin went only to the Olimex.
+
+## 16.42 Changes in Rev 42
+
+— Rev 42: GPIO15 takes a waveform sync output, new §12.5. High at step 0, low at step 125, giving one 20 Hz square wave per output cycle with the rising edge at phase zero. It is for bench work: triggering a scope or the Analog Discovery at a known point so the switching node, the gate drive and the secondary can be viewed against one reference. §3.2 gains the assignment, which it did not have — GPIO15 was listed there as free since Rev 27 and the section already warned that the list needs to be complete to be trusted.
+
+— Rev 42: the sync writes levels rather than toggling. A toggle that misses a tick stays inverted for as long as the generator runs, which on a trigger signal means every subsequent capture is half a cycle out with nothing to show it. Writing the level re-asserts twice per cycle, so a lost tick costs one edge and not the polarity. The pin idles low when the generator is stopped, so no trigger means the bridge is genuinely idle rather than the sync having failed.
+
+— Rev 42: GPIO15 is a strapping pin and firmware treats it as one. It must be high when the ROM bootloader samples it, and low at reset also silences the boot log, so the pin is left as an input until setup() runs and claimed only then. §3.2 has carried that warning since Rev 27; this is the first assignment to test it.
+
+— Rev 42: recorded as a debug output that nothing depends on. If GPIO15 is later wanted for a function the system needs, the sync is what goes. Worth stating because a signal that appears in §3.2 and §12.5 looks like part of the design, and this one is a test point.
+
+## 16.41 Changes in Rev 41
+
+— Rev 41: §5.3 sharpened. Its account of why R_PWMA_PU and R_PWMB_PU are fitted was written at Rev 30, when the cross-coupled gates meant a floating GPIO32 alone could put IN1 either way. With the interlock gone the case is stronger, not weaker: both gates float independently, and two of the four resulting states — IN1 high with IN2 low, or IN1 low with IN2 high — are the full rail standing across the primary. The section had been describing a one-gate problem after it became a two-gate one.
+
+— Rev 41: the two changes are recorded as addressing different failures. Rev 40 made both pins driven low safe; the pull-ups make both pins undriven determinate. Floating is not low, so one does not substitute for the other, and a reader who assumes the Rev 40 topology change makes the pull-ups redundant would be wrong. That inference is available enough that the document should close it off.
+
+— Rev 41: §5.3 now cites the two reasons that hold whatever the bridge is doing. TI SCLS065G §5.2 note 1 requires unused inputs to sit at VCC or GND and §9.1 forbids leaving inputs floating; and a floating HCT input holds both output transistors partly on, drawing supply current and liable to oscillate, for the whole bootloader window on every boot. Neither is about the H-bridge, and both would justify the resistors on their own.
+
+## 16.40 Changes in Rev 40
+
+— Rev 40: what the cross-coupling actually cost. It forbade IN1 = IN2 = high, which is Q1 and Q2 — both ends of the primary at the rail, no path to ground, harmless. In exchange it put the dangerous state where an unprogrammed GPIO lands: both pins low gave Q1 and Q4, the full rail across a 0.63Ω primary as DC. That is the condition R_PWMA_PU and R_PWMB_PU were fitted for at Rev 30 and the one §6.1 and §6.2 walked into from Rev 5 to Rev 29. With the change, both pins low is the zero vector and the topology fails safe by itself. The pull-ups and the full-scale park value stay; they are now redundancy rather than the only defence.
+
+— Rev 40: nothing else moves. Same part, same gate count, same DIP-14, same firmware. Both PWM pins remain active LOW, the park value remains DUTY_MAX, the duty tables are unchanged — GPIO33 is held high through the positive half-cycle, which gave IN2 low before and gives IN2 low now. One net changes in §11: U4 pin5 leaves the IN1 net and joins GPIO33. The change also decouples the two channels, which the old arrangement did not: a glitch on GPIO32 propagated into IN2.
+
+— Rev 40: §8.6 corrected. It said the margin at a 3.3V drive was about 0.3V. The ESP32-WROOM VOH minimum is 0.8 × VDD, or 2.64V at a 3.3V rail, against the IR2104’s 3.0V VIH minimum — a margin of −0.36V. Direct drive is outside specification, not near its edge, and the section had been understating its own case since Rev 16.
+
+— Rev 40: the IRS2104 is closed on package, not on electrics. It is the correct answer to direct 3.3V drive and would delete the 74HCT02, C_U4, the +5V net and R_SD_PD2. It is surface-mount only, and this is a through-hole board whose §13 asks for the shortest gate drive loop the layout allows. Recorded in §8.6 because the electrical argument alone would invite the substitution a third time.
+
+## 16.39 Changes in Rev 39
+
+— Rev 39: §12.2 now says where its four constants come from. The constraint 20 = 40000 / (8 × 250) has been recorded since Rev 12 with no account of why those factors and not others, which is the kind of thing that gets re-derived from scratch in two years or, worse, changed without noticing what depends on it. Two of the four are forced — 20 Hz from outside, 10-bit resolution from the 80 MHz LEDC clock against a 40 kHz period. The remaining two are one decision, since their product must be 2000; 250 steps is the choice and the 200 µs step period follows.
+
+— Rev 39: the section is explicit that this is reconstruction, not recovery. It was worked out from the constraint during a conversation about how the firmware runs, not recovered from whatever was decided at Rev 12. The distinction is worth preserving — a plausible reconstruction presented as a record is worse than no record, because nobody thinks to question it.
+
+— Rev 39: one thing is flagged as genuinely lost — why the carrier is 40 kHz specifically. Above T1’s 20 kHz passband, above audibility, and low enough to leave 10-bit LEDC resolution intact are all good reasons and none of them is written down anywhere. §12.2 says so rather than inventing one.
+
+— Rev 39: §12.2 also now points at §8.3 for anyone revisiting SINE_STEPS. The step count looks like a pure software choice and is not: at g_amplitude = 1.00 three consecutive steps reach 100% duty, so the step period sets the 600 µs window of unbroken high-side conduction that the bootstrap droop is calculated against.
+
+## 16.38 Changes in Rev 38
+
+— Rev 38: §9.3 is not a leakage measurement and is retitled. It carried the heading Measured Leakage Inductance from Rev 9, and §8.5 cited the 14.6mH as leakage to justify the snubber. Leakage is measured with the opposite winding shorted; 508mH at the 20W tap referred to primary is 508 / 5.89² = 14.6mH exactly, which is what an open-circuit measurement gives — magnetizing inductance. Only leakage governs the snubber, so the figure the design leaned on was the wrong quantity. Leakage is now an open measurement item.
+
+— Rev 38: the snubber components are unchanged in value and are probably right, but for a reason the document did not give. R = √(L/C) with 10nF and 100Ω implies 100µH of leakage, ringing near 159kHz, sensibly above the 40kHz carrier. At the 14.6mH previously quoted the ring would be near 13kHz — below the carrier — and R would want to be about 4.3kΩ. §8.5 now derives the values instead of asserting them, and says plainly that the 100µH is inferred from the parts rather than measured.
+
+— Rev 38: R_SNB becomes a 100Ω 1W part. Dissipation is C·V²·f = 10nF × 24² × 40kHz = 230mW, and Rev 5 through Rev 37 specified 1/4W with a note to uprate it if it ran warm. 230mW in a 250mW resistor is 92% of rating; that is not a margin and the note read as though it were optional. The 1W MFR-100 is already on the BOM for trunk R1, so this costs a footprint change from DIN0207 to DIN0414 and nothing else — no new line item, no additional order.
+
+— Rev 38: C_SNB is 10nF 250V film, not 100V ceramic. §8.5 and §10.8 said ceramic from Rev 5; the BOM and the KiCad library plan have carried the Kemet R82 film part under the correct DigiKey number throughout, so only the design document was wrong. The voltage was never the problem — 100V is adequate against a 48V peak — but an X7R loses capacitance under DC bias and handles repetitive pulse current poorly, which is the entire job of a snubber capacitor.
+
+## 16.37 Changes in Rev 37
+
+— Rev 37: §6.1 still said GPIO32 and GPIO33 default high. Rev 30 established that they do not — neither pin has an internal pull at reset — and fitted R_PWMA_PU and R_PWMB_PU to make the claim true. §5.3 was corrected then and §6.1’s power-on bullet was not, so the document has carried both the correction and the original assertion for seven revisions. Found by a reader asking whether the SD chain was right, which it was.
+
+— Rev 37: SD is described in levels rather than states. LOW is shutdown, HIGH is enabled. "SD asserted" appeared in §5.3 and §10.4 and is correct — SD is the shutdown signal, so asserting it drives the pin down — but it reads backwards at a glance, and §7.4 already used the clearer form. Mixing the two in a document whose safety sections get scanned rather than parsed is how the failsafe gets inverted by someone reimplementing it. Same class of correction as §5.2’s "both inhibited" label at Rev 31: the substance was right and the word was wrong.
+
+— Rev 37: R_SD_PD2 added, 10kΩ from the SD net to GND. R_SD_PD is on the GPIO14 side of the buffer and only holds shutdown while the 74HCT02 is powered. The uncovered case is PoE absent with the 24V bus live: the TSR keeps +12V up and both IR2104s alive while the gate has no supply, leaving SD to whatever an unpowered CMOS output settles at. §7.4 has argued since Rev 12 that this is near 0V and it is very likely right, but the argument rests on output-stage parasitics rather than on a specified behaviour, and this is the one signal on the board where being nearly certain is not the standard. One resistor makes it deterministic. It also covers what the Rev 30 pull-ups cannot, since R_PWMA_PU and R_PWMB_PU run from the same dead +3.3V rail.
+
+— Rev 37: why the double inversion is not decorative, now stated in §5. Gate 3 inverts and Gate 4 inverts back, so GPIO14 low gives SD low and the bridge off. A single gate would put SD high when GPIO14 is low, which is what R_SD_PD does at power-on — the pull-down would then enable both drivers instead of disabling them. The buffer is what makes the pull-down mean shutdown, and neither part is optional.
+
+## 16.36 Changes in Rev 36
+
+— Rev 36: the IR2104 pinout is verified against IR PD60046-S, lead assignments for the 8-lead PDIP — 1 VCC, 2 IN, 3 /SD, 4 COM, 5 LO, 6 VS, 7 HO, 8 VB. §8.2 and §11 have been right since Rev 33, but that correction stood on a reading rather than on the drawing, and this was the last of the five pinouts the boards depend on to be checked. The other four — IRLZ44N, 74HCT02, SP721 and TSR 1-24120 — were all correct as drawn. The IR2104 was the only one that was ever wrong, and it was wrong for the whole life of §8.2.
+
+— Rev 36: §8.3 gains the VBS margin. C_BOOT charges to VCC less the UF4007 drop, about 11V nominal and roughly 10.8V at the low end of the TSR’s ±2%, against a recommended VB of VS+10 to VS+20. At g_amplitude = 1.00 three consecutive steps reach 100% duty and the high side conducts for 600µs unbroken, dropping a further 0.33V at the 55µA IQBS maximum — worst case about 10.4V, a few hundred millivolts of headroom rather than volts. It is not a constraint: VS+10 is a recommended condition and the IR2104 has no VBS undervoltage lockout, only VCC, and the IRLZ44N is fully enhanced at VGS = 5V. Recorded because it is the number that decides whether g_amplitude can be raised toward 1.00, or a diode with a larger forward drop substituted, and nothing in the document said so.
+
+— Rev 36: the deadtime figure is qualified. §5 gave 520ns as though it were the specification; it is the typical, with a 400ns minimum and 650ns maximum. Nothing in the argument depends on the value — the point is that the deadtime is internal to the IR2104 and unreachable from outside — but a typical quoted as a spec is the kind of number that gets used in a later calculation as though it were guaranteed.
+
+## 16.35 Changes in Rev 35
+
+— Rev 35: the TSR 1-24120 input range is 15 to 36V, not 4.6 to 36V. §7.3 and §12.5 both carried the wider figure from Rev 19 onward. 4.6V is the minimum for the 9V-nominal members of the series — the 1.2V, 1.5V, 1.8V and 2.5V parts — and each output voltage in the family has its own input minimum; the 12V part needs 15V in. The error came from reading the series header rather than the row. Nothing in the design changes: the LRS-150-24 adjusts over roughly 21.6 to 28.8V and 15V is still well below it. What changes is the size of the margin, from an implied 17V to an actual 6.6V, and any future argument about how far the 24V rail may sag now has to start from the right number. §12.5’s shunt-clamp reasoning is unaffected — 0.4V off a 24V rail is nowhere near either figure — but the sentence said something false and is corrected.
+
+— Rev 35: TSR 1-24120 pinout verified against the Traco datasheet of 2 July 2026 — 1 +Vin, 2 GND, 3 +Vout, SIP-3, 2 × 2.54mm pin pitch. §11 already had it right. This was the last of the two outstanding pinout checks the Rev 33 entry listed; only the IR2104’s own package drawing remains unseen, and its pin list stands on the user’s reading rather than on the document.
+
+— Rev 35: maximum output capacitance for the TSR 1 is 470µF, recorded in §7.3. This rail carries 100nF plus 10µF, so there is no constraint here and the rail can be added to freely. This does not settle the equivalent question for the TSR 2-2450 on the station and trunk boards against their 220µF — different part, different datasheet, still open.
+
+— Rev 35: §13 gains a layout note — route no traces under the converter. The datasheet asks for it explicitly. It matters more here than it would on a quieter board: this is a 500kHz buck in an unshielded plastic case, and the same board carries the I²C bus and the ring output.
+— Rev 40: the interlock is removed. Gate 2 input A moves from Gate 1’s output to GPIO33, so all four NOR gates become plain inverters and IN2 = /GPIO33. The cross-coupling dated from Rev 5, when it was believed to prevent both MOSFETs of one leg conducting together. It never could: the IR2104 derives HO and LO from a single IN pin with internal deadtime, so that state is unreachable from outside the driver. Rev 31 established this and corrected what the gates were called — the section heading, §14, the BOM description — but left the topology in place. Renaming a thing is not re-examining it.
+
+## 16.34 Changes in Rev 34
+
+— Rev 34: C_TVS2 added, 100nF across TVS2 pins 8 and 4 at the device. TVS2 has been on this board since Rev 8 with no bypass, and the SP721 datasheet asks for one. The mechanism matters more than the note: the SP721 does not shunt to ground, it conducts the transient from the IN pin into V+. That current has to be sourced locally or V+ lifts during the event, which both degrades the clamp and injects the transient into the +3.3V rail the Olimex and the expanders sit on. §4.6 deliberately places TVS2 at J3 and away from everything else, so there was nothing nearby to supply it — and on this board, unlike the trunk and station boards, there is no local +3.3V decoupling anywhere, since the rail arrives from the Olimex header rather than from an on-board LDO. Found by reading the datasheet to verify the pinout, which was correct.
+
+— Rev 34: only the V+ side is bypassed, and no series resistor is fitted. The datasheet note asks for bypass on both V+ and V− and for a series resistor in the supply feed. V− is pin 4 and goes straight to GND here, so bypassing it to ground is a zero-length connection and there is nothing to add. The series resistor belongs to the automotive load-dump and reverse-battery case the note is written for; nothing on this board sees a reverse battery, and series resistance in the V+ feed would raise the clamp’s dynamic impedance, which is the opposite of the intent. Recorded because a later reader comparing the board against the datasheet will otherwise see two omissions rather than two decisions.
+
+— Rev 34: the SP721 pinout is confirmed correct against the Littelfuse datasheet, revision GD 07/10/24 — IN on 1–3 and 5–7, V− on 4, V+ on 8. §11 assigns SDA to pin 1, SCL to pin 2 and /RESET to pin 3, all valid inputs, with the three remaining inputs open. No change. Noted so the check is on the record and does not have to be repeated.
+
+## 16.33 Changes in Rev 33
+
+— Rev 33: the IR2104 pinout was wrong and is corrected in §8.2 and in all seventeen IC1 and IC2 references in the §11 netlist. The datasheet order is 1 VCC, 2 IN, 3 /SD, 4 COM, 5 LO, 6 VS, 7 HO, 8 VB. §8.2 had 1 VB, 2 HO, 3 VS, 4 VCC, 5 LO, 6 COM, 7 IN, 8 SD — seven of eight pins wrong, with only LO on pin 5 right by coincidence. It has been wrong since §8.2 was written and every revision since has copied it forward.
+
+— Rev 33: what this would have cost. Nothing in the design changes — the connections were always correct, only the pin numbers naming them were not. But a schematic drawn from Rev 32 against a correct KiCad symbol would have put +12V on COM, ground on VS, the bootstrap capacitor on HO and the gate drive on VB, on both drivers. That is not a board that misbehaves; it is a board that destroys itself at power-on, and there is no bench symptom beforehand because the error is upstream of anything measurable. The one thing that would have caught it is the thing that did: reading the pin list against the datasheet rather than against the previous revision.
+
+— Rev 33: §3.1’s warning about the Olimex pin numbers should be read as covering every pinout in this document, not just that one. The Olimex was singled out because it is a module rather than a catalogue part, but the IR2104 is a catalogue part with a datasheet and it was the one that was wrong. Check the IRLZ44N, the 74HCT02, the SP721 and the TSR 1-24120 against their datasheets before the netlist is trusted — none of them has been verified that way, and this document is no longer evidence that they are right.
+
+## 16.32 Changes in Rev 32
+
+— Rev 32: J7 and J8 added, and T1 is off-board. The document specified a transformer and never said how it attached; §10.9 gave it one line and §11 wired SW_L, SW_R, RING_HI and RING_LO straight to the winding as though the part sat on the board. It does not — the OSD Black is a distribution transformer with flying leads and no board-mount pattern. J7 takes the primary pair, J8 the 20W secondary pair. Found while writing ring_generator_schematic_guide.md, which could not name a symbol or a footprint for T1 because neither should exist.
+
+— Rev 32: J7 is the black 3.50mm OSTTE020104 and J8 the blue 5.00mm OSTTC020162, deliberately not the same part. Nothing on the primary leaves the 0 to 24V range, so the 125V block is ample there; the secondary is 141V peak and the 125V block is below its rating entirely, as J2 and J6 already record. The colour convention holds — black low-voltage, blue in the ring zone. What it does not do is key anything: these are wire-clamp blocks and any wire fits any block, so the real protection is separation and silkscreen. §9 and §13 say which swap is the destructive one and why the labels matter.
+
+— Rev 32: §10.2 gains C_12V_BULK. It has existed since Rev 23, is in the §11 netlist on +12V_VCC, is asked for in §7.7, and is counted on the generator column of the BOM — and was in every one of those places except the component list, which is where anyone drawing from §10 would look. §10.2 listed four parts where there are five. Same defect as R17 on the station board and R_RST on the trunk board, found the same way and at the same stage: writing the drawing guide. No design change and no BOM change; the count was already right.
+
+— Rev 32: §10.10 J1 value corrected, 300V → 3.50mm, 125V. The part is the OSTTE020104 and always was — J2’s own note says so two rows below, and the BOM says so. Only the value cell was wrong, and 125V is entirely adequate at 24V. It mattered because the value column is what gets copied onto a schematic symbol.
+
+— Rev 32: §11 gate resistor nets split. Each of the four read, for example, "IC1 pin7 (HO), R_G1 pin1 / R_G1 pin2, Q1 gate" — both pins of the resistor on one net, which is a short across it. A gate resistor is in series and nobody would draw it otherwise, so this was unlikely to reach copper; but §11 exists to be checked against a finished schematic and a netlist that shorts four parts cannot do that job. Now eight nets: HO_L, HO_R, LO_L, LO_R on the driver side, Q1_GATE through Q4_GATE on the gate side.
+
+## 16.31 Changes in Rev 31
+
+— Rev 31: the 74HCT02 is no longer described as a shoot-through interlock. Rev 5 through Rev 30 called gates 1 and 2 an interlock in §1, §5, §10.4 and the document title, and §14 listed them as a continuous hardware guarantee against H-bridge shoot-through. They cannot be. Each IR2104 derives HO and LO from a single IN pin, complementary, with 520ns of internal deadtime, so no state of the gates can turn both devices in a leg on together — that protection is inside the driver, upstream of anything the 74HCT02 reaches. The gates exist for level translation: 3.3V into TTL thresholds, 5V out to a 3V IR2104 input, which is the argument §5 already made at length and which is load-bearing. The interlock is a property of the topology, not a reason for it.
+
+— Rev 31: what the topology does forbid is IN1 and IN2 both high, which is Q1 and Q2 — both high sides, both ends of the primary at +24V, no path to ground. A zero vector, not a fault. §5.2 keeps the constraint but no longer presents it as a safety mechanism.
+
+— Rev 31: §5.2 truth table, last row relabelled. It read "both inhibited — safe state" from Rev 5. Safe is right; inhibited is not. IN1 and IN2 both low puts Q3 and Q4 on, so both drivers are actively holding their leg at ground rather than being inhibited — inhibiting is what SD does. The distinction matters because this row is the park state §6.1 and §6.2 use and the boot state §5.3 relies on, and it is the only one of the four in which the bridge is genuinely off. The table itself was correct throughout; only the label was wrong.
+
+— Rev 31: BOM row 5 follows, "shoot-through interlock" → level translation. The part number, quantity and every electrical figure are unchanged; this revision corrects what the part is for, not what it is.
+
+## 16.30 Changes in Rev 30
+
+— Rev 30: §6.1 and §6.2 duty polarity corrected. Both said to configure and to park the LEDC channels at 0 duty, and had said so since the channels were first specified. On an active-low drive that is the wrong end of the range. Duty 0 holds GPIO32 low, which is IN1 high and Q1 on; GPIO33 low then gives IN2 = GPIO32 AND /GPIO33 = low, which is Q4 on. Q1 and Q4 together put the full rail across the 0.63Ω primary as DC. It never fired, because SD is low at both of those moments, but §5.3 claims the bridge is off by two independent mechanisms and at 0 duty it was off by one. The park value is full scale — both pins high, both IR2104 IN pins low — which is also the boot state §5.3 describes. §12.3 now states the rule rather than leaving it to be derived from the truth table.
+
+— Rev 30: R_PWMA_PU and R_PWMB_PU added, 10kΩ each from GPIO32 and GPIO33 to +3.3V. §5.3 asserted from Rev 5 to Rev 29 that those two pins default high on boot, and nothing was fitted to make it true. GPIO32 and GPIO33 have no internal pull at reset, so both 74HCT02 inputs floated through the bootloader window and a floating HCT input can drive Gate 1 either way. This is the §5.3 half of the same defect as the bullet above, and it is the case the index calls a part named in prose that is not a part — except that here even the prose was wrong. The generator PCB is not laid out, so the two resistors cost nothing but the BOM line. BOM 10kΩ 1/4W generator column 1 → 3, total 42 → 44, no procurement impact against 50 on order.
+
+— Rev 30: §12.2 records what is actually built. The end-of-period interrupt on CH0 remains the ideal source and is still described as such, but the firmware uses a 200 µs periodic esp_timer, because reaching the LEDC overflow interrupt from the Arduino IDE means writing LEDC.int_ena directly and those register struct names move between IDF versions. The jitter earlier revisions warned about does not arise: LEDC latches duty at the next carrier period boundary, so an arbitrary write instant still lands on a period edge. Recorded because otherwise the document and the firmware disagree about something a reader would have no way to check.
+
+— Rev 30: §7 renumbering. There were two §7.5 headings — Rail Capacitors and Bulk Decoupling — and the first of them sat between §7.3 and §7.4. Rail Capacitors moves to the end of §7 as §7.7. Renumbering the later headings instead would have been tidier in sequence but would have broken every existing cross-reference to §7.4 and §7.6, including two in the component list and one in the Rev 28 change entries. Nothing in the text moved.
+
+— Rev 30: §7.4 was checked while writing the §5.3 note and is right. With PoE absent and the 24V bus live, the 74HCT02 loses its +5V, the Gate 4 output collapses, and SD is not held high. The new pull-ups do not cover that case — they run from the same Olimex +3.3V — and they do not need to.
+
+— Rev 30: a fourth Rev 26 leftover, missed at Rev 29. §7.7 described the TSR 1 as sitting at the end of a fused, diode-dropped rail. There has been no series diode since Rev 26 and so no drop; the rail is fused only. Rev 29 corrected the three occurrences that named D1 and did not catch this one, which describes the consequence of the old topology without naming the part. Grepping for the designator was not enough.
+
+## 16.29 Changes in Rev 29
+
+— Rev 29: §10 component list, F1. Rev 26 through Rev 28 described F1 as "Series after D1, first component on the +24V input" — two statements that cannot both be true, and the first of them wrong since Rev 26. The entry was correct while D1 was in series; Rev 26 moved D1 to a shunt clamp and did not revisit the table. The order is the whole mechanism. With D1 upstream of the fuse, a reversed supply puts the clamp directly across the LRS-150-24 with no fuse in the fault path: F1 carries only the board’s own load current and never opens, and the 1N5822 conducts 6.5A until it fails. F1 is upstream — J1, F1, then the clamp, as §7.2 and §13 have said throughout.
+
+— Rev 29: §11 netlist, +24V_F deleted. It was the node between D1 and F1 in the series arrangement and has no counterpart in a shunt clamp, where nothing sits between them. Left in place it lists D1 cathode, already on +24V_SW, together with F1 pin1, already on +24V_IN — so the net bridges those two and shorts across the fuse. Drawn as written, F1 would have protected nothing.
+
+— Rev 29: §1 overview. Still called D1 a series Schottky diode, three revisions after it stopped being one.
+
+— Rev 29: all three are Rev 26 leftovers, and all three are in the summary and table sections rather than the design sections. §7.2 and §13 were right the whole time. This is the trunk §13 J3 failure again: a correction that landed where the reasoning lives and left the tables describing the old design.
+
+## 16.28 Changes in Rev 28
+
+— Rev 28: the ring bus is split into two separately terminated branches. J2 continues to feed the trunk board's J6; a new J6 on this board feeds the switchboard's ring supply. Rev 24 through Rev 27 had both branches landing under J2's two screws. The OSTTC020162 takes one 14–22 AWG conductor per position, so that was outside the block's specification, and it also meant neither branch could be isolated for fault-finding without unwiring the other. Two terminals cost one part — see §10.10.
+
+— Rev 28: F2 added, a 250mA fast-acting fuse in series with RING_HI ahead of J6 only. The trunk branch is protected at its far end by the trunk board's own F2, and a second fuse in series with it would add a failure point without adding protection. The switchboard branch had no fuse at either end and is the longer and more exposed of the two runs. The value follows the trunk board's part rather than being calculated, and is provisional pending the ring current measurement trunk §7.6 asks for — see §7.6 here.
+
+— Rev 28: the switchboard's 24V does not pass through this board, and §7.1 now says so rather than leaving it to be inferred. It was proposed as three pairs of a Cat5e run sharing an RJ45 with the ring pair, and rejected on two grounds. This board already carries the Olimex's PoE RJ45, so a second RJ45 with 141V peak on it would sit beside a jack that goes to a switch port, with nothing to stop either cable entering the wrong one — unlike the 6P6C case in §4.1, that hazard runs both ways. And F1 is 500mA, sized for this board's own consumption, so 1A of switchboard load through J1 was never available without re-fusing at a value that defeats what F1 is there for. The switchboard now takes its own leg of the star from the PSU terminals on Anderson Powerpole connectors.
+
+— Rev 28: designator note. The new terminal is J6 rather than the next free J5. J5 means the black OSTTE020104 24V input block on both the station and the trunk boards, and a blue 300V ring terminal at J5 on this board alone would invert that meaning on one board out of three — the case §13 already worries about. J6 already means ring bus on the trunk board. J5 is deliberately left unused here. If KiCad renumbers on annotation the constraint is not the specific number: it is that the two blue ring terminals stay distinct from the black 24V input, on the silkscreen as well as in the netlist.
+
+## 16.27 Changes in Rev 27
+
+— Rev 27: the operator tone injector is removed from this board. The tone is now generated by the host as an ordinary A32 output stream on the operator tap strip of station board 1 — station §7.9 — which also returns the operator’s audio for the audience monitor. GPIO15, T3, the two-pole RC filter, the 22kΩ pair and the coupling capacitors all come out of this build. §15 is retained as a record of what was there and why it moved.
+
+## 16.26 Changes in Rev 26
+
+— Rev 26: D1 moves from series to a shunt clamp across +24V and GND, matching station Rev 3.20 and trunk Rev 5.19. Blows F1 on a reversed supply rather than blocking, and costs no forward drop — see §7.2.
+
+## 16.25 Changes in Rev 25
+
+— Rev 25 corrects Rev 24. The terminals on hand are the OSTTE020104 at 3.50mm and 125V, below the 141V peak of the ring output. J2 reverts to a separate part, the OSTTC020162 at 5.00mm and 300V, matching trunk Rev 5.18 J6. J1 keeps the OSTTE020104.
+
+## 16.24 Changes in Rev 24
+
+— Rev 24: J2 is the same 2-pin screw terminal as J1 rather than a separately specified 250V part, matching trunk Rev 5.17 J6. One connector type across both boards; the creepage and separation rules for the ring output are unchanged — see §10.10.
+
+## 16.23 Changes in Rev 23
+
+— Rev 23: 10µF added on the 12V output as C_12V_BULK. The rail had 100nF of decoupling and no reservoir between gate-drive pulses — see §7.5. The TSR 1 input capacitor was checked and is already correctly specified.
+
+## 16.22 Changes in Rev 22
+
+— Rev 22 corrected: the injector is built entirely on the generator board, not split with T3 at the switchboard as Rev 21 specified. T3's position decides which side of the isolation barrier the cable falls on, and Rev 21 put it on the side connected to the GPIO — see §15.5.
+
+## 16.21 Changes in Rev 21
+
+— Rev 21: operator tone injector added as §15. A filtered 9000Hz square wave from GPIO15, transformer-coupled into the operator's talking path at bin 768, so the game can tell which circuit the operator is patched to. Independent of ring generation; adds three new passive values to the BOM.
+
+## 16.20 Changes in Rev 20
+
+— Rev 20: hardware /RESET added on 6P6C positions 1 and 6, driven from GPIO5, reaching every MCP23017 in the chain. The pair was spare and the alternative use considered for it — distributing 3.3V to the other boards — was rejected because it would have put a supply return on the interleaved grounds and a live rail on a plug that fits an RJ45 telephone jack. Cords must now be six-conductor — see §4.7.
+
+## 16.19 Changes in Rev 19
+
+— Rev 19 corrected: U_12V is the Traco TSR 1-24120, not the TSR 1-2412. The latter is a 1.2V part — the trailing zero carries the output voltage — and would have left the gate drivers below their undervoltage lockout. Specified wrongly since Rev 15; see §7.3.
+
+## 16.18 Changes in Rev 18
+
+— Rev 18: TVS2 specified as the Littelfuse SP721APP. A rail clamp rather than a fixed-breakdown TVS, 3pF per line rather than the 1pF assumed, and through-hole — see §4.6. Same part on all three board types.
+
+## 16.17 Changes in Rev 17
+
+— Rev 17: D1 changed from SS34 to 1N5822. Same function and forward drop; the SS34 has no through-hole package. Same change on all three board types.
+
+## 16.16 Changes in Rev 16
+
+— Rev 16: fuse and fuse holder part numbers specified. Earlier revisions named fuse values and never said what held them — see §10.1.
+
+## 16.15 Changes in Rev 15
+
+Rev 15 exists because the gate-drive logic threshold in Rev 14 was checked against the datasheet and did not survive it. The change is contained to the logic between the ESP32 and the IR2104 inputs; the H-bridge, transformer, waveform and I²C design are untouched.
+
+— Corrected: the IR2104 threshold figures. The datasheet specifies VIH at 3V minimum and VSD,TH+ at 3V minimum, both for VCC of 10V to 20V. Rev 13 and Rev 14 quoted an SD threshold of 2.1V maximum, which does not appear in the datasheet — see §8.6.
+
+— The consequence: at a 3.3V drive both IN and SD had about 0.3V of margin against a guaranteed minimum, not the comfortable margin Rev 14 claimed for SD and flagged only as a question for IN.
+
+— 74HC02 becomes 74HCT02, running from 5V. TTL input thresholds (VIH 2.0V) take the 3.3V GPIO drive; the 5V output gives the IR2104 inputs about 2V of margin — see §5.
+
+— 5V comes from the Olimex EXT1 pin 1. The load is a milliamp or two against the ISO board's 2W budget — see §7.4.
+
+— SD is no longer driven directly from GPIO14. It goes through gates 3 and 4 of the 74HCT02 as a non-inverting buffer. Those two gates were previously unused with their inputs tied to GND — see §6.
+
+— The IRS2104PBF substitution proposed in Rev 14 §8.6 is withdrawn. It was a workaround for 3.3V drive and is not needed at 5V.
+
+## 16.14 Changes in Rev 14
+
+Rev 13 was reviewed against station Rev 3.5 and trunk Rev 5.1. The changes below are corrections and cross-document alignment; nothing in the H-bridge, transformer or waveform design has moved.
+
+— Corrected: I²C moves off GPIO17. On the ESP32-POE-ISO, GPIO17 clocks the Ethernet PHY and was never available. SDA is now GPIO13 and SCL is GPIO16 — see §3.1.
+
+— SD control moves from GPIO13 to GPIO14, which is what frees GPIO13 for SDA — see §6.
+
+— TVS2, a 3.3V rail-clamp array, added on SDA and SCL at J3. The master was the only node on the bus without one — see §4.6.
+
+— J1 (24V input) and J2 (ring output) added to the component list. Earlier revisions specified no connectors on this board at all, while the trunk board expected a ring bus feed from it — see §10.10.
+
+— The startup scan list is now driven by the configured station board count rather than hard-coded to four devices — see §4.5.
+
+— IR2104 input threshold against a 3.3V drive called out for verification, with the IRS2104PBF named as the drop-in if it proves marginal — see §8.6.
+
+— Fuse comparison corrected. 500mA here and on the trunk board, 250mA on the station boards; Rev 13 claimed all three matched.
+
+— Build state stated explicitly. Three station boards and 24 stations is the design capacity; two boards and 16 stations is the present build. The third board is a populated-later slot and changes nothing on this board but the scan list.

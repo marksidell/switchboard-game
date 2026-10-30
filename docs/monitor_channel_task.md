@@ -2,7 +2,7 @@
 
 **Claude Code Task — Audience Monitor to A32 Output 24, Operator Tap to Channel 23**
 
-*Task 2 — 2026-09-23. Specification: audio.md Rev 7 (§1.7 is the change list), station_circuit.md Rev 3.40, mqtt.md Rev 9, control.md Rev 10. The documents are the authority; this file says where the change lands in code. If the code and a document disagree in a way this file does not cover, stop and report rather than decide.*
+*Task 2 — 2026-09-23. Specification: audio.md Rev 7 (§17.7 is the change list), station_circuit.md Rev 3.40, mqtt.md Rev 9, control.md Rev 10. The documents are the authority; this file says where the change lands in code. If the code and a document disagree in a way this file does not cover, stop and report rather than decide.*
 
 # 1. What changed in the design
 
@@ -31,7 +31,7 @@ The ALSA stream does not change: still `hw:<id>`, 48kHz, S32_LE, 34 playback cha
 
 # 2. Changes to `sbaudio`
 
-Work from audio.md Rev 7 §1.7 and §2. Start by grepping the source, the tests, `docs/pilot-map.md` and `CLAUDE.md` for every place that encodes the old map — literal `23`, `24`, `32`, `33`, `1-23`, `1–23`, and any constant for station count, tap channel or monitor channels. The aim is that the channel map lives in one place and everything else derives from it; if it does not today, make it so as part of this change, since this is the second time the map has moved.
+Work from audio.md Rev 7 §17.7 and §2. Start by grepping the source, the tests and `docs/pilot-map.md` for every place that encodes the old map — literal `23`, `24`, `32`, `33`, `1-23`, `1–23`, and any constant for station count, tap channel or monitor channels. The aim is that the channel map lives in one place and everything else derives from it; if it does not today, make it so as part of this change, since this is the second time the map has moved.
 
 1. **Channel map constants.** Stations 22. Tap document channel 23 (index 22). Monitor default document channel 24 (index 23). Trunks unchanged at 25–32. Circuit slot numbering for the comb is unchanged (station §8.3): station n is slot n, trunk n is slot 24 + n.
 
@@ -55,7 +55,7 @@ Work from audio.md Rev 7 §1.7 and §2. Start by grepping the source, the tests,
 
 11. **Version and header comments.** Cite audio.md Rev 7. Remove or correct any comment that names Digiface 33/34 as the monitor or channel 24 as the tap.
 
-12. **Rev 6 end-of-speech.** If the audio.md Rev 6 §1.6 listen state machine (`"silence"`, `--vad-hangover`, `--vad-max-speech`) is not already in, it is still owed; do it in the same pass or say that it is outstanding.
+12. **Rev 6 end-of-speech.** If the audio.md Rev 6 §17.6 listen state machine (`"silence"`, `--vad-hangover`, `--vad-max-speech`) is not already in, it is still owed; do it in the same pass or say that it is outstanding.
 
 # 3. Tests
 
@@ -68,9 +68,8 @@ Work from audio.md Rev 7 §1.7 and §2. Start by grepping the source, the tests,
 
 Same pass, separate commits, only if the code exists in this repo:
 
-- **Controller firmware** (control.md Rev 10 §1.10). `sb_table.cpp` / `sb_table.h`: remove the station 23 row (board 3, address 0x22, bit 6), leaving 22 station rows and 8 trunk rows, 30 in all. Any station count in `sb_config.h` goes from 23 to 22, and any comment that places the tap on board 3 bit 7 now names bits 6 and 7 (tap and monitor, both unmapped). No other behaviour changes. The full republish becomes 68 messages over 30 circuits (control.md §9.2); if a constant or comment carries 70 or 31, update it.
+- **Controller firmware** (control.md Rev 10 §12.10). `sb_table.cpp` / `sb_table.h`: remove the station 23 row (board 3, address 0x22, bit 6), leaving 22 station rows and 8 trunk rows, 30 in all. Any station count in `sb_config.h` goes from 23 to 22, and any comment that places the tap on board 3 bit 7 now names bits 6 and 7 (tap and monitor, both unmapped). No other behaviour changes. The full republish becomes 68 messages over 30 circuits (control.md §9.2); if a constant or comment carries 70 or 31, update it.
 - **Game program and the TTS loader.** Any station-number validation that accepts 1–23 accepts 1–22. `tts_task.md` §3.1 says "within 1–23" and has not been revised; treat it as 1–22. `script.yml`'s comment has already been updated and no station in it uses 23 or 24.
-- **`CLAUDE.md`.** Update the invariants: 22 stations, tap on A32 channel 23, monitor on A32 output 24, Digiface 33/34 as fallback only.
 
 # 5. One-time broker cleanup
 

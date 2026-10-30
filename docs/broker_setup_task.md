@@ -12,7 +12,7 @@
 
 The specifications are authoritative. This note is a summary and a checklist. Read these sections before you start:
 
-- `mqtt.md` Rev 16: §1.15, §1.16, §9, §9.1, §9.2, §11 (last item)
+- `mqtt.md` Rev 16: §12.15, §12.16, §9, §9.1, §9.2, §11 (last item)
 - `game_control.md` Rev 9: §2, §9 steps 1–4 and 10
 - `control.md` §9.1 and `audio.md` §14, for how the controller and `sbaudio` take their broker credentials
 

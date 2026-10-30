@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 38 — Olimex ESP32-POE-ISO on the Ring Generator Board: Ring Waveform Generation by LEDC PWM, I²C Master for the Station and Trunk MCP23017 Expanders, MQTT Client to the Host, Relay Failsafes, Dial Pulse Detection on the Trunks, Switchboard Power Cut on GPIO15, Pulsed or Held, a Real Telephone on Station 24*
+*Rev 39. The changes in each revision are in §12.*
 
 # 1. Overview
 
@@ -18,272 +18,7 @@ The board itself — pinout constraints, PoE budget, the level translation betwe
 
 **Ownership.** The firmware is `control/control.ino` — the folder and file renamed from `ring/esp32.ino` on 2026-09-19, and that from `ring/ring.ino` on 2026-09-17, since it has been the whole controller and not the ring generator alone since Rev 4 — maintained through Claude Code and not through chat sessions (PROJECT_INDEX.md, *Firmware ownership*). This document is the specification the firmware is written to. When a revision here has a firmware consequence it says so, and the change is made on the Claude Code side.
 
-**Build state as of Rev 8.** Everything in this document is written in `control/control.ino` and its `sb_*.cpp/h` modules: the ring waveform, SD sequence, GPIO4 enable, GPIO15 sync and peak-phase start (bench-run at generator Rev 52, 2026-09-16), and as of 2026-09-17 Ethernet, the I²C scan, expander polling, relay control, the MQTT client, the trunk state machine and dial pulse detection. The source was reviewed against Rev 6 on 2026-09-18 (§1.7) and the reviewed fixes were confirmed in the source on 2026-09-19: the spread republish, strict `on`/`off` payloads, `seize` kept in RING_ON_TRUNK, `ring/set` dropped outside IDLE, the header and comments brought current. The duty tables are in the §3 form for the 74HCT04 — direct duty, park at 0 — and the source says not to run that build on a board still carrying the 74HCT02. There is no arming gate as of Rev 11 (§1.11), and so no bench build: the one build runs the generator with or without boards on the chain. The station and trunk boards themselves are not yet built, so none of the expander-side code has run against hardware; §11 lists what is still to be verified. Rev 10's channel-table change (§1.10) is a code consequence not yet in the source.
-
-## 1.1 Changes in Rev 1
-
-— New document. The firmware behaviour had been specified in pieces across the three circuit documents: ring generation in generator §6 and §12, expander polling and ring debounce in station §3.7 and §9.6, the trunk state machine, debounce and cadence in trunk §7.5, §7.6 and §11, and the MQTT failsafes in station §9.12 and trunk §11.4. Each was written from that board's point of view, and nothing stated the controller's behaviour as one thing — the order of the startup sequence across all three jobs, or the full list of conditions on which relays are released. Those sections are replaced by pointers here; their change lists carry the history.
-
-— Nothing in the firmware's specified behaviour changes in the move. Two things are stated here for the first time because assembling the pieces exposed them: the complete failsafe table in §10, and the startup order in §4.2, which generator §6.1 gave for the ring generator alone and which now has the I²C scan and the MQTT connection in it.
-
-## 1.2 Changes in Rev 2
-
-— Dial pulse detection added, §8.2. The operator dials outgoing calls on a seized trunk with a rotary dial, and the dial interrupts the loop once per pulse. The trunk board's seizure detector sees each interruption as loop current stopping (trunk §4), so the pulses arrive on SEIZE_n with no hardware change; the firmware counts them and publishes each completed digit on sbgame/trunk/<n>/digit (mqtt.md §4). Rev 1's release rule — declare the trunk released after 25ms open — would have read every pulse as a release, so the release threshold rises to 250ms and the seizure logic becomes the three-way classifier of §8.1: pulse, digit gap, release.
-
-— The accidental-ring discriminator changes with it. Rev 1 recognised ring from the switchboard as four or more transitions in 150ms, which a dial at the top of its speed range can also produce. Ring and dial are now separated on the interval between successive breaks — about 50ms for 20Hz ring against 67–125ms for an 8–15 pps dial — which is what actually differs between them. §8.1.
-
-— Standard dial pulse timing is recorded in §8.2 so the thresholds can be checked against it and re-derived if a dial outside Bell System practice is ever connected.
-
-## 1.3 Changes in Rev 3
-
-— Follows station Rev 3.35: three station boards are built and the operator tap is station 24, board 3 strip 8. The scan list is 0x20–0x23 with nothing conditional (§4.2); the tap note in §6.1 moves from board 1 bit 7 to board 3 bit 7; stations are 1–23 and no station/24 topic is published.
-
-## 1.4 Changes in Rev 4
-
-— Written against the firmware, which now implements the whole document. Four decisions the implementation had to make where the specification was silent or too loose are adopted here, with the reasoning: ring-on-trunk is recognised from SEIZED as well as IDLE (§8.3), because a 20Hz break train inside a seizure would otherwise be counted as dial pulses; ring is declared on two consecutive ≤ 60ms break-to-break intervals rather than one (§8.1, §8.2), because at 5ms sampling a single interval sits one sample clear of a 15 pps dial; the 30s ring timeout runs from the first relay energisation rather than from ring/set (§8.5), so a trunk queued behind the concurrent-ring cap still gets a full cadence; and a bus fault is three consecutive I²C errors on one device, not one (§6.2, §10), because a single NAK on six feet of daisy-chained 6P6C is a glitch.
-
-— The MQTT client library is chosen: MQTT 2.5.3 by Joël Gähwiler (256dpi/arduino-mqtt). It supports QoS 1 and sends its keepalive ping from `loop()`, so a wedged main loop stops the ping and the broker's LWT fires — the case mqtt.md §8.2 treats as client-dependent falls on the safe side. §9.1.
-
-— The boot-time I²C scan result is published on sbgame/ctl/i2c (mqtt.md §4): `"ok"` or `"missing: 0x22 0x23"`, retained. §4.2 step 5.
-
-— §2 corrected: the firmware requires Arduino core 3.x and refuses to build on 2.x (`#error`), since the 2.x LEDC path was removed. Rev 1 to Rev 3 said it built on both.
-
-— The build-state paragraph in §1 and the open items in §11 are brought up to date; `ring_start_phase_task.md` is deleted from the project.
-
-## 1.5 Changes in Rev 5
-
-— Two Rev 4 slips, found by the firmware author. §4.2 had the scan result published at step 5, before MQTT connects at step 7; it is published at step 7, and on every reconnect and rescan. §8.3’s state-machine sketch still said one ≤ 60ms break interval where §8.1 and §8.2 say two consecutive; now consistent.
-
-— §9.4 is explicit that the firmware drops a command for a circuit on a missing board regardless of ctl/i2c. A game program that reads ctl/i2c and does not send is cleaner, but the firmware does not depend on it doing so.
-
-## 1.6 Changes in Rev 6
-
-— The firmware file is `control/control.ino`, renamed from `ring/ring.ino` on 2026-09-17 on the Claude Code side. The old name dated from when the file was the ring generator's PWM sketch and nothing else; since Rev 4 it has been the whole controller. §1 follows. Earlier change entries here and in the other documents keep the old name as history. No behaviour changes.
-
-— mqtt.md Rev 5 makes the audio program a commanded client, with `play/set`, `listen/set` and `tone/set` under the same `station/<n>/` and `trunk/<n>/` roots as `hook/set` and `ring/set`, and asks that this firmware subscribe to its two commands by name and not by a wildcard over every `set`. §9.1 has specified `sbgame/station/+/hook/set` and `sbgame/trunk/+/ring/set` since Rev 4, so the specification already meets it; the check that the source does likewise is on the Claude Code side and is the one firmware item mqtt.md Rev 5 raises.
-
-## 1.7 Changes in Rev 7
-
-— Written against the firmware source as reviewed on 2026-09-18 (`control.ino`, `sb_config.h`, `sb_table`, `sb_expander`, `sb_station`, `sb_trunk`, `sb_net`). The source meets §4 to §10 as written, and the §11 item to confirm the by-name subscriptions in the source is closed: they are exactly the four patterns of §9.1. Six decisions the implementation made where the specification was silent are adopted here, with the reasoning, and three items go back to Claude Code as code consequences.
-
-— **Adopted.** (1) The MCP23017 driver is written against the registers and not over a library, §6.1: the Adafruit library exposes no way to write IPOL, and a driver whose read returns 0 on a bus failure cannot tell that from eight idle inputs. (2) The channel table gives every circuit a row and the operator tap bit none, so the tap is never polled, published or commanded, §6.1 — a cleaner statement of "leave the mapping alone". (3) The echoed `hook` and `ring` state is the commanded state, published at command time; the relay write and read-back follow at the next flush, and a relay that does not take is corrected by the bus-fault path, §7.2. (4) `bad_dial` for a break outside the pulse window is published when the digit ends, not when the break happens, and a spoiled digit abandoned by a release publishes nothing, §8.2 — one message per digit, none for a digit that was going to be abandoned anyway. (5) After a bus-fault recovery an expander that is still absent is not retried, §6.2: a retry means another /RESET, which drops every relay on the chain. (6) A reconnect attempt blocks the main loop for the TCP connect timeout plus the CONNACK wait, which can be seconds, §9.1; that is acceptable only because the MQTT-loss failsafe has already released every relay before the first retry, and that dependency is now written down.
-
-— **Two behaviours settled by Mark and by this revision, not by the source.** RING_ON_TRUNK entered from SEIZED keeps `seize` = `"on"`, §8.3; the source published `"off"`, which a game program reading `seize` as the call's existence would take as a release and tear the call down for an operator's slip. `fault` carries the news; `seize` reports the loop. And `ring/set "on"` is acted on in IDLE only and is a no-op in RINGING; in SEIZED or RING_ON_TRUNK it is dropped with a log line and the echo stays `"off"`, §8.3. The source dropped it in SEIZED and queued it in RING_ON_TRUNK to fire when the pattern stopped; a request that fires seconds later, after the operator has finished with the trunk, is a command the game did not mean at that moment. The game re-issues if it still wants it.
-
-— **Code consequences, for Claude Code.** (a) The full-state republish — reconnect, `ctl/sync` and the 30s timer — is 70 QoS 1 messages, and in MQTT 2.5.3 a QoS 1 publish blocks until its PUBACK. The burst holds the 200Hz loop for something like 100–300ms on a LAN, during which a ringing station's 100ms quiet rule fires and a digit under way has the stall added to a break or make interval. §9.2 now requires the republish to be spread one circuit per poll tick. Measure the maximum loop-tick length first so the fix is sized to a number. (b) Any `hook/set` or `ring/set` payload other than `"on"` is treated as `"off"`; §9.4 now requires `"on"` and `"off"` to be accepted and anything else logged and dropped. (c) The two behaviours above: keep `seize` on in RING_ON_TRUNK from SEIZED; drop `ring/set "on"` in RING_ON_TRUNK as in SEIZED. Also: the `control.ino` header says "Implements control.md Rev 2", cites the `.docx` generator revision and carries a "WHAT IT DOES NOT DO" block that the code contradicts — bring it to this revision and delete the block; `sb_config.h` and `sb_table.cpp` claim §6.1 puts the tap on board 1 and mqtt.md says stations 1–24, both stale since Rev 3; `sb_table.h` says twenty-four stations and rows 0..23/24..31 where there are 23 and 31 rows; `sb_expander.cpp` says §10 gives no error count where §6.2 and §10 both say three; the "section 4.5" in the arm-refused message is the old `.docx` numbering. `BENCH_ALLOW_MISSING_EXPANDERS` should default to `false` with the bench build setting it, so a fresh checkout is safe. The duty tables and both park writes go to the 74HCT04 form of §3 — direct duty, park at 0 — in one commit.
-
-## 1.8 Changes in Rev 8
-
-— Build state only. The Rev 7 §1.7 code consequences are in the source as of 2026-09-19 and were checked in chat: the republish walks one circuit per 5ms tick from a single row counter shared by the reconnect, `ctl/sync`, timer and failsafe paths; payloads other than `"on"` and `"off"` are logged and dropped; a trunk carries its own `seize_on` flag so RING_ON_TRUNK reports the seizure it was entered with; `ring/set "on"` is a no-op in RINGING and dropped with a log line in SEIZED and RING_ON_TRUNK. The console banner now reports the longest loop pass and the longest poll gap since it was last printed, which is the §11 measurement. The arming-gate bypass became a build option rather than a constant, so the departure cannot be committed by accident; §1 says so. The Rev 7 §11 pre-chain item is reduced to what is left: build without the bench option, and read the banner's loop timing with the broker up.
-
-## 1.9 Changes in Rev 9
-
-— Rename only. This document is `control.md`, from `esp32.md`, and the firmware is `control/control.ino`, from `ring/esp32.ino` — both on 2026-09-19, Claude Code and Mark. The `esp32` name said which chip; `control` says what the program is, and it is the name the folder now carries. `ESP32` stays wherever it means the chip or the Olimex board, and `sbgame-esp32` stays as the MQTT client id — that is on the wire and nothing asked for it to move. Every cross-reference in the other documents follows at their next revision (station 3.39, trunk 5.38, generator 61, mqtt 7, audio 5, PROJECT_INDEX). Earlier change entries here and elsewhere now read `control.md` and `control/control.ino` where they said `esp32.md` and `ring/esp32.ino`, so that a reference followed from an old entry lands; the `ring/ring.ino` name in the oldest entries is kept as history, since nothing points at it. No behaviour changes.
-
-## 1.10 Changes in Rev 10
-
-— Follows station Rev 3.40. Stations are 1–22: the operator tap moves from board 3 strip 8 to strip 7, and strip 8 carries the audience monitor output on A32 channel 24 with nothing fitted on its line side. §6.1 now names both strips and both unmapped bits. §9.2's counts follow: a full republish is 68 messages, where Rev 7 to Rev 9 said 70, and the round-robin is over 30 circuits, about 150ms, where they said 31 and 155ms. The Rev 3 and Rev 7 entries keep their figures as history.
-
-— Firmware consequence, for Claude Code: the channel table in `sb_table.cpp` / `sb_table.h` loses the station 23 row (board 3, address 0x22, bit 6), leaving 22 station rows and 8 trunk rows, 30 in all, and any constant or comment that counts stations (`sb_config.h`) goes from 23 to 22. No other behaviour changes.
-
-## 1.11 Changes in Rev 11
-
-— The arming gate is removed (Mark, 2026-09-25). §4.2 step 8 said not to arm the H-bridge while a configured expander was absent, on the reasoning that the generator would be feeding a ring bus whose relays the firmware could not see or release. That reasoning does not hold for this hardware. Ring reaches a circuit through the trunk board's ring relays alone, and they are normally open: with their expander absent or unconfigured, R_pd holds every driver off and every relay released (§4.1), so the bus goes nowhere. The station boards take no ring from the bus. The switchboard's own ring supply on generator J6 was never switched by any relay the firmware drives, so the gate never protected it either. What the gate did do was refuse to run the generator on a board with nothing on the chain, which is the configuration the generator is brought up and characterised in.
-
-— §4.2 loses step 8 and its later steps renumber, 8 to 11; §4.3's reference follows. §6.2's note that the bridge stays armed through a recovery now rests on this rather than on the gate being a boot check. §10's row for an expander absent at boot becomes report-only. §11 loses the pre-chain item to build without the bench option. The scan is unchanged and still published on `ctl/i2c`. Generator §6's Rev 56 pointers name the gate as what moved here; they are history and are left.
-
-— Firmware consequence, for Claude Code, made in the same commit: `startWaveform()` no longer refuses on a missing expander; `slavesPresent()`, the banner's arming-gate line, the boot-time `ARM INHIBITED` message and the `BENCH_ALLOW_MISSING_EXPANDERS` build option are removed. `CLAUDE.md` and `TODO.md` lose the bench build.
-
-## 1.12 Changes in Rev 12
-
-— Bench record only. The §5.3 start-phase verification is made on the Antek, and §5.3 records it; §11 loses the item. No behaviour changes.
-
-## 1.13 Changes in Rev 13
-
-— Follows generator Rev 65. GPIO36 is the operator's Next Call button, an optoisolator pulling the pin low against the Olimex's own 10k pull-up; §3 lists it. What the firmware does with it — debounce, the press event and its MQTT topic — is not yet specified, and §11 carries it as an open item. No firmware consequence until it is.
-
-## 1.14 Changes in Rev 14
-
-— Follows generator Rev 68, which brings that document into line with the board as built. Nothing the firmware does changes; the names it uses for the hardware do. §3: GPIO32 (PWM A) reaches IN2 and the right leg, U5, through 74HCT04 gates 2 and 5; GPIO33 (PWM B) reaches IN1 and the left leg, U4, through gates 1 and 6; SD goes through gates 3 and 4. The enable and sync header is J1 (pin 1 GPIO4, pins 2 and 3 GND, pin 4 GPIO15), not J9; the drive monitor is J3, not J10; the Antek's output terminal is J6, not J8. §4.1: R_SD_PD2 is not fitted, and the low-side gate pull-downs are R_GS2 and R_GS4. §5.2 says which leg the positive half-cycle drives on this board.
-
-— Firmware consequence, for Claude Code, made in the same commit: the pin comments in `control.ino` and the two banner lines that name J9 now name J1 and its pins. Comments and strings only.
-
-## 1.15 Changes in Rev 15
-
-— Firmware updates over the network (§2.1), so that the installed board can be reflashed without a USB cable. A cable left attached would join portland's ground to the system's 24V ground, which PoE's isolation keeps apart, and anything that opened the port would reset the board; Mark weighed powering the Olimex from USB and chose to stay on PoE (with a TL-SG105PE PoE switch in place of a separate injector) and update over the network instead. The generator §3.4 recommendation to prefer OTA in the installed system is now something the firmware can do.
-
-— Firmware consequence, for Claude Code, made in the same commit: ArduinoOTA started once Ethernet has an address, with the hostname `sbgame-esp32` and a SHA-256 password hash from `secrets.h` (`OTA_PASSWORD_SHA256`; without it the firmware builds with OTA off). The start callback stops the waveform and releases every relay before anything is written to flash; an error after that point restarts the board. §10 gains the row.
-
-## 1.38 Changes in Rev 38
-
-— Station 24's hook and ring rules lengthened for what a cord does to the line (§7.4), 2026-10-23. With Rev 37 in, the scope on RING_DET_8 over ten plugs and pulls at jack 10 showed the line genuinely open for **29–192ms** each time, with a short bounce at each end; Rev 35's one 14ms sample was not typical. Every release over 100ms published `lifted` (three), and one of 43ms, its two changes 45–50ms apart by the poll, published `ring`. `lifted` now needs the level to hold **400ms**, about twice the longest release, and ring needs **four pulses** as well as 50ms of them: ringing gives one every 25ms and is declared in about 75ms, a plug gives two or three.
-
-— Firmware consequence, for Claude Code: PHONE_HOOK_STABLE_MS 400, PHONE_RING_PULSES 4. FIRMWARE_SPEC_REV 38.
-
-## 1.37 Changes in Rev 37
-
-— The poll's samples are timed from when they are read (§6.3), 2026-10-23. Rev 36 was wrong: with the serial console attached, plugging a cord at jack 10 logged no expander reset, no bus error and no reconfiguration. A debug build that logged station 24's input showed what did happen. The loop read `millis()` once, at the top of the pass, then ran the MQTT client, then read the inputs, and the client was holding passes for 150–300ms waiting on the broker: the heartbeat's publish and the spread republish's, each a QoS 1 round trip. A change read after such a hold was stamped up to 300ms early. A plug's bounce lasts about 14ms; if the poll read it after a hold, the next poll, 5ms later and still in the bounce, found the change already over 100ms old, and station 24 published `lifted`. The time now handed to the station and trunk polls is read after `expanderPollInputs()`. The trunks' dial timing used the same stale time, which may be what stretched breaks on 2026-10-03.
-
-— Rev 36's IPOLA read before each poll of 0x22 is withdrawn; nothing showed a reset. §6.4's check is unchanged.
-
-— Still open: why a QoS 1 publish takes 150–300ms on the LAN. It was about 4ms at boot the same afternoon.
-
-— Firmware consequence, for Claude Code: `sampled` in `loop()`; Rev 36's code reverted. FIRMWARE_SPEC_REV 37.
-
-## 1.36 Changes in Rev 36
-
-— A reset of 0x22 read as station 24 lifted (§6.4, §7.4), 2026-10-23. Plugging a cord into jack 10 or pulling it out published `lifted` `"on"` for up to a second, five times in a row, while the hook detector, on the scope, released for 14ms at most. The expanders are known to reset on switching transients (bench, 2026-10-03: 0x23 on ring relays, 0x20 once); a reset clears IPOLA, so bit 7 reads 0, which is lifted, until §6.4's check, one present expander a second, configures the chip again. A station's ring needs transitions and does not see this; station 24's hook is a level and does. The expander that carries station 24 now has IPOLA read before every poll: if it is not 0xFF, the chip is configured again at once, its relays restored from the shadow as §6.4 does, and that poll's inputs are not used. One more one-byte read per tick on that expander, about 0.4ms.
-
-— Firmware consequence, for Claude Code: the IPOLA read in `expanderPollInputs()`, and `restore()`, shared with `expanderVerifyNext()`. FIRMWARE_SPEC_REV 36.
-
-## 1.35 Changes in Rev 35
-
-— Station 24's ring has a rule of its own (§7.4), 2026-10-23. Plugging a cord into jack 10 or pulling it out bounces the hook detector: measured, one or two releases of about 12ms and a few shorter ones, all within 20ms. §7.1's four transitions in 150ms took the pull for ring, and Rev 34, counting a latched pulse as two transitions, made that likelier. Station 24 now declares ring after pulses have continued for **50ms with no gap over 50ms**: ringing, a pulse every 25ms, is declared within about 50ms; a plug's bounce is not. Released as before, 100ms with no pulse. `lifted` unchanged. Stations 1–22 keep §7.1.
-
-— Firmware consequence, for Claude Code: `phonePoll()` in `sb_station.cpp`, PHONE_RING_RUN_MS and PHONE_RING_GAP_MS. FIRMWARE_SPEC_REV 35.
-
-## 1.34 Changes in Rev 34
-
-— Station 24's ring was missed (§6.3, §7.4), 2026-10-23. Its hook detector bridges the line through 4.4kΩ rather than the station's 20kΩ, so while it is rung it releases only near each zero crossing: measured on RING_DET_8 at 100kHz, a 1.9ms pulse (median) every 25.0ms. 25ms is five polls exactly, so the 5ms poll locked in step with it and saw most pulses or almost none: a 4s ring was published as `ring` `"on"` for under a second. On 0x22, interrupt-on-change is enabled for Port A bit 7 alone. There is still no INT line; the poll reads INTFA with GPIOA in one five-byte read (INTFA to GPIOA), and a latched change that reads the same level as the poll before counts as a pulse, two transitions. About 0.45ms more bus per tick on one expander, 9% of a 100kHz bus.
-
-— Firmware consequence, for Claude Code: `GPINTENA` from `latchMask()` in `configureOne()`; the five-byte poll on that expander; `circuitChanged()`; the pulse counted in `stationPoll()`. FIRMWARE_SPEC_REV 34.
-
-## 1.33 Changes in Rev 33
-
-— Station 24, a real telephone on station board 3 strip 8 (§6.1, §7.4), 2026-10-23, following real_phone.md Rev 2 (adopted, option B). Strip 8 is no longer the audience monitor output; the monitor is on the Digiface's 33/34. The strip's ring-detector footprint is fitted as a DC hook detector across the phone's line, and its relay connects the line's transformer to A32 channel 24. Port A bit 7 and Port B bit 7 of 0x22 are now read and driven, as `station/24`: `ring` and `hook` as for any station, and `lifted`, the phone's own hook, debounced and held while ring is present (mqtt.md Rev 43). `dial/set` on station 24 is dropped. Bit 6, the operator tap, is unchanged.
-
-— Firmware consequence, for Claude Code: a station row for 24 at 0x22 bit 7 in `sb_table.cpp`, between the stations and the trunks; the `lifted` debounce in `sb_station.cpp`; the spread republish over 31 rows. FIRMWARE_SPEC_REV 33.
-
-## 1.32 Changes in Rev 32
-
-— A held cut (§5.4), for game_control.md Rev 65, 2026-10-20: the page switches the switchboard off and on. `ctl/power_cut/set` `"hold"` drives GPIO15 high with no time limit, until `"off"` or a failsafe of §10; `ctl/power_cut` echoes `"hold"` (mqtt.md Rev 38). A hold during a 1s cut turns it into a hold; `"on"` during a hold is ignored, as during a cut. Powered is still the safe state: every failsafe ends a hold as it ends a cut.
-
-— The driver is now behind an optoisolator (generator §7.8, Rev 76), so the ESP32's ground is not joined to the 24V ground through it: GPIO15 drives the opto's LED through 220Ω, with 1kΩ across the LED. Still active high. Through a reset the Olimex's 10kΩ pull-up against those holds the pin near 0.36V, which the strap reads as low, and the LED dark.
-
-— Firmware consequence, for Claude Code: `powerCutSet()` takes `"on"`, `"hold"` or `"off"`; `ctl/power_cut` publishes `"hold"` while held; the pulse's timer leaves a hold alone. FIRMWARE_SPEC_REV 32.
-
-## 1.31 Changes in Rev 31
-
-— GPIO15 cuts the switchboard's 24V for 1s on command (§3, §5.4, §9.4), Mark's request, 2026-10-19, and the waveform sync it carried is withdrawn. A trunk rung in locks its lamp and buzzer on the switchboard until a cord goes into the jack: the 551 holds the signal on its own battery, so releasing our ring relay does not clear it, and nothing else did. A relay in the switchboard's leg of the supply star, normally closed, opens while GPIO15 is high (generator §7.8, Rev 75), and every relay and lamp on the switchboard drops. The game program sends it when a game stops (game_control.md Rev 63), and the Stream Deck can send it by hand.
-
-— Active high. GPIO15 idles low and is driven high to cut. The Olimex pulls GPIO15 up with 10kΩ (Olimex's ESP32-POE pinout, from Mark, 2026-10-19), so through a reset, before `setup()` claims the pin, it would sit high; the driver's 470Ω base pull-down against the 1kΩ base resistor holds it to about 0.4V there, and the transistor's base to about 0.13V, so the relay stays released (generator §7.8). An active-low drive through an optoisolator was drafted first, on the guess that the pull-up might be 2.2kΩ, and needs +3.3V, which J1 does not carry; the pinout made it unnecessary.
-
-— `ctl/power_cut/set` `"on"` starts the cut and `"off"` ends it early; `ctl/power_cut` echoes `"on"` and `"off"` (mqtt.md Rev 37). The cut ends by itself after `POWER_CUT_MS`; a second `"on"` during it is ignored. Every failsafe of §10 ends it too: power restored is the safe state.
-
-— **Wire the relay only after this firmware is running.** Rev 30 and earlier drive GPIO15 as a 20Hz square wave while the generator runs, which would chatter the switchboard's supply.
-
-— Firmware consequence, for Claude Code: `PIN_SYNC` and its writes in the step ISR, in §4.3 and in the banner come out; `PIN_POWER_CUT` 15, claimed low in `setup()`; `POWER_CUT_MS` 1000 in `sb_config.h`; subscribe to `ctl/power_cut/set`; publish `ctl/power_cut` with the birth message and on change; end the cut in every §10 release. FIRMWARE_SPEC_REV 31.
-
-## 1.30 Changes in Rev 30
-
-— `shortring/set`'s burst is 1s, not 0.5s (§8.3, §8.4), Mark's finding on the switchboard, 2026-10-10: ringing each of the 551's trunk jacks in turn, one did not latch its trunk signal on 0.5s of ring. The answer is still readable from the moment the burst ends; the operator cannot plug in before it does in practice.
-
-— Firmware consequence, for Claude Code, made in the same commit: `SHORT_RING_MS` 1000 in `sb_config.h`. FIRMWARE_SPEC_REV 30.
-
-## 1.29 Changes in Rev 29
-
-— The serial banner is printed for Enter only — CR or LF — and at most once every 2s; every other byte on the line is discarded. The receive pin is pulled up. Found on the bench, 2026-10-10, and the cause of the stalls of Rev 27 and of 2026-10-09: with the USB cable unplugged, the board's USB-serial chip is unpowered and the receive line floats, and noise on it read as keypresses. Each printed the banner, about 100ms of blocking output, so the loop stalled tens of milliseconds at a time: the controller acknowledged commands 2–92ms late (network capture) and the station dial's breaks stretched from 61ms to about 118ms, so every digit of the board test was refused as `bad_dial`. With the cable plugged in, the line is driven idle and the controller answered in 4ms and dialled true. A reset did not help, which ruled out the power-on boot; the cable did. The installed controller runs without the cable (§2.1), so this was its normal state.
-
-— Rev 28's log line for each trunk state change is removed; the log of a state publish that fails or is skipped stays.
-
-— Firmware consequence, for Claude Code, made in commit 7d0ad22: `loop()` in `control.ino` looks for CR or LF and rate-limits the banner to `BANNER_MIN_MS` (2000); `setup()` enables the pull-up on GPIO3 (U0RXD) after `Serial.begin()`. FIRMWARE_SPEC_REV 29.
-
-## 1.28 Changes in Rev 28
-
-— Diagnostics only. A state publish that does not reach the broker is logged on the serial console, with the topic, the payload and the client's error, as is one skipped because the client is not connected; and each trunk's `seize`, `ring` and `fault` change is logged as it is published. Found on the bench, 2026-10-09, with trunk 1 through the switchboard: a cord plugged in or pulled out produced the `fault` message at once, but its `seize` change arrived only with the next 30s republish (§9.2), and no non-empty `fault` arrived at all, while the heartbeat came every second and the broker logged nothing. In a game the program would wait up to 30s to see the operator answer.
-
-— Firmware consequence, for Claude Code, made in the same commit: `netPublishState()` in `sb_net.cpp` checks `publish()`'s result and logs `lastError()`; `publishBoolIfChanged()` and `setFault()` in `sb_trunk.cpp` log the change. FIRMWARE_SPEC_REV 28.
-
-## 1.27 Changes in Rev 27
-
-— Diagnostics only: the banner lists every gap between poll ticks of 20ms or more since it last printed, each with how long ago it was, its length, the number of loop passes in it, the section that took longest in it and for how long, and the time no section accounts for (§11). Found on the bench, 2026-10-09: after an unplanned outage the controller came back stalling for about 100ms at a time — commands echoed 108–139ms late and the station dial's breaks stretched to 88–122ms, outside §8.2's window — until a reset cleared it; and even healthy, the banner reported an 81ms poll gap when its longest pass was 13ms, so most of that gap ran in no timed section. One such gap was the banner itself, which printed after the pass timing and so landed between ticks unmeasured. The gaps are kept in a buffer of sixteen and printed with the banner, not as they happen, because a line on the serial port blocks for longer than the gaps being looked for. The enable check, the ctl/i2c publish on reconnect and the banner's own printing are now timed sections, so the banner's stall shows as the first gap, under "serial".
-
-— Firmware consequence, for Claude Code, made in the same commit: in `control.ino`, `TIMED` also accumulates each section's time since the last poll tick; the tick computes the gap and, at 20ms or more, records it with the largest section and the untimed remainder; `printBanner()` prints and clears the buffer. Sections `enable`, `scan` and `serial` added. FIRMWARE_SPEC_REV 27.
-
-## 1.26 Changes in Rev 26
-
-— Bench record only: dial pulse timing and contact bounce through the real 551 cord circuit and dial, measured 2026-10-05 (§8.2, §11). The operator seized trunk 1 with a cord and dialled 0, 1, 2, 3 on the switchboard's dial; loop current was recorded across the trunk's sense resistor (R206) with an Analog Discovery 3 at 50kHz for 45s, upstream of the seizure detector, so the figures are the dial's own and not the detector's.
-
-| **Digit** | **Pulses** | **Break** | **Make** | **Rate** | **Make before the next digit** |
-| --- | --- | --- | --- | --- | --- |
-| 0 | 10 | 68.7–76.0ms | 37.0–40.2ms | 9.2pps | 1.56s |
-| 1 | 1 | 81.5ms | — | — | 1.34s |
-| 2 | 2 | 76.6–76.7ms | 41.6ms | 8.5pps | 1.29s |
-| 3 | 3 | 76.3–78.2ms | 41.5–41.8ms | 8.4pps | — |
-
-Every break is inside §8.2's 25–100ms window, the longest with 18.5ms to spare; every make is far below the 200ms end of digit and every inter-digit make far above it. The dial runs a little slow, 8.4–9.2pps against 10 nominal, and a little long on break, 64–68%, both inside what §8.2 accepts. Bounce is at the start of each break only: an open of up to about 3ms, then the contacts close again for 0.34–0.96ms, then stay open; 18 such re-closes in 16 breaks, and none inside any make. The longest, 0.96ms, is a fifth of one 5ms sample, so the Rev 24 glitch filter rejects it with margin, and no firmware change follows. A 12V spike across the sense resistor about 1.5s after the last digit was the operator throwing the key that takes the dial off the trunk, not the dial.
-
-— The firmware's own decode of these digits could not be checked in the same run: trunk 1 still carried the Rev 5.40 seizure detector values, which hold the HCPL3700M inside its hysteresis band (trunk Rev 5.41), and the controller published no digits. That check waits on the Rev 5.41 resistors.
-
-## 1.25 Changes in Rev 25
-
-— A second ring command, `trunk/<n>/shortring/set` (§8.3, §8.4, §9.4; mqtt.md Rev 26), Mark's request, 2026-10-05. `"on"` rings the trunk once, for 0.5s, and returns it to IDLE; `"off"` cancels a burst that has not finished. The trunk cannot see a seizure while its ring relay is energised, because pole 2 lifts the return off R_LOOP (trunk §4.3), so under the cadence an operator who answered during the 2s on phase was not seen until the off phase began. The 551's trunk signal is a latching relay that one short burst of ring is enough to operate, so a single burst signals the call and leaves the trunk readable from the moment it ends, which is when the operator can first plug in. The same phase rules and the same concurrent-ring cap apply as for `ring/set`: acted on in IDLE only, a no-op while RINGING, dropped with a log line in SEIZED or RING_ON_TRUNK, queued behind the cap. `ring/set` keeps the cadence, and `ring/set "off"` also cancels a short burst. The `ring` echo goes `"on"` for the burst and `"off"` after it.
-
-— Firmware consequence, for Claude Code, made in the same commit: `trunkShortRing()` beside `trunkSetRing()` in `sb_trunk.cpp`, both through one `requestRing()`; a `short_burst` flag on the trunk ends RINGING after `SHORT_RING_MS` (500) and rebaselines the seizure input as at the start of an off phase; `shortring/set` is subscribed and queued like `ring/set` in `sb_net.cpp`. FIRMWARE_SPEC_REV 25.
-
-## 1.24 Changes in Rev 24
-
-— A change of level on SEIZE_n is accepted only when two consecutive samples agree on it (§8.1). Found in review of trunk Rev 5.41, 2026-10-05: the resized detector drives the HCPL3700M well past its threshold, so it now follows every bounce of the switchboard's dial contacts, which the input sitting near its threshold had partly hidden. The input is sampled every 5ms with nothing in between, and one sample caught inside a bounce is a break shorter than 25ms in a digit — spoiling it with `bad_dial` — or a make that splits a break in two. Bounce lasts a few milliseconds, so it can disagree with the settled level in one sample at most, and a two-sample rule drops it. The accepted edge is timed from the first of the two samples, so both edges of a pulse move by the same amount and every interval in §8.1 and §8.2 keeps its length; the cost is 5ms of latency on each edge, nothing against a 100ms seizure test or a 25ms shortest break. Ring applied from the switchboard alternates at about 25ms on and 25ms off, five samples a side, and passes unchanged. The dial bounce itself is still to be measured on the bench, through the real cord circuit (§11).
-
-— Firmware consequence, for Claude Code, made in the same commit: `trunkPoll()` in `sb_trunk.cpp` holds a candidate level and its time, accepts it on the second agreeing sample, and stamps the edge — `level_since` and the break-to-break time — from the candidate. The state machine reads the filtered level. FIRMWARE_SPEC_REV 24.
-
-## 1.23 Changes in Rev 23
-
-— A break of 100–250ms spoils the digit it falls in even when it comes before the digit's first counted pulse (§8.2). Found on the bench, 2026-10-03, with the serial console attached through a board test: a station dialled 4, the trunk missed the make after the first pulse, logged a 177ms break as neither pulse nor release, and published `"2"`; a station dialling 2 lost the same make and published nothing, and its `bad_dial` never came. Rev 7 spoiled a digit only on a bad break *inside* it, meaning after a pulse had been counted, so a lost make between the first two pulses left the remainder to be counted as a shorter, valid digit — a wrong number, with no fault. A break of that length in SEIZED can only be pulses run together, so it now opens a digit already spoiled, which ends in `bad_dial` at the 200ms make like any other. A break under 25ms before the first pulse is still only logged: it is a glitch, not a lost pulse, and a seized trunk sitting idle should not report a fault for it.
-
-— Firmware consequence, for Claude Code, made in the same commit: `classifyBreak()` in `sb_trunk.cpp` sets `in_digit` and `digit_spoiled` on a 100–250ms break whatever came before it. FIRMWARE_SPEC_REV 23.
-
-## 1.22 Changes in Rev 22
-
-— Commands are acted on after the MQTT client's loop returns, never inside it (§9.4). Found on the bench, 2026-10-03, with the serial console attached through a board test: the controller closed its own broker connection four times in 88s, each time after a stall of up to 939ms in the network step, and each loss released every relay. A command's handler publishes its echo at QoS 1, and the client library calls the handler from inside its own loop; the nested publish read the socket for its PUBACK, consumed bytes the outer loop had already counted as available, and the outer read then waited out the library's 1s timeout and closed the connection. The more commands arrive, the more often it happens — the board test sends one every few hundred milliseconds. This accounts for the seizures still dropped part-way through dialling after Rev 21, a 61ms break measured as 175ms, and other circuits changing state while one pair was under test.
-
-— Firmware consequence, for Claude Code, made the same day: `onMessage` records a `hook/set`, `dial/set` or `ring/set` in a queue of sixty-four — a game stop releases thirty circuits in one read, and the first bench build, with sixteen, dropped two of the board test's cleanup commands and `netService` acts on them once `mqtt.loop()` has returned; a full queue drops the command with a log line. The game heartbeat and `ctl/sync` were already only recorded. FIRMWARE_SPEC_REV 22.
-
-## 1.21 Changes in Rev 21
-
-— Elapsed times no longer wrap. Found on the bench, 2026-10-03, with station 4 dialling for the scope: the serial console logged "game heartbeat missed twice", every relay released, and "game heartbeat returned" 10ms later — every second, while the game's heartbeats left the broker evenly a second apart. The loop reads the clock once a pass; a message handled in that pass's network step is stamped with a later reading, and `now - then` on unsigned milliseconds turned that small negative age into four billion. The heartbeat read as two seconds late and the failsafe fired. The same trap was set for a ring started by `ring/set` — its 30s hard timeout and its cadence step could fire on the next pass — and for the dial's interval. This accounts for the seizures dropped part-way through dialling, the relays that did not echo and, perhaps, the stations that heard no ring; the board test is rerun on this firmware before the boards are blamed.
-
-— Every elapsed time is now taken as a signed difference, and a stamp later than the pass's clock reads as no time elapsed.
-
-— Firmware consequence, for Claude Code, made the same day: `elapsedMs()` in `sb_config.h`, used by the trunk ring timing, cadence and dial detection and the station ring detector; the game-heartbeat age compared signed. FIRMWARE_SPEC_REV 21.
-
-## 1.20 Changes in Rev 20
-
-— The 200Hz loop no longer stalls, found on the bench 2026-10-03 with station board 1 and the trunk board wired together. The banner showed passes of 130ms against the 5ms nominal, long enough to swallow dial pulses — no trunk decoded a digit — and to drop seizures and miss ring. Three causes, all fixed:
-
-— **Nagle on the broker connection.** Every QoS 1 publish waits for its PUBACK (§9.2), and with Nagle on, the small packets met the broker's delayed ACK: about 40ms a message, so a station's three-message republish tick took 90ms and each heartbeat 39ms. The socket is now TCP_NODELAY (§9.1); they take 8ms and 3.5ms.
-
-— **One absent board probed per retry**, in turn (§6.2), not every absent board at once, and every I²C transaction capped at 5ms, where the core's default is 50ms and a probe of an absent address could take all of it.
-
-— **The banner reports the worst time of each part of the loop** since it last printed — network, configuration check, input poll, station and trunk logic, relay flush, heartbeat, failsafes, republish, OTA — beside the loop timing, so a stall can be traced to its source.
-
-— After the fixes the longest pass is 14ms. The same board test that decoded no digit then decoded all ten on three pairs; what failed on the other five is left to the boards.
-
-## 1.19 Changes in Rev 19
-
-— Each expander's configuration is checked, one a second in turn, and restored if it has been lost (§6.4). Found on the bench, 2026-10-03: plugging station board 1 into the chain reset the trunk board's MCP23017 without the controller noticing — it still answered — and with IPOL back at its default every idle SEIZE input read as a seizure, all eight at once. A chip that resets loses its directions and polarities silently, and nothing in §6.2 catches that, since §6.2 acts on errors and a reset chip makes none.
-
-— Firmware consequence, for Claude Code, made the same day: the check, the reconfiguration, the relays restored to their commanded state, and the log line. FIRMWARE_SPEC_REV 19.
-
-## 1.18 Changes in Rev 18
-
-— The firmware says which it is (§9.1), Mark's request, 2026-10-01. On every connection it publishes `sbgame/ctl/firmware`, retained: the revision of this document it implements, the git commit it was built from — with `-dirty` if `control/` had uncommitted changes — and when it was built, as one string, `"control.md Rev 18, 4118077-dirty, built 2026-10-01 21:14Z"`. The banner shows the same. A retained topic rather than the heartbeat's payload: the revision is a state, read once by whoever subscribes, and the heartbeat is an event whose arrival is all anyone reads.
-
-— The revision is a constant in the source, `FIRMWARE_SPEC_REV`, raised with this document whenever a revision has a firmware consequence. The commit and the date are stamped at build time by `control/compile`, which writes `control/sb_version.h` — not committed — and then runs `arduino-cli compile` with whatever it was given. A build without it reports the commit as `unknown`.
-
-— Firmware consequence, for Claude Code, made the same day: the constant, the stamp, the publish and the banner line. The header's "Implements control.md Rev 9" was stale: Rev 10's channel table was made in `930f208`, and the firmware is current to Rev 17 before this one.
-
-## 1.17 Changes in Rev 17
-
-— A station can dial (§7.3), Mark's request, 2026-10-01, for testing the trunk board's dial pulse detection without a switchboard: `sbgame/station/<n>/dial/set` with digits pulses that station's off-hook relay at standard dial timing, 61ms break and 39ms make, with 700ms closed between digits, and echoes the digits still to send on `sbgame/station/<n>/dial`. The firmware does the timing because its 5ms loop sits next to the relay: timed from the host, every edge crosses the network and the broker, and the pulses carry their jitter into the classifier the test is meant to check. Only `sbgame-boardtest` uses it; the game does not, since in the game the operator dials and the stations never do.
-
-— §9.2's republish is 90 messages, where it was 68: each station's tick now carries `dial` as well as `ring` and `hook`, three round trips where it was two.
-
-— Firmware consequence, for Claude Code, made the same day: the station module's dial sequencer, the subscription, and the echo.
-
-## 1.16 Changes in Rev 16
-
-— Follows generator Rev 71: the Next Call button is not fitted to the ring generator board as built. GPIO36 stays reserved for it (§3) and is unconnected; §11's item on the firmware's handling waits on hardware that has it. No firmware change — nothing reads GPIO36.
+**Build state as of Rev 8.** Everything in this document is written in `control/control.ino` and its `sb_*.cpp/h` modules: the ring waveform, SD sequence, GPIO4 enable, GPIO15 sync and peak-phase start (bench-run at generator Rev 52, 2026-09-16), and as of 2026-09-17 Ethernet, the I²C scan, expander polling, relay control, the MQTT client, the trunk state machine and dial pulse detection. The source was reviewed against Rev 6 on 2026-09-18 (§12.7) and the reviewed fixes were confirmed in the source on 2026-09-19: the spread republish, strict `on`/`off` payloads, `seize` kept in RING_ON_TRUNK, `ring/set` dropped outside IDLE, the header and comments brought current. The duty tables are in the §3 form for the 74HCT04 — direct duty, park at 0 — and the source says not to run that build on a board still carrying the 74HCT02. There is no arming gate as of Rev 11 (§12.11), and so no bench build: the one build runs the generator with or without boards on the chain. The station and trunk boards themselves are not yet built, so none of the expander-side code has run against hardware; §11 lists what is still to be verified. Rev 10's channel-table change (§12.10) is a code consequence not yet in the source.
 
 # 2. Platform and Build
 
@@ -291,7 +26,7 @@ Olimex ESP32-POE-ISO. Arduino IDE: "ESP32-POE-ISO" under the Olimex ESP32 boards
 
 ## 2.1 Updating over the Network
 
-The installed board is updated over Ethernet with the core's ArduinoOTA, not over USB. The first flash of a board, and recovery from a firmware that does not reach the network, are still by USB (CLAUDE.md, Commands).
+The installed board is updated over Ethernet with the core's ArduinoOTA, not over USB. The first flash of a board, and recovery from a firmware that does not reach the network, are still by USB.
 
 - **When it listens.** From the first time Ethernet has an address, on UDP port 3232, advertised over mDNS as `sbgame-esp32` (the MQTT client id). `ArduinoOTA.handle()` is called once per loop pass; while no update is under way it costs a UDP poll.
 - **Password.** Required. `secrets.h` carries its SHA-256 as `OTA_PASSWORD_SHA256` (`echo -n 'password' | sha256sum`), so the plaintext is not in the firmware image; the uploader gives the plaintext. A firmware built without it has OTA off and says so in the banner. A wrong password is refused and changes nothing on the board.
@@ -345,7 +80,7 @@ In this order, and the order matters:
 10. The 200µs step timer enabled; waveform generation armed at the peak-phase index (§5.3).
 11. GPIO14 driven HIGH — drivers enabled. The generator runs while GPIO4 is held LOW.
 
-Steps 3 to 7 are new relative to generator §6.1, which listed the ring generator's own startup and named the Ethernet and I²C steps without ordering them against it. Nothing about the ring generator's own sequence changes. The scan result does not gate steps 8 to 11: an absent expander leaves its relays released, and the generator runs regardless (§1.11). Until Rev 11 a step 8 here refused to arm the bridge on a missing expander.
+Steps 3 to 7 are new relative to generator §6.1, which listed the ring generator's own startup and named the Ethernet and I²C steps without ordering them against it. Nothing about the ring generator's own sequence changes. The scan result does not gate steps 8 to 11: an absent expander leaves its relays released, and the generator runs regardless (§12.11). Until Rev 11 a step 8 here refused to arm the bridge on a missing expander.
 
 ## 4.3 Shutdown Sequence
 
@@ -423,7 +158,7 @@ GPIO5 drives /RESET to every expander on 6P6C positions 1 and 6 (generator §4.7
 
 A reset returns every expander to IODIR = 0xFF and so drops every relay it controls — off-hook relays on the station boards, ring relays on the trunk board — with R_pd holding the drivers off through the window. Assert it at startup before the scan (§4.2 step 4), and on a detected bus fault: three consecutive errors on one device — NAKs, or reads that return a value inconsistent with what was written. One error is logged and counted, not acted on; a single NAK on six feet of daisy-chained 6P6C is a glitch, and resetting every relay on the chain for it would be the worse fault. Do not assert it while calls are up unless recovering from a fault, and **never while ring is applied** (§8.4): a reset mid-cadence releases the ring relay at an arbitrary point in the 20Hz waveform rather than at the cadence boundary. A wedged expander holding a ring relay closed is the one failure a firmware watchdog alone cannot clear, and this is the tool for it — with ring inhibited first.
 
-The recovery is one reset, one rescan and one reconfigure. An expander that is still absent afterwards stays absent until the next boot: its circuits are not polled, its commands are dropped (§9.4), and `ctl/i2c` says so. It is not retried, because a retry is another /RESET and another drop of every relay on the chain (Rev 7). The bridge stays armed: an absent expander's ring relays are released, so nothing is ringing that the firmware cannot stop (§1.11).
+The recovery is one reset, one rescan and one reconfigure. An expander that is still absent afterwards stays absent until the next boot: its circuits are not polled, its commands are dropped (§9.4), and `ctl/i2c` says so. It is not retried, because a retry is another /RESET and another drop of every relay on the chain (Rev 7). The bridge stays armed: an absent expander's ring relays are released, so nothing is ringing that the firmware cannot stop (§12.11).
 
 ## 6.3 Polling
 
@@ -460,7 +195,7 @@ The echo is `sbgame/station/<n>/dial`, retained: the digits not yet finished, in
 Rev 33, real_phone.md Rev 2. A real telephone is wired across station board 3 strip 8's line pair, cabled to switchboard jack 10. Nothing on the board feeds its loop: the switchboard's line circuit does, and Rx03 is not fitted, so the line's DC is the phone's own. Strip 8's ring-detector footprint is fitted as a DC hook detector bridging the line (2.2kΩ + 2.2kΩ, no capacitor): it conducts while the phone is on-hook and the line sits near 24V, and releases when the phone is lifted and pulls the line below about 8V (measured 5.5–7.9V). Through IPOL, Port A bit 7 reads **1 on-hook, 0 lifted**.
 
 - **`ring`**: §7.1's debounce does not serve here. A steady level, on-hook or lifted, has no transitions, so it never reads as ring; the operator ringing the phone does, because the detector is DC-coupled and pulses at 40Hz. Through 4.4kΩ it releases only near each zero crossing, about 1.9ms in each 25ms (measured, Rev 34), which the 5ms poll misses, so the expander latches the change: GPINTENA bit 7 on 0x22, and the poll reads INTFA with GPIOA. A poll that sees a change, or a latched one, is a pulse. Ring is declared when at least four pulses have come over 50ms or more with no gap over 50ms (four pulses since Rev 38), rather than §7.1's four transitions in 150ms, which a cord plugged into the jack or pulled out also gives: it bounces the detector for about 20ms (measured, Rev 35). Released after 100ms with no pulse, as §7.1.
-- **`lifted`**: the phone is off-hook. Declared when Port A bit 7 has read the same for **400ms** with no transition (100ms until Rev 38), and held at its last value while `ring` is on, since ringing makes the input pulse (CLAUDE.md: ring energy masks supervision). Published on `sbgame/station/24/lifted` on change only, `"on"` lifted. 400ms passes a cord plugged into the jack or pulled out, which opens the line for 29–192ms (measured, Rev 38), as well as the hook switch's bounce and a dial's 61ms breaks. A phone that dials also reads as ring, which holds `lifted` for the dial's duration; nothing is expected to dial on it.
+- **`lifted`**: the phone is off-hook. Declared when Port A bit 7 has read the same for **400ms** with no transition (100ms until Rev 38), and held at its last value while `ring` is on, since ringing makes the input pulse. Published on `sbgame/station/24/lifted` on change only, `"on"` lifted. 400ms passes a cord plugged into the jack or pulled out, which opens the line for 29–192ms (measured, Rev 38), as well as the hook switch's bounce and a dial's 61ms breaks. A phone that dials also reads as ring, which holds `lifted` for the dial's duration; nothing is expected to dial on it.
 - **`hook/set`** and **`hook`**: as §7.2. The relay connects the line's transformer to A32 channel 24 through Cx01, which blocks DC, so it changes nothing the hook detector or the switchboard sees. Released by every condition of §10.
 - **`dial/set`**: logged and dropped. The relay does not carry the loop, so there is nothing to pulse.
 
@@ -617,7 +352,7 @@ Every relay on every board is released — OFFHOOK_n all zero, RING_EN_n all zer
 | MQTT connection lost | Client callback / failed publish | Release all relays immediately; keep polling; reconnect |
 | Game heartbeat missed twice | 2s timer on `game_heartbeat`, its age taken signed (Rev 21) | Release all relays; log; resume when it returns |
 | Trunk ringing for 30s | Per-trunk timer | Release that trunk's ring relay; state → IDLE |
-| Required expander absent at boot | I²C scan | Report over MQTT; its relays stay released (§4.1); the generator is not stopped (§1.11) |
+| Required expander absent at boot | I²C scan | Report over MQTT; its relays stay released (§4.1); the generator is not stopped (§12.11) |
 | I²C bus fault in service | Three consecutive errors on one device (NAK or read-back mismatch); single errors logged only | Inhibit ring, assert /RESET, rescan, reconfigure, republish ctl/i2c |
 | Network firmware update starting | ArduinoOTA start callback (§2.1) | Stop the waveform, release every relay, then write; restart when done or on error |
 
@@ -634,3 +369,276 @@ What the firmware cannot do is make the ring bus safe: the generator runs whenev
 - The 1ms /RESET pulse width is chosen as safe, not read from the MCP23017 datasheet; confirm.
 - The three-error bus-fault threshold (§6.2) and the two-interval ring threshold (§8.1) are judgement values; revisit both once there is a bus and a switchboard to measure against.
 - Read the banner's loop timing — longest pass and longest poll gap — with the broker up and a republish cycle in the window, and confirm the gap stays at the 5ms nominal. From Rev 27 the banner lists each gap of 20ms or more with what ran in it: find what holds the loop when no section accounts for the time, and reproduce the 2026-10-09 degraded state after an outage (Rev 27 change entry) with the Ethernet unplugged for 30s and the serial log running.
+
+# 12. Revision History
+
+## 12.39 Changes in Rev 39
+
+— The document made readable, Mark's request, 2026-10-30, as `game_control.md` Rev 95. The line under the title had grown into a list of topics and now gives only the revision. The changes in each revision move out of the Overview to this section at the end of the document, newest first, where Rev 16 to Rev 38 had been in descending order after Rev 15. The text of each entry is unchanged except for references to the renumbered sections, and wording that said an entry was "above". A new revision is added at the top of this section, and the line under the title changes only its number.
+
+— No code consequence.
+
+## 12.38 Changes in Rev 38
+
+— Station 24's hook and ring rules lengthened for what a cord does to the line (§7.4), 2026-10-23. With Rev 37 in, the scope on RING_DET_8 over ten plugs and pulls at jack 10 showed the line genuinely open for **29–192ms** each time, with a short bounce at each end; Rev 35's one 14ms sample was not typical. Every release over 100ms published `lifted` (three), and one of 43ms, its two changes 45–50ms apart by the poll, published `ring`. `lifted` now needs the level to hold **400ms**, about twice the longest release, and ring needs **four pulses** as well as 50ms of them: ringing gives one every 25ms and is declared in about 75ms, a plug gives two or three.
+
+— Firmware consequence, for Claude Code: PHONE_HOOK_STABLE_MS 400, PHONE_RING_PULSES 4. FIRMWARE_SPEC_REV 38.
+
+## 12.37 Changes in Rev 37
+
+— The poll's samples are timed from when they are read (§6.3), 2026-10-23. Rev 36 was wrong: with the serial console attached, plugging a cord at jack 10 logged no expander reset, no bus error and no reconfiguration. A debug build that logged station 24's input showed what did happen. The loop read `millis()` once, at the top of the pass, then ran the MQTT client, then read the inputs, and the client was holding passes for 150–300ms waiting on the broker: the heartbeat's publish and the spread republish's, each a QoS 1 round trip. A change read after such a hold was stamped up to 300ms early. A plug's bounce lasts about 14ms; if the poll read it after a hold, the next poll, 5ms later and still in the bounce, found the change already over 100ms old, and station 24 published `lifted`. The time now handed to the station and trunk polls is read after `expanderPollInputs()`. The trunks' dial timing used the same stale time, which may be what stretched breaks on 2026-10-03.
+
+— Rev 36's IPOLA read before each poll of 0x22 is withdrawn; nothing showed a reset. §6.4's check is unchanged.
+
+— Still open: why a QoS 1 publish takes 150–300ms on the LAN. It was about 4ms at boot the same afternoon.
+
+— Firmware consequence, for Claude Code: `sampled` in `loop()`; Rev 36's code reverted. FIRMWARE_SPEC_REV 37.
+
+## 12.36 Changes in Rev 36
+
+— A reset of 0x22 read as station 24 lifted (§6.4, §7.4), 2026-10-23. Plugging a cord into jack 10 or pulling it out published `lifted` `"on"` for up to a second, five times in a row, while the hook detector, on the scope, released for 14ms at most. The expanders are known to reset on switching transients (bench, 2026-10-03: 0x23 on ring relays, 0x20 once); a reset clears IPOLA, so bit 7 reads 0, which is lifted, until §6.4's check, one present expander a second, configures the chip again. A station's ring needs transitions and does not see this; station 24's hook is a level and does. The expander that carries station 24 now has IPOLA read before every poll: if it is not 0xFF, the chip is configured again at once, its relays restored from the shadow as §6.4 does, and that poll's inputs are not used. One more one-byte read per tick on that expander, about 0.4ms.
+
+— Firmware consequence, for Claude Code: the IPOLA read in `expanderPollInputs()`, and `restore()`, shared with `expanderVerifyNext()`. FIRMWARE_SPEC_REV 36.
+
+## 12.35 Changes in Rev 35
+
+— Station 24's ring has a rule of its own (§7.4), 2026-10-23. Plugging a cord into jack 10 or pulling it out bounces the hook detector: measured, one or two releases of about 12ms and a few shorter ones, all within 20ms. §7.1's four transitions in 150ms took the pull for ring, and Rev 34, counting a latched pulse as two transitions, made that likelier. Station 24 now declares ring after pulses have continued for **50ms with no gap over 50ms**: ringing, a pulse every 25ms, is declared within about 50ms; a plug's bounce is not. Released as before, 100ms with no pulse. `lifted` unchanged. Stations 1–22 keep §7.1.
+
+— Firmware consequence, for Claude Code: `phonePoll()` in `sb_station.cpp`, PHONE_RING_RUN_MS and PHONE_RING_GAP_MS. FIRMWARE_SPEC_REV 35.
+
+## 12.34 Changes in Rev 34
+
+— Station 24's ring was missed (§6.3, §7.4), 2026-10-23. Its hook detector bridges the line through 4.4kΩ rather than the station's 20kΩ, so while it is rung it releases only near each zero crossing: measured on RING_DET_8 at 100kHz, a 1.9ms pulse (median) every 25.0ms. 25ms is five polls exactly, so the 5ms poll locked in step with it and saw most pulses or almost none: a 4s ring was published as `ring` `"on"` for under a second. On 0x22, interrupt-on-change is enabled for Port A bit 7 alone. There is still no INT line; the poll reads INTFA with GPIOA in one five-byte read (INTFA to GPIOA), and a latched change that reads the same level as the poll before counts as a pulse, two transitions. About 0.45ms more bus per tick on one expander, 9% of a 100kHz bus.
+
+— Firmware consequence, for Claude Code: `GPINTENA` from `latchMask()` in `configureOne()`; the five-byte poll on that expander; `circuitChanged()`; the pulse counted in `stationPoll()`. FIRMWARE_SPEC_REV 34.
+
+## 12.33 Changes in Rev 33
+
+— Station 24, a real telephone on station board 3 strip 8 (§6.1, §7.4), 2026-10-23, following real_phone.md Rev 2 (adopted, option B). Strip 8 is no longer the audience monitor output; the monitor is on the Digiface's 33/34. The strip's ring-detector footprint is fitted as a DC hook detector across the phone's line, and its relay connects the line's transformer to A32 channel 24. Port A bit 7 and Port B bit 7 of 0x22 are now read and driven, as `station/24`: `ring` and `hook` as for any station, and `lifted`, the phone's own hook, debounced and held while ring is present (mqtt.md Rev 43). `dial/set` on station 24 is dropped. Bit 6, the operator tap, is unchanged.
+
+— Firmware consequence, for Claude Code: a station row for 24 at 0x22 bit 7 in `sb_table.cpp`, between the stations and the trunks; the `lifted` debounce in `sb_station.cpp`; the spread republish over 31 rows. FIRMWARE_SPEC_REV 33.
+
+## 12.32 Changes in Rev 32
+
+— A held cut (§5.4), for game_control.md Rev 65, 2026-10-20: the page switches the switchboard off and on. `ctl/power_cut/set` `"hold"` drives GPIO15 high with no time limit, until `"off"` or a failsafe of §10; `ctl/power_cut` echoes `"hold"` (mqtt.md Rev 38). A hold during a 1s cut turns it into a hold; `"on"` during a hold is ignored, as during a cut. Powered is still the safe state: every failsafe ends a hold as it ends a cut.
+
+— The driver is now behind an optoisolator (generator §7.8, Rev 76), so the ESP32's ground is not joined to the 24V ground through it: GPIO15 drives the opto's LED through 220Ω, with 1kΩ across the LED. Still active high. Through a reset the Olimex's 10kΩ pull-up against those holds the pin near 0.36V, which the strap reads as low, and the LED dark.
+
+— Firmware consequence, for Claude Code: `powerCutSet()` takes `"on"`, `"hold"` or `"off"`; `ctl/power_cut` publishes `"hold"` while held; the pulse's timer leaves a hold alone. FIRMWARE_SPEC_REV 32.
+
+## 12.31 Changes in Rev 31
+
+— GPIO15 cuts the switchboard's 24V for 1s on command (§3, §5.4, §9.4), Mark's request, 2026-10-19, and the waveform sync it carried is withdrawn. A trunk rung in locks its lamp and buzzer on the switchboard until a cord goes into the jack: the 551 holds the signal on its own battery, so releasing our ring relay does not clear it, and nothing else did. A relay in the switchboard's leg of the supply star, normally closed, opens while GPIO15 is high (generator §7.8, Rev 75), and every relay and lamp on the switchboard drops. The game program sends it when a game stops (game_control.md Rev 63), and the Stream Deck can send it by hand.
+
+— Active high. GPIO15 idles low and is driven high to cut. The Olimex pulls GPIO15 up with 10kΩ (Olimex's ESP32-POE pinout, from Mark, 2026-10-19), so through a reset, before `setup()` claims the pin, it would sit high; the driver's 470Ω base pull-down against the 1kΩ base resistor holds it to about 0.4V there, and the transistor's base to about 0.13V, so the relay stays released (generator §7.8). An active-low drive through an optoisolator was drafted first, on the guess that the pull-up might be 2.2kΩ, and needs +3.3V, which J1 does not carry; the pinout made it unnecessary.
+
+— `ctl/power_cut/set` `"on"` starts the cut and `"off"` ends it early; `ctl/power_cut` echoes `"on"` and `"off"` (mqtt.md Rev 37). The cut ends by itself after `POWER_CUT_MS`; a second `"on"` during it is ignored. Every failsafe of §10 ends it too: power restored is the safe state.
+
+— **Wire the relay only after this firmware is running.** Rev 30 and earlier drive GPIO15 as a 20Hz square wave while the generator runs, which would chatter the switchboard's supply.
+
+— Firmware consequence, for Claude Code: `PIN_SYNC` and its writes in the step ISR, in §4.3 and in the banner come out; `PIN_POWER_CUT` 15, claimed low in `setup()`; `POWER_CUT_MS` 1000 in `sb_config.h`; subscribe to `ctl/power_cut/set`; publish `ctl/power_cut` with the birth message and on change; end the cut in every §10 release. FIRMWARE_SPEC_REV 31.
+
+## 12.30 Changes in Rev 30
+
+— `shortring/set`'s burst is 1s, not 0.5s (§8.3, §8.4), Mark's finding on the switchboard, 2026-10-10: ringing each of the 551's trunk jacks in turn, one did not latch its trunk signal on 0.5s of ring. The answer is still readable from the moment the burst ends; the operator cannot plug in before it does in practice.
+
+— Firmware consequence, for Claude Code, made in the same commit: `SHORT_RING_MS` 1000 in `sb_config.h`. FIRMWARE_SPEC_REV 30.
+
+## 12.29 Changes in Rev 29
+
+— The serial banner is printed for Enter only — CR or LF — and at most once every 2s; every other byte on the line is discarded. The receive pin is pulled up. Found on the bench, 2026-10-10, and the cause of the stalls of Rev 27 and of 2026-10-09: with the USB cable unplugged, the board's USB-serial chip is unpowered and the receive line floats, and noise on it read as keypresses. Each printed the banner, about 100ms of blocking output, so the loop stalled tens of milliseconds at a time: the controller acknowledged commands 2–92ms late (network capture) and the station dial's breaks stretched from 61ms to about 118ms, so every digit of the board test was refused as `bad_dial`. With the cable plugged in, the line is driven idle and the controller answered in 4ms and dialled true. A reset did not help, which ruled out the power-on boot; the cable did. The installed controller runs without the cable (§2.1), so this was its normal state.
+
+— Rev 28's log line for each trunk state change is removed; the log of a state publish that fails or is skipped stays.
+
+— Firmware consequence, for Claude Code, made in commit 7d0ad22: `loop()` in `control.ino` looks for CR or LF and rate-limits the banner to `BANNER_MIN_MS` (2000); `setup()` enables the pull-up on GPIO3 (U0RXD) after `Serial.begin()`. FIRMWARE_SPEC_REV 29.
+
+## 12.28 Changes in Rev 28
+
+— Diagnostics only. A state publish that does not reach the broker is logged on the serial console, with the topic, the payload and the client's error, as is one skipped because the client is not connected; and each trunk's `seize`, `ring` and `fault` change is logged as it is published. Found on the bench, 2026-10-09, with trunk 1 through the switchboard: a cord plugged in or pulled out produced the `fault` message at once, but its `seize` change arrived only with the next 30s republish (§9.2), and no non-empty `fault` arrived at all, while the heartbeat came every second and the broker logged nothing. In a game the program would wait up to 30s to see the operator answer.
+
+— Firmware consequence, for Claude Code, made in the same commit: `netPublishState()` in `sb_net.cpp` checks `publish()`'s result and logs `lastError()`; `publishBoolIfChanged()` and `setFault()` in `sb_trunk.cpp` log the change. FIRMWARE_SPEC_REV 28.
+
+## 12.27 Changes in Rev 27
+
+— Diagnostics only: the banner lists every gap between poll ticks of 20ms or more since it last printed, each with how long ago it was, its length, the number of loop passes in it, the section that took longest in it and for how long, and the time no section accounts for (§11). Found on the bench, 2026-10-09: after an unplanned outage the controller came back stalling for about 100ms at a time — commands echoed 108–139ms late and the station dial's breaks stretched to 88–122ms, outside §8.2's window — until a reset cleared it; and even healthy, the banner reported an 81ms poll gap when its longest pass was 13ms, so most of that gap ran in no timed section. One such gap was the banner itself, which printed after the pass timing and so landed between ticks unmeasured. The gaps are kept in a buffer of sixteen and printed with the banner, not as they happen, because a line on the serial port blocks for longer than the gaps being looked for. The enable check, the ctl/i2c publish on reconnect and the banner's own printing are now timed sections, so the banner's stall shows as the first gap, under "serial".
+
+— Firmware consequence, for Claude Code, made in the same commit: in `control.ino`, `TIMED` also accumulates each section's time since the last poll tick; the tick computes the gap and, at 20ms or more, records it with the largest section and the untimed remainder; `printBanner()` prints and clears the buffer. Sections `enable`, `scan` and `serial` added. FIRMWARE_SPEC_REV 27.
+
+## 12.26 Changes in Rev 26
+
+— Bench record only: dial pulse timing and contact bounce through the real 551 cord circuit and dial, measured 2026-10-05 (§8.2, §11). The operator seized trunk 1 with a cord and dialled 0, 1, 2, 3 on the switchboard's dial; loop current was recorded across the trunk's sense resistor (R206) with an Analog Discovery 3 at 50kHz for 45s, upstream of the seizure detector, so the figures are the dial's own and not the detector's.
+
+| **Digit** | **Pulses** | **Break** | **Make** | **Rate** | **Make before the next digit** |
+| --- | --- | --- | --- | --- | --- |
+| 0 | 10 | 68.7–76.0ms | 37.0–40.2ms | 9.2pps | 1.56s |
+| 1 | 1 | 81.5ms | — | — | 1.34s |
+| 2 | 2 | 76.6–76.7ms | 41.6ms | 8.5pps | 1.29s |
+| 3 | 3 | 76.3–78.2ms | 41.5–41.8ms | 8.4pps | — |
+
+Every break is inside §8.2's 25–100ms window, the longest with 18.5ms to spare; every make is far below the 200ms end of digit and every inter-digit make far above it. The dial runs a little slow, 8.4–9.2pps against 10 nominal, and a little long on break, 64–68%, both inside what §8.2 accepts. Bounce is at the start of each break only: an open of up to about 3ms, then the contacts close again for 0.34–0.96ms, then stay open; 18 such re-closes in 16 breaks, and none inside any make. The longest, 0.96ms, is a fifth of one 5ms sample, so the Rev 24 glitch filter rejects it with margin, and no firmware change follows. A 12V spike across the sense resistor about 1.5s after the last digit was the operator throwing the key that takes the dial off the trunk, not the dial.
+
+— The firmware's own decode of these digits could not be checked in the same run: trunk 1 still carried the Rev 5.40 seizure detector values, which hold the HCPL3700M inside its hysteresis band (trunk Rev 5.41), and the controller published no digits. That check waits on the Rev 5.41 resistors.
+
+## 12.25 Changes in Rev 25
+
+— A second ring command, `trunk/<n>/shortring/set` (§8.3, §8.4, §9.4; mqtt.md Rev 26), Mark's request, 2026-10-05. `"on"` rings the trunk once, for 0.5s, and returns it to IDLE; `"off"` cancels a burst that has not finished. The trunk cannot see a seizure while its ring relay is energised, because pole 2 lifts the return off R_LOOP (trunk §4.3), so under the cadence an operator who answered during the 2s on phase was not seen until the off phase began. The 551's trunk signal is a latching relay that one short burst of ring is enough to operate, so a single burst signals the call and leaves the trunk readable from the moment it ends, which is when the operator can first plug in. The same phase rules and the same concurrent-ring cap apply as for `ring/set`: acted on in IDLE only, a no-op while RINGING, dropped with a log line in SEIZED or RING_ON_TRUNK, queued behind the cap. `ring/set` keeps the cadence, and `ring/set "off"` also cancels a short burst. The `ring` echo goes `"on"` for the burst and `"off"` after it.
+
+— Firmware consequence, for Claude Code, made in the same commit: `trunkShortRing()` beside `trunkSetRing()` in `sb_trunk.cpp`, both through one `requestRing()`; a `short_burst` flag on the trunk ends RINGING after `SHORT_RING_MS` (500) and rebaselines the seizure input as at the start of an off phase; `shortring/set` is subscribed and queued like `ring/set` in `sb_net.cpp`. FIRMWARE_SPEC_REV 25.
+
+## 12.24 Changes in Rev 24
+
+— A change of level on SEIZE_n is accepted only when two consecutive samples agree on it (§8.1). Found in review of trunk Rev 5.41, 2026-10-05: the resized detector drives the HCPL3700M well past its threshold, so it now follows every bounce of the switchboard's dial contacts, which the input sitting near its threshold had partly hidden. The input is sampled every 5ms with nothing in between, and one sample caught inside a bounce is a break shorter than 25ms in a digit — spoiling it with `bad_dial` — or a make that splits a break in two. Bounce lasts a few milliseconds, so it can disagree with the settled level in one sample at most, and a two-sample rule drops it. The accepted edge is timed from the first of the two samples, so both edges of a pulse move by the same amount and every interval in §8.1 and §8.2 keeps its length; the cost is 5ms of latency on each edge, nothing against a 100ms seizure test or a 25ms shortest break. Ring applied from the switchboard alternates at about 25ms on and 25ms off, five samples a side, and passes unchanged. The dial bounce itself is still to be measured on the bench, through the real cord circuit (§11).
+
+— Firmware consequence, for Claude Code, made in the same commit: `trunkPoll()` in `sb_trunk.cpp` holds a candidate level and its time, accepts it on the second agreeing sample, and stamps the edge — `level_since` and the break-to-break time — from the candidate. The state machine reads the filtered level. FIRMWARE_SPEC_REV 24.
+
+## 12.23 Changes in Rev 23
+
+— A break of 100–250ms spoils the digit it falls in even when it comes before the digit's first counted pulse (§8.2). Found on the bench, 2026-10-03, with the serial console attached through a board test: a station dialled 4, the trunk missed the make after the first pulse, logged a 177ms break as neither pulse nor release, and published `"2"`; a station dialling 2 lost the same make and published nothing, and its `bad_dial` never came. Rev 7 spoiled a digit only on a bad break *inside* it, meaning after a pulse had been counted, so a lost make between the first two pulses left the remainder to be counted as a shorter, valid digit — a wrong number, with no fault. A break of that length in SEIZED can only be pulses run together, so it now opens a digit already spoiled, which ends in `bad_dial` at the 200ms make like any other. A break under 25ms before the first pulse is still only logged: it is a glitch, not a lost pulse, and a seized trunk sitting idle should not report a fault for it.
+
+— Firmware consequence, for Claude Code, made in the same commit: `classifyBreak()` in `sb_trunk.cpp` sets `in_digit` and `digit_spoiled` on a 100–250ms break whatever came before it. FIRMWARE_SPEC_REV 23.
+
+## 12.22 Changes in Rev 22
+
+— Commands are acted on after the MQTT client's loop returns, never inside it (§9.4). Found on the bench, 2026-10-03, with the serial console attached through a board test: the controller closed its own broker connection four times in 88s, each time after a stall of up to 939ms in the network step, and each loss released every relay. A command's handler publishes its echo at QoS 1, and the client library calls the handler from inside its own loop; the nested publish read the socket for its PUBACK, consumed bytes the outer loop had already counted as available, and the outer read then waited out the library's 1s timeout and closed the connection. The more commands arrive, the more often it happens — the board test sends one every few hundred milliseconds. This accounts for the seizures still dropped part-way through dialling after Rev 21, a 61ms break measured as 175ms, and other circuits changing state while one pair was under test.
+
+— Firmware consequence, for Claude Code, made the same day: `onMessage` records a `hook/set`, `dial/set` or `ring/set` in a queue of sixty-four — a game stop releases thirty circuits in one read, and the first bench build, with sixteen, dropped two of the board test's cleanup commands and `netService` acts on them once `mqtt.loop()` has returned; a full queue drops the command with a log line. The game heartbeat and `ctl/sync` were already only recorded. FIRMWARE_SPEC_REV 22.
+
+## 12.21 Changes in Rev 21
+
+— Elapsed times no longer wrap. Found on the bench, 2026-10-03, with station 4 dialling for the scope: the serial console logged "game heartbeat missed twice", every relay released, and "game heartbeat returned" 10ms later — every second, while the game's heartbeats left the broker evenly a second apart. The loop reads the clock once a pass; a message handled in that pass's network step is stamped with a later reading, and `now - then` on unsigned milliseconds turned that small negative age into four billion. The heartbeat read as two seconds late and the failsafe fired. The same trap was set for a ring started by `ring/set` — its 30s hard timeout and its cadence step could fire on the next pass — and for the dial's interval. This accounts for the seizures dropped part-way through dialling, the relays that did not echo and, perhaps, the stations that heard no ring; the board test is rerun on this firmware before the boards are blamed.
+
+— Every elapsed time is now taken as a signed difference, and a stamp later than the pass's clock reads as no time elapsed.
+
+— Firmware consequence, for Claude Code, made the same day: `elapsedMs()` in `sb_config.h`, used by the trunk ring timing, cadence and dial detection and the station ring detector; the game-heartbeat age compared signed. FIRMWARE_SPEC_REV 21.
+
+## 12.20 Changes in Rev 20
+
+— The 200Hz loop no longer stalls, found on the bench 2026-10-03 with station board 1 and the trunk board wired together. The banner showed passes of 130ms against the 5ms nominal, long enough to swallow dial pulses — no trunk decoded a digit — and to drop seizures and miss ring. Three causes, all fixed:
+
+— **Nagle on the broker connection.** Every QoS 1 publish waits for its PUBACK (§9.2), and with Nagle on, the small packets met the broker's delayed ACK: about 40ms a message, so a station's three-message republish tick took 90ms and each heartbeat 39ms. The socket is now TCP_NODELAY (§9.1); they take 8ms and 3.5ms.
+
+— **One absent board probed per retry**, in turn (§6.2), not every absent board at once, and every I²C transaction capped at 5ms, where the core's default is 50ms and a probe of an absent address could take all of it.
+
+— **The banner reports the worst time of each part of the loop** since it last printed — network, configuration check, input poll, station and trunk logic, relay flush, heartbeat, failsafes, republish, OTA — beside the loop timing, so a stall can be traced to its source.
+
+— After the fixes the longest pass is 14ms. The same board test that decoded no digit then decoded all ten on three pairs; what failed on the other five is left to the boards.
+
+## 12.19 Changes in Rev 19
+
+— Each expander's configuration is checked, one a second in turn, and restored if it has been lost (§6.4). Found on the bench, 2026-10-03: plugging station board 1 into the chain reset the trunk board's MCP23017 without the controller noticing — it still answered — and with IPOL back at its default every idle SEIZE input read as a seizure, all eight at once. A chip that resets loses its directions and polarities silently, and nothing in §6.2 catches that, since §6.2 acts on errors and a reset chip makes none.
+
+— Firmware consequence, for Claude Code, made the same day: the check, the reconfiguration, the relays restored to their commanded state, and the log line. FIRMWARE_SPEC_REV 19.
+
+## 12.18 Changes in Rev 18
+
+— The firmware says which it is (§9.1), Mark's request, 2026-10-01. On every connection it publishes `sbgame/ctl/firmware`, retained: the revision of this document it implements, the git commit it was built from — with `-dirty` if `control/` had uncommitted changes — and when it was built, as one string, `"control.md Rev 18, 4118077-dirty, built 2026-10-01 21:14Z"`. The banner shows the same. A retained topic rather than the heartbeat's payload: the revision is a state, read once by whoever subscribes, and the heartbeat is an event whose arrival is all anyone reads.
+
+— The revision is a constant in the source, `FIRMWARE_SPEC_REV`, raised with this document whenever a revision has a firmware consequence. The commit and the date are stamped at build time by `control/compile`, which writes `control/sb_version.h` — not committed — and then runs `arduino-cli compile` with whatever it was given. A build without it reports the commit as `unknown`.
+
+— Firmware consequence, for Claude Code, made the same day: the constant, the stamp, the publish and the banner line. The header's "Implements control.md Rev 9" was stale: Rev 10's channel table was made in `930f208`, and the firmware is current to Rev 17 before this one.
+
+## 12.17 Changes in Rev 17
+
+— A station can dial (§7.3), Mark's request, 2026-10-01, for testing the trunk board's dial pulse detection without a switchboard: `sbgame/station/<n>/dial/set` with digits pulses that station's off-hook relay at standard dial timing, 61ms break and 39ms make, with 700ms closed between digits, and echoes the digits still to send on `sbgame/station/<n>/dial`. The firmware does the timing because its 5ms loop sits next to the relay: timed from the host, every edge crosses the network and the broker, and the pulses carry their jitter into the classifier the test is meant to check. Only `sbgame-boardtest` uses it; the game does not, since in the game the operator dials and the stations never do.
+
+— §9.2's republish is 90 messages, where it was 68: each station's tick now carries `dial` as well as `ring` and `hook`, three round trips where it was two.
+
+— Firmware consequence, for Claude Code, made the same day: the station module's dial sequencer, the subscription, and the echo.
+
+## 12.16 Changes in Rev 16
+
+— Follows generator Rev 71: the Next Call button is not fitted to the ring generator board as built. GPIO36 stays reserved for it (§3) and is unconnected; §11's item on the firmware's handling waits on hardware that has it. No firmware change — nothing reads GPIO36.
+
+## 12.15 Changes in Rev 15
+
+— Firmware updates over the network (§2.1), so that the installed board can be reflashed without a USB cable. A cable left attached would join portland's ground to the system's 24V ground, which PoE's isolation keeps apart, and anything that opened the port would reset the board; Mark weighed powering the Olimex from USB and chose to stay on PoE (with a TL-SG105PE PoE switch in place of a separate injector) and update over the network instead. The generator §3.4 recommendation to prefer OTA in the installed system is now something the firmware can do.
+
+— Firmware consequence, for Claude Code, made in the same commit: ArduinoOTA started once Ethernet has an address, with the hostname `sbgame-esp32` and a SHA-256 password hash from `secrets.h` (`OTA_PASSWORD_SHA256`; without it the firmware builds with OTA off). The start callback stops the waveform and releases every relay before anything is written to flash; an error after that point restarts the board. §10 gains the row.
+
+## 12.14 Changes in Rev 14
+
+— Follows generator Rev 68, which brings that document into line with the board as built. Nothing the firmware does changes; the names it uses for the hardware do. §3: GPIO32 (PWM A) reaches IN2 and the right leg, U5, through 74HCT04 gates 2 and 5; GPIO33 (PWM B) reaches IN1 and the left leg, U4, through gates 1 and 6; SD goes through gates 3 and 4. The enable and sync header is J1 (pin 1 GPIO4, pins 2 and 3 GND, pin 4 GPIO15), not J9; the drive monitor is J3, not J10; the Antek's output terminal is J6, not J8. §4.1: R_SD_PD2 is not fitted, and the low-side gate pull-downs are R_GS2 and R_GS4. §5.2 says which leg the positive half-cycle drives on this board.
+
+— Firmware consequence, for Claude Code, made in the same commit: the pin comments in `control.ino` and the two banner lines that name J9 now name J1 and its pins. Comments and strings only.
+
+## 12.13 Changes in Rev 13
+
+— Follows generator Rev 65. GPIO36 is the operator's Next Call button, an optoisolator pulling the pin low against the Olimex's own 10k pull-up; §3 lists it. What the firmware does with it — debounce, the press event and its MQTT topic — is not yet specified, and §11 carries it as an open item. No firmware consequence until it is.
+
+## 12.12 Changes in Rev 12
+
+— Bench record only. The §5.3 start-phase verification is made on the Antek, and §5.3 records it; §11 loses the item. No behaviour changes.
+
+## 12.11 Changes in Rev 11
+
+— The arming gate is removed (Mark, 2026-09-25). §4.2 step 8 said not to arm the H-bridge while a configured expander was absent, on the reasoning that the generator would be feeding a ring bus whose relays the firmware could not see or release. That reasoning does not hold for this hardware. Ring reaches a circuit through the trunk board's ring relays alone, and they are normally open: with their expander absent or unconfigured, R_pd holds every driver off and every relay released (§4.1), so the bus goes nowhere. The station boards take no ring from the bus. The switchboard's own ring supply on generator J6 was never switched by any relay the firmware drives, so the gate never protected it either. What the gate did do was refuse to run the generator on a board with nothing on the chain, which is the configuration the generator is brought up and characterised in.
+
+— §4.2 loses step 8 and its later steps renumber, 8 to 11; §4.3's reference follows. §6.2's note that the bridge stays armed through a recovery now rests on this rather than on the gate being a boot check. §10's row for an expander absent at boot becomes report-only. §11 loses the pre-chain item to build without the bench option. The scan is unchanged and still published on `ctl/i2c`. Generator §6's Rev 56 pointers name the gate as what moved here; they are history and are left.
+
+— Firmware consequence, for Claude Code, made in the same commit: `startWaveform()` no longer refuses on a missing expander; `slavesPresent()`, the banner's arming-gate line, the boot-time `ARM INHIBITED` message and the `BENCH_ALLOW_MISSING_EXPANDERS` build option are removed. `TODO.md` loses the bench build.
+
+## 12.10 Changes in Rev 10
+
+— Follows station Rev 3.40. Stations are 1–22: the operator tap moves from board 3 strip 8 to strip 7, and strip 8 carries the audience monitor output on A32 channel 24 with nothing fitted on its line side. §6.1 now names both strips and both unmapped bits. §9.2's counts follow: a full republish is 68 messages, where Rev 7 to Rev 9 said 70, and the round-robin is over 30 circuits, about 150ms, where they said 31 and 155ms. The Rev 3 and Rev 7 entries keep their figures as history.
+
+— Firmware consequence, for Claude Code: the channel table in `sb_table.cpp` / `sb_table.h` loses the station 23 row (board 3, address 0x22, bit 6), leaving 22 station rows and 8 trunk rows, 30 in all, and any constant or comment that counts stations (`sb_config.h`) goes from 23 to 22. No other behaviour changes.
+
+## 12.9 Changes in Rev 9
+
+— Rename only. This document is `control.md`, from `esp32.md`, and the firmware is `control/control.ino`, from `ring/esp32.ino` — both on 2026-09-19, Claude Code and Mark. The `esp32` name said which chip; `control` says what the program is, and it is the name the folder now carries. `ESP32` stays wherever it means the chip or the Olimex board, and `sbgame-esp32` stays as the MQTT client id — that is on the wire and nothing asked for it to move. Every cross-reference in the other documents follows at their next revision (station 3.39, trunk 5.38, generator 61, mqtt 7, audio 5, PROJECT_INDEX). Earlier change entries here and elsewhere now read `control.md` and `control/control.ino` where they said `esp32.md` and `ring/esp32.ino`, so that a reference followed from an old entry lands; the `ring/ring.ino` name in the oldest entries is kept as history, since nothing points at it. No behaviour changes.
+
+## 12.8 Changes in Rev 8
+
+— Build state only. The Rev 7 §12.7 code consequences are in the source as of 2026-09-19 and were checked in chat: the republish walks one circuit per 5ms tick from a single row counter shared by the reconnect, `ctl/sync`, timer and failsafe paths; payloads other than `"on"` and `"off"` are logged and dropped; a trunk carries its own `seize_on` flag so RING_ON_TRUNK reports the seizure it was entered with; `ring/set "on"` is a no-op in RINGING and dropped with a log line in SEIZED and RING_ON_TRUNK. The console banner now reports the longest loop pass and the longest poll gap since it was last printed, which is the §11 measurement. The arming-gate bypass became a build option rather than a constant, so the departure cannot be committed by accident; §1 says so. The Rev 7 §11 pre-chain item is reduced to what is left: build without the bench option, and read the banner's loop timing with the broker up.
+
+## 12.7 Changes in Rev 7
+
+— Written against the firmware source as reviewed on 2026-09-18 (`control.ino`, `sb_config.h`, `sb_table`, `sb_expander`, `sb_station`, `sb_trunk`, `sb_net`). The source meets §4 to §10 as written, and the §11 item to confirm the by-name subscriptions in the source is closed: they are exactly the four patterns of §9.1. Six decisions the implementation made where the specification was silent are adopted here, with the reasoning, and three items go back to Claude Code as code consequences.
+
+— **Adopted.** (1) The MCP23017 driver is written against the registers and not over a library, §6.1: the Adafruit library exposes no way to write IPOL, and a driver whose read returns 0 on a bus failure cannot tell that from eight idle inputs. (2) The channel table gives every circuit a row and the operator tap bit none, so the tap is never polled, published or commanded, §6.1 — a cleaner statement of "leave the mapping alone". (3) The echoed `hook` and `ring` state is the commanded state, published at command time; the relay write and read-back follow at the next flush, and a relay that does not take is corrected by the bus-fault path, §7.2. (4) `bad_dial` for a break outside the pulse window is published when the digit ends, not when the break happens, and a spoiled digit abandoned by a release publishes nothing, §8.2 — one message per digit, none for a digit that was going to be abandoned anyway. (5) After a bus-fault recovery an expander that is still absent is not retried, §6.2: a retry means another /RESET, which drops every relay on the chain. (6) A reconnect attempt blocks the main loop for the TCP connect timeout plus the CONNACK wait, which can be seconds, §9.1; that is acceptable only because the MQTT-loss failsafe has already released every relay before the first retry, and that dependency is now written down.
+
+— **Two behaviours settled by Mark and by this revision, not by the source.** RING_ON_TRUNK entered from SEIZED keeps `seize` = `"on"`, §8.3; the source published `"off"`, which a game program reading `seize` as the call's existence would take as a release and tear the call down for an operator's slip. `fault` carries the news; `seize` reports the loop. And `ring/set "on"` is acted on in IDLE only and is a no-op in RINGING; in SEIZED or RING_ON_TRUNK it is dropped with a log line and the echo stays `"off"`, §8.3. The source dropped it in SEIZED and queued it in RING_ON_TRUNK to fire when the pattern stopped; a request that fires seconds later, after the operator has finished with the trunk, is a command the game did not mean at that moment. The game re-issues if it still wants it.
+
+— **Code consequences, for Claude Code.** (a) The full-state republish — reconnect, `ctl/sync` and the 30s timer — is 70 QoS 1 messages, and in MQTT 2.5.3 a QoS 1 publish blocks until its PUBACK. The burst holds the 200Hz loop for something like 100–300ms on a LAN, during which a ringing station's 100ms quiet rule fires and a digit under way has the stall added to a break or make interval. §9.2 now requires the republish to be spread one circuit per poll tick. Measure the maximum loop-tick length first so the fix is sized to a number. (b) Any `hook/set` or `ring/set` payload other than `"on"` is treated as `"off"`; §9.4 now requires `"on"` and `"off"` to be accepted and anything else logged and dropped. (c) The two behaviours above: keep `seize` on in RING_ON_TRUNK from SEIZED; drop `ring/set "on"` in RING_ON_TRUNK as in SEIZED. Also: the `control.ino` header says "Implements control.md Rev 2", cites the `.docx` generator revision and carries a "WHAT IT DOES NOT DO" block that the code contradicts — bring it to this revision and delete the block; `sb_config.h` and `sb_table.cpp` claim §6.1 puts the tap on board 1 and mqtt.md says stations 1–24, both stale since Rev 3; `sb_table.h` says twenty-four stations and rows 0..23/24..31 where there are 23 and 31 rows; `sb_expander.cpp` says §10 gives no error count where §6.2 and §10 both say three; the "section 4.5" in the arm-refused message is the old `.docx` numbering. `BENCH_ALLOW_MISSING_EXPANDERS` should default to `false` with the bench build setting it, so a fresh checkout is safe. The duty tables and both park writes go to the 74HCT04 form of §3 — direct duty, park at 0 — in one commit.
+
+## 12.6 Changes in Rev 6
+
+— The firmware file is `control/control.ino`, renamed from `ring/ring.ino` on 2026-09-17 on the Claude Code side. The old name dated from when the file was the ring generator's PWM sketch and nothing else; since Rev 4 it has been the whole controller. §1 follows. Earlier change entries here and in the other documents keep the old name as history. No behaviour changes.
+
+— mqtt.md Rev 5 makes the audio program a commanded client, with `play/set`, `listen/set` and `tone/set` under the same `station/<n>/` and `trunk/<n>/` roots as `hook/set` and `ring/set`, and asks that this firmware subscribe to its two commands by name and not by a wildcard over every `set`. §9.1 has specified `sbgame/station/+/hook/set` and `sbgame/trunk/+/ring/set` since Rev 4, so the specification already meets it; the check that the source does likewise is on the Claude Code side and is the one firmware item mqtt.md Rev 5 raises.
+
+## 12.5 Changes in Rev 5
+
+— Two Rev 4 slips, found by the firmware author. §4.2 had the scan result published at step 5, before MQTT connects at step 7; it is published at step 7, and on every reconnect and rescan. §8.3’s state-machine sketch still said one ≤ 60ms break interval where §8.1 and §8.2 say two consecutive; now consistent.
+
+— §9.4 is explicit that the firmware drops a command for a circuit on a missing board regardless of ctl/i2c. A game program that reads ctl/i2c and does not send is cleaner, but the firmware does not depend on it doing so.
+
+## 12.4 Changes in Rev 4
+
+— Written against the firmware, which now implements the whole document. Four decisions the implementation had to make where the specification was silent or too loose are adopted here, with the reasoning: ring-on-trunk is recognised from SEIZED as well as IDLE (§8.3), because a 20Hz break train inside a seizure would otherwise be counted as dial pulses; ring is declared on two consecutive ≤ 60ms break-to-break intervals rather than one (§8.1, §8.2), because at 5ms sampling a single interval sits one sample clear of a 15 pps dial; the 30s ring timeout runs from the first relay energisation rather than from ring/set (§8.5), so a trunk queued behind the concurrent-ring cap still gets a full cadence; and a bus fault is three consecutive I²C errors on one device, not one (§6.2, §10), because a single NAK on six feet of daisy-chained 6P6C is a glitch.
+
+— The MQTT client library is chosen: MQTT 2.5.3 by Joël Gähwiler (256dpi/arduino-mqtt). It supports QoS 1 and sends its keepalive ping from `loop()`, so a wedged main loop stops the ping and the broker's LWT fires — the case mqtt.md §8.2 treats as client-dependent falls on the safe side. §9.1.
+
+— The boot-time I²C scan result is published on sbgame/ctl/i2c (mqtt.md §4): `"ok"` or `"missing: 0x22 0x23"`, retained. §4.2 step 5.
+
+— §2 corrected: the firmware requires Arduino core 3.x and refuses to build on 2.x (`#error`), since the 2.x LEDC path was removed. Rev 1 to Rev 3 said it built on both.
+
+— The build-state paragraph in §1 and the open items in §11 are brought up to date; `ring_start_phase_task.md` is deleted from the project.
+
+## 12.3 Changes in Rev 3
+
+— Follows station Rev 3.35: three station boards are built and the operator tap is station 24, board 3 strip 8. The scan list is 0x20–0x23 with nothing conditional (§4.2); the tap note in §6.1 moves from board 1 bit 7 to board 3 bit 7; stations are 1–23 and no station/24 topic is published.
+
+## 12.2 Changes in Rev 2
+
+— Dial pulse detection added, §8.2. The operator dials outgoing calls on a seized trunk with a rotary dial, and the dial interrupts the loop once per pulse. The trunk board's seizure detector sees each interruption as loop current stopping (trunk §4), so the pulses arrive on SEIZE_n with no hardware change; the firmware counts them and publishes each completed digit on sbgame/trunk/<n>/digit (mqtt.md §4). Rev 1's release rule — declare the trunk released after 25ms open — would have read every pulse as a release, so the release threshold rises to 250ms and the seizure logic becomes the three-way classifier of §8.1: pulse, digit gap, release.
+
+— The accidental-ring discriminator changes with it. Rev 1 recognised ring from the switchboard as four or more transitions in 150ms, which a dial at the top of its speed range can also produce. Ring and dial are now separated on the interval between successive breaks — about 50ms for 20Hz ring against 67–125ms for an 8–15 pps dial — which is what actually differs between them. §8.1.
+
+— Standard dial pulse timing is recorded in §8.2 so the thresholds can be checked against it and re-derived if a dial outside Bell System practice is ever connected.
+
+## 12.1 Changes in Rev 1
+
+— New document. The firmware behaviour had been specified in pieces across the three circuit documents: ring generation in generator §6 and §12, expander polling and ring debounce in station §3.7 and §9.6, the trunk state machine, debounce and cadence in trunk §7.5, §7.6 and §11, and the MQTT failsafes in station §9.12 and trunk §11.4. Each was written from that board's point of view, and nothing stated the controller's behaviour as one thing — the order of the startup sequence across all three jobs, or the full list of conditions on which relays are released. Those sections are replaced by pointers here; their change lists carry the history.
+
+— Nothing in the firmware's specified behaviour changes in the move. Two things are stated here for the first time because assembling the pieces exposed them: the complete failsafe table in §10, and the startup order in §4.2, which generator §6.1 gave for the ring generator alone and which now has the I²C scan and the MQTT connection in it.

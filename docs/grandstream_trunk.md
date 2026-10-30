@@ -1,30 +1,8 @@
 # 551 Switchboard Simulator — A Grandstream ATA on a Trunk Jack (Bench Notes)
 
-Rev 4 — 2026-10-22. Bench notes, Mark's measurements. The design that puts the
+Rev 5 — 2026-10-30. Bench notes, Mark's measurements. The design that puts the
 ATA on trunk 8 is in trunk_circuit.md §4.5 (Rev 5.51). The ATA is a Grandstream HT80x V2; its administration guide is in
 `reference/HT80x-V2-–-Administration-Guide.pdf`.
-
-## Changes in Rev 4
-
-— Ring voltage: the switchboard's trunk ring relay trips at 55 Vrms, not at 45 Vrms
-(§1). trunk_circuit.md Rev 5.53 sets the ATA to 55 Vrms.
-
-## Changes in Rev 3
-
-— The trunk 8 modification is designed: trunk_circuit.md §4.5, Rev 5.51. The ATA
-replaces trunk 8's current source, R906 goes to 330 Ω off ground, and U901 moves to its
-AC input so the loop floats. This document stays the record of what was measured. Two
-open items are added in §3 for the bench after the change.
-
-## Changes in Rev 2
-
-— Loop current measured with a meter in series, in place of Rev 1's figure worked out
-from the voltages. It is 30 mA, not 10 mA, with the cord in and with the operator
-keyed alike: the ATA feeds a regulated current, not a soft 48 V source, and Rev 1's
-inferences from a 4 kΩ source are withdrawn. The ATA sees the seizure as soon as the
-cord goes in, not when the operator keys: Rev 1 had it otherwise because no dial tone
-was heard on the loudspeaker then, and none could be, since the loudspeaker follows
-the operator, who was not yet on the line.
 
 ## 1. Measured
 
@@ -69,3 +47,31 @@ does not trip, and at 55 Vrms, the ATA's maximum, it does (Mark, 2026-10-22).
   about 38 V of its 48 V (trunk_circuit.md §4.5).
 - Whether the ATA's FXS port survives the switchboard's ring, about 90 Vrms, if the
   operator rings trunk 8 by mistake.
+
+## Revision History
+
+### Changes in Rev 5
+
+— The changes in each revision moved from the top of the document to the end, newest first, as `game_control.md` Rev 95 (Mark, 2026-10-30). No change of substance.
+
+### Changes in Rev 4
+
+— Ring voltage: the switchboard's trunk ring relay trips at 55 Vrms, not at 45 Vrms
+(§1). trunk_circuit.md Rev 5.53 sets the ATA to 55 Vrms.
+
+### Changes in Rev 3
+
+— The trunk 8 modification is designed: trunk_circuit.md §4.5, Rev 5.51. The ATA
+replaces trunk 8's current source, R906 goes to 330 Ω off ground, and U901 moves to its
+AC input so the loop floats. This document stays the record of what was measured. Two
+open items are added in §3 for the bench after the change.
+
+### Changes in Rev 2
+
+— Loop current measured with a meter in series, in place of Rev 1's figure worked out
+from the voltages. It is 30 mA, not 10 mA, with the cord in and with the operator
+keyed alike: the ATA feeds a regulated current, not a soft 48 V source, and Rev 1's
+inferences from a 4 kΩ source are withdrawn. The ATA sees the seizure as soon as the
+cord goes in, not when the operator keys: Rev 1 had it otherwise because no dial tone
+was heard on the loudspeaker then, and none could be, since the loudspeaker follows
+the operator, who was not yet on the line.

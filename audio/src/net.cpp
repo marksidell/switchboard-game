@@ -332,7 +332,7 @@ void Net::handle_monitor_source(const char* payload)
         log_line("mqtt: monitor/source/set %s - not a source, dropped", payload);
         return;
     }
-    // audio.md Rev 9 1.9: the same refusal as at startup, for the same reason.
+    // audio.md Rev 9 17.9: the same refusal as at startup, for the same reason.
     // Logged and dropped with no echo, so the game is not told a source it
     // cannot have is in use.
     if (ch > sh_.ncap) {

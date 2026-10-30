@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 46 — Broker on the Linux Host, Three Clients (ESP32, Audio Program, Game Program), the Status Page and the Stream Deck, sbgame/ Prefix, One Plain-String Value per Topic, Retained State and Unretained Commands, QoS 1 Throughout but Two Events, Birth/LWT and Two-Way Heartbeats, Dialled Digits from the Trunks, Audio Program Commanded (Play, Tone, Listen, Monitor, Its Source and Its Peer Boost, Test, Recording), Game State and Game Commands from the Page over Secure WebSockets at game.kr3am.org, Served by nginx, the Switchboard's Jacks and Labels, the Switchboard Power Cut, Pulsed or Held, the Host's Public Address, the Public Trunk's Registration, a Real Telephone on Station 24, Ring Heard on an Off-Hook Station*
+*Rev 47. The changes in each revision are in §12.*
 
 # 1. Overview
 
@@ -21,282 +21,6 @@ Everything that is not audio moves over MQTT. The broker is Mosquitto on the Lin
 The ESP32 and the host are joined by wired Ethernet, with the ESP32 powered by PoE from the same cable. This replaced a USB serial link at station Rev 3.1: Ethernet is deterministic, unaffected by RF conditions in the room, puts one cable rather than two into the rack, and decouples the controller's position from the host's. The hardware side of that link — the controller board, its PoE budget and the switch — is in station §9.8 and §9.9.
 
 This document specifies the messages: the topic names, who publishes each, what the payload is, and what is retained. The circuit documents own the hardware the messages describe and say only where a message comes from; the ESP32 document owns what the controller does with a command and when it publishes state; the audio document owns the same for the audio program; `game_control.md` owns the same for the game state and the page.
-
-## 1.1 Changes in Rev 1
-
-— New document. The MQTT design had been spread across station §9.7 and §9.10–§9.12, trunk §11.3–§11.4 and a paragraph of generator §15.3, and had been revised six times in two days as it was read for the first time as a whole. It now lives in one place, with the source sections replaced by pointers here. The station document's change entries from Rev 3.28 to Rev 3.33 record the decisions that produced the design as it stands; they are summarised in §10 so this document is self-contained, and the originals are left in place.
-
-— One change of substance made in the move. The messages are tabled by publisher — ESP32, audio program, game program — rather than by board, because a reader implementing one client needs to know what it sends and what it must subscribe to, and the by-board tables answered neither question directly. Every topic in the station and trunk tables at station Rev 3.33 appears here unchanged in name, payload and retention.
-
-## 1.2 Changes in Rev 2
-
-— sbgame/trunk/<n>/digit added to the ESP32's messages (§4): the digit the operator has just dialled on a seized trunk, `"0"` to `"9"`, decoded by the firmware from the loop-current interruptions on the seizure input (control.md §8.2). It is the first topic in the design that is an event rather than a state, and §2 and §7 record what that changes: it is not retained, it cannot be idempotent, and it is therefore published at QoS 0, which over TCP delivers exactly once or not at all where QoS 1 could deliver twice on a reconnect. A second fault value, `"bad_dial"`, is added for a pulse train outside the timing windows.
-
-— The alternative — publishing the accumulated digit string per trunk as retained state, which would have kept every message idempotent and survived a reconnect — is recorded in §11 rather than adopted, because the game program is the place that knows how many digits make a number and what to do with them.
-
-## 1.3 Changes in Rev 3
-
-— Station topics are n = 1–23, not 1–24, following station Rev 3.35: three station boards are built and the last strip, station 24, is the operator tap, which has nothing to report and nothing to command. The tables in §4 to §6 and the naming in §3 follow. Rev 1 and Rev 2 said 1–24 without excluding the tap strip, which was then station 8 and would have needed excluding just the same.
-
-## 1.4 Changes in Rev 4
-
-— sbgame/ctl/i2c added to the ESP32's messages (§4): the boot-time expander scan result, `"ok"` or the missing addresses, retained. Rev 3's §11 asked for it; the firmware implemented it as suggested and it is promoted into the table.
-
-— The ESP32's MQTT client library is settled — MQTT 2.5.3, Joël Gähwiler — and the §11 item closes. It pings from the main loop, so the client-dependent gap §8.2 describes falls on the safe side; the two heartbeats stay regardless, since the game side of the argument is unchanged.
-
-## 1.5 Changes in Rev 5
-
-— The audio program is now commanded. Rev 1 to Rev 4 said it "publishes what it detects and nothing else", which was true while its only job was the detector. `audio.md` Rev 1 gives it five commanded functions — play a file on a circuit, play dial tone or ringback on a trunk, listen for speech on a circuit, feed the operator tap to the loudspeaker, put a 1kHz test tone on a channel — and this revision adds their commands to §6 and their state echoes to §5. The game program remains the only commander; §6 now says which client consumes each command, since it is no longer only the ESP32.
-
-— Every new command follows the existing shape: a `/set` topic, unretained, echoed on the state topic it commands, retained. There is no new event topic. The rough specification asked for "an mqtt response when a file finishes playing"; the response is the `play` state clearing to empty (§7), because a retained state topic tells the game the same thing an event would and also tells a game program restarted mid-file what is playing. `audio.md` §1.1 records the reasoning.
-
-— A new top-level segment, `audio/`, for the two commands that are not about a circuit — the monitor and the test tone — and for `optone`, the tap's own-tone health check (§3). The alternative was to put them under `ctl/`, which is liveness and system control; a loudspeaker level is neither. Circuit-scoped audio commands live under the circuit, as `hook/set` does, so `sbgame/station/5/#` remains everything about station 5.
-
-— sbgame/audio/optone added (§5): `"ok"` or `"deaf"`, the tap's own 9000Hz tone returning on its own receive channel, station §8.4. A dead tap transmit path makes every circuit's `op` read off, which is indistinguishable from an operator who has not plugged in; this is the one topic that tells the difference.
-
-— The audio program adopts the ESP32's failsafe on losing the game (§8.2, §8.4): two missed `game_heartbeat`s stop every trunk tone and file. The failure it prevents is a crashed game leaving ringback on a trunk indefinitely, which is the audio equivalent of a relay held closed.
-
-— §8.4's ESP32 recovery step said "subscribe to every `set` topic". Now that there are `set` topics the ESP32 does not consume, that reads as a wildcard, and a wildcard subscription would deliver every `play/set` and `listen/set` to the controller to be dropped. It now says `hook/set` and `ring/set`. Firmware consequence: confirm `control/control.ino` (renamed from `ring/ring.ino` the same day) subscribes to `sbgame/station/+/hook/set` and `sbgame/trunk/+/ring/set` and not to a broader pattern. On the Claude Code side; control.md §9.1 already specifies it that way.
-
-— `"stop"` on `play/set` is a reserved payload, so no file may be named `stop`. Recorded in §7 as the one place a filename and a verb share a topic.
-
-## 1.6 Changes in Rev 6
-
-— `"busy"` added to the `tone/set` and `tone` payloads (§5, §6), following audio.md §8.2: the game's scenarios will include called numbers that are busy. Same shape as the two existing tones — one more value on an existing topic, no new topic. The audio program's tones are the period ones (600Hz×120Hz dial and busy, 420Hz×40Hz ringback), settled the same day; nothing on the wire says which set is in use, and this document does not care.
-
-## 1.7 Changes in Rev 7
-
-— Cross-reference only. The controller's specification is `control.md`, renamed from `esp32.md`, and its firmware is `control/control.ino`, renamed from `ring/esp32.ino`, both on 2026-09-19 (control.md Rev 9). Every reference here follows, including the Rev 5 entry above. The client id `sbgame-esp32` (§8.1, control.md §9.1) does not change: it is on the wire, and the ESP32 is still the chip. Nothing else in this document changes.
-
-## 1.8 Changes in Rev 8
-
-— `"silence"` added to the `listen` values (§5, §7), following audio.md Rev 6: a listen now reports the end of speech as well as its start. The sequence on the state topic is `"listening"`, `"speech"`, then `"silence"` or `"timeout"`; `"timeout"` now also covers speech that started and did not stop within the audio program's cap. `listen/set` is unchanged — one number, the time allowed for speech to start — so no command changes and the one-value rule of §2 holds; the silence hangover and the maximum speech time are the audio program's options (audio.md §14). Same shape as Rev 6's `"busy"`: one more value on an existing topic, no new topic.
-
-## 1.9 Changes in Rev 9
-
-— Follows station Rev 3.40 and audio.md Rev 7. Station topics are n = 1–22, not 1–23: the operator tap moves from board 3 strip 8 to strip 7 (A32 channel 23), and strip 8's A32 output, channel 24, becomes the audience monitor feed in place of the Digiface's own analog output on 33/34. The tables in §4 to §6 and the naming in §3 follow, and `audio/monitor/set`'s unity reference is now A32 output 24. No topic is added or removed and no payload changes. `audio/test/<1-34>` keeps its range, because the audio program still opens the Digiface at 34 playback channels (audio.md §2) and a test tone on 33/34 is still the check on that jack. The ESP32 side has one fewer station row (control.md Rev 10).
-
-## 1.10 Changes in Rev 10
-
-— The status page, 2026-09-24, specified in the new `game_control.md` Rev 1. An iPad shows the state of the whole system and runs the game: start and stop, manual or automatic call pacing with a ramp, a Next Call button, tallies. The page talks MQTT directly over Mosquitto's WebSockets listener, which also serves its files (§9). The alternative — a web server inside the game program pushing its own WebSocket — was considered and not adopted, because the page would then show what the game program believes rather than what the controller and audio program report, and would go dark exactly when the game program fails.
-
-— The game program now publishes state (§6.1): its own birth and last will on `sbgame/ctl/game_status`; each station's line name from script.yml on `sbgame/station/<n>/name`; and a new segment, `sbgame/game/…`, for the run state, the pacing values, the tallies, eight call slots and the event log. §3 adds the segment. Before this revision the game program published only commands, the heartbeat and `sync`.
-
-— The page is a new publisher (§6.2), of six commands under `sbgame/game/…/set`, consumed by the game program only. §1 and §6 said the game program was the only client that sends commands; it is now the only client that commands hardware or audio, and the broker's access list holds the page to the game's own commands (§9). Every page command follows the `/set`-and-echo shape and is absolute state. The one that looks like a verb — start the next call — carries the number of the call to start, so a redelivery or a double tap starts one call (§2).
-
-— `sbgame/ctl/game_heartbeat` now carries the host's Unix time in seconds. It carried nothing through Rev 9. The page needs the host's clock to count down against the host times in the call slots, and the iPad's clock is not trusted on the travel router. The ESP32 and the audio program act on the beat's arrival only (control.md §9.3, audio.md §13.2), so the payload changes nothing for them. Code consequence for Claude Code: confirm that neither `control/control.ino` nor `sbaudio` rejects a non-empty payload on this topic.
-
-— Two exceptions to the one-value rule's spirit, recorded in §2: `game/log` is one retained value that is many lines of text, and the call slot's values change together but are published separately. Neither is JSON; both are for display.
-
-— §9 rewritten. Rev 9 said anonymous connections are allowed by default, with a password for the ESP32 and the broker bound to the wired interface as the protection. With the iPad on Wi-Fi, binding cannot be the protection, and the page's password is readable by anyone who loads it. The broker now refuses anonymous clients, and an access list gives the page read access to everything and write access to `sbgame/game/+/set` only. The three existing clients keep full access. The WebSockets listener and its `http_dir` are added. Commissioning consequence: every client must present credentials that match the access list (game_control.md §9).
-
-— §8.1 and §8.4 add the game program's birth and last will, and its start sequence: game state before birth, as the audio program does.
-
-## 1.11 Changes in Rev 11
-
-— `game/next/set` becomes a plain command, 2026-09-24, at Mark's request: the payload is ignored and the game program starts the next call. Rev 10 had the page send the number of the call to start, which the game program acted on only if it was one more than `started`, so that a duplicate started one call and not two. Mark's view is that the game program keeps the count itself and the page should not have to. The duplicates are handled in two other ways. The command goes out at QoS 0, which is never resent on reconnect, so the resent-command duplicate cannot happen. The page disables Next Call when it is tapped and re-enables it when `started` changes, so a double tap cannot either (game_control.md §4.1). The cost is that a tap made as the connection drops can be lost. The operator sees no new call and taps again.
-
-— This makes `next/set` the second event in the design, after `trunk/<n>/digit`, and the one command that is not absolute state. §2 records both exceptions. It is still unretained, like every command.
-
-## 1.12 Changes in Rev 12
-
-— `board/` added (§3, §6.1). It holds the switchboard's own jacks, 30 station and 10 trunk, each with its label and the circuit cabled to it, as `wiring.yml` records (game_control.md Rev 5, §6.3). The game program publishes them retained at start so the page can draw the board as it is. Jack numbers are the switchboard's, not circuits. Only the page and the game program use them. The controller and the audio program never see a jack number.
-
-— `sbgame/station/<n>/name` removed. Rev 10 added it to carry script.yml's line name to the page for each station tile. The tiles are now jacks and show the board's label, which the `board/` topics carry. Nothing else read `name`.
-
-## 1.13 Changes in Rev 13
-
-— `sbgame/audio/monitor/source/set` and its echo `sbgame/audio/monitor/source` added (§5, §6), following audio.md Rev 8, 2026-09-24. The payload is `"tap"` or a circuit id, and names the receive channel the loudspeaker is fed from. Rev 5 to Rev 12 fed it from the operator tap only. The operator leaves a call when she throws the ring key, so the audience heard nothing of the conversation. The game program now points the monitor at the calling line of the call the operator most recently answered (game_control.md Rev 6 §6.4). That line's receive channel carries both sides of the conversation.
-
-— A separate topic rather than a second value on `monitor/set`, so `monitor/set` stays the gain alone and the one-value rule of §2 holds. It is absolute state, QoS 1, and not retained, like every other command. Its echo is retained.
-
-— `"tap"` is a literal on the same topic as circuit ids, as `"ambiguous"` is on `peer` (§7). The audio program accepts `tap`, `station/1`–`station/22` and `trunk/1`–`trunk/8`, and drops anything else.
-
-— §8.2 and §8.4 follow. On losing the game or the broker, the audio program returns the monitor's source to the tap and keeps the monitor running. On start it publishes the source it started with, `tap` unless configured otherwise.
-
-— The broker's access list does not change. The game program already writes `sbgame/#`, and the page cannot write `audio/`.
-
-## 1.14 Changes in Rev 14
-
-— The `board/` topics' source is script.yml, not `wiring.yml` (§6.1, §7), following game_control.md Rev 7, 2026-09-24. Mark put each station's jack and label into its entry under script.yml's `stations:`, as `switchboard:` and `label:`, and `wiring.yml` was never written. Rev 12 and Rev 13 said the labels and circuits came from `wiring.yml`. The topics, their payloads and their retention do not change.
-
-— What the topics carry follows from the new source. A station jack that a script.yml entry names carries that entry's `label` and circuit. Any other station jack publishes both empty. Trunk jack n carries `trunk/n` for n = 1–8 and nothing for 9 and 10, and every trunk jack's label is empty, since trunks are not in script.yml.
-
-— §7's list of retained topics that use an empty payload to clear still named `name`, two revisions after Rev 12 removed that topic. It now names the `board/` topics instead.
-
-## 1.15 Changes in Rev 15
-
-— The page's listener takes TLS (§9), 2026-09-24, at Mark's request. Rev 10 to Rev 14 served the page over plain HTTP and WebSockets on port 9001, reached as `<host>.local`. The listener now carries a Let's Encrypt certificate for `game.kr3am.org` and listens on 443, so the page is `https://game.kr3am.org/` and its MQTT connection is `wss://`. One listener still serves both, and `http_dir` is unchanged. The three clients stay on plain MQTT on 1883: the ESP32 gains nothing from TLS on a wired link inside the rack, and the two host programs connect over loopback.
-
-— Why, when the page is Mark's and on a private network. Safari gives some features only to a page from a secure origin, among them the screen wake lock that could keep the iPad awake without turning off Auto-Lock (game_control.md §7.3). And the page's password crosses Wi-Fi, which at a venue may not be the travel router's alone. Rev 10's §11 had listener TLS as a later step for public events. It is taken now because its cost is one certificate and a renewal hook.
-
-— The name. `kr3am.org` is one of Mark's domains, chosen over sidell.org, and its DNS is in Route 53. `game.kr3am.org` has no public address record. It resolves only on the local network, to portland, the Linux host, by a host entry on each of the two routers the page is used behind (§9.2). A public record pointing at a private address can be filtered by a router's DNS rebinding protection, and fails at a venue with no internet.
-
-— The certificate is issued by the DNS-01 challenge, which proves control of the domain with a TXT record in Route 53 and needs no inbound connection to the host (§9.1). The HTTP-01 challenge cannot work here: the host is not reachable from the internet at home or on the road. Every certificate is logged publicly in Certificate Transparency, so the name `game.kr3am.org` is public. Nothing about it needs to be private.
-
-— BIND on the host was considered — a resolver for kr3am.org, forwarding everything else to 1.1.1.1 — and not adopted. The iPad takes its DNS from the router in both places, so a host entry there is one line with nothing new to run on the host. It also keeps answering with no upstream at all, where forwarding does not.
-
-— The certificate is reloaded with SIGHUP rather than a restart, because a restart drops every client and would end a game in progress. Whether SIGHUP reloads it on this listener is checked at commissioning, with a fallback if it does not (§9.1).
-
-— Consequences. game_control.md Rev 8 follows in §2 (bookmark and scheme) and §9 (checks). Code consequence for Claude Code, when the page is written: `app.js` connects over `wss://` when the page was loaded over `https:`, taking the scheme from `location.protocol` rather than writing `ws://`.
-
-## 1.16 Changes in Rev 16
-
-— `game.kr3am.org` gets a public A record in Route 53, pointing at portland's fixed address, so it resolves on the home network with nothing on OPNsense (§9.2). Mark's decision, 2026-09-24. Rev 15 said the name has no public address record and resolves only through a host entry on each router. The existing Route 53 name for portland on the other domain already resolves this way at home, so OPNsense is known to pass a public answer that points at a private address.
-
-— The travel router keeps its Edit Hosts line. Rev 15's two reasons against a public record still hold on the road: GL.iNet's DNS can drop a public answer that points at a private address, and a venue with no internet cannot reach Route 53 at all. The Edit Hosts line answers from the router in both cases. The public record is for home only.
-
-— What the public record costs: the private address becomes visible to anyone who looks the name up. It is not reachable from outside, and the name was already public through Certificate Transparency (Rev 15).
-
-— The certificate is not affected. The DNS-01 challenge uses a TXT record at `_acme-challenge.game.kr3am.org`, which sits beside the A record and does not replace it.
-
-## 1.17 Changes in Rev 17
-
-— nginx serves the page and terminates its TLS; Mosquitto no longer does either (§9, §9.1), 2026-09-24. Rev 15 and Rev 16 had one Mosquitto listener on 443 carrying both the page's files, through `http_dir`, and its MQTT connection. Neither half worked on portland, and both failures are properties of the build rather than of the configuration:
-
-— **443 will not bind.** libwebsockets creates the WebSockets listener's socket after Mosquitto has dropped from root to the `mosquitto` user, so a privileged port fails while the plain MQTT listener, opened while still root, succeeds. The `socket_domain ipv4` the man page suggests for a listener that will not open made no difference, and neither did granting the service `CAP_NET_BIND_SERVICE` as an ambient capability with `SecureBits=keep-caps`. Rev 16's §9 said Mosquitto "starts as root and drops to the `mosquitto` user once its listeners are open, which is how it holds 443". That is true of the MQTT listener and not of the WebSockets one.
-
-— **The listener advertises HTTP/2 and cannot speak it.** With ALPN offering `h2` and `http/1.1` the listener selects `h2`, then sends nothing and closes; the same request forced to HTTP/1.1 is served correctly. A browser negotiates HTTP/2 by default, so the page would not have loaded at all. Nothing in the Mosquitto configuration turns the advertisement off.
-
-— What replaces it. nginx listens on 443, holds the certificate, serves `/srv/sbgame/web`, and reverse-proxies the page's MQTT socket to a Mosquitto WebSockets listener on `127.0.0.1:9001` that carries no TLS and is unreachable from off the host. The page keeps one origin and one port, so the bookmark still carries none. The three plain-MQTT clients are untouched on 1883.
-
-— The page's socket takes the path `/mqtt`, which is new (game_control.md Rev 10 §2). nginx routes on it: `/mqtt` to Mosquitto, everything else to the files. Routing instead on the `Upgrade` header would need an `if` inside a `location`, which nginx's own documentation calls unreliable. The page was not yet written, so nothing had to change to gain a path.
-
-— The certificate reload question of Rev 15 and Rev 16 disappears with it. Mosquitto holds no certificate, so nothing needs SIGHUP; nginx rereads the certificate on `systemctl reload`, which drops no connection. The deploy hook becomes one line and moves to `/etc/letsencrypt/renewal-hooks/deploy/nginx`. The 04:00 restart fallback and the commissioning check that chose between them are both withdrawn (game_control.md Rev 10 §9).
-
-— §9.1 now says why the Route 53 credentials belong under `[default]` rather than a named profile. They were first put in `[sbgame-letsencrypt]`, which worked for issuance by hand and would have failed every unattended renewal: boto3 reads `[default]` unless `AWS_PROFILE` names another, and `certbot renew` runs from `certbot.timer` with an empty environment. Mark moved them to `[default]`, which is the arrangement §9.1 records; the alternative is a systemd drop-in on `certbot.service`, and the root account has no other AWS use to keep separate.
-
-## 1.19 Changes in Rev 19
-
-— `game/jitter` and `game/jitter/set` added (§6.1, §6.2), following game_control.md Rev 12, 2026-09-25: the spread of the automatic wait around `gap_now`, a percentage from 0 to 100. An addition; no existing topic or payload changes. `next_at` is now the drawn start, which differs from the last connection plus `gap_now` whenever `jitter` is above 0. The page's access list already covers the new command through `sbgame/game/+/set`.
-
-## 1.18 Changes in Rev 18
-
-— The `board/` labels and circuits come from script.yml's `jacks:` list, not from its station entries (§6.1, §7), following game_control.md Rev 11, 2026-09-25. Every station jack the list names has a label, whether or not a station is cabled to it, so `board/station/<n>/label` can now be set while `board/station/<n>/circuit` is empty. Rev 14 said a jack with no circuit had no label. The topics, their payloads and their retention do not change.
-
-## 1.20 Changes in Rev 20
-
-— A fifth client, the Stream Deck program, `sbgame-streamdeck` (§1), following game_control.md Rev 13, 2026-09-25. It publishes the commands of §6.2 and nothing else, as a new broker user, `sbgame-deck`, whose access list is the page's (§9). No topic or payload changes: the game program cannot tell the deck's commands from the page's and does not need to. Like the page it has no will and no heartbeat (§8.2).
-
-— The page keeps its commands, behind a switch that hides them on an iPad (game_control.md §7.1), so `sbgame-web` keeps its write access and both users write the same commands.
-
-## 1.21 Changes in Rev 21
-
-— `game/pace` and `game/pace/set` take a third value, `"listen"` (§6.1, §6.2), following game_control.md Rev 16, 2026-09-26: automatic pacing that waits for the board to empty rather than for the last call to connect. An addition of a value; the existing two are unchanged. A subscriber that knows only `"manual"` and `"auto"` should treat any other value as automatic.
-
-## 1.22 Changes in Rev 22
-
-— `game/pause` and `game/pause/set` added (§6.1, §6.2), following game_control.md Rev 17, 2026-09-27: listen pacing's own wait, the seconds from the board emptying to the next call, 0–60. An addition; no existing topic or payload changes. The page's and the deck's access lists already cover the command through `sbgame/game/+/set`.
-
-## 1.23 Changes in Rev 23
-
-— Following game_control.md Rev 25 and audio.md Rev 10, 2026-09-30. Diagnostics: the page publishes `game/diag/<target>/<test>/set` and the game program echoes `game/diag/<target>/<test>` (§6.1, §6.2), `<target>` being `station/<n>`, `trunk/<n>` or `tap`. They are two levels deeper than `game/+/set`, so the access list gives the page and the deck `sbgame/game/diag/+/+/+/set` and `sbgame/game/diag/tap/+/set` as well (§9). The chosen next scene: `game/queue/set`, with `game/queue` and `game/scenes` (§6.1, §6.2), the one covered by the existing `game/+/set`. The circuits fitted: `game/stations` and `game/trunks` (§6.1). Voice on the operator tap: `audio/tap/play/set` and its echo `audio/tap/play` (§5, §6). All additions; no existing topic or payload changes. `game/scenes`, like `game/log`, is one value that is many lines.
-
-## 1.24 Changes in Rev 24
-
-— `station/<n>/dial/set` and its echo `station/<n>/dial` added (§4, §6), following control.md Rev 17, 2026-10-01: the station's off-hook relay pulses the digits, the controller timing them. Published by `sbgame-boardtest` on the bench, not by the game program, which never makes a station dial; so §6's "the game program is the only client that commands the ESP32" has one bench exception. An addition; no existing topic or payload changes. The access list already gives the board test's identity, `sbgame-audio`, the whole tree.
-
-## 1.25 Changes in Rev 25
-
-— `ctl/firmware` added (§4), following control.md Rev 18, 2026-10-01: the controller's firmware, its specification revision, git commit and build time, retained and published on every connection. An addition; no existing topic or payload changes, and the heartbeat's payload stays as it was.
-
-## 1.26 Changes in Rev 26
-
-— `trunk/<n>/shortring/set` added (§6, §8.4), following control.md Rev 25, 2026-10-05: `"on"` rings the trunk once for 0.5s, `"off"` cancels the burst; the ESP32 echoes the relay on the existing `ring` topic, `"on"` then `"off"`. The game program uses it to signal a call in on a trunk (game_control.md Rev 28). It is the third command that is not absolute state, after `next/set` and the station's `dial/set`: a duplicate delivered after the first burst has ended rings once more. That is harmless — the switchboard's trunk signal latches, and a second burst on an unanswered trunk changes nothing the operator sees; a duplicate during the burst, or after the trunk is seized, is ignored by the controller. QoS 1 as for every command. The ESP32 subscribes to one more pattern. No existing topic or payload changes.
-
-## 1.46 Changes in Rev 46
-
-— `sbgame/station/<1-22, 24>/ringing` added (§5), from the audio program, following audio.md Rev 30, 2026-10-26: `"on"` while 20Hz ring is heard on the station's capture channel. The ESP32's `station/<n>/ring` does not see ring on a station held off-hook, which is what the player sends when she rings the caller of a call between rooms (game_control.md §6.7, Rev 89). An addition; no existing payload changes.
-
-## 1.45 Changes in Rev 45
-
-— `sbgame/audio/monitor/peer/set` and its echo `sbgame/audio/monitor/peer` added (§5, §6), following audio.md Rev 29, 2026-10-25. The payload is `"auto"` or a boost in dB for the called party on the loudspeaker (audio.md §10.8). The game program publishes it just before each `monitor/source/set`: `"6"` at a free call's answer, `"auto"` otherwise (game_control.md Rev 86). A new topic rather than a second value on `monitor/source/set`, so the one-value rule of §2 holds.
-
-## 1.44 Changes in Rev 44
-
-— The audio program treats station 24 as a circuit (§5, §6), following audio.md Rev 24, 2026-10-23: `station/24/peer`, `op`, `play` and `listen`, their `set`s, and `"station/24"` as a monitor source, a peer and a circuit id, as for stations 1–22. Rev 43's note that it did not is withdrawn. The monitor moves to the Digiface's analog output, so `monitor/set`'s unity is into channels 33 and 34. Additions; no existing payload changes.
-
-## 1.43 Changes in Rev 43
-
-— Station 24, a real telephone on station board 3 strip 8 (§3, §4, §6), following control.md Rev 33 and real_phone.md Rev 2, 2026-10-23. The ESP32 publishes `station/24/ring` and `station/24/hook` as for any station, and one new topic, `station/24/lifted`: `"on"` while the phone is off-hook. It takes `station/24/hook/set`, which connects the phone's line to A32 channel 24, and drops `station/24/dial/set`. Station numbers are now 1–22 and 24; 23, the operator tap, still has no topics. An addition; no existing topic or payload changes. Rev 44 adds station 24's audio topics.
-
-## 1.42 Changes in Rev 42
-
-— The public trunk is asked over SSH, not through the ATA's web interface (§6.3), 2026-10-23. The web interface keeps one session for the whole device, whatever the account: Rev 41's look every 10s, as `admin` and then as `viewer`, logged Mark out of the ATA's pages each time. An SSH session leaves them alone (Mark, 2026-10-23). The ATA's command shell takes no remote command, so the service sends `status` and `exit` on stdin and reads the `Port 1:` line, `On Hook<TAB>Registered` or `Not Registered`. SSH takes the `admin` account only. The password reaches ssh through SSH_ASKPASS, the service's own program reading `/etc/sbgame/ata.cred`, and the ATA's host key is pinned in `/etc/sbgame/ata-known_hosts`, which replaces Rev 41's pinned certificate. The topics and their four values are unchanged.
-
-— Code consequence, for Claude Code: `engine/sbgame/ata.py` rewritten, `--ata-known-hosts` in place of `--ata-cert` in `netcheck.py`, the test, and the known-hosts file in `host/`.
-
-## 1.41 Changes in Rev 41
-
-— The public trunk's registration (§6.3), following game_control.md Rev 72, Mark's request, 2026-10-23. `sbgame-netcheck` also looks every 10s at the Grandstream ATA that feeds trunk 8 (trunk_circuit.md §4.5), `switchboard.sidell.org`, through the JSON API its own web pages use — `/cgi-bin/dologin`, the password base64-encoded as the login page sends it, then `/cgi-bin/api.values.get` for `P4921`, FXS 1's registration — and publishes `host/public_trunk` and `host/public_trunk/checked`, retained. It logs in as the ATA's read-only `viewer` account, since the ATA keeps one session per account and an `admin` login would end the administrator's web session at every look. Its login is in `/etc/sbgame/ata.cred`, and its certificate is pinned (`host/README.md`). A look at a device on the LAN, not the game program's business, and the service already writes `host/#`, so the access list does not change. Topics added; nothing removed or changed.
-
-— The service is renamed `sbgame-netcheck`, from `sbgame-publicip`, since it now looks at more than the address (Mark, 2026-10-23): its unit, program, module and client identifier. Its user, `sbgame-host`, and every topic stay as they were.
-
-— Code consequence, for Claude Code: `engine/sbgame/ata.py`, its run loop in `netcheck.py` (was `publicip.py`), the test, the unit's new name, and the certificate and credentials file in `host/`. On the host, the old unit is disabled and removed and the new one enabled.
-
-## 1.40 Changes in Rev 40
-
-— `host/public_ip/error` gains one fixed value, `"offline"` (§6.3), following game_control.md Rev 71, Mark's request, 2026-10-23: the page says "offline" when portland cannot reach the internet, and "error" for any other failure, so the service has to tell the two apart. After a failed lookup it tries a TCP connection to `1.1.1.1` and then `8.8.8.8` on port 443, by number, 3s each. If neither answers, the error is `"offline"`. If either does, the internet is there and the error is the lookup's own reason, as before; a DNS fault alone is not offline. A value added to an existing topic; nothing removed or changed.
-
-— Code consequence, for Claude Code: `online()` and `Looker` in `engine/sbgame/publicip.py`, and its test.
-
-## 1.39 Changes in Rev 39
-
-— The host's public address on the page, following game_control.md Rev 68, Mark's request, 2026-10-22. A fourth host program, `sbgame-publicip`, asks `checkip.amazonaws.com` for portland's public address every 5 minutes and publishes it under a new top-level segment, `host/` (§3): `host/public_ip`, `host/public_ip/checked` and `host/public_ip/error`, retained (§6.3). The page asks for a lookup now with `host/public_ip/check/set`, QoS 0, an event like `game/next/set`. It is a program of its own, and not part of the game program, because a lookup is a call out of the house, and the game makes no network calls during a session (CLAUDE.md); the certificate renewal's calls to Let's Encrypt and Route 53 on their own timer are the precedent. A failed lookup reaches the page and nothing else.
-
-— The access list (§9) gains a user, `sbgame-host`, with `sbgame/host/#` and nothing else, and one write line for the page, `sbgame/host/public_ip/check/set`: the first page command that does not go to the game program. It commands a lookup and nothing on the board. The deck does not get it. §6.3 sits under §6 so that §7 onwards keep their numbers. Topics added; nothing removed or changed.
-
-— Code consequence, for Claude Code: `engine/sbgame/publicip.py` and its test, the page's two health rows, the unit, the user and the ACL in `host/`.
-
-## 1.38 Changes in Rev 38
-
-— The switchboard held off, following control.md Rev 32 and game_control.md Rev 65, 2026-10-20: `ctl/power_cut/set` and `game/power_cut/set` gain `"hold"`, the switchboard's 24V cut until `"off"`, and `ctl/power_cut` reads `"hold"` while it is. `game/power_cut/set` gains `"off"` too. For the page's Switchboard power button. A value added to three topics; nothing removed.
-
-## 1.37 Changes in Rev 37
-
-— The switchboard power cut, following control.md Rev 31 and game_control.md Rev 63, 2026-10-19. To the ESP32, from the game program (§6): `ctl/power_cut/set`, `"on"` to drop the switchboard's 24V for 1s, `"off"` to end the cut early. From the ESP32 (§4): its echo, `ctl/power_cut`, retained. From the page and the Stream Deck (§6.2): `game/power_cut/set`, which the game program passes on, refusing it while a game runs, so the game program stays the only client that commands the ESP32 (§1). The access list already covers both: the deck and the page write `sbgame/game/+/set`, and the game program reads and writes `sbgame/#`. The ESP32 subscribes to one more pattern.
-
-— It is under `ctl/` rather than a new top-level segment: it is not about a circuit, and the switchboard as a whole has no other topic. Like `shortring/set` it is a pulse, not absolute state: a late duplicate cuts the power once more, which on a stopped board is harmless, and a duplicate during the cut is ignored.
-
-## 1.36 Changes in Rev 36
-
-— Recording the loudspeaker and playing a recording back, following audio.md Rev 22 and game_control.md Rev 61, 2026-10-18. From the audio program (§5): `audio/record`, the file being written, `"off"` or `"failed"`; `audio/recordings`, the ten newest; `audio/playback`, the recording playing. To it, from the game program (§6): `audio/record/set` and `audio/playback/set`. From the page (§6.2): `game/record/set` and `game/playback/set`, which the game program passes on, so the game program stays the only client that commands audio (§1).
-
-## 1.35 Changes in Rev 35
-
-— `"reorder"` added to the `tone/set` and `tone` payloads (§5, §6), following audio.md Rev 20 and game_control.md Rev 56, 2026-10-17: the fast busy, for a number dialled with too many digits or too few. One more value on an existing topic; no new topic.
-
-## 1.34 Changes in Rev 34
-
-— `game/tutor/more` added (§6.1), following game_control.md Rev 55, 2026-10-17: the full line More Help would say for the short prompt the tutor last finished, or `""`. `game/more/set` is now accepted outside the introduction while it is set. `game/tutor/repeat` may name a short form, `brief-<key>`. All additions; no existing topic or payload changes.
-
-## 1.33 Changes in Rev 33
-
-— `game/sweep/set` and its echo `game/sweep` (§6, §6.1), following game_control.md Rev 50, 2026-10-17: the Stream Deck starts or stops a sweep of the trunks or the stations. Covered by the existing `game/+/set` in the access list. All additions; no existing topic or payload changes.
-
-## 1.32 Changes in Rev 32
-
-— `trunk/<n>/shortring/set` rings for 1s, not 0.5s (§6), following control.md Rev 30, 2026-10-10: one of the switchboard's trunk jacks did not latch on 0.5s. No topic or payload changes.
-
-## 1.31 Changes in Rev 31
-
-— `game/repeat/set` and `game/tutor/repeat` added (§6.1, §6.2), following game_control.md Rev 34, 2026-10-09: Repeat Help. `repeat/set` is an event at QoS 0, for `next/set`'s reason — a second copy would say the line twice — and the deck guards its own double press. `game/tutor/repeat` is the key of the line Repeat Help would say, or `""`. With it there are four QoS 0 topics. No existing topic or payload changes.
-
-## 1.30 Changes in Rev 30
-
-— `game/tutor/waiting` added (§6.1), following game_control.md Rev 33, 2026-10-09: `"more"` or `"next"` while the tutor has finished speaking and waits for More Help or Next Call, or for Next Call alone; `""` otherwise. The deck flashes the key. No existing topic or payload changes.
-
-## 1.29 Changes in Rev 29
-
-— `game/pace` and `pace/set` take `"tutor"`, and `game/tutor/set` and `game/tutor` are withdrawn (§6.1, §6.2), following game_control.md Rev 32, 2026-10-09: tutor mode is a pacing rather than a switch beside it. `game/tutor/intro` and `game/more/set` are unchanged. The game program no longer publishes `game/tutor`; a retained value left on the broker by an earlier version is harmless and is cleared with `mosquitto_pub -r -n -t sbgame/game/tutor`. Nothing reads it.
-
-## 1.28 Changes in Rev 28
-
-— `game/more/set` and `game/tutor/intro` added (§6.1, §6.2), following game_control.md Rev 31, 2026-10-09. `more/set` is the Stream Deck's More Help during the tutor's introduction: an event at QoS 0 for `next/set`'s reason, since a second copy would skip a part of the introduction. With it there are three QoS 0 topics. `game/tutor/intro` is the part of the introduction she is on, `"1/3"` to `"3/3"`, or `""`. The access list already covers both. No existing topic or payload changes.
-
-## 1.27 Changes in Rev 27
-
-— `audio/monitor/play/set` and its echo `audio/monitor/play` added (§5, §6), following audio.md Rev 11, 2026-10-08: a file on the loudspeaker, summed into the monitor, for the tutor's voice. And `game/tutor/set` and its echo `game/tutor` (§6.1, §6.2), following game_control.md Rev 29: tutor mode's switch, `"on"` or `"off"`, from the Stream Deck. The access list already covers all four: the audio program and the game program read and write `sbgame/#`, and the deck writes `sbgame/game/+/set`. The audio program subscribes to one more pattern. No existing topic or payload changes.
 
 # 2. Design Rules
 
@@ -395,7 +119,7 @@ The game program is the only client that commands the ESP32 and the audio progra
 | --- | --- | --- | --- | --- |
 | `sbgame/station/<1-22, 24>/hook/set` | `"on"` or `"off"` | no | ESP32 | Take this station off-hook / on-hook. On station 24, connect the real telephone's line to A32 channel 24 / disconnect it (Rev 43). The ESP32 echoes the result on `hook`. |
 | `sbgame/station/<1-22>/dial/set` | digits `0`–`9`, at most 16, or `""` | no | ESP32 | Dial them on this off-hook station, the controller timing the pulses; `""` stops. Published by `sbgame-boardtest` only (Rev 24). Echoed on `dial`. |
-| `sbgame/trunk/<1-8>/shortring/set` | `"on"` or `"off"` | no | ESP32 | Ring this trunk once, for 1s (Rev 32; 0.5s at Rev 26), then leave it idle and able to see a seizure (`control.md` §8.4, Rev 25); `"off"` cancels the burst. Echoed on `ring`. Not absolute state: a late duplicate rings once more, which the switchboard's latching trunk signal makes harmless (§1.26). |
+| `sbgame/trunk/<1-8>/shortring/set` | `"on"` or `"off"` | no | ESP32 | Ring this trunk once, for 1s (Rev 32; 0.5s at Rev 26), then leave it idle and able to see a seizure (`control.md` §8.4, Rev 25); `"off"` cancels the burst. Echoed on `ring`. Not absolute state: a late duplicate rings once more, which the switchboard's latching trunk signal makes harmless (§12.26). |
 | `sbgame/trunk/<1-8>/ring/set` | `"on"` or `"off"` | no | ESP32 | Start / stop ringing this trunk. The ESP32 runs the cadence and the 30s timeout (`control.md` §8) and echoes the relay state on `ring`. |
 | `sbgame/station/<1-22, 24>/play/set`, `sbgame/trunk/<1-8>/play/set` | base filename, or `"stop"` | no | audio | Play `<wav-dir>/<name>.wav` on this circuit's output, replacing whatever it is playing; `"stop"` stops it. Echoed on `play`; finishing is `play` going empty. |
 | `sbgame/audio/tap/play/set` | base filename, or `"stop"` | no | audio | Play a file on the operator tap's output, over the operator tone, which is never displaced; `"stop"` stops it. Echoed on `audio/tap/play`. Only the game program's diagnostics use it (game_control.md §7.5; Rev 23). |
@@ -607,7 +331,7 @@ listener 9001 127.0.0.1
 protocol websockets
 ```
 
-Mosquitto served the page itself through Rev 16, from `http_dir` on a TLS listener on 443. It cannot on this build (§1.17): libwebsockets creates the WebSockets socket after the drop to the `mosquitto` user, so a privileged port will not bind, and the listener advertises HTTP/2 in ALPN without being able to serve it, which a browser negotiates by default. nginx does both jobs instead, and Mosquitto's WebSockets listener carries no TLS and is bound to loopback, so nothing off the host can reach it.
+Mosquitto served the page itself through Rev 16, from `http_dir` on a TLS listener on 443. It cannot on this build (§12.17): libwebsockets creates the WebSockets socket after the drop to the `mosquitto` user, so a privileged port will not bind, and the listener advertises HTTP/2 in ALPN without being able to serve it, which a browser negotiates by default. nginx does both jobs instead, and Mosquitto's WebSockets listener carries no TLS and is bound to loopback, so nothing off the host can reach it.
 
 **nginx**, `/etc/nginx/sites-available/sbgame`, enabled and with the distribution's default site removed:
 
@@ -743,7 +467,7 @@ A certificate validates offline once issued, so the page works at a venue with n
 Recorded so the reasoning survives the move from the circuit documents, whose change lists carry the originals.
 
 - The link was USB serial until station Rev 3.1 and MQTT over PoE Ethernet since.
-- The trunk topics were once specified as the station topics with a different noun (station Rev 3.x, corrected at trunk §11.3 and station §1.2): a trunk has no hook to set and needs a ring command.
+- The trunk topics were once specified as the station topics with a different noun (station Rev 3.x, corrected at trunk §11.3 and station §14.0): a trunk has no hook to set and needs a ring command.
 - Operator detection moved from the tap strip's receive channel to every circuit's own channel at station Rev 3.28, which is where the per-circuit `op` topic comes from, and what makes it single-valued.
 - The prefix changed from `sw/` to `sbgame/` at station Rev 3.29.
 - The topic tables gained headers, the `host → broker` wording became `host → any`, and the circuit-id format was specified at station Rev 3.30; the `peer` diagnostics `"ambiguous"` and `"deaf"` were specified at Rev 3.28.
@@ -763,3 +487,287 @@ Recorded so the reasoning survives the move from the circuit documents, whose ch
 - The page's commands will grow as `game_control.md` §10 settles — a fixed-interval pacing value on `pace`, a named scene to start, timeouts. Each is one more `sbgame/game/…/set` and covered by the access list's existing pattern.
 - The page has only one user, `sbgame-web`, and anyone on the network who loads it can run the game. Hiding its controls (Rev 20) does not change that; only the access list could. Acceptable at the bench and behind the travel router. For a public event where the Wi-Fi is shared, a second, private page could hold the password. Rev 10 to Rev 14 listed TLS on the listener here as the other half of that; it was taken at Rev 15 (§9).
 - `http_dir` is no longer used, so its removal in Mosquitto 3.0 no longer matters (Rev 17, §9). nginx serves the page's files and Mosquitto's WebSockets listener carries MQTT alone, which is not marked for removal. What moving past 2.x now means for this system is the `per_listener_settings` and password-file defaults, not the page.
+
+# 12. Revision History
+
+## 12.47 Changes in Rev 47
+
+— The document made readable, Mark's request, 2026-10-30, as `game_control.md` Rev 95. The line under the title had grown into a list of topics and now gives only the revision. The changes in each revision move out of the Overview to this section at the end of the document, newest first, where Rev 27 to Rev 46 had been in descending order after Rev 26. The text of each entry is unchanged except for references to the renumbered sections, and wording that said an entry was "above". A new revision is added at the top of this section, and the line under the title changes only its number.
+
+— No code consequence.
+
+## 12.46 Changes in Rev 46
+
+— `sbgame/station/<1-22, 24>/ringing` added (§5), from the audio program, following audio.md Rev 30, 2026-10-26: `"on"` while 20Hz ring is heard on the station's capture channel. The ESP32's `station/<n>/ring` does not see ring on a station held off-hook, which is what the player sends when she rings the caller of a call between rooms (game_control.md §6.7, Rev 89). An addition; no existing payload changes.
+
+## 12.45 Changes in Rev 45
+
+— `sbgame/audio/monitor/peer/set` and its echo `sbgame/audio/monitor/peer` added (§5, §6), following audio.md Rev 29, 2026-10-25. The payload is `"auto"` or a boost in dB for the called party on the loudspeaker (audio.md §10.8). The game program publishes it just before each `monitor/source/set`: `"6"` at a free call's answer, `"auto"` otherwise (game_control.md Rev 86). A new topic rather than a second value on `monitor/source/set`, so the one-value rule of §2 holds.
+
+## 12.44 Changes in Rev 44
+
+— The audio program treats station 24 as a circuit (§5, §6), following audio.md Rev 24, 2026-10-23: `station/24/peer`, `op`, `play` and `listen`, their `set`s, and `"station/24"` as a monitor source, a peer and a circuit id, as for stations 1–22. Rev 43's note that it did not is withdrawn. The monitor moves to the Digiface's analog output, so `monitor/set`'s unity is into channels 33 and 34. Additions; no existing payload changes.
+
+## 12.43 Changes in Rev 43
+
+— Station 24, a real telephone on station board 3 strip 8 (§3, §4, §6), following control.md Rev 33 and real_phone.md Rev 2, 2026-10-23. The ESP32 publishes `station/24/ring` and `station/24/hook` as for any station, and one new topic, `station/24/lifted`: `"on"` while the phone is off-hook. It takes `station/24/hook/set`, which connects the phone's line to A32 channel 24, and drops `station/24/dial/set`. Station numbers are now 1–22 and 24; 23, the operator tap, still has no topics. An addition; no existing topic or payload changes. Rev 44 adds station 24's audio topics.
+
+## 12.42 Changes in Rev 42
+
+— The public trunk is asked over SSH, not through the ATA's web interface (§6.3), 2026-10-23. The web interface keeps one session for the whole device, whatever the account: Rev 41's look every 10s, as `admin` and then as `viewer`, logged Mark out of the ATA's pages each time. An SSH session leaves them alone (Mark, 2026-10-23). The ATA's command shell takes no remote command, so the service sends `status` and `exit` on stdin and reads the `Port 1:` line, `On Hook<TAB>Registered` or `Not Registered`. SSH takes the `admin` account only. The password reaches ssh through SSH_ASKPASS, the service's own program reading `/etc/sbgame/ata.cred`, and the ATA's host key is pinned in `/etc/sbgame/ata-known_hosts`, which replaces Rev 41's pinned certificate. The topics and their four values are unchanged.
+
+— Code consequence, for Claude Code: `engine/sbgame/ata.py` rewritten, `--ata-known-hosts` in place of `--ata-cert` in `netcheck.py`, the test, and the known-hosts file in `host/`.
+
+## 12.41 Changes in Rev 41
+
+— The public trunk's registration (§6.3), following game_control.md Rev 72, Mark's request, 2026-10-23. `sbgame-netcheck` also looks every 10s at the Grandstream ATA that feeds trunk 8 (trunk_circuit.md §4.5), `switchboard.sidell.org`, through the JSON API its own web pages use — `/cgi-bin/dologin`, the password base64-encoded as the login page sends it, then `/cgi-bin/api.values.get` for `P4921`, FXS 1's registration — and publishes `host/public_trunk` and `host/public_trunk/checked`, retained. It logs in as the ATA's read-only `viewer` account, since the ATA keeps one session per account and an `admin` login would end the administrator's web session at every look. Its login is in `/etc/sbgame/ata.cred`, and its certificate is pinned (`host/README.md`). A look at a device on the LAN, not the game program's business, and the service already writes `host/#`, so the access list does not change. Topics added; nothing removed or changed.
+
+— The service is renamed `sbgame-netcheck`, from `sbgame-publicip`, since it now looks at more than the address (Mark, 2026-10-23): its unit, program, module and client identifier. Its user, `sbgame-host`, and every topic stay as they were.
+
+— Code consequence, for Claude Code: `engine/sbgame/ata.py`, its run loop in `netcheck.py` (was `publicip.py`), the test, the unit's new name, and the certificate and credentials file in `host/`. On the host, the old unit is disabled and removed and the new one enabled.
+
+## 12.40 Changes in Rev 40
+
+— `host/public_ip/error` gains one fixed value, `"offline"` (§6.3), following game_control.md Rev 71, Mark's request, 2026-10-23: the page says "offline" when portland cannot reach the internet, and "error" for any other failure, so the service has to tell the two apart. After a failed lookup it tries a TCP connection to `1.1.1.1` and then `8.8.8.8` on port 443, by number, 3s each. If neither answers, the error is `"offline"`. If either does, the internet is there and the error is the lookup's own reason, as before; a DNS fault alone is not offline. A value added to an existing topic; nothing removed or changed.
+
+— Code consequence, for Claude Code: `online()` and `Looker` in `engine/sbgame/publicip.py`, and its test.
+
+## 12.39 Changes in Rev 39
+
+— The host's public address on the page, following game_control.md Rev 68, Mark's request, 2026-10-22. A fourth host program, `sbgame-publicip`, asks `checkip.amazonaws.com` for portland's public address every 5 minutes and publishes it under a new top-level segment, `host/` (§3): `host/public_ip`, `host/public_ip/checked` and `host/public_ip/error`, retained (§6.3). The page asks for a lookup now with `host/public_ip/check/set`, QoS 0, an event like `game/next/set`. It is a program of its own, and not part of the game program, because a lookup is a call out of the house, and the game makes no network calls during a session; the certificate renewal's calls to Let's Encrypt and Route 53 on their own timer are the precedent. A failed lookup reaches the page and nothing else.
+
+— The access list (§9) gains a user, `sbgame-host`, with `sbgame/host/#` and nothing else, and one write line for the page, `sbgame/host/public_ip/check/set`: the first page command that does not go to the game program. It commands a lookup and nothing on the board. The deck does not get it. §6.3 sits under §6 so that §7 onwards keep their numbers. Topics added; nothing removed or changed.
+
+— Code consequence, for Claude Code: `engine/sbgame/publicip.py` and its test, the page's two health rows, the unit, the user and the ACL in `host/`.
+
+## 12.38 Changes in Rev 38
+
+— The switchboard held off, following control.md Rev 32 and game_control.md Rev 65, 2026-10-20: `ctl/power_cut/set` and `game/power_cut/set` gain `"hold"`, the switchboard's 24V cut until `"off"`, and `ctl/power_cut` reads `"hold"` while it is. `game/power_cut/set` gains `"off"` too. For the page's Switchboard power button. A value added to three topics; nothing removed.
+
+## 12.37 Changes in Rev 37
+
+— The switchboard power cut, following control.md Rev 31 and game_control.md Rev 63, 2026-10-19. To the ESP32, from the game program (§6): `ctl/power_cut/set`, `"on"` to drop the switchboard's 24V for 1s, `"off"` to end the cut early. From the ESP32 (§4): its echo, `ctl/power_cut`, retained. From the page and the Stream Deck (§6.2): `game/power_cut/set`, which the game program passes on, refusing it while a game runs, so the game program stays the only client that commands the ESP32 (§1). The access list already covers both: the deck and the page write `sbgame/game/+/set`, and the game program reads and writes `sbgame/#`. The ESP32 subscribes to one more pattern.
+
+— It is under `ctl/` rather than a new top-level segment: it is not about a circuit, and the switchboard as a whole has no other topic. Like `shortring/set` it is a pulse, not absolute state: a late duplicate cuts the power once more, which on a stopped board is harmless, and a duplicate during the cut is ignored.
+
+## 12.36 Changes in Rev 36
+
+— Recording the loudspeaker and playing a recording back, following audio.md Rev 22 and game_control.md Rev 61, 2026-10-18. From the audio program (§5): `audio/record`, the file being written, `"off"` or `"failed"`; `audio/recordings`, the ten newest; `audio/playback`, the recording playing. To it, from the game program (§6): `audio/record/set` and `audio/playback/set`. From the page (§6.2): `game/record/set` and `game/playback/set`, which the game program passes on, so the game program stays the only client that commands audio (§1).
+
+## 12.35 Changes in Rev 35
+
+— `"reorder"` added to the `tone/set` and `tone` payloads (§5, §6), following audio.md Rev 20 and game_control.md Rev 56, 2026-10-17: the fast busy, for a number dialled with too many digits or too few. One more value on an existing topic; no new topic.
+
+## 12.34 Changes in Rev 34
+
+— `game/tutor/more` added (§6.1), following game_control.md Rev 55, 2026-10-17: the full line More Help would say for the short prompt the tutor last finished, or `""`. `game/more/set` is now accepted outside the introduction while it is set. `game/tutor/repeat` may name a short form, `brief-<key>`. All additions; no existing topic or payload changes.
+
+## 12.33 Changes in Rev 33
+
+— `game/sweep/set` and its echo `game/sweep` (§6, §6.1), following game_control.md Rev 50, 2026-10-17: the Stream Deck starts or stops a sweep of the trunks or the stations. Covered by the existing `game/+/set` in the access list. All additions; no existing topic or payload changes.
+
+## 12.32 Changes in Rev 32
+
+— `trunk/<n>/shortring/set` rings for 1s, not 0.5s (§6), following control.md Rev 30, 2026-10-10: one of the switchboard's trunk jacks did not latch on 0.5s. No topic or payload changes.
+
+## 12.31 Changes in Rev 31
+
+— `game/repeat/set` and `game/tutor/repeat` added (§6.1, §6.2), following game_control.md Rev 34, 2026-10-09: Repeat Help. `repeat/set` is an event at QoS 0, for `next/set`'s reason — a second copy would say the line twice — and the deck guards its own double press. `game/tutor/repeat` is the key of the line Repeat Help would say, or `""`. With it there are four QoS 0 topics. No existing topic or payload changes.
+
+## 12.30 Changes in Rev 30
+
+— `game/tutor/waiting` added (§6.1), following game_control.md Rev 33, 2026-10-09: `"more"` or `"next"` while the tutor has finished speaking and waits for More Help or Next Call, or for Next Call alone; `""` otherwise. The deck flashes the key. No existing topic or payload changes.
+
+## 12.29 Changes in Rev 29
+
+— `game/pace` and `pace/set` take `"tutor"`, and `game/tutor/set` and `game/tutor` are withdrawn (§6.1, §6.2), following game_control.md Rev 32, 2026-10-09: tutor mode is a pacing rather than a switch beside it. `game/tutor/intro` and `game/more/set` are unchanged. The game program no longer publishes `game/tutor`; a retained value left on the broker by an earlier version is harmless and is cleared with `mosquitto_pub -r -n -t sbgame/game/tutor`. Nothing reads it.
+
+## 12.28 Changes in Rev 28
+
+— `game/more/set` and `game/tutor/intro` added (§6.1, §6.2), following game_control.md Rev 31, 2026-10-09. `more/set` is the Stream Deck's More Help during the tutor's introduction: an event at QoS 0 for `next/set`'s reason, since a second copy would skip a part of the introduction. With it there are three QoS 0 topics. `game/tutor/intro` is the part of the introduction she is on, `"1/3"` to `"3/3"`, or `""`. The access list already covers both. No existing topic or payload changes.
+
+## 12.27 Changes in Rev 27
+
+— `audio/monitor/play/set` and its echo `audio/monitor/play` added (§5, §6), following audio.md Rev 11, 2026-10-08: a file on the loudspeaker, summed into the monitor, for the tutor's voice. And `game/tutor/set` and its echo `game/tutor` (§6.1, §6.2), following game_control.md Rev 29: tutor mode's switch, `"on"` or `"off"`, from the Stream Deck. The access list already covers all four: the audio program and the game program read and write `sbgame/#`, and the deck writes `sbgame/game/+/set`. The audio program subscribes to one more pattern. No existing topic or payload changes.
+
+## 12.26 Changes in Rev 26
+
+— `trunk/<n>/shortring/set` added (§6, §8.4), following control.md Rev 25, 2026-10-05: `"on"` rings the trunk once for 0.5s, `"off"` cancels the burst; the ESP32 echoes the relay on the existing `ring` topic, `"on"` then `"off"`. The game program uses it to signal a call in on a trunk (game_control.md Rev 28). It is the third command that is not absolute state, after `next/set` and the station's `dial/set`: a duplicate delivered after the first burst has ended rings once more. That is harmless — the switchboard's trunk signal latches, and a second burst on an unanswered trunk changes nothing the operator sees; a duplicate during the burst, or after the trunk is seized, is ignored by the controller. QoS 1 as for every command. The ESP32 subscribes to one more pattern. No existing topic or payload changes.
+
+## 12.25 Changes in Rev 25
+
+— `ctl/firmware` added (§4), following control.md Rev 18, 2026-10-01: the controller's firmware, its specification revision, git commit and build time, retained and published on every connection. An addition; no existing topic or payload changes, and the heartbeat's payload stays as it was.
+
+## 12.24 Changes in Rev 24
+
+— `station/<n>/dial/set` and its echo `station/<n>/dial` added (§4, §6), following control.md Rev 17, 2026-10-01: the station's off-hook relay pulses the digits, the controller timing them. Published by `sbgame-boardtest` on the bench, not by the game program, which never makes a station dial; so §6's "the game program is the only client that commands the ESP32" has one bench exception. An addition; no existing topic or payload changes. The access list already gives the board test's identity, `sbgame-audio`, the whole tree.
+
+## 12.23 Changes in Rev 23
+
+— Following game_control.md Rev 25 and audio.md Rev 10, 2026-09-30. Diagnostics: the page publishes `game/diag/<target>/<test>/set` and the game program echoes `game/diag/<target>/<test>` (§6.1, §6.2), `<target>` being `station/<n>`, `trunk/<n>` or `tap`. They are two levels deeper than `game/+/set`, so the access list gives the page and the deck `sbgame/game/diag/+/+/+/set` and `sbgame/game/diag/tap/+/set` as well (§9). The chosen next scene: `game/queue/set`, with `game/queue` and `game/scenes` (§6.1, §6.2), the one covered by the existing `game/+/set`. The circuits fitted: `game/stations` and `game/trunks` (§6.1). Voice on the operator tap: `audio/tap/play/set` and its echo `audio/tap/play` (§5, §6). All additions; no existing topic or payload changes. `game/scenes`, like `game/log`, is one value that is many lines.
+
+## 12.22 Changes in Rev 22
+
+— `game/pause` and `game/pause/set` added (§6.1, §6.2), following game_control.md Rev 17, 2026-09-27: listen pacing's own wait, the seconds from the board emptying to the next call, 0–60. An addition; no existing topic or payload changes. The page's and the deck's access lists already cover the command through `sbgame/game/+/set`.
+
+## 12.21 Changes in Rev 21
+
+— `game/pace` and `game/pace/set` take a third value, `"listen"` (§6.1, §6.2), following game_control.md Rev 16, 2026-09-26: automatic pacing that waits for the board to empty rather than for the last call to connect. An addition of a value; the existing two are unchanged. A subscriber that knows only `"manual"` and `"auto"` should treat any other value as automatic.
+
+## 12.20 Changes in Rev 20
+
+— A fifth client, the Stream Deck program, `sbgame-streamdeck` (§1), following game_control.md Rev 13, 2026-09-25. It publishes the commands of §6.2 and nothing else, as a new broker user, `sbgame-deck`, whose access list is the page's (§9). No topic or payload changes: the game program cannot tell the deck's commands from the page's and does not need to. Like the page it has no will and no heartbeat (§8.2).
+
+— The page keeps its commands, behind a switch that hides them on an iPad (game_control.md §7.1), so `sbgame-web` keeps its write access and both users write the same commands.
+
+## 12.19 Changes in Rev 19
+
+— `game/jitter` and `game/jitter/set` added (§6.1, §6.2), following game_control.md Rev 12, 2026-09-25: the spread of the automatic wait around `gap_now`, a percentage from 0 to 100. An addition; no existing topic or payload changes. `next_at` is now the drawn start, which differs from the last connection plus `gap_now` whenever `jitter` is above 0. The page's access list already covers the new command through `sbgame/game/+/set`.
+
+## 12.18 Changes in Rev 18
+
+— The `board/` labels and circuits come from script.yml's `jacks:` list, not from its station entries (§6.1, §7), following game_control.md Rev 11, 2026-09-25. Every station jack the list names has a label, whether or not a station is cabled to it, so `board/station/<n>/label` can now be set while `board/station/<n>/circuit` is empty. Rev 14 said a jack with no circuit had no label. The topics, their payloads and their retention do not change.
+
+## 12.17 Changes in Rev 17
+
+— nginx serves the page and terminates its TLS; Mosquitto no longer does either (§9, §9.1), 2026-09-24. Rev 15 and Rev 16 had one Mosquitto listener on 443 carrying both the page's files, through `http_dir`, and its MQTT connection. Neither half worked on portland, and both failures are properties of the build rather than of the configuration:
+
+— **443 will not bind.** libwebsockets creates the WebSockets listener's socket after Mosquitto has dropped from root to the `mosquitto` user, so a privileged port fails while the plain MQTT listener, opened while still root, succeeds. The `socket_domain ipv4` the man page suggests for a listener that will not open made no difference, and neither did granting the service `CAP_NET_BIND_SERVICE` as an ambient capability with `SecureBits=keep-caps`. Rev 16's §9 said Mosquitto "starts as root and drops to the `mosquitto` user once its listeners are open, which is how it holds 443". That is true of the MQTT listener and not of the WebSockets one.
+
+— **The listener advertises HTTP/2 and cannot speak it.** With ALPN offering `h2` and `http/1.1` the listener selects `h2`, then sends nothing and closes; the same request forced to HTTP/1.1 is served correctly. A browser negotiates HTTP/2 by default, so the page would not have loaded at all. Nothing in the Mosquitto configuration turns the advertisement off.
+
+— What replaces it. nginx listens on 443, holds the certificate, serves `/srv/sbgame/web`, and reverse-proxies the page's MQTT socket to a Mosquitto WebSockets listener on `127.0.0.1:9001` that carries no TLS and is unreachable from off the host. The page keeps one origin and one port, so the bookmark still carries none. The three plain-MQTT clients are untouched on 1883.
+
+— The page's socket takes the path `/mqtt`, which is new (game_control.md Rev 10 §2). nginx routes on it: `/mqtt` to Mosquitto, everything else to the files. Routing instead on the `Upgrade` header would need an `if` inside a `location`, which nginx's own documentation calls unreliable. The page was not yet written, so nothing had to change to gain a path.
+
+— The certificate reload question of Rev 15 and Rev 16 disappears with it. Mosquitto holds no certificate, so nothing needs SIGHUP; nginx rereads the certificate on `systemctl reload`, which drops no connection. The deploy hook becomes one line and moves to `/etc/letsencrypt/renewal-hooks/deploy/nginx`. The 04:00 restart fallback and the commissioning check that chose between them are both withdrawn (game_control.md Rev 10 §9).
+
+— §9.1 now says why the Route 53 credentials belong under `[default]` rather than a named profile. They were first put in `[sbgame-letsencrypt]`, which worked for issuance by hand and would have failed every unattended renewal: boto3 reads `[default]` unless `AWS_PROFILE` names another, and `certbot renew` runs from `certbot.timer` with an empty environment. Mark moved them to `[default]`, which is the arrangement §9.1 records; the alternative is a systemd drop-in on `certbot.service`, and the root account has no other AWS use to keep separate.
+
+## 12.16 Changes in Rev 16
+
+— `game.kr3am.org` gets a public A record in Route 53, pointing at portland's fixed address, so it resolves on the home network with nothing on OPNsense (§9.2). Mark's decision, 2026-09-24. Rev 15 said the name has no public address record and resolves only through a host entry on each router. The existing Route 53 name for portland on the other domain already resolves this way at home, so OPNsense is known to pass a public answer that points at a private address.
+
+— The travel router keeps its Edit Hosts line. Rev 15's two reasons against a public record still hold on the road: GL.iNet's DNS can drop a public answer that points at a private address, and a venue with no internet cannot reach Route 53 at all. The Edit Hosts line answers from the router in both cases. The public record is for home only.
+
+— What the public record costs: the private address becomes visible to anyone who looks the name up. It is not reachable from outside, and the name was already public through Certificate Transparency (Rev 15).
+
+— The certificate is not affected. The DNS-01 challenge uses a TXT record at `_acme-challenge.game.kr3am.org`, which sits beside the A record and does not replace it.
+
+## 12.15 Changes in Rev 15
+
+— The page's listener takes TLS (§9), 2026-09-24, at Mark's request. Rev 10 to Rev 14 served the page over plain HTTP and WebSockets on port 9001, reached as `<host>.local`. The listener now carries a Let's Encrypt certificate for `game.kr3am.org` and listens on 443, so the page is `https://game.kr3am.org/` and its MQTT connection is `wss://`. One listener still serves both, and `http_dir` is unchanged. The three clients stay on plain MQTT on 1883: the ESP32 gains nothing from TLS on a wired link inside the rack, and the two host programs connect over loopback.
+
+— Why, when the page is Mark's and on a private network. Safari gives some features only to a page from a secure origin, among them the screen wake lock that could keep the iPad awake without turning off Auto-Lock (game_control.md §7.3). And the page's password crosses Wi-Fi, which at a venue may not be the travel router's alone. Rev 10's §11 had listener TLS as a later step for public events. It is taken now because its cost is one certificate and a renewal hook.
+
+— The name. `kr3am.org` is one of Mark's domains, chosen over sidell.org, and its DNS is in Route 53. `game.kr3am.org` has no public address record. It resolves only on the local network, to portland, the Linux host, by a host entry on each of the two routers the page is used behind (§9.2). A public record pointing at a private address can be filtered by a router's DNS rebinding protection, and fails at a venue with no internet.
+
+— The certificate is issued by the DNS-01 challenge, which proves control of the domain with a TXT record in Route 53 and needs no inbound connection to the host (§9.1). The HTTP-01 challenge cannot work here: the host is not reachable from the internet at home or on the road. Every certificate is logged publicly in Certificate Transparency, so the name `game.kr3am.org` is public. Nothing about it needs to be private.
+
+— BIND on the host was considered — a resolver for kr3am.org, forwarding everything else to 1.1.1.1 — and not adopted. The iPad takes its DNS from the router in both places, so a host entry there is one line with nothing new to run on the host. It also keeps answering with no upstream at all, where forwarding does not.
+
+— The certificate is reloaded with SIGHUP rather than a restart, because a restart drops every client and would end a game in progress. Whether SIGHUP reloads it on this listener is checked at commissioning, with a fallback if it does not (§9.1).
+
+— Consequences. game_control.md Rev 8 follows in §2 (bookmark and scheme) and §9 (checks). Code consequence for Claude Code, when the page is written: `app.js` connects over `wss://` when the page was loaded over `https:`, taking the scheme from `location.protocol` rather than writing `ws://`.
+
+## 12.14 Changes in Rev 14
+
+— The `board/` topics' source is script.yml, not `wiring.yml` (§6.1, §7), following game_control.md Rev 7, 2026-09-24. Mark put each station's jack and label into its entry under script.yml's `stations:`, as `switchboard:` and `label:`, and `wiring.yml` was never written. Rev 12 and Rev 13 said the labels and circuits came from `wiring.yml`. The topics, their payloads and their retention do not change.
+
+— What the topics carry follows from the new source. A station jack that a script.yml entry names carries that entry's `label` and circuit. Any other station jack publishes both empty. Trunk jack n carries `trunk/n` for n = 1–8 and nothing for 9 and 10, and every trunk jack's label is empty, since trunks are not in script.yml.
+
+— §7's list of retained topics that use an empty payload to clear still named `name`, two revisions after Rev 12 removed that topic. It now names the `board/` topics instead.
+
+## 12.13 Changes in Rev 13
+
+— `sbgame/audio/monitor/source/set` and its echo `sbgame/audio/monitor/source` added (§5, §6), following audio.md Rev 8, 2026-09-24. The payload is `"tap"` or a circuit id, and names the receive channel the loudspeaker is fed from. Rev 5 to Rev 12 fed it from the operator tap only. The operator leaves a call when she throws the ring key, so the audience heard nothing of the conversation. The game program now points the monitor at the calling line of the call the operator most recently answered (game_control.md Rev 6 §6.4). That line's receive channel carries both sides of the conversation.
+
+— A separate topic rather than a second value on `monitor/set`, so `monitor/set` stays the gain alone and the one-value rule of §2 holds. It is absolute state, QoS 1, and not retained, like every other command. Its echo is retained.
+
+— `"tap"` is a literal on the same topic as circuit ids, as `"ambiguous"` is on `peer` (§7). The audio program accepts `tap`, `station/1`–`station/22` and `trunk/1`–`trunk/8`, and drops anything else.
+
+— §8.2 and §8.4 follow. On losing the game or the broker, the audio program returns the monitor's source to the tap and keeps the monitor running. On start it publishes the source it started with, `tap` unless configured otherwise.
+
+— The broker's access list does not change. The game program already writes `sbgame/#`, and the page cannot write `audio/`.
+
+## 12.12 Changes in Rev 12
+
+— `board/` added (§3, §6.1). It holds the switchboard's own jacks, 30 station and 10 trunk, each with its label and the circuit cabled to it, as `wiring.yml` records (game_control.md Rev 5, §6.3). The game program publishes them retained at start so the page can draw the board as it is. Jack numbers are the switchboard's, not circuits. Only the page and the game program use them. The controller and the audio program never see a jack number.
+
+— `sbgame/station/<n>/name` removed. Rev 10 added it to carry script.yml's line name to the page for each station tile. The tiles are now jacks and show the board's label, which the `board/` topics carry. Nothing else read `name`.
+
+## 12.11 Changes in Rev 11
+
+— `game/next/set` becomes a plain command, 2026-09-24, at Mark's request: the payload is ignored and the game program starts the next call. Rev 10 had the page send the number of the call to start, which the game program acted on only if it was one more than `started`, so that a duplicate started one call and not two. Mark's view is that the game program keeps the count itself and the page should not have to. The duplicates are handled in two other ways. The command goes out at QoS 0, which is never resent on reconnect, so the resent-command duplicate cannot happen. The page disables Next Call when it is tapped and re-enables it when `started` changes, so a double tap cannot either (game_control.md §4.1). The cost is that a tap made as the connection drops can be lost. The operator sees no new call and taps again.
+
+— This makes `next/set` the second event in the design, after `trunk/<n>/digit`, and the one command that is not absolute state. §2 records both exceptions. It is still unretained, like every command.
+
+## 12.10 Changes in Rev 10
+
+— The status page, 2026-09-24, specified in the new `game_control.md` Rev 1. An iPad shows the state of the whole system and runs the game: start and stop, manual or automatic call pacing with a ramp, a Next Call button, tallies. The page talks MQTT directly over Mosquitto's WebSockets listener, which also serves its files (§9). The alternative — a web server inside the game program pushing its own WebSocket — was considered and not adopted, because the page would then show what the game program believes rather than what the controller and audio program report, and would go dark exactly when the game program fails.
+
+— The game program now publishes state (§6.1): its own birth and last will on `sbgame/ctl/game_status`; each station's line name from script.yml on `sbgame/station/<n>/name`; and a new segment, `sbgame/game/…`, for the run state, the pacing values, the tallies, eight call slots and the event log. §3 adds the segment. Before this revision the game program published only commands, the heartbeat and `sync`.
+
+— The page is a new publisher (§6.2), of six commands under `sbgame/game/…/set`, consumed by the game program only. §1 and §6 said the game program was the only client that sends commands; it is now the only client that commands hardware or audio, and the broker's access list holds the page to the game's own commands (§9). Every page command follows the `/set`-and-echo shape and is absolute state. The one that looks like a verb — start the next call — carries the number of the call to start, so a redelivery or a double tap starts one call (§2).
+
+— `sbgame/ctl/game_heartbeat` now carries the host's Unix time in seconds. It carried nothing through Rev 9. The page needs the host's clock to count down against the host times in the call slots, and the iPad's clock is not trusted on the travel router. The ESP32 and the audio program act on the beat's arrival only (control.md §9.3, audio.md §13.2), so the payload changes nothing for them. Code consequence for Claude Code: confirm that neither `control/control.ino` nor `sbaudio` rejects a non-empty payload on this topic.
+
+— Two exceptions to the one-value rule's spirit, recorded in §2: `game/log` is one retained value that is many lines of text, and the call slot's values change together but are published separately. Neither is JSON; both are for display.
+
+— §9 rewritten. Rev 9 said anonymous connections are allowed by default, with a password for the ESP32 and the broker bound to the wired interface as the protection. With the iPad on Wi-Fi, binding cannot be the protection, and the page's password is readable by anyone who loads it. The broker now refuses anonymous clients, and an access list gives the page read access to everything and write access to `sbgame/game/+/set` only. The three existing clients keep full access. The WebSockets listener and its `http_dir` are added. Commissioning consequence: every client must present credentials that match the access list (game_control.md §9).
+
+— §8.1 and §8.4 add the game program's birth and last will, and its start sequence: game state before birth, as the audio program does.
+
+## 12.9 Changes in Rev 9
+
+— Follows station Rev 3.40 and audio.md Rev 7. Station topics are n = 1–22, not 1–23: the operator tap moves from board 3 strip 8 to strip 7 (A32 channel 23), and strip 8's A32 output, channel 24, becomes the audience monitor feed in place of the Digiface's own analog output on 33/34. The tables in §4 to §6 and the naming in §3 follow, and `audio/monitor/set`'s unity reference is now A32 output 24. No topic is added or removed and no payload changes. `audio/test/<1-34>` keeps its range, because the audio program still opens the Digiface at 34 playback channels (audio.md §2) and a test tone on 33/34 is still the check on that jack. The ESP32 side has one fewer station row (control.md Rev 10).
+
+## 12.8 Changes in Rev 8
+
+— `"silence"` added to the `listen` values (§5, §7), following audio.md Rev 6: a listen now reports the end of speech as well as its start. The sequence on the state topic is `"listening"`, `"speech"`, then `"silence"` or `"timeout"`; `"timeout"` now also covers speech that started and did not stop within the audio program's cap. `listen/set` is unchanged — one number, the time allowed for speech to start — so no command changes and the one-value rule of §2 holds; the silence hangover and the maximum speech time are the audio program's options (audio.md §14). Same shape as Rev 6's `"busy"`: one more value on an existing topic, no new topic.
+
+## 12.7 Changes in Rev 7
+
+— Cross-reference only. The controller's specification is `control.md`, renamed from `esp32.md`, and its firmware is `control/control.ino`, renamed from `ring/esp32.ino`, both on 2026-09-19 (control.md Rev 9). Every reference here follows, including the Rev 5 entry. The client id `sbgame-esp32` (§8.1, control.md §9.1) does not change: it is on the wire, and the ESP32 is still the chip. Nothing else in this document changes.
+
+## 12.6 Changes in Rev 6
+
+— `"busy"` added to the `tone/set` and `tone` payloads (§5, §6), following audio.md §8.2: the game's scenarios will include called numbers that are busy. Same shape as the two existing tones — one more value on an existing topic, no new topic. The audio program's tones are the period ones (600Hz×120Hz dial and busy, 420Hz×40Hz ringback), settled the same day; nothing on the wire says which set is in use, and this document does not care.
+
+## 12.5 Changes in Rev 5
+
+— The audio program is now commanded. Rev 1 to Rev 4 said it "publishes what it detects and nothing else", which was true while its only job was the detector. `audio.md` Rev 1 gives it five commanded functions — play a file on a circuit, play dial tone or ringback on a trunk, listen for speech on a circuit, feed the operator tap to the loudspeaker, put a 1kHz test tone on a channel — and this revision adds their commands to §6 and their state echoes to §5. The game program remains the only commander; §6 now says which client consumes each command, since it is no longer only the ESP32.
+
+— Every new command follows the existing shape: a `/set` topic, unretained, echoed on the state topic it commands, retained. There is no new event topic. The rough specification asked for "an mqtt response when a file finishes playing"; the response is the `play` state clearing to empty (§7), because a retained state topic tells the game the same thing an event would and also tells a game program restarted mid-file what is playing. `audio.md` §17.1 records the reasoning.
+
+— A new top-level segment, `audio/`, for the two commands that are not about a circuit — the monitor and the test tone — and for `optone`, the tap's own-tone health check (§3). The alternative was to put them under `ctl/`, which is liveness and system control; a loudspeaker level is neither. Circuit-scoped audio commands live under the circuit, as `hook/set` does, so `sbgame/station/5/#` remains everything about station 5.
+
+— sbgame/audio/optone added (§5): `"ok"` or `"deaf"`, the tap's own 9000Hz tone returning on its own receive channel, station §8.4. A dead tap transmit path makes every circuit's `op` read off, which is indistinguishable from an operator who has not plugged in; this is the one topic that tells the difference.
+
+— The audio program adopts the ESP32's failsafe on losing the game (§8.2, §8.4): two missed `game_heartbeat`s stop every trunk tone and file. The failure it prevents is a crashed game leaving ringback on a trunk indefinitely, which is the audio equivalent of a relay held closed.
+
+— §8.4's ESP32 recovery step said "subscribe to every `set` topic". Now that there are `set` topics the ESP32 does not consume, that reads as a wildcard, and a wildcard subscription would deliver every `play/set` and `listen/set` to the controller to be dropped. It now says `hook/set` and `ring/set`. Firmware consequence: confirm `control/control.ino` (renamed from `ring/ring.ino` the same day) subscribes to `sbgame/station/+/hook/set` and `sbgame/trunk/+/ring/set` and not to a broader pattern. On the Claude Code side; control.md §9.1 already specifies it that way.
+
+— `"stop"` on `play/set` is a reserved payload, so no file may be named `stop`. Recorded in §7 as the one place a filename and a verb share a topic.
+
+## 12.4 Changes in Rev 4
+
+— sbgame/ctl/i2c added to the ESP32's messages (§4): the boot-time expander scan result, `"ok"` or the missing addresses, retained. Rev 3's §11 asked for it; the firmware implemented it as suggested and it is promoted into the table.
+
+— The ESP32's MQTT client library is settled — MQTT 2.5.3, Joël Gähwiler — and the §11 item closes. It pings from the main loop, so the client-dependent gap §8.2 describes falls on the safe side; the two heartbeats stay regardless, since the game side of the argument is unchanged.
+
+## 12.3 Changes in Rev 3
+
+— Station topics are n = 1–23, not 1–24, following station Rev 3.35: three station boards are built and the last strip, station 24, is the operator tap, which has nothing to report and nothing to command. The tables in §4 to §6 and the naming in §3 follow. Rev 1 and Rev 2 said 1–24 without excluding the tap strip, which was then station 8 and would have needed excluding just the same.
+
+## 12.2 Changes in Rev 2
+
+— sbgame/trunk/<n>/digit added to the ESP32's messages (§4): the digit the operator has just dialled on a seized trunk, `"0"` to `"9"`, decoded by the firmware from the loop-current interruptions on the seizure input (control.md §8.2). It is the first topic in the design that is an event rather than a state, and §2 and §7 record what that changes: it is not retained, it cannot be idempotent, and it is therefore published at QoS 0, which over TCP delivers exactly once or not at all where QoS 1 could deliver twice on a reconnect. A second fault value, `"bad_dial"`, is added for a pulse train outside the timing windows.
+
+— The alternative — publishing the accumulated digit string per trunk as retained state, which would have kept every message idempotent and survived a reconnect — is recorded in §11 rather than adopted, because the game program is the place that knows how many digits make a number and what to do with them.
+
+## 12.1 Changes in Rev 1
+
+— New document. The MQTT design had been spread across station §9.7 and §9.10–§9.12, trunk §11.3–§11.4 and a paragraph of generator §15.3, and had been revised six times in two days as it was read for the first time as a whole. It now lives in one place, with the source sections replaced by pointers here. The station document's change entries from Rev 3.28 to Rev 3.33 record the decisions that produced the design as it stands; they are summarised in §10 so this document is self-contained, and the originals are left in place.
+
+— One change of substance made in the move. The messages are tabled by publisher — ESP32, audio program, game program — rather than by board, because a reader implementing one client needs to know what it sends and what it must subscribe to, and the by-board tables answered neither question directly. Every topic in the station and trunk tables at station Rev 3.33 appears here unchanged in name, payload and retention.

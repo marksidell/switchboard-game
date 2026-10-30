@@ -10,13 +10,13 @@ Now the monitor can take its input from any station or trunk receive channel as 
 
 The specifications are authoritative. This note is a summary and a checklist. Read these sections before writing code:
 
-- `audio.md` Rev 8: §1.8, §2, §10.1, §10.2, §10.3 (new), §12, §13.2, §14, §16
-- `mqtt.md` Rev 13: §1.13, §5, §6, §7, §8.2, §8.4
-- `game_control.md` Rev 6: §1.6, §3, §6.2, §6.4 (new), §7.1, §7.2, §9 step 9
+- `audio.md` Rev 8: §17.8, §2, §10.1, §10.2, §10.3 (new), §12, §13.2, §14, §16
+- `mqtt.md` Rev 13: §12.13, §5, §6, §7, §8.2, §8.4
+- `game_control.md` Rev 6: §11.6, §3, §6.2, §6.4 (new), §7.1, §7.2, §9 step 9
 
 ## Before you start
 
-This builds on the `audio.md` Rev 7 channel map: tap on channel 23 (index 22), monitor out on A32 playback 24, stations 1–22. If the Rev 7 change (`audio.md` §1.7) is not in `sbaudio` yet, do it first. The indices below assume it.
+This builds on the `audio.md` Rev 7 channel map: tap on channel 23 (index 22), monitor out on A32 playback 24, stations 1–22. If the Rev 7 change (`audio.md` §17.7) is not in `sbaudio` yet, do it first. The indices below assume it.
 
 ## Part 1: sbaudio (audio.md Rev 8)
 

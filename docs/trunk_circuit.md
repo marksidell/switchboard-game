@@ -2,7 +2,7 @@
 
 **Trunk Interface Circuit Design**
 
-*Rev 5.55 — 8 Trunks, Constant-Current Loop Feed, MCP23017 I/O over 6P6C I²C and MQTT, RJ45 Trunk Lines, D-Sub25 Female Audio to the Ferrofish A32 at 48kHz, External Ring Generator*
+*Rev 5.56. The changes in each revision are in §17.*
 
 # **1. Overview**
 
@@ -27,168 +27,6 @@ The station design (Rev 3.19) already anticipates this board in four places, and
 - MQTT topics under sbgame/trunk/<1-8>/ (station §9.9).
 
 Only two amendments to the station document are needed, and both are flagged where they arise: the TVS part number differs (§6), and the trunk MQTT topics cannot share the station topic shape because a trunk has no hook to set (§11.3). The address allocation and channel budget stand unchanged.
-
-## **1.2 Summary of Changes from Rev 4.4**
-
-- Four trunks raised to eight. One board, one D-Sub pair, one relay per trunk. Trunk lines move to RJ45 (§8.5) and the I²C bus to a 6P6C modular connector (§10.4); audio stays on D-Sub25.
-
-- The Wien bridge oscillator, its LM2596 13V supply, the TIP31C/TIP32C power stage and the T1 step-up transformer are all deleted. Ring voltage now arrives on a two-wire bus from a separate generator board — see §7.1.
-
-- The LM393 comparator seizure detector, its zener clamp, threshold divider and hysteresis network are deleted and replaced by an HCPL3700M optocoupler on the loop sense resistor, matching the detection approach used on the station board — see §4.
-
-- Raspberry Pi GPIO replaced by one MCP23017 expander on the ESP32 I²C bus. Logic rail is 3.3V throughout — see §10.
-
-- The resistive loop feed (R1, 330Ω) is replaced by a constant-current source. This is the most consequential change in the revision and the reasoning is in §3.1: the Rev 4.4 feed resistor dissipates roughly 10W if ring is ever applied to the trunk from the switchboard side, which Rev 4.4 did not check.
-
-- Rev 4.4's instruction to mask the seizure signal in software during ring is withdrawn. It is no longer needed: the current source and the debounce timing together separate a genuine seizure from an accidental ring without a second detector and without suppressing anything — see §4.3 and §5.
-
-- The DPDT relay still disconnects T2 during ring, as in Rev 4.4, but now does so as a side effect of switching the ring return rather than needing a pole of its own. T2 sits between the board-side ends of the two NC contacts, so throwing either pole lifts it — see §8.1. Both functions come from pole 2 at no cost.
-
-- L1 (47mH crosstalk isolation inductor, one per trunk) is deleted in favour of bulk decoupling on the 24V feed rail — see §12.4.
-
-- TVS changed from P6KE120CA to P6KE150CA. The station board part would conduct on the peaks of our own ring — see §6.
-
-- A 24V→5V switching module is added for the relay coils, with a 3.3V LDO below it, matching station §10.3. The system now runs on one common 24V battery feeding the switchboard, both board types and all loops, which makes the Mean Well LRS-35-24 undersized by 2–3× — the LRS-150-24 is specified instead. See §12.1.
-
-- Focusrite Scarlett 18i20 references removed. Audio is the Ferrofish A32 at 48kHz, and the two-tone identification scheme is replaced by the pilot comb — see §8 and §9.
-
-- Rev 5.1 corrected: 0x27 is allocated to this board's optional U2 rather than left unallocated, which is what station §9.2 already assumed. The BOM and §10.2 disagreed with each other in Rev 5.0 — see §10.2.
-
-- Rev 5.1 corrected: cross-references to the generator document now point at Rev 14, and the generator's SD line is GPIO14. The I²C master pins are GPIO13 (SDA) and GPIO16 (SCL) — GPIO17 clocks the Ethernet PHY and was never available.
-
-- Rev 5.1 corrected: the converter is referred to as the Ferrofish A32 throughout, matching station §6. Rev 5.0 called it the A32 Pro in some places and the A32 in others.
-
-- Rev 5.1: station capacity stated consistently. Three station boards and 24 stations is the design capacity; two boards and 16 stations is the present build, which is why channels 17–24 and comb slots 17–24 are free — see §9.
-
-- Rev 5.2: cross-references follow the generator to Rev 16 and the station document to Rev 3.7. The generator's gate-drive logic moves to 5V on a 74HCT02 with the shutdown line buffered, correcting an IR2104 threshold figure; nothing on the trunk board changes, and the ring bus it delivers is unaffected.
-
-- Rev 5.3: fuse and fuse holder part numbers specified. F2 uses an open PC-mount block like the rest — the ring bus is exposed at J6, at the relay contacts and along the T2 primaries regardless, so a shrouded holder would protect one point on a board that is hazardous by design and is treated as such in §7.
-
-- Rev 5.3: this board carries two of the system's five fuses and is the only one with a fuse on the ring bus.
-
-- Rev 5.4: Q2 relay driver changed from 2N3904 to 2N2222A, matching station Rev 3.8. Confirm the TO-92 pinout against the orderable part before layout — see §10.1.
-
-- Rev 5.5: D6 changed from SS34 to 1N5822. 1N5822, 3A / 40V, DO-201AD axial. The SS34 named through earlier revisions is an SMA/DO-214AC surface-mount part with no through-hole version. 3A is oversized against a 250-500mA fuse and deliberately so: a slow-blow fuse carries well above its rating for some time before it opens. Forward drop is unchanged at roughly 0.3-0.4V. Its drop sits ahead of the current sources, so it is the 0.7V D1 term in §3.2 that carries the compliance budget, not this one.
-
-- Rev 5.6: TVS2 specified as the Littelfuse SP721APP — an 8-PDIP rail-clamp array with six inputs, V+ to +3.3V on pin 8 and V− to GND on pin 4, 3pF per line rather than the 1pF earlier revisions assumed. Through-hole, matching the rest of the board. Sacrificial after a mis-plug, which is the intended behaviour — see §8.6.
-
-- Rev 5.7: the generator's 12V regulator is corrected to the Traco TSR 1-24120 in §12.1's load table. Traco carries the output voltage in the trailing digits, so the TSR 1-2412 named previously is a 1.2V part. Nothing on this board changes. The TSR 2-2450 specified here is 5.0V and is correct.
-
-- Rev 5.8: hardware /RESET added on 6P6C positions 1 and 6, reaching pin 18 of U1 from the generator board. Adds a 10kΩ pull-up and a third TVS2 input, and requires six-conductor cords. Never assert it while ring is applied — see §10.4.
-
-- Rev 5.9: J1 and J2 changed from the Amphenol ICC DBM25S500MN, which DigiKey does not stock, to the NorComp 182-025-213R531 — same gender, orientation, termination and gold contacts, with board locks. Six needed across the system; 16-week factory lead time despite deep distributor stock, so order together.
-
-- Rev 5.10: cross-references follow the station document to Rev 3.13, which specifies the CTS 206-3ST for its address DIP switch. Nothing on this board changes — the trunk address remains hard-strapped with three 0Ω links and there is no switch here.
-
-- Rev 5.11: J1 and J2 changed to the NorComp 182-025-213R561 — the same connector with integral 4-40 female screwlocks on the mating side rather than a plain threaded shell. The separate screwlock line item is deleted across the system; footprint, backset and every electrical attribute are unchanged.
-
-- Rev 5.12 corrected: U4 is the MCP1826S-3302E/AB in TO-220-3, not SOT-223 — surface mount had no place on an otherwise through-hole board. The AMS1117-3.3 alternative is dropped, being SOT-223 only.
-
-- Rev 5.13: RV1 deleted, matching station Rev 3.16. Eight footprints removed from this board; nothing else in the audio path changes.
-
-- Rev 5.14: the 5V bulk capacitor is specified at 25V rather than 10V, matching station Rev 3.17. Derating only; capacitance unchanged.
-
-- Rev 5.15: bin 768 (9000.00Hz) allocated to the operator tone — generator Rev 21 §15. Nothing on this board changes, but the T2 sweep target moves to 9000Hz, and these transformers already sit at the top of the comb.
-
-- Rev 5.16: rail capacitors reviewed against the datasheets. Local input and output decoupling added at the LDO, which had none of its own. The 24V audio-band bulk is unchanged at one 1000µF; the station board gains the same part at Rev 3.19 for a reason specific to its resistive loop feed — see §12.6.
-
-- Rev 5.17: J6 is the same 2-pin screw terminal as J5 rather than a separately specified 250V part. One connector type on the board, one footprint, one line in the BOM — and the creepage and separation rules for the ring bus zone are unchanged. Generator Rev 24 §10.10 makes the same change to its J2.
-
-- Rev 5.18 corrects Rev 5.17. The terminal blocks actually on hand are the OSTTE020104 at 3.50mm and 125V — the merge assumed 5.08mm and 300V, and that assumption was doing the work. J6 reverts to a separate part, the OSTTC020162 at 5.00mm and 300V. J5 keeps the OSTTE020104, which is entirely adequate at 24V.
-
-- Rev 5.19: D6 moves from series to a shunt clamp across +24V BRD and GND, blowing F1 on a reversed supply instead of blocking. Recovers the 0.4V of forward drop that the §3.3 compliance budget had silently omitted — see §12.5. Same change on the station and generator boards.
-
-- Rev 5.20: schematic reference designators assigned for the five functionally named resistors — R_set, R_bias, R_LOOP, R_DET and R_pd become R11 to R15. No circuit change; this only reconciles the document's naming with what KiCad requires — see §13.
-
-- Rev 5.21: D-Sub ground pins specified. Floating at this board with a 0Ω link footprint to board GND, unstuffed — one end grounded, the A32's. The document previously gave the pinout and said nothing about the grounds, leaving the decision to be made silently at layout — see §8.4.
-
-- Rev 5.22: T2 specified as the Triad TY-311P on measured evidence — −5.5dB passband, flat at 9kHz, better than the SP-70 it was compared against and about $310 cheaper across 24. The datasheet band of 300Hz–3.5kHz understates the part badly — see §8.3.
-
-- Rev 5.23: C14 deleted, all eight of them. A 100µF electrolytic at each current source, specified when L1 came out and never justified since — a current source rejects supply variation by construction, so local bulk buys nothing at either end. Removes eight parts from a strip about to be arrayed eight times, and 800µF of power-on inrush from a rail fused at 500mA — see §12.4.
-
-- Rev 5.24: the generator's ring output becomes two separately terminated branches, and this board is fed from one of them rather than sharing a terminal with the switchboard. Generator J2 feeds this board's J6; the switchboard is fed from a new J6 on the generator, through a fuse of its own. Nothing on this board changes — the feed still arrives as a floating two-wire bus at J6, and every figure in §7 stands — but the ring bus is now a star from the generator rather than two conductors under one screw on a block specified for one. The practical difference is diagnostic: a fault on the switchboard cable can be isolated without unwiring this board's feed. Generator Rev 28 §7.6 and §10.10.
-
-- Rev 5.24 corrects Rev 5.3. That entry said this board carries two of the system's five fuses and is the only one with a fuse on the ring bus. Both halves have stopped being true. Generator Rev 28 adds an F2 of its own on the switchboard ring branch, so the system now carries six fuses and two of them sit on the ring bus. This board still carries two, and is still the only board with a fuse on a ring bus input — the generator's fuses its output. The BOM's fuse block count moves from five to six.
-
-- Rev 5.24: F2's margin is stated rather than left to a review note. §7.6's estimate of 20mA per trunk puts eight trunks ringing simultaneously at about 178mA, which is 71% of a 250mA rating — sitting on the 75% continuous derating a fast-acting fuse is normally held to, with only the ring cadence duty cycle left as margin. The value stands pending measurement, but it is not the comfortable choice the bare number suggests, and 500mA is the fallback — see §12.5.
-
-- Rev 5.25: R_RST, C15, C16 and C17 added to the §13 table. Each was already required by a section of this document — the 10kΩ /RESET pull-up by §10.4 since Rev 5.8, the LDO input and output capacitors by §12.6 since Rev 5.16 — and none of them had a designator or a BOM line. A part named in prose is not a part: it does not reach the parts list, the purchase count or the schematic. The project BOM's 10kΩ count has been corrected from 34 to 42 across both board types on the same basis. Found by drawing the station schematic, which has the identical omission and fixed it at station Rev 3.25.
-
-- Rev 5.25: the §13 entry for J3 is corrected. It said positions 2–5 wired, 1 and 6 unused, and that the jack accepts 6P4C or 6P6C plugs. Rev 5.8 put /RESET and its return on positions 1 and 6 and §10.4 has said so since; all six positions are wired and the cords must be six-conductor. A 6P4C cord leaves a working bus with no hardware reset, which is a degraded mode rather than a failure, but it is not what the table described.
-
-- Rev 5.25: the T2 screen connection is removed from §8.2. The TY-311P specified at Rev 5.22 is a four-pin part with a primary and a secondary and nothing else, and the symbol drawn for it — switchboard:XFMR_TY-311P, against the matching footprint of the same name — has four pins. There was never a terminal to land a screen on. Station Rev 3.25 corrects the same line in its §7.3 and §12.
-
-- Rev 5.25: the D-Sub ground link from §8.4 gets a designator, JP4, and a row in §13. The address straps become JP1–JP3 for the same reason. §8.4 specified an unstuffed 0Ω link and §10.2 three more, and an unnamed footprint is one nobody can refer to in a build note or find in a netlist.
-
-- Rev 5.25: §12.5 and §12.6 are restored to numerical order. §12.6 was inserted between §12.4 and §12.5 at Rev 5.16 and has sat out of sequence since. Numbering and cross-references are unchanged; only the order on the page moves.
-
-- Rev 5.26: C_C gets a reference designator, C1, and §13’s preamble is corrected from five illegal names to six. Rev 5.20 assigned R11 to R15 to the five functionally named resistors and did not notice that the same problem applies to the one functionally named capacitor — C_C is no more a valid KiCad reference than R_set is, and annotation would have renumbered it to whatever came next. C1 is free: C2, C5 and C8 to C17 are taken, and C14 is retired rather than available. It also puts the compensation capacitor next to C2 on the same strip. Found by drawing the trunk schematic guide, the same way Rev 5.25 found R_RST and the JP links.
-
-- Rev 5.26: L1’s position is stated, in §12.4 and in §13. The row has named the part, its value and its purpose since Rev 4.4 and has never said what it connects to. Each L1 sits in series with the 24V feed to its own strip, so +24V_BRD and the strip feed are two nets with the link between them; drawn as a single net the footprint has nowhere to land. This is the same defect Rev 5.25 corrected for the D-Sub ground link and the address straps — a footprint nothing can refer to — except that here the part had a designator all along and what was missing was the connection. A designator without a net is as unbuildable as a net without a designator.
-
-- Rev 5.27: C18 added, 100nF across TVS2 pins 8 and 4 at the device. TVS2 has been specified since Rev 5.6 with no bypass. The SP721 does not shunt to ground; it conducts the transient from the IN pin into V+, so V+ has to source that current locally or it lifts during the event — degrading the clamp and injecting the transient into the +3.3V rail that U1 and the master sit on. The layout deliberately puts TVS2 at J3, the opposite edge from U1 and the LDO, so C6 and C8 are the length of the board away and cannot serve. Same addition on the station and generator boards at their own revisions. C18 rather than the free C3 or C4: those gaps are historical and a new number says plainly that this is new, where reusing a gap invites the question of whether something was deleted.
-
-- Rev 5.27: what is deliberately not fitted. The same datasheet note asks for bypass on both V+ and V− and for a series resistor in the supply feed. V− is pin 4 and goes straight to GND, so bypassing it is a zero-length connection with nothing to add. The series resistor belongs to the automotive load-dump and reverse-battery case the note is written for; nothing here sees a reverse battery, and series resistance in the V+ feed would raise the clamp’s dynamic impedance. Recorded so a later reader comparing the board against the datasheet sees two decisions rather than two omissions.
-
-- Rev 5.27: the SP721 pinout is confirmed against the Littelfuse datasheet, revision GD 07/10/24 — IN on 1–3 and 5–7, V− on 4, V+ on 8. Rev 5.6 recorded V+ on pin 8 and V− on pin 4 and was right. No change; noted so the check is on the record.
-- Rev 5.28: four-layer stack-up, top / In1 GND / In2 power / bottom, matching the generator board's layer order with In2 carrying +24V_BRD, +5V and +3.3V as a split pour instead of a second ground. Three rails cross all eight strips — 24V to each L1, 5V to each relay coil, 3.3V to each OC1 and its pull-up — and putting them on an inner layer leaves both outer layers to the strip signals and the ring spine. Both inner layers are kept back 3mm from the high-voltage edge by a rule area, not because 141V across the laminate is a hazard (it is not; 3mm is a surface creepage figure) but so the silkscreen boundary is true on every layer and the pour presents no capacitance to a 20Hz net carrying 40kHz residue. Details in trunk_schematic_guide §7.5.
-- Rev 5.28: the GND plane supersedes two §14 layout notes. "Star the eight R_LOOP ground returns to a single point" (§12.4, §14) existed because a shared return trace has shared impedance; a plane has less impedance than any star, so the returns go straight to the plane and the star is not drawn. "A ground pour between" the converter and the transformer strip is what a plane does everywhere. Both notes are rewritten rather than deleted so the reasoning survives. The generator board went to four layers earlier and this document was not swept for the consequence at the time.
-- Rev 5.28: §14's "star-ground the T2 shields" is deleted. The TY-311P has no screen — Rev 5.25 removed the screen connection from §8.2 and §13, and this line in §14 was missed. A layout note for a terminal that does not exist.
-- Rev 5.29: L1 deleted outright — no footprint. Rev 4.x removed the 47mH inductor and kept eight unstuffed 0Ω link positions "in case bench measurement wants it back"; Rev 5.26 gave them a place in the netlist. Two things were wrong with that insurance. First, the footprint was an axial 0207 resistor site, which no 47mH part will ever fit, so the position did not preserve the option it existed for. Second, §12.4's own arithmetic puts crosstalk through the rail below −90dB with the inductor contributing 295Ω at 1kHz against a current source that presents ~600kΩ — the part was shown to do nothing before it was kept as a fallback. If the bench ever does show trunk-to-trunk crosstalk above the floor, the path is the rail or the ground, and the remedy is at C13 or in the return routing, not eight inductors. Consequences: the strip feed node `V_FEED` merges into +24V_BRD; §12.4, §13, §14 and §16 updated; schematic guide §3.3 and §7 updated. Eight footprints off a strip arrayed eight times.
-- Rev 5.30: the MQTT topic prefix is sbgame/, not sw/, following station Rev 3.29 — changed in §1.1 and §11.3. Station §1.8 records the reasoning: sw/ was two letters that could mean several things on a shared broker, sbgame/ names the exhibit and is still one segment for wildcard subscriptions. Nothing below the prefix changes. §11.3 also gains the sbgame/trunk/<1-8>/op topic that station Rev 3.28 added to §9.10 and this document did not carry — "on" | "off", host → broker, retained, published by the host from bin 768 on each trunk's own receive channel (station §8.7) — so the two documents list the same trunk topics again. Nothing on this board changes.
-- Rev 5.31: §11.3’s topic table gets the header row and key that station Rev 3.30 adds to station §9.10 — publisher → consumer and payload columns named, "host" defined as the Linux box, "host → broker" replaced by "host → any", and the circuit id format stated as station/<n> or trunk/<n>. Station §1.9 has the reasoning. The table is also now a Markdown table rather than fixed-width lines separated by blank lines, which rendered as prose. No change to any topic or payload.
-- Rev 5.32: formatting only. The block diagram, every circuit and calculation listing and the §11.2 state machine — twenty-four blocks — are now fenced code blocks. They had been fixed-width text with a blank line between every row, an artefact of the docx extraction, which renders as run-together prose with the alignment lost. Same sweep as station Rev 3.31 and generator Rev 55. No word of the content changes.
-- Rev 5.33: §11.4 follows station Rev 3.32. The host → ESP32 heartbeat is now sbgame/ctl/host_heartbeat (renamed again to game_heartbeat at Rev 5.34), and a reverse heartbeat sbgame/ctl/esp_heartbeat is added, published from the ESP32 main loop after the I²C poll. On this board the case it covers is a wedged main loop with a ring relay energised, which the 30-second firmware timeout cannot clear if the wedge is upstream of it; the host cannot clear it either, but it can now tell. The station §9.11 cross-reference in this section was wrong — the failure paths are in station §9.12 — and is corrected.
-- Rev 5.34: §11.3 and §11.4 follow station Rev 3.33. The host’s two programs are named in the topic table — the C++ audio program publishes peer and op, the Python game program publishes ring/set and the heartbeat, which is renamed sbgame/ctl/game_heartbeat. "The host" had been used for both, and station §8.7’s Python listing invited reading the detector as part of the game program. Nothing on this board changes.
-- Rev 5.35: §11 moves to control.md and mqtt.md, following station Rev 3.34. The polling and debounce rules, the state machine, the topic table and the failure handling are now specified once, in the controller’s own document and the MQTT document, with §11’s four headings kept here as pointers. The cadence constants leave §7.5 and the concurrent-ring cap leaves §7.6 for control.md §8.3 and §8.4; what stays in §7.5 and §7.6 is what this board requires of them. No change to any behaviour.
-- Rev 5.37: follows station Rev 3.35 — three station boards built, operator tap on station 24. §1.1, §9, §10.2, §10.4 and the relay row in §13 no longer describe a two-board build with the third as capacity. 0x22 is a fitted board. No change on this board.
-- Rev 5.38: cross-reference only. `esp32.md` is `control.md` and `ring/esp32.ino` is `control/control.ino` as of 2026-09-19 (control.md Rev 9); every reference in this document follows, the Rev 5.35 and Rev 5.36 entries included. No change on this board.
-- Rev 5.39: follows station Rev 3.40 — stations 1–22, the operator tap on station board 3 strip 7 (A32 channel 23) and the audience monitor on strip 8's A32 output, channel 24, in place of the Digiface's own output. §3.3.1, §7.4, §9, §12.1, §12.1.1, §12.5 and the relay row in §13 follow the count. Trunk channels 25–32 and comb slots 25–32 are unchanged. No change on this board.
-- Rev 5.40: C19 added, 100nF from U1 pin 18 (/RESET) to GND at the pin (§10.4, §13), the same part as station Rev 3.43 and for the same finding. On the bench, 2026-10-03, this board's expander came back at its power-on configuration — IODIR FF, IPOL 00, so every trunk read seized until the firmware's configuration check (control.md §6.4) restored it — when a ring relay switched, on trunks 1, 2, 7 and 8 and intermittently. Raising the 24V current limit from 0.1A to 1A changed nothing; 100nF across pin 18 and ground on both boards stopped it, with no reset in twelve board tests. R_RST and C19 make 1ms against control.md §6.2's 2ms pulse and 5ms settle; no firmware change. The present board carries C19 as a bodge; the next revision gives it a footprint. Schematic: the root sheet as annotated runs C101–C109, so C19 takes C110.
-- Rev 5.41: the seizure detector is resized (§4.2): R_LOOP 150Ω → 220Ω (2W) and R_DET 470Ω → 150Ω (§3.3, §3.4, §4.1, §13); R1 stays at 100Ω. Found on the bench, 2026-10-03 and 2026-10-04: trunks intermittently reported no seizure with full loop current flowing — up to 27 of 100 off-hooks on one trunk, all-or-nothing, never late — and missed dial makes (control.md Rev 23). With the Analog Discovery across R_LOOP and R_DET, a miss showed 28mA of loop current and 1.90mA into OC1, the same as a good seizure; OC1's output blipped on for about 0.25ms at the relay make and stayed off. §4.2 had modelled the HCPL3700M's DC input as an LED dropping 1.4V and flagged that figure as the one number not measured. The datasheet (onsemi HCPL3700M, 2022-03-15) gives the DC input as the buffer IC's own threshold: V_TH+ 3.35–4.05V at I_TH+ 1.96–3.11mA, V_TH− 2.01–2.86V. Measured, OC1 sat at 3.28V and 1.90mA — below every part's turn-on point and above every part's turn-off point, inside the hysteresis band, so the output stayed wherever the make transient left it. No value of R_DET alone fixes it: 28mA in 150Ω is 4.2V, barely above the 4.05V worst-case threshold with nothing in series. Loop compliance was measured through the switchboard first (§3.3.3); the heaviest configuration, a station-board station on a cord, keeps about 100Ω of spare with these values. Two alternatives were weighed and not taken: R1 to 33Ω as well (more spare, which nothing measured needs, at eight more parts and harder faults), and R1 removed (the most spare, but a shorted Q4 on a normal call then runs OC1 at 83% of its input power rating). §3.3.2's merged-resistor sizing, which had the same 1.4V error, is corrected, and two §16 items are closed. The schematic designators for the changed parts are Rx06 and Rx07 on trunk sheet x.
-- Rev 5.42: the document uses the KiCad designators of the rev 2 board as annotated, in place of its own names, everywhere outside this change history, which is left as written. Strip parts are Rxnn on trunk sheet x, x = trunk number + 1 (trunk 1 is 2nn, trunk 8 is 9nn); root-sheet parts are numbered from 101. The board as built differs from the earlier text in five ways, now recorded: Cx01, the 100µF at each current source that Rev 5.23 deleted, is fitted on every strip (§12.4); U101's address is hardwired, A0 and A1 to +3.3V and A2 to GND, with no links (§10.2); the D-Sub ground link JP4 is two fitted 0R resistors, R102 and R103, one per DB25 (§8.4); C18, the TVS101 bypass, is not on the board and waits for rev 3 (TODO.md); and there are no footprints for a second expander, its decoupling or I²C pull-ups, so U2, C7, R9 and R10 are gone. C19 remains a bodge, C110 at rev 3. "Next board revision" means rev 3.
-- Rev 5.43: corrections from an independent review of Rev 5.41, 2026-10-05, which confirmed the fix — every HCPL3700M turns on at the datasheet limits — and found several of its supporting figures wrong. Rx06 and Rx07 are now 1% parts: at −5% on Rx06 the turn-on margin falls from 0.52V to 0.27V (§4.2, §13). §4.2 gains the loop-current view of the same margin — a worst-case part needs 23.6mA against the 26mA design minimum, and holds down to 15.7mA — and its normal-operation figures are corrected to a 5.24–5.54V node and 3.0–4.4mA into Ux01 at 28.2mA; Rev 5.41's 3–6mA could not happen, since I_IN is at most 4.4mA at 5.0V and the input's curve is monotonic. The input clamp Rev 5.41 used, V_IHC1, applies only with pins 1 and 4 tied to pin 3; with them open, as on this board, the input is about 1kΩ in series with 1V (Broadcom AV02-3699EN) and clamps near 12.5V (V_IHC3). With that, and with Qx01's emitter-base junction clamping Rx02 in a Qx03 short, the fault figures fall: even a shorted Qx03 into a dead-shorted jack keeps every part inside its rating, and Rev 5.41's statement that it overloads Ux01 and Rx07 is withdrawn. Qx03 shorted during ring applied by mistake is recorded as the one case that destroys parts. Also corrected: the compliance cost of Rev 5.41 (45–54Ω of spare, not 25–50Ω, §3.3, §3.3.3), Rx06's dissipation (§3.4), the seizure inrush (§3.2.2), the §3.3.1 design point (320Ω), node B in §8.1.1, and the detector's hold-on figure. The detector now follows dial contact bounce, which control.md Rev 24's two-sample filter rejects (§4.2). Also corrected here: R102 and R103 are footprints left unfitted, not fitted as Rev 5.42 recorded (Mark, 2026-10-05), so the D-Sub grounds float at this board as §8.4 intends.
-- Rev 5.44: Rx05 (R1) goes from 100Ω to 33Ω, 1W (Stackpole RSF1JT33R0); Rx06 220Ω 2W 1% and Rx07 150Ω 1% are unchanged from Rev 5.41 and Rev 5.43 — Mark's decision, 2026-10-05 (§3.2, §3.2.4, §3.3, §3.3.1, §3.3.3, §3.4, §4.2, §13). Measured the same day on trunk 1 (§3.3.3, tests 8 and 9): the 551's dial relay pulls in at the first dial pulse and holds until the operator switches out, and with the operator in after dialling the trunk sees about 440Ω — heavier than any configuration tested before, and the same whether or not a station is on the cord, because the operator's key takes the station out of the trunk loop until she switches out. At 440Ω the Rev 5.41 values left about 8–17Ω of spare and would lose regulation at the top of the current spread; with Rx05 at 33Ω the spare is about 75–84Ω, about 50Ω at 31mA. Rx05 + Rx06 is 253Ω, close to the Rev 5.40 total, so compliance is about 575–585Ω at 28.2mA. The cost is the double fault: a shorted Qx03 into a dead-shorted jack now puts about 450mW into Ux01, past its 230mW maximum (§4.2), where Rev 5.43 had every part within rating; no Rx05 low enough for compliance avoids that, and it is accepted as a double fault — Ux01 is a DIP and can be socketed. The single fault, a shorted Qx03 on a real loop, stays within every rating. Current-source stability was measured in the same session and closes the §16 item: dial makes overshoot for under 40µs and settle with no ringing, and Cx02 stays at 1nF (§3.3.3).
-- Rev 5.45: §3.3's figure for where a new seizure is lost beyond compliance, about 670Ω of line, was the Rev 5.43 value with Rx05 at 100Ω and was not updated in Rev 5.44; with Rx05 at 33Ω it is about 730Ω (23.6mA, Qx03 saturated). The highest-resistance loop load is no longer called the heaviest (§3.3, §3.3.3): for a current source the load that strains it is the one with the most resistance, the opposite of the usual sense. Wording and one figure; no change to the board.
-- Rev 5.46: §4.4 records a seizure detector for a future revision, not adopted: an optocoupler's LED in series with the loop beside Dx03, with Rx05 and Rx06 merged into one resistor in the ring leg. It detects the loop current itself with a wide margin and removes Ux01 from the RING conductor, at about 1.2V of compliance and an LED that a shorted Qx03 overloads. The present board keeps the §4.1 detector with the Rev 5.44 values, the smallest change that makes it reliable (Mark, 2026-10-06). No change to the board.
-- Rev 5.47: §7.5.1 records ring trip for a future revision, not adopted. Ring superimposed on the feed, as an exchange does it, is ruled out by the floating ring bus shared with the switchboard; sensing ring current in each trunk's ring return with an AC-input HCPL3700M, wire-ORed onto SEIZE_n, is the plausible way, pending a measurement of the 551's trunk ring detector impedance and a series resistor to protect the generator. No change to the board (Mark, 2026-10-06).
-- Rev 5.48: new §5.3 — an operator ringing a trunk while this board rings it shorts the ring bus through the cord if the switchboard's ring keys and pole 1 put opposite legs on TIP: about 0.8A, limited by the generator's winding, until a fuse opens; nothing is damaged. §7.1.1 gains the one-time polarity check at commissioning (Mark, 2026-10-06). No change to the board.
-- Rev 5.49: §7.5.1's exchange-style ring trip is worked out, with a sketch, `docs/ring_over_battery_sketch.svg`. It is not ruled out after all: one isolating transformer for the board, not one per trunk, keeps the bus floating, since each trunk detects in its own current-source path; a switched capacitor carries the ring around the current source; and §4.4's LED is the detector, independent of the ringer load. Capacitive coupling of the bus to TIP and RING without it is recorded as not working. R_series also removes §5.3's hazard. Still a future revision, not adopted (Mark, 2026-10-07). No change to the board.
-- Rev 5.50: §7.5.1 names a candidate T_ring, the Triad Magnetics VPT230-220 (50VA toroid, 2 × 115V primaries and secondaries, used 230V:230V), at 87% of rated flux at 20Hz, the Antek's margin; Rev 5.49's 360V winding is withdrawn as impractical, with the answered trunk's DC bias left as a bench check. Still a future revision, not adopted (Mark, 2026-10-07). No change to the board.
-- Rev 5.51: new §4.5 — trunk 8 modified to be fed by a Grandstream HT80x V2 ATA (grandstream_trunk.md), for callers from outside. D903 is removed. R906 is lifted off ground to the ATA's ring and goes from 220Ω to 330Ω. U901 moves to its AC input, pins 1 and 4, with pins 2 and 3 lifted, so the loop floats and the ATA's feed polarity does not matter (Mark, 2026-10-22). At 220Ω the AC input's 5.50 V worst-case threshold is not reached at the ATA's 30 mA. At 330Ω every part turns on above 21.2 mA. Bench checks: the ATA's compliance with 330Ω added, whether U901 sees the ATA's ring, and the `op`/`peer` levels with the ATA terminating the line. The game must not ring, tone or play on trunk 8, and game_control.md has yet to say so. Trunks 1–7 unchanged.
-- Rev 5.52: §4.5 pulls K901 on trunk 8 (Mark, 2026-10-22). It is not needed, since trunk 8 is never rung from the board. With it out, the ring bus cannot reach the ATA. Pole 1 COM is jumpered to NC and pole 2 COM to NC, so TIP and RING still reach node A and node B, and Tx01 and U901 stay on the line. The ATA's tip goes into the pole 1 NC hole. Its ring still goes to R906's lifted leg. The ATA connects at the board because trunk 8 reaches the switchboard through the board's RJ45 cable.
-- Rev 5.53: §4.5's ATA ring voltage is now 55 Vrms, up from at most 45 Vrms. At 45 Vrms the 551's trunk ring relay did not trip (Mark, 2026-10-22). At 55 Vrms the peak is 126 V even on the full 48 V feed, under Dx01's 128 V standoff. 55 Vrms is the ATA's maximum, so it cannot go higher.
-- Rev 5.54: §4.5 bypasses R906 for ring with a bipolar 110 µF across it, two 220 µF 25 V electrolytics back to back (Mark, 2026-10-23). With the 330 Ω alone the ATA's ring did not latch the switchboard's trunk relay; with one polarized 100 µF across it the relay latched but not every time. The ring is AC with no DC loop current, so a single polarized cap is reverse-biased each half-cycle; back to back, the pair is bipolar. 25 V is enough: across R906 there is about 10 V DC while seized and a few volts of ring.
-- Rev 5.55: §4.5 records the trunk 8 mod as Mark built it, step by step (2026-10-23), with the ATA on an RJ45 jack of its own glued to the board's edge, pins 4 and 5. It matches the drawing: D903's cathode pad is node A, and R906's pad on R907's side is node B.
-
-| **Former name** | **Designator** | **Former name** | **Designator** |
-| --- | --- | --- | --- |
-| TVS1 | Dx01 | U1 | U101 |
-| Q4 | Qx03 | C6 | C101 |
-| Q3 | Qx01 | C17 | C109 |
-| R_set | Rx02 | C8 | C108 |
-| R_bias | Rx04 | C10 | C103 |
-| C_C | Cx02 | C11 | C104 |
-| R1 | Rx05 | C12 | C105 |
-| D1 | Dx03 | C13 | C102 |
-| R_LOOP | Rx06 | C15 | C106 |
-| R_DET | Rx07 | C16 | C107 |
-| OC1 | Ux01 | U3 | U102 |
-| R2 | Rx12 | U4 | U103 |
-| C5 | Cx05 | D6 | D101 |
-| RLY1 | Kx01 | F1 | F102 |
-| Q2 | Qx02 | F2 | F101 |
-| R4 | Rx01 | J1 | J104 |
-| R_pd | Rx03 | J2 | J105 |
-| D5 | Dx02 | J3 | J101 |
-| C9 | Cx03 | J5 | J103 |
-| C2 | Cx04 | J6 | J102 |
-| T2 | Tx01 | J7A, J7B | J7A101, J7B101 |
-| R5, R6 | Rx08, Rx09 | TVS2 | TVS101 |
-| R7, R8 | Rx10, Rx11 | R_RST | R101 |
-| C14 | Cx01 | JP4 | R102, R103 |
-
-- Rev 5.36: the §11.1 pointer follows control.md Rev 2, which adds dial pulse detection on the seizure input. The 25ms release rule it quoted is gone — a dial pulse is a 25–100ms release — and the ring discriminator is now the break-to-break interval. No hardware change: the current source and the HCPL3700M already pass a dial pulse as a clean loop-current interruption (§3.2.2, §4). One measurement is added to the control.md open items rather than to §16 here, since it is a firmware threshold check: pulse timing on SEIZE_n through the real cord circuit and dial.
 
 # **2. Functional Block Diagram (One Trunk)**
 
@@ -1468,3 +1306,302 @@ Everything below is a number this design assumes rather than knows. Each has a f
 | 5V rail under 8 coils energised | Relay pull-in margin is calculated against the rail's lower limit | §12.2 |
 
 Two of these gate the layout rather than the bring-up. The cord circuit resistance decides Rx05 and therefore whether Qx03 needs a real heatsink, and the ring current per trunk decides the ring bus copper width and the fuse. Measure both before the board is cut; the rest can wait for a populated board.
+
+# **17. Revision History**
+
+## **17.56 Changes in Rev 5.56**
+
+— The document made readable, Mark's request, 2026-10-30, as `game_control.md` Rev 95. The line under the title had grown into a list of topics and now gives only the revision. The changes in each revision move out of the Overview to this section at the end of the document, newest first, where the entries had been one list in §1.2, with Rev 5.36 and the Rev 5.42 designator table out of place. Each revision now has a section of its own. The text of each entry is unchanged except for references to the renumbered sections, and wording that said an entry was "above". A new revision is added at the top of this section, and the line under the title changes only its number.
+
+— No code consequence.
+
+## **17.55 Changes in Rev 5.55**
+
+- Rev 5.55: §4.5 records the trunk 8 mod as Mark built it, step by step (2026-10-23), with the ATA on an RJ45 jack of its own glued to the board's edge, pins 4 and 5. It matches the drawing: D903's cathode pad is node A, and R906's pad on R907's side is node B.
+
+## **17.54 Changes in Rev 5.54**
+
+- Rev 5.54: §4.5 bypasses R906 for ring with a bipolar 110 µF across it, two 220 µF 25 V electrolytics back to back (Mark, 2026-10-23). With the 330 Ω alone the ATA's ring did not latch the switchboard's trunk relay; with one polarized 100 µF across it the relay latched but not every time. The ring is AC with no DC loop current, so a single polarized cap is reverse-biased each half-cycle; back to back, the pair is bipolar. 25 V is enough: across R906 there is about 10 V DC while seized and a few volts of ring.
+
+## **17.53 Changes in Rev 5.53**
+
+- Rev 5.53: §4.5's ATA ring voltage is now 55 Vrms, up from at most 45 Vrms. At 45 Vrms the 551's trunk ring relay did not trip (Mark, 2026-10-22). At 55 Vrms the peak is 126 V even on the full 48 V feed, under Dx01's 128 V standoff. 55 Vrms is the ATA's maximum, so it cannot go higher.
+
+## **17.52 Changes in Rev 5.52**
+
+- Rev 5.52: §4.5 pulls K901 on trunk 8 (Mark, 2026-10-22). It is not needed, since trunk 8 is never rung from the board. With it out, the ring bus cannot reach the ATA. Pole 1 COM is jumpered to NC and pole 2 COM to NC, so TIP and RING still reach node A and node B, and Tx01 and U901 stay on the line. The ATA's tip goes into the pole 1 NC hole. Its ring still goes to R906's lifted leg. The ATA connects at the board because trunk 8 reaches the switchboard through the board's RJ45 cable.
+
+## **17.51 Changes in Rev 5.51**
+
+- Rev 5.51: new §4.5 — trunk 8 modified to be fed by a Grandstream HT80x V2 ATA (grandstream_trunk.md), for callers from outside. D903 is removed. R906 is lifted off ground to the ATA's ring and goes from 220Ω to 330Ω. U901 moves to its AC input, pins 1 and 4, with pins 2 and 3 lifted, so the loop floats and the ATA's feed polarity does not matter (Mark, 2026-10-22). At 220Ω the AC input's 5.50 V worst-case threshold is not reached at the ATA's 30 mA. At 330Ω every part turns on above 21.2 mA. Bench checks: the ATA's compliance with 330Ω added, whether U901 sees the ATA's ring, and the `op`/`peer` levels with the ATA terminating the line. The game must not ring, tone or play on trunk 8, and game_control.md has yet to say so. Trunks 1–7 unchanged.
+
+## **17.50 Changes in Rev 5.50**
+
+- Rev 5.50: §7.5.1 names a candidate T_ring, the Triad Magnetics VPT230-220 (50VA toroid, 2 × 115V primaries and secondaries, used 230V:230V), at 87% of rated flux at 20Hz, the Antek's margin; Rev 5.49's 360V winding is withdrawn as impractical, with the answered trunk's DC bias left as a bench check. Still a future revision, not adopted (Mark, 2026-10-07). No change to the board.
+
+## **17.49 Changes in Rev 5.49**
+
+- Rev 5.49: §7.5.1's exchange-style ring trip is worked out, with a sketch, `docs/ring_over_battery_sketch.svg`. It is not ruled out after all: one isolating transformer for the board, not one per trunk, keeps the bus floating, since each trunk detects in its own current-source path; a switched capacitor carries the ring around the current source; and §4.4's LED is the detector, independent of the ringer load. Capacitive coupling of the bus to TIP and RING without it is recorded as not working. R_series also removes §5.3's hazard. Still a future revision, not adopted (Mark, 2026-10-07). No change to the board.
+
+## **17.48 Changes in Rev 5.48**
+
+- Rev 5.48: new §5.3 — an operator ringing a trunk while this board rings it shorts the ring bus through the cord if the switchboard's ring keys and pole 1 put opposite legs on TIP: about 0.8A, limited by the generator's winding, until a fuse opens; nothing is damaged. §7.1.1 gains the one-time polarity check at commissioning (Mark, 2026-10-06). No change to the board.
+
+## **17.47 Changes in Rev 5.47**
+
+- Rev 5.47: §7.5.1 records ring trip for a future revision, not adopted. Ring superimposed on the feed, as an exchange does it, is ruled out by the floating ring bus shared with the switchboard; sensing ring current in each trunk's ring return with an AC-input HCPL3700M, wire-ORed onto SEIZE_n, is the plausible way, pending a measurement of the 551's trunk ring detector impedance and a series resistor to protect the generator. No change to the board (Mark, 2026-10-06).
+
+## **17.46 Changes in Rev 5.46**
+
+- Rev 5.46: §4.4 records a seizure detector for a future revision, not adopted: an optocoupler's LED in series with the loop beside Dx03, with Rx05 and Rx06 merged into one resistor in the ring leg. It detects the loop current itself with a wide margin and removes Ux01 from the RING conductor, at about 1.2V of compliance and an LED that a shorted Qx03 overloads. The present board keeps the §4.1 detector with the Rev 5.44 values, the smallest change that makes it reliable (Mark, 2026-10-06). No change to the board.
+
+## **17.45 Changes in Rev 5.45**
+
+- Rev 5.45: §3.3's figure for where a new seizure is lost beyond compliance, about 670Ω of line, was the Rev 5.43 value with Rx05 at 100Ω and was not updated in Rev 5.44; with Rx05 at 33Ω it is about 730Ω (23.6mA, Qx03 saturated). The highest-resistance loop load is no longer called the heaviest (§3.3, §3.3.3): for a current source the load that strains it is the one with the most resistance, the opposite of the usual sense. Wording and one figure; no change to the board.
+
+## **17.44 Changes in Rev 5.44**
+
+- Rev 5.44: Rx05 (R1) goes from 100Ω to 33Ω, 1W (Stackpole RSF1JT33R0); Rx06 220Ω 2W 1% and Rx07 150Ω 1% are unchanged from Rev 5.41 and Rev 5.43 — Mark's decision, 2026-10-05 (§3.2, §3.2.4, §3.3, §3.3.1, §3.3.3, §3.4, §4.2, §13). Measured the same day on trunk 1 (§3.3.3, tests 8 and 9): the 551's dial relay pulls in at the first dial pulse and holds until the operator switches out, and with the operator in after dialling the trunk sees about 440Ω — heavier than any configuration tested before, and the same whether or not a station is on the cord, because the operator's key takes the station out of the trunk loop until she switches out. At 440Ω the Rev 5.41 values left about 8–17Ω of spare and would lose regulation at the top of the current spread; with Rx05 at 33Ω the spare is about 75–84Ω, about 50Ω at 31mA. Rx05 + Rx06 is 253Ω, close to the Rev 5.40 total, so compliance is about 575–585Ω at 28.2mA. The cost is the double fault: a shorted Qx03 into a dead-shorted jack now puts about 450mW into Ux01, past its 230mW maximum (§4.2), where Rev 5.43 had every part within rating; no Rx05 low enough for compliance avoids that, and it is accepted as a double fault — Ux01 is a DIP and can be socketed. The single fault, a shorted Qx03 on a real loop, stays within every rating. Current-source stability was measured in the same session and closes the §16 item: dial makes overshoot for under 40µs and settle with no ringing, and Cx02 stays at 1nF (§3.3.3).
+
+## **17.43 Changes in Rev 5.43**
+
+- Rev 5.43: corrections from an independent review of Rev 5.41, 2026-10-05, which confirmed the fix — every HCPL3700M turns on at the datasheet limits — and found several of its supporting figures wrong. Rx06 and Rx07 are now 1% parts: at −5% on Rx06 the turn-on margin falls from 0.52V to 0.27V (§4.2, §13). §4.2 gains the loop-current view of the same margin — a worst-case part needs 23.6mA against the 26mA design minimum, and holds down to 15.7mA — and its normal-operation figures are corrected to a 5.24–5.54V node and 3.0–4.4mA into Ux01 at 28.2mA; Rev 5.41's 3–6mA could not happen, since I_IN is at most 4.4mA at 5.0V and the input's curve is monotonic. The input clamp Rev 5.41 used, V_IHC1, applies only with pins 1 and 4 tied to pin 3; with them open, as on this board, the input is about 1kΩ in series with 1V (Broadcom AV02-3699EN) and clamps near 12.5V (V_IHC3). With that, and with Qx01's emitter-base junction clamping Rx02 in a Qx03 short, the fault figures fall: even a shorted Qx03 into a dead-shorted jack keeps every part inside its rating, and Rev 5.41's statement that it overloads Ux01 and Rx07 is withdrawn. Qx03 shorted during ring applied by mistake is recorded as the one case that destroys parts. Also corrected: the compliance cost of Rev 5.41 (45–54Ω of spare, not 25–50Ω, §3.3, §3.3.3), Rx06's dissipation (§3.4), the seizure inrush (§3.2.2), the §3.3.1 design point (320Ω), node B in §8.1.1, and the detector's hold-on figure. The detector now follows dial contact bounce, which control.md Rev 24's two-sample filter rejects (§4.2). Also corrected here: R102 and R103 are footprints left unfitted, not fitted as Rev 5.42 recorded (Mark, 2026-10-05), so the D-Sub grounds float at this board as §8.4 intends.
+
+## **17.42 Changes in Rev 5.42**
+
+- Rev 5.42: the document uses the KiCad designators of the rev 2 board as annotated, in place of its own names, everywhere outside this change history, which is left as written. Strip parts are Rxnn on trunk sheet x, x = trunk number + 1 (trunk 1 is 2nn, trunk 8 is 9nn); root-sheet parts are numbered from 101. The board as built differs from the earlier text in five ways, now recorded: Cx01, the 100µF at each current source that Rev 5.23 deleted, is fitted on every strip (§12.4); U101's address is hardwired, A0 and A1 to +3.3V and A2 to GND, with no links (§10.2); the D-Sub ground link JP4 is two fitted 0R resistors, R102 and R103, one per DB25 (§8.4); C18, the TVS101 bypass, is not on the board and waits for rev 3 (TODO.md); and there are no footprints for a second expander, its decoupling or I²C pull-ups, so U2, C7, R9 and R10 are gone. C19 remains a bodge, C110 at rev 3. "Next board revision" means rev 3.
+
+| **Former name** | **Designator** | **Former name** | **Designator** |
+| --- | --- | --- | --- |
+| TVS1 | Dx01 | U1 | U101 |
+| Q4 | Qx03 | C6 | C101 |
+| Q3 | Qx01 | C17 | C109 |
+| R_set | Rx02 | C8 | C108 |
+| R_bias | Rx04 | C10 | C103 |
+| C_C | Cx02 | C11 | C104 |
+| R1 | Rx05 | C12 | C105 |
+| D1 | Dx03 | C13 | C102 |
+| R_LOOP | Rx06 | C15 | C106 |
+| R_DET | Rx07 | C16 | C107 |
+| OC1 | Ux01 | U3 | U102 |
+| R2 | Rx12 | U4 | U103 |
+| C5 | Cx05 | D6 | D101 |
+| RLY1 | Kx01 | F1 | F102 |
+| Q2 | Qx02 | F2 | F101 |
+| R4 | Rx01 | J1 | J104 |
+| R_pd | Rx03 | J2 | J105 |
+| D5 | Dx02 | J3 | J101 |
+| C9 | Cx03 | J5 | J103 |
+| C2 | Cx04 | J6 | J102 |
+| T2 | Tx01 | J7A, J7B | J7A101, J7B101 |
+| R5, R6 | Rx08, Rx09 | TVS2 | TVS101 |
+| R7, R8 | Rx10, Rx11 | R_RST | R101 |
+| C14 | Cx01 | JP4 | R102, R103 |
+
+## **17.41 Changes in Rev 5.41**
+
+- Rev 5.41: the seizure detector is resized (§4.2): R_LOOP 150Ω → 220Ω (2W) and R_DET 470Ω → 150Ω (§3.3, §3.4, §4.1, §13); R1 stays at 100Ω. Found on the bench, 2026-10-03 and 2026-10-04: trunks intermittently reported no seizure with full loop current flowing — up to 27 of 100 off-hooks on one trunk, all-or-nothing, never late — and missed dial makes (control.md Rev 23). With the Analog Discovery across R_LOOP and R_DET, a miss showed 28mA of loop current and 1.90mA into OC1, the same as a good seizure; OC1's output blipped on for about 0.25ms at the relay make and stayed off. §4.2 had modelled the HCPL3700M's DC input as an LED dropping 1.4V and flagged that figure as the one number not measured. The datasheet (onsemi HCPL3700M, 2022-03-15) gives the DC input as the buffer IC's own threshold: V_TH+ 3.35–4.05V at I_TH+ 1.96–3.11mA, V_TH− 2.01–2.86V. Measured, OC1 sat at 3.28V and 1.90mA — below every part's turn-on point and above every part's turn-off point, inside the hysteresis band, so the output stayed wherever the make transient left it. No value of R_DET alone fixes it: 28mA in 150Ω is 4.2V, barely above the 4.05V worst-case threshold with nothing in series. Loop compliance was measured through the switchboard first (§3.3.3); the heaviest configuration, a station-board station on a cord, keeps about 100Ω of spare with these values. Two alternatives were weighed and not taken: R1 to 33Ω as well (more spare, which nothing measured needs, at eight more parts and harder faults), and R1 removed (the most spare, but a shorted Q4 on a normal call then runs OC1 at 83% of its input power rating). §3.3.2's merged-resistor sizing, which had the same 1.4V error, is corrected, and two §16 items are closed. The schematic designators for the changed parts are Rx06 and Rx07 on trunk sheet x.
+
+## **17.40 Changes in Rev 5.40**
+
+- Rev 5.40: C19 added, 100nF from U1 pin 18 (/RESET) to GND at the pin (§10.4, §13), the same part as station Rev 3.43 and for the same finding. On the bench, 2026-10-03, this board's expander came back at its power-on configuration — IODIR FF, IPOL 00, so every trunk read seized until the firmware's configuration check (control.md §6.4) restored it — when a ring relay switched, on trunks 1, 2, 7 and 8 and intermittently. Raising the 24V current limit from 0.1A to 1A changed nothing; 100nF across pin 18 and ground on both boards stopped it, with no reset in twelve board tests. R_RST and C19 make 1ms against control.md §6.2's 2ms pulse and 5ms settle; no firmware change. The present board carries C19 as a bodge; the next revision gives it a footprint. Schematic: the root sheet as annotated runs C101–C109, so C19 takes C110.
+
+## **17.39 Changes in Rev 5.39**
+
+- Rev 5.39: follows station Rev 3.40 — stations 1–22, the operator tap on station board 3 strip 7 (A32 channel 23) and the audience monitor on strip 8's A32 output, channel 24, in place of the Digiface's own output. §3.3.1, §7.4, §9, §12.1, §12.1.1, §12.5 and the relay row in §13 follow the count. Trunk channels 25–32 and comb slots 25–32 are unchanged. No change on this board.
+
+## **17.38 Changes in Rev 5.38**
+
+- Rev 5.38: cross-reference only. `esp32.md` is `control.md` and `ring/esp32.ino` is `control/control.ino` as of 2026-09-19 (control.md Rev 9); every reference in this document follows, the Rev 5.35 and Rev 5.36 entries included. No change on this board.
+
+## **17.37 Changes in Rev 5.37**
+
+- Rev 5.37: follows station Rev 3.35 — three station boards built, operator tap on station 24. §1.1, §9, §10.2, §10.4 and the relay row in §13 no longer describe a two-board build with the third as capacity. 0x22 is a fitted board. No change on this board.
+
+## **17.36 Changes in Rev 5.36**
+
+- Rev 5.36: the §11.1 pointer follows control.md Rev 2, which adds dial pulse detection on the seizure input. The 25ms release rule it quoted is gone — a dial pulse is a 25–100ms release — and the ring discriminator is now the break-to-break interval. No hardware change: the current source and the HCPL3700M already pass a dial pulse as a clean loop-current interruption (§3.2.2, §4). One measurement is added to the control.md open items rather than to §16 here, since it is a firmware threshold check: pulse timing on SEIZE_n through the real cord circuit and dial.
+
+## **17.35 Changes in Rev 5.35**
+
+- Rev 5.35: §11 moves to control.md and mqtt.md, following station Rev 3.34. The polling and debounce rules, the state machine, the topic table and the failure handling are now specified once, in the controller’s own document and the MQTT document, with §11’s four headings kept here as pointers. The cadence constants leave §7.5 and the concurrent-ring cap leaves §7.6 for control.md §8.3 and §8.4; what stays in §7.5 and §7.6 is what this board requires of them. No change to any behaviour.
+
+## **17.34 Changes in Rev 5.34**
+
+- Rev 5.34: §11.3 and §11.4 follow station Rev 3.33. The host’s two programs are named in the topic table — the C++ audio program publishes peer and op, the Python game program publishes ring/set and the heartbeat, which is renamed sbgame/ctl/game_heartbeat. "The host" had been used for both, and station §8.7’s Python listing invited reading the detector as part of the game program. Nothing on this board changes.
+
+## **17.33 Changes in Rev 5.33**
+
+- Rev 5.33: §11.4 follows station Rev 3.32. The host → ESP32 heartbeat is now sbgame/ctl/host_heartbeat (renamed again to game_heartbeat at Rev 5.34), and a reverse heartbeat sbgame/ctl/esp_heartbeat is added, published from the ESP32 main loop after the I²C poll. On this board the case it covers is a wedged main loop with a ring relay energised, which the 30-second firmware timeout cannot clear if the wedge is upstream of it; the host cannot clear it either, but it can now tell. The station §9.11 cross-reference in this section was wrong — the failure paths are in station §9.12 — and is corrected.
+
+## **17.32 Changes in Rev 5.32**
+
+- Rev 5.32: formatting only. The block diagram, every circuit and calculation listing and the §11.2 state machine — twenty-four blocks — are now fenced code blocks. They had been fixed-width text with a blank line between every row, an artefact of the docx extraction, which renders as run-together prose with the alignment lost. Same sweep as station Rev 3.31 and generator Rev 55. No word of the content changes.
+
+## **17.31 Changes in Rev 5.31**
+
+- Rev 5.31: §11.3’s topic table gets the header row and key that station Rev 3.30 adds to station §9.10 — publisher → consumer and payload columns named, "host" defined as the Linux box, "host → broker" replaced by "host → any", and the circuit id format stated as station/<n> or trunk/<n>. Station §14.30 has the reasoning. The table is also now a Markdown table rather than fixed-width lines separated by blank lines, which rendered as prose. No change to any topic or payload.
+
+## **17.30 Changes in Rev 5.30**
+
+- Rev 5.30: the MQTT topic prefix is sbgame/, not sw/, following station Rev 3.29 — changed in §1.1 and §11.3. Station §14.29 records the reasoning: sw/ was two letters that could mean several things on a shared broker, sbgame/ names the exhibit and is still one segment for wildcard subscriptions. Nothing below the prefix changes. §11.3 also gains the sbgame/trunk/<1-8>/op topic that station Rev 3.28 added to §9.10 and this document did not carry — "on" | "off", host → broker, retained, published by the host from bin 768 on each trunk's own receive channel (station §8.7) — so the two documents list the same trunk topics again. Nothing on this board changes.
+
+## **17.29 Changes in Rev 5.29**
+
+- Rev 5.29: L1 deleted outright — no footprint. Rev 4.x removed the 47mH inductor and kept eight unstuffed 0Ω link positions "in case bench measurement wants it back"; Rev 5.26 gave them a place in the netlist. Two things were wrong with that insurance. First, the footprint was an axial 0207 resistor site, which no 47mH part will ever fit, so the position did not preserve the option it existed for. Second, §12.4's own arithmetic puts crosstalk through the rail below −90dB with the inductor contributing 295Ω at 1kHz against a current source that presents ~600kΩ — the part was shown to do nothing before it was kept as a fallback. If the bench ever does show trunk-to-trunk crosstalk above the floor, the path is the rail or the ground, and the remedy is at C13 or in the return routing, not eight inductors. Consequences: the strip feed node `V_FEED` merges into +24V_BRD; §12.4, §13, §14 and §16 updated; schematic guide §3.3 and §7 updated. Eight footprints off a strip arrayed eight times.
+
+## **17.28 Changes in Rev 5.28**
+
+- Rev 5.28: four-layer stack-up, top / In1 GND / In2 power / bottom, matching the generator board's layer order with In2 carrying +24V_BRD, +5V and +3.3V as a split pour instead of a second ground. Three rails cross all eight strips — 24V to each L1, 5V to each relay coil, 3.3V to each OC1 and its pull-up — and putting them on an inner layer leaves both outer layers to the strip signals and the ring spine. Both inner layers are kept back 3mm from the high-voltage edge by a rule area, not because 141V across the laminate is a hazard (it is not; 3mm is a surface creepage figure) but so the silkscreen boundary is true on every layer and the pour presents no capacitance to a 20Hz net carrying 40kHz residue. Details in trunk_schematic_guide §7.5.
+
+- Rev 5.28: the GND plane supersedes two §14 layout notes. "Star the eight R_LOOP ground returns to a single point" (§12.4, §14) existed because a shared return trace has shared impedance; a plane has less impedance than any star, so the returns go straight to the plane and the star is not drawn. "A ground pour between" the converter and the transformer strip is what a plane does everywhere. Both notes are rewritten rather than deleted so the reasoning survives. The generator board went to four layers earlier and this document was not swept for the consequence at the time.
+
+- Rev 5.28: §14's "star-ground the T2 shields" is deleted. The TY-311P has no screen — Rev 5.25 removed the screen connection from §8.2 and §13, and this line in §14 was missed. A layout note for a terminal that does not exist.
+
+## **17.27 Changes in Rev 5.27**
+
+- Rev 5.27: C18 added, 100nF across TVS2 pins 8 and 4 at the device. TVS2 has been specified since Rev 5.6 with no bypass. The SP721 does not shunt to ground; it conducts the transient from the IN pin into V+, so V+ has to source that current locally or it lifts during the event — degrading the clamp and injecting the transient into the +3.3V rail that U1 and the master sit on. The layout deliberately puts TVS2 at J3, the opposite edge from U1 and the LDO, so C6 and C8 are the length of the board away and cannot serve. Same addition on the station and generator boards at their own revisions. C18 rather than the free C3 or C4: those gaps are historical and a new number says plainly that this is new, where reusing a gap invites the question of whether something was deleted.
+
+- Rev 5.27: what is deliberately not fitted. The same datasheet note asks for bypass on both V+ and V− and for a series resistor in the supply feed. V− is pin 4 and goes straight to GND, so bypassing it is a zero-length connection with nothing to add. The series resistor belongs to the automotive load-dump and reverse-battery case the note is written for; nothing here sees a reverse battery, and series resistance in the V+ feed would raise the clamp’s dynamic impedance. Recorded so a later reader comparing the board against the datasheet sees two decisions rather than two omissions.
+
+- Rev 5.27: the SP721 pinout is confirmed against the Littelfuse datasheet, revision GD 07/10/24 — IN on 1–3 and 5–7, V− on 4, V+ on 8. Rev 5.6 recorded V+ on pin 8 and V− on pin 4 and was right. No change; noted so the check is on the record.
+
+## **17.26 Changes in Rev 5.26**
+
+- Rev 5.26: C_C gets a reference designator, C1, and §13’s preamble is corrected from five illegal names to six. Rev 5.20 assigned R11 to R15 to the five functionally named resistors and did not notice that the same problem applies to the one functionally named capacitor — C_C is no more a valid KiCad reference than R_set is, and annotation would have renumbered it to whatever came next. C1 is free: C2, C5 and C8 to C17 are taken, and C14 is retired rather than available. It also puts the compensation capacitor next to C2 on the same strip. Found by drawing the trunk schematic guide, the same way Rev 5.25 found R_RST and the JP links.
+
+- Rev 5.26: L1’s position is stated, in §12.4 and in §13. The row has named the part, its value and its purpose since Rev 4.4 and has never said what it connects to. Each L1 sits in series with the 24V feed to its own strip, so +24V_BRD and the strip feed are two nets with the link between them; drawn as a single net the footprint has nowhere to land. This is the same defect Rev 5.25 corrected for the D-Sub ground link and the address straps — a footprint nothing can refer to — except that here the part had a designator all along and what was missing was the connection. A designator without a net is as unbuildable as a net without a designator.
+
+## **17.25 Changes in Rev 5.25**
+
+- Rev 5.25: R_RST, C15, C16 and C17 added to the §13 table. Each was already required by a section of this document — the 10kΩ /RESET pull-up by §10.4 since Rev 5.8, the LDO input and output capacitors by §12.6 since Rev 5.16 — and none of them had a designator or a BOM line. A part named in prose is not a part: it does not reach the parts list, the purchase count or the schematic. The project BOM's 10kΩ count has been corrected from 34 to 42 across both board types on the same basis. Found by drawing the station schematic, which has the identical omission and fixed it at station Rev 3.25.
+
+- Rev 5.25: the §13 entry for J3 is corrected. It said positions 2–5 wired, 1 and 6 unused, and that the jack accepts 6P4C or 6P6C plugs. Rev 5.8 put /RESET and its return on positions 1 and 6 and §10.4 has said so since; all six positions are wired and the cords must be six-conductor. A 6P4C cord leaves a working bus with no hardware reset, which is a degraded mode rather than a failure, but it is not what the table described.
+
+- Rev 5.25: the T2 screen connection is removed from §8.2. The TY-311P specified at Rev 5.22 is a four-pin part with a primary and a secondary and nothing else, and the symbol drawn for it — switchboard:XFMR_TY-311P, against the matching footprint of the same name — has four pins. There was never a terminal to land a screen on. Station Rev 3.25 corrects the same line in its §7.3 and §12.
+
+- Rev 5.25: the D-Sub ground link from §8.4 gets a designator, JP4, and a row in §13. The address straps become JP1–JP3 for the same reason. §8.4 specified an unstuffed 0Ω link and §10.2 three more, and an unnamed footprint is one nobody can refer to in a build note or find in a netlist.
+
+- Rev 5.25: §12.5 and §12.6 are restored to numerical order. §12.6 was inserted between §12.4 and §12.5 at Rev 5.16 and has sat out of sequence since. Numbering and cross-references are unchanged; only the order on the page moves.
+
+## **17.24 Changes in Rev 5.24**
+
+- Rev 5.24: the generator's ring output becomes two separately terminated branches, and this board is fed from one of them rather than sharing a terminal with the switchboard. Generator J2 feeds this board's J6; the switchboard is fed from a new J6 on the generator, through a fuse of its own. Nothing on this board changes — the feed still arrives as a floating two-wire bus at J6, and every figure in §7 stands — but the ring bus is now a star from the generator rather than two conductors under one screw on a block specified for one. The practical difference is diagnostic: a fault on the switchboard cable can be isolated without unwiring this board's feed. Generator Rev 28 §7.6 and §10.10.
+
+- Rev 5.24 corrects Rev 5.3. That entry said this board carries two of the system's five fuses and is the only one with a fuse on the ring bus. Both halves have stopped being true. Generator Rev 28 adds an F2 of its own on the switchboard ring branch, so the system now carries six fuses and two of them sit on the ring bus. This board still carries two, and is still the only board with a fuse on a ring bus input — the generator's fuses its output. The BOM's fuse block count moves from five to six.
+
+- Rev 5.24: F2's margin is stated rather than left to a review note. §7.6's estimate of 20mA per trunk puts eight trunks ringing simultaneously at about 178mA, which is 71% of a 250mA rating — sitting on the 75% continuous derating a fast-acting fuse is normally held to, with only the ring cadence duty cycle left as margin. The value stands pending measurement, but it is not the comfortable choice the bare number suggests, and 500mA is the fallback — see §12.5.
+
+## **17.23 Changes in Rev 5.23**
+
+- Rev 5.23: C14 deleted, all eight of them. A 100µF electrolytic at each current source, specified when L1 came out and never justified since — a current source rejects supply variation by construction, so local bulk buys nothing at either end. Removes eight parts from a strip about to be arrayed eight times, and 800µF of power-on inrush from a rail fused at 500mA — see §12.4.
+
+## **17.22 Changes in Rev 5.22**
+
+- Rev 5.22: T2 specified as the Triad TY-311P on measured evidence — −5.5dB passband, flat at 9kHz, better than the SP-70 it was compared against and about $310 cheaper across 24. The datasheet band of 300Hz–3.5kHz understates the part badly — see §8.3.
+
+## **17.21 Changes in Rev 5.21**
+
+- Rev 5.21: D-Sub ground pins specified. Floating at this board with a 0Ω link footprint to board GND, unstuffed — one end grounded, the A32's. The document previously gave the pinout and said nothing about the grounds, leaving the decision to be made silently at layout — see §8.4.
+
+## **17.20 Changes in Rev 5.20**
+
+- Rev 5.20: schematic reference designators assigned for the five functionally named resistors — R_set, R_bias, R_LOOP, R_DET and R_pd become R11 to R15. No circuit change; this only reconciles the document's naming with what KiCad requires — see §13.
+
+## **17.19 Changes in Rev 5.19**
+
+- Rev 5.19: D6 moves from series to a shunt clamp across +24V BRD and GND, blowing F1 on a reversed supply instead of blocking. Recovers the 0.4V of forward drop that the §3.3 compliance budget had silently omitted — see §12.5. Same change on the station and generator boards.
+
+## **17.18 Changes in Rev 5.18**
+
+- Rev 5.18 corrects Rev 5.17. The terminal blocks actually on hand are the OSTTE020104 at 3.50mm and 125V — the merge assumed 5.08mm and 300V, and that assumption was doing the work. J6 reverts to a separate part, the OSTTC020162 at 5.00mm and 300V. J5 keeps the OSTTE020104, which is entirely adequate at 24V.
+
+## **17.17 Changes in Rev 5.17**
+
+- Rev 5.17: J6 is the same 2-pin screw terminal as J5 rather than a separately specified 250V part. One connector type on the board, one footprint, one line in the BOM — and the creepage and separation rules for the ring bus zone are unchanged. Generator Rev 24 §10.10 makes the same change to its J2.
+
+## **17.16 Changes in Rev 5.16**
+
+- Rev 5.16: rail capacitors reviewed against the datasheets. Local input and output decoupling added at the LDO, which had none of its own. The 24V audio-band bulk is unchanged at one 1000µF; the station board gains the same part at Rev 3.19 for a reason specific to its resistive loop feed — see §12.6.
+
+## **17.15 Changes in Rev 5.15**
+
+- Rev 5.15: bin 768 (9000.00Hz) allocated to the operator tone — generator Rev 21 §15. Nothing on this board changes, but the T2 sweep target moves to 9000Hz, and these transformers already sit at the top of the comb.
+
+## **17.14 Changes in Rev 5.14**
+
+- Rev 5.14: the 5V bulk capacitor is specified at 25V rather than 10V, matching station Rev 3.17. Derating only; capacitance unchanged.
+
+## **17.13 Changes in Rev 5.13**
+
+- Rev 5.13: RV1 deleted, matching station Rev 3.16. Eight footprints removed from this board; nothing else in the audio path changes.
+
+## **17.12 Changes in Rev 5.12**
+
+- Rev 5.12 corrected: U4 is the MCP1826S-3302E/AB in TO-220-3, not SOT-223 — surface mount had no place on an otherwise through-hole board. The AMS1117-3.3 alternative is dropped, being SOT-223 only.
+
+## **17.11 Changes in Rev 5.11**
+
+- Rev 5.11: J1 and J2 changed to the NorComp 182-025-213R561 — the same connector with integral 4-40 female screwlocks on the mating side rather than a plain threaded shell. The separate screwlock line item is deleted across the system; footprint, backset and every electrical attribute are unchanged.
+
+## **17.10 Changes in Rev 5.10**
+
+- Rev 5.10: cross-references follow the station document to Rev 3.13, which specifies the CTS 206-3ST for its address DIP switch. Nothing on this board changes — the trunk address remains hard-strapped with three 0Ω links and there is no switch here.
+
+## **17.9 Changes in Rev 5.9**
+
+- Rev 5.9: J1 and J2 changed from the Amphenol ICC DBM25S500MN, which DigiKey does not stock, to the NorComp 182-025-213R531 — same gender, orientation, termination and gold contacts, with board locks. Six needed across the system; 16-week factory lead time despite deep distributor stock, so order together.
+
+## **17.8 Changes in Rev 5.8**
+
+- Rev 5.8: hardware /RESET added on 6P6C positions 1 and 6, reaching pin 18 of U1 from the generator board. Adds a 10kΩ pull-up and a third TVS2 input, and requires six-conductor cords. Never assert it while ring is applied — see §10.4.
+
+## **17.7 Changes in Rev 5.7**
+
+- Rev 5.7: the generator's 12V regulator is corrected to the Traco TSR 1-24120 in §12.1's load table. Traco carries the output voltage in the trailing digits, so the TSR 1-2412 named previously is a 1.2V part. Nothing on this board changes. The TSR 2-2450 specified here is 5.0V and is correct.
+
+## **17.6 Changes in Rev 5.6**
+
+- Rev 5.6: TVS2 specified as the Littelfuse SP721APP — an 8-PDIP rail-clamp array with six inputs, V+ to +3.3V on pin 8 and V− to GND on pin 4, 3pF per line rather than the 1pF earlier revisions assumed. Through-hole, matching the rest of the board. Sacrificial after a mis-plug, which is the intended behaviour — see §8.6.
+
+## **17.5 Changes in Rev 5.5**
+
+- Rev 5.5: D6 changed from SS34 to 1N5822. 1N5822, 3A / 40V, DO-201AD axial. The SS34 named through earlier revisions is an SMA/DO-214AC surface-mount part with no through-hole version. 3A is oversized against a 250-500mA fuse and deliberately so: a slow-blow fuse carries well above its rating for some time before it opens. Forward drop is unchanged at roughly 0.3-0.4V. Its drop sits ahead of the current sources, so it is the 0.7V D1 term in §3.2 that carries the compliance budget, not this one.
+
+## **17.4 Changes in Rev 5.4**
+
+- Rev 5.4: Q2 relay driver changed from 2N3904 to 2N2222A, matching station Rev 3.8. Confirm the TO-92 pinout against the orderable part before layout — see §10.1.
+
+## **17.3 Changes in Rev 5.3**
+
+- Rev 5.3: fuse and fuse holder part numbers specified. F2 uses an open PC-mount block like the rest — the ring bus is exposed at J6, at the relay contacts and along the T2 primaries regardless, so a shrouded holder would protect one point on a board that is hazardous by design and is treated as such in §7.
+
+- Rev 5.3: this board carries two of the system's five fuses and is the only one with a fuse on the ring bus.
+
+## **17.2 Changes in Rev 5.2**
+
+- Rev 5.2: cross-references follow the generator to Rev 16 and the station document to Rev 3.7. The generator's gate-drive logic moves to 5V on a 74HCT02 with the shutdown line buffered, correcting an IR2104 threshold figure; nothing on the trunk board changes, and the ring bus it delivers is unaffected.
+
+## **17.1 Changes in Rev 5.1**
+
+- Rev 5.1 corrected: 0x27 is allocated to this board's optional U2 rather than left unallocated, which is what station §9.2 already assumed. The BOM and §10.2 disagreed with each other in Rev 5.0 — see §10.2.
+
+- Rev 5.1 corrected: cross-references to the generator document now point at Rev 14, and the generator's SD line is GPIO14. The I²C master pins are GPIO13 (SDA) and GPIO16 (SCL) — GPIO17 clocks the Ethernet PHY and was never available.
+
+- Rev 5.1 corrected: the converter is referred to as the Ferrofish A32 throughout, matching station §6. Rev 5.0 called it the A32 Pro in some places and the A32 in others.
+
+- Rev 5.1: station capacity stated consistently. Three station boards and 24 stations is the design capacity; two boards and 16 stations is the present build, which is why channels 17–24 and comb slots 17–24 are free — see §9.
+
+## **17.0 Summary of Changes from Rev 4.4**
+
+- Four trunks raised to eight. One board, one D-Sub pair, one relay per trunk. Trunk lines move to RJ45 (§8.5) and the I²C bus to a 6P6C modular connector (§10.4); audio stays on D-Sub25.
+- The Wien bridge oscillator, its LM2596 13V supply, the TIP31C/TIP32C power stage and the T1 step-up transformer are all deleted. Ring voltage now arrives on a two-wire bus from a separate generator board — see §7.1.
+- The LM393 comparator seizure detector, its zener clamp, threshold divider and hysteresis network are deleted and replaced by an HCPL3700M optocoupler on the loop sense resistor, matching the detection approach used on the station board — see §4.
+- Raspberry Pi GPIO replaced by one MCP23017 expander on the ESP32 I²C bus. Logic rail is 3.3V throughout — see §10.
+- The resistive loop feed (R1, 330Ω) is replaced by a constant-current source. This is the most consequential change in the revision and the reasoning is in §3.1: the Rev 4.4 feed resistor dissipates roughly 10W if ring is ever applied to the trunk from the switchboard side, which Rev 4.4 did not check.
+- Rev 4.4's instruction to mask the seizure signal in software during ring is withdrawn. It is no longer needed: the current source and the debounce timing together separate a genuine seizure from an accidental ring without a second detector and without suppressing anything — see §4.3 and §5.
+- The DPDT relay still disconnects T2 during ring, as in Rev 4.4, but now does so as a side effect of switching the ring return rather than needing a pole of its own. T2 sits between the board-side ends of the two NC contacts, so throwing either pole lifts it — see §8.1. Both functions come from pole 2 at no cost.
+- L1 (47mH crosstalk isolation inductor, one per trunk) is deleted in favour of bulk decoupling on the 24V feed rail — see §12.4.
+- TVS changed from P6KE120CA to P6KE150CA. The station board part would conduct on the peaks of our own ring — see §6.
+- A 24V→5V switching module is added for the relay coils, with a 3.3V LDO below it, matching station §10.3. The system now runs on one common 24V battery feeding the switchboard, both board types and all loops, which makes the Mean Well LRS-35-24 undersized by 2–3× — the LRS-150-24 is specified instead. See §12.1.
+- Focusrite Scarlett 18i20 references removed. Audio is the Ferrofish A32 at 48kHz, and the two-tone identification scheme is replaced by the pilot comb — see §8 and §9.

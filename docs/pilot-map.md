@@ -1,6 +1,6 @@
 # Pilot map — slot ↔ bin ↔ circuit
 
-Status: **authoritative.** `CLAUDE.md` names this file as the one place the mapping
+Status: **authoritative.** This file is the one place the mapping
 lives; nothing else in the repo may recompute it inline. The arithmetic is station
 §8.2 and the assignment is station §8.3; the channel plan is `audio.md` §2. This file
 is the transcription, so that the audio program reads a table rather than a formula it

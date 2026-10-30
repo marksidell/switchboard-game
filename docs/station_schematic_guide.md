@@ -2,7 +2,7 @@
 
 Derived from station circuit Rev 3.25 and the KiCad library plan; R11/R12 value updated to station Rev 3.27 (22.1k → 22k 1%); tap and monitor strips updated to station Rev 3.40 (operator tap on board 3 strip 7, audience monitor output on strip 8); C19, the /RESET filter, added at station Rev 3.43.
 
-**Follows station Rev 3.44 and the designators as annotated on the rev 2 board.** The tables below give each part's KiCad reference in the Ref column, with x for the strip sheet's hundreds digit (2 for strip 1 to 9 for strip 8), and the name the document used until Rev 3.44 in the Doc name column. Station §1.23 has the full list. U2, C7, R9, R10, R13 and R17 are not on the board and have gone from the tables; the TVS101 bypass is missing from the board and has to be drawn in (TODO.md).
+**Follows station Rev 3.44 and the designators as annotated on the rev 2 board.** The tables below give each part's KiCad reference in the Ref column, with x for the strip sheet's hundreds digit (2 for strip 1 to 9 for strip 8), and the name the document used until Rev 3.44 in the Doc name column. Station §14.44 has the full list. U2, C7, R9, R10, R13 and R17 are not on the board and have gone from the tables; the TVS101 bypass is missing from the board and has to be drawn in (TODO.md).
 Structure: one root sheet carrying everything common, plus **8 instances of a single
 hierarchical sheet** `station_circuit.kicad_sch`.
 
@@ -34,7 +34,7 @@ has the full reasoning and it applies here unchanged.
 
 ### Designators, and why this board is worse than the trunk
 
-*Kept as the reasoning behind the first assignment. Annotation has since replaced every number in this subsection and the next; the as-built references are in the tables from §4 on and in station §1.23.*
+*Kept as the reasoning behind the first assignment. Annotation has since replaced every number in this subsection and the next; the as-built references are in the tables from §4 on and in station §14.44.*
 
 The trunk board had a collision between document names and KiCad references. This board has
 that plus a name KiCad will simply refuse: **`R1a` and `R1b` are not valid references.** A

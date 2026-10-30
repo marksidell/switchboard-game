@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 32 — C++ on the Linux Host, One Duplex ALSA Stream on the Digiface USB (32 In, 34 Out, 48kHz, S32_LE), Pilot Comb and Operator Tone Always On, Pilot Detector per Station §8.7, File Playback on the Circuits and the Operator Tap and Trunk Tones on Command, Speech Detection on Command, Filtered Monitor to the Loudspeaker on the Digiface's Analog Output from the Operator Tap or a Commanded Circuit, with a File Summed In, 1kHz Test Tone, an Output Self-Check, a Recording of the Loudspeaker to WAV and MP3 and Its Playback, a Shorter Wait After the Operator Speaks, All Commanded and Reported over MQTT, Station 24 a Real Telephone, One Circuit's Output and Capture Recorded Raw for the Bench, an Echo Canceller So a Caller Talking Over a File Is Heard, Ring Heard on an Off-Hook Station, a Line's Steady Noise Taken as the Floor*
+*Rev 33. The changes in each revision are in §17.*
 
 # 1. Overview
 
@@ -19,253 +19,9 @@ Everything is commanded and reported over MQTT. The topics are specified in mqtt
 
 Ownership. This document is the specification. The source is written to it by Claude Code, in the same way `control/control.ino` is written to `control.md`, and chat sessions do not produce or revise the source. When a revision here has a code consequence, the revision says so.
 
-Build state as of Rev 9. The program exists — `sbaudio`, written by Claude Code against Rev 2 and reviewed in chat on 2026-09-18. §1.3 records the decisions the implementation made where the specification was silent, now adopted, and the three corrections the review sent back, which Claude Code fixed the same day. Claude Code reported on 2026-09-24 that `sbaudio` is at Rev 8, which takes in the code consequences of Rev 6, Rev 7 and Rev 8 (§1.6 to §1.8). Rev 9 settles three questions that report raised (§1.9); two of them carry small code consequences. Nothing has yet run against the A32 and the switchboard; §15 is still to be done.
+Build state as of Rev 9. The program exists — `sbaudio`, written by Claude Code against Rev 2 and reviewed in chat on 2026-09-18. §17.3 records the decisions the implementation made where the specification was silent, now adopted, and the three corrections the review sent back, which Claude Code fixed the same day. Claude Code reported on 2026-09-24 that `sbaudio` is at Rev 8, which takes in the code consequences of Rev 6, Rev 7 and Rev 8 (§17.6 to §17.8). Rev 9 settles three questions that report raised (§17.9); two of them carry small code consequences. Nothing has yet run against the A32 and the switchboard; §15 is still to be done.
 
 Numbering. Circuits, A32 channels and Digiface channels are 1-based throughout the project documents: station n is A32 channel n, trunk n is channel 24 + n, the tap is channel 23, station 24 is A32 channel 24 (Rev 24), and the monitor is on the Digiface's channels 33 and 34. ALSA frame indices are 0-based, so the program's internal index for a channel is the document number less one — the tap is index 22. Rev 1 to Rev 6 had the tap on channel 24 and the monitor on Digiface playback 33 and 34; the rough specification Rev 1 was written from gave those as 23 and 33, which were ALSA indices. §2 records the mapping.
-
-## 1.1 Changes in Rev 1
-
-— New document, written from a rough specification of the six functions above and from station §8 and mqtt.md Rev 4. The detector was the program's whole job until now and was specified only in station §8.7, with the program named but not described in mqtt.md §1. The five commanded functions are new.
-
-— One decision made that the rough specification left open: how the program reports that a file has finished. It asked for "an mqtt response when a file finishes playing". The response is the `play` state topic going empty (§7.4), not a new event topic. mqtt.md §2 allows one event in the design, `digit`, and records what an event costs: unretained, not idempotent, lost across a game restart. None of that is wanted here. A retained state topic carrying the filename while it plays, and cleared when it stops, tells the game the same thing and additionally tells a game program restarted mid-file what is playing.
-
-— One conflict with station §8.8 resolved in §8.8's favour. The rough specification asked for the monitor low-pass at 3kHz. Station §8.8 specifies a passband edge of 3.6kHz and a stopband edge of 5.6kHz, and it is the stopband edge that removes the lowest pilot at 6000Hz, not the passband edge. Moving the passband edge to 3kHz would cut the top of the 300–3400Hz band the switchboard passes and remove nothing that 3.6kHz does not already remove. The filter is as §8.8 specifies (§10). If the intent was a narrower, more "telephone" sound rather than pilot removal, that is a passband-edge parameter and is exposed as one.
-
-— Tone frequencies are the pre-precise-tone-plan Bell tones — dial tone 600Hz modulated by 120Hz, ringback 420Hz modulated by 40Hz at 2s on, 4s off — chosen by Mark on 2026-09-17, before this document was first uploaded, in place of the precise tones (350 + 440Hz, 440 + 480Hz) the first draft carried as the default. The 551 predates the precise tone plan and the exhibit is set in that period; the precise tones are what a modern ear expects and would be the one anachronism the operator hears on every call. The precise tones are recorded in §8.2 as the alternative, since they are the same generator with a different table.
-
-— Busy tone added to §8 at Mark's request, same day, after the first draft listed it as a possible extension: the game's scenarios will include called numbers that are busy. One more row in the §8.2 table and one more `tone/set` value; mqtt.md Rev 6 carries the payload.
-
-— The test tone replaces the pilot on its channel rather than summing with it, so the circuit reports `deaf` while the test tone is on (§11.1). Recorded so the `deaf` is not mistaken for a fault.
-
-## 1.2 Changes in Rev 2
-
-— The Digiface is not addressed as `hw:Digiface`. Claude Code found on the host that ALSA registers the card under an alphanumeric identifier, not under the product name Rev 1 assumed in §4 and as the `--card` default in §14. §4 now says the card is addressed by whatever id `/proc/asound/cards` reports for it, §14's `--card` has no default and is required, and the id in use goes in the systemd unit alongside the other host-specific settings. Rev 1's default would have failed to open the device on every start.
-
-## 1.3 Changes in Rev 3
-
-— Written against the finished program, as control.md Rev 4 was against the firmware. Nine implementation decisions are adopted into the text with their reasoning, and three defects found in review are recorded here as code consequences for the Claude Code side.
-
-— Adopted, §3: the MQTT thread is a polled loop — `mosquitto_loop()` with a 20ms timeout, then drain the result queue, then repeat. A result posted by the audio or analysis thread reaches the broker within 20ms, inside the 43ms detector hop, and one thread does the whole job. The alternative — libmosquitto's own network thread plus an eventfd the audio thread would have to write — was not needed.
-
-— Adopted, §3 and §6.1: the analysis thread polls a two-slot mailbox with a 2ms sleep rather than waiting on a condition variable, so the audio thread touches nothing but an atomic to hand over a hop. Two snapshot buffers; if the analysis thread still holds the one due to be filled, the hop is dropped and counted, never waited for.
-
-— Adopted, §14: `--no-realtime`, and the audio thread's SCHED_FIFO priority is 70. `--window rect|hann` implements station §8.2's Hann fallback, with the guard offsets moved to ±4/±5 because Hann's main lobe is ±2 bins and guards at ±2/±3 would measure the pilot's own skirt. `--mqtt-user`, `--mqtt-pass`, `--mqtt-pass-file` and `--client-id` for mqtt.md §9; `--broker` takes `host[:port]`. FFTW wisdom is cached at `$SBAUDIO_WISDOM` or `~/.cache/sbaudio-wisdom`.
-
-— Adopted, §7.1: an empty `play/set` payload is a stop, the same as `"stop"`. A filename is at most 31 characters and may not contain a backslash or a control character, in addition to the `/` and `..` rules of mqtt.md §7. Adopted, §9.2 and §14: every dBFS figure in the program — the VAD floor and margin, the file content check, the logged levels — is referenced to a full-scale sine, RMS × √2, so `--vad-floor -50` means a signal whose RMS is that of a −50dBFS sine. Adopted, §13.2: reconnect backoff starts at 1s and doubles to 30s; the will is registered once on the handle and survives reconnects.
-
-— Code consequence 1, §3: the MQTT thread spins while disconnected. `mosquitto_loop()` returns at once with no connection, so between reconnect attempts the loop runs flat out — a core pegged for up to 30s at a time. Sleep 20ms per pass when not connected. Harmless to the audio thread, which is real-time, but wrong.
-
-— Code consequence 2, §6.1: the snapshot handover has a race. The audio thread checks a buffer's busy flag before filling it, but the analysis thread sets that flag only after it has taken the buffer's index from the mailbox, so a late-waking analysis thread can claim a buffer the audio thread has just started to overwrite. Separately, a hop that the analysis thread never collected is silently superseded and not counted. The protocol is restated in §6.1 so that the audio thread owns setting busy and the analysis thread owns clearing it, and a superseded hop is reclaimed and counted.
-
-— Code consequence 3, §12: `audio_status` `"online"` is published before the first detector pass rather than after it. The spec and mqtt.md §8.4 put state before birth; the program publishes birth and lets `peer`, `op` and `optone` follow on the next hop, up to 43ms later. Hold the birth message until the analysis thread has completed its first forced pass.
-
-— Minor, for the same pass: `ambiguous` logs its pilot list every hop, 23 lines a second for as long as the condition lasts; log it on the transition and at most once a second after. `--version` still reports Rev 1. The tarball reviewed did not include the build file, `pilot_loopback_test.cpp` or `docs/pilot-map.md`, so the §10.1 unit test on the elliptic stopband is unconfirmed; the startup log line that reports the realised response at 6000Hz covers it in practice.
-
-## 1.4 Changes in Rev 4
-
-— The three Rev 3 code consequences are fixed in `sbaudio` (2026-09-18); the build-state paragraph in §1 says so.
-
-— §14: the default MQTT client id is `sbgame-audio`, not `sbaudio`. Rev 3 wrote the binary's name; the program used `sbgame-audio`, which follows the ESP32's `sbgame-esp32` — the `sbgame-` prefix names the system the client belongs to, as the topic prefix does, and the broker's client list then reads as one system. Mark and Claude Code chose the program's form; the document follows.
-
-## 1.5 Changes in Rev 5
-
-— Cross-reference only. `esp32.md` is `control.md` and `ring/esp32.ino` is `control/control.ino` as of 2026-09-19 (control.md Rev 9); §1 and §1.3 follow. Nothing in this document changes.
-
-## 1.6 Changes in Rev 6
-
-— The listen reports the end of speech as well as the start. Rev 1 to Rev 5 made a listen one-shot: `"listening"`, then `"speech"` the moment speech was detected, and the listen was over. The game's scenarios need to know when the caller has finished talking, not only that they began — a scripted reply that starts while the caller is mid-sentence is the one thing the audience will notice. So the listen now continues after `"speech"` and reports `"silence"` when the talking stops, or `"timeout"` if it does not stop within a cap. One command still starts the whole sequence; the state topic carries it, which is what a retained state topic is for. §9.1 and §9.2.
-
-— The payload stays one number, the time allowed for speech to start. The two new times — the silence that counts as the end of speech, and the longest speech the program will wait out — are options with defaults (§14), not payload, because they describe how people talk and not a scenario, and because mqtt.md §2 says one value per topic. If a scenario ever needs its own cap, that is the point to add a second payload form; not before.
-
-— `"silence"` is a new value rather than the empty string, so that a listen that completed is never confused with one that was cancelled or never issued: empty stays the cleared state, as on every retained topic (mqtt.md §7). `"timeout"` is reused for both failures — speech never started, speech never stopped — because the game knows which by the value before it, and a game restarted mid-listen has lost the listen either way.
-
-— Code consequence, for Claude Code: `Engine::start_listen`, the VAD frame loop and `cancel_listen` change to the state machine of §9.2; two options, `--vad-hangover` and `--vad-max-speech`; `mqtt.md` Rev 8 has the payload values. mqtt.md Rev 8 follows.
-
-## 1.7 Changes in Rev 7
-
-— The audience monitor moves to A32 output 24 and the operator tap to A32 channel 23, following station Rev 3.40 (Mark, 2026-09-23). Rev 1 to Rev 6 put the tap on channel 24 and sent the monitor to the Digiface's own analog output, playback 33 and 34. Station board 3 strip 7 is now the tap and strip 8's A32 output is the monitor feed, so stations are 1–22. §1, §2, §5.1, §6.3, §10, §11.1, §12, §14, §15 and §16 follow.
-
-— Why. An A32 output is balanced, and its analog level is set by the A32's per-channel reference and trim, recallable from its front panel. The Digiface jack is unbalanced and fixed at +9.5dBu full scale with no TotalMix under Linux, which left this program's gain as the only control ahead of the amplifier. Station §1.19 records the decision.
-
-— The Digiface is still opened at 34 playback channels, so nothing in §4 moves. Channels 33 and 34 carry silence except under the test tone, and are the fallback monitor output: going back to them is a command-line change, `--monitor-ch 33,34` (§14), not a code change. That option is new.
-
-— Capture channel 24 is now unused — station board 3 strip 8 has no receive path fitted — and nothing reads it. It is not a detector input. Comb slots 23 and 24 (bins 688 and 696) are not generated.
-
-— Code consequence, for Claude Code: the channel map of §2 and everything derived from it. Stations 1–22 in the per-circuit tables, the detector and the MQTT validation (§12); pilots on 1–22 and 25–32; the operator tone and the `optone` check on channel 23; the monitor chain reading capture 23 and writing playback 24, or the channels `--monitor-ch` names; capture 24 ignored; playback 33 and 34 silent unless named by `--monitor-ch` or under test. mqtt.md Rev 9 has the topic ranges.
-
-## 1.8 Changes in Rev 8
-
-— The monitor can take its input from any station or trunk receive channel as well as from the tap (§10.3). Mark's decision, 2026-09-24. Rev 1 to Rev 7 fed the loudspeaker from the tap's receive channel only. The operator leaves a call when she throws the ring key to ring the called party, and does not come back to it, so the audience heard the request and the operator and then nothing of the conversation the scene was written for. A circuit's receive channel carries the whole conversation: its own transmit returns on it at full strength, because the interface has no hybrid (station §8.4), and the far end arrives through the cord. The operator's voice is on it too while she is bridged to that line.
-
-— One new command and its echo: `sbgame/audio/monitor/source/set` and `sbgame/audio/monitor/source`, with `"tap"` or a circuit id as the payload (mqtt.md Rev 13). `monitor/set` stays the gain alone, so the one-value rule of mqtt.md §2 holds. The game program chooses the source: the calling line of the call the operator most recently answered (game_control.md Rev 6 §6.4). This program knows nothing about calls and does not choose.
-
-— The chain after the input is unchanged. The station §8.8 filter removes a circuit channel's own pilot, its peer's pilot and the operator tone exactly as it removes the operator tone and pilots from the tap channel.
-
-— The switch is made under a 20ms ramp to silence and back (§10.3), the same ramp the gain uses, so a source change does not click.
-
-— Two options (§14). `--monitor-src` sets the source at startup, `tap` by default, so a bench run with no game behaves as Rev 7 did. `--monitor-tap-trim` is a gain applied only while the source is the tap. The tap arrives about 15dB below the operator's line (station §7.9.3), and a circuit channel sees its line through T2 alone, so without a trim one monitor gain cannot suit both. Its value is a bench setting (§15 step 7).
-
-— The source returns to the tap when the program loses the game or the broker (§13.2). The calls it was following have been torn down, and a crashed game should not leave the loudspeaker on a line nobody is using.
-
-— Not added: any correction for the balance between the two sides of a conversation on one circuit channel. The line's own transmit returns through its own transformer's secondary only; the far end crosses two transformers and the cord circuit. The own side will be louder by an amount nothing measured so far predicts. §16 records the fix to add if the bench says it is needed.
-
-— Code consequence, for Claude Code: subscribe to `monitor/source/set`; validate it and echo it on `monitor/source` (§12); switch the monitor's input in the audio thread as §10.3 says; `--monitor-src` and `--monitor-tap-trim`; the return to the tap in §13.2; `monitor/source` in the state published before birth (§12).
-
-## 1.9 Changes in Rev 9
-
-— Written against Claude Code's report of 2026-09-24: `sbaudio` is at Rev 8. The report raised three places where Rev 8 was silent or read two ways. This revision settles them.
-
-— The tap trim has a range: −30 to +30dB, and `--monitor-tap-trim` outside it refuses to start, as any other invalid option does (§10.3, §14). Rev 8 gave no range. The effective gain — the commanded gain plus the trim — is deliberately not clamped to the −60 to +20dB of `monitor/set`. That range is for the command. The trim is an installation constant that makes the tap and a circuit sound the same at one commanded gain. Clamping the sum would cap the tap at a lower commanded gain than a circuit, which is the mismatch the trim exists to remove. The −3dBFS limiter is what protects the output (§10.1). Claude Code left the sum unclamped and asked whether that was intended. It is. Code consequence: the range check at startup.
-
-— State republished on reconnect is what the program is doing at reconnect (§12, §13.2). §13.2 said results posted while disconnected are discarded, and §12 said reconnect republishes state. For `monitor/source` the two pulled apart. A source changed while disconnected — the return to the tap, above all — would have been discarded as a result, and reconnect would have announced a circuit the program had already left. Claude Code kept the value current while disconnected and republished it. That is adopted. The discard applies to results the other threads post. State on reconnect is read from the program as it stands, for `monitor`, `monitor/source` and `test/<ch>` alike. No code consequence.
-
-— A source the device does not capture is refused (§10.3). Rev 8 validated a source against the circuit ranges only. So on a device presenting fewer than 32 capture channels, `--monitor-src trunk/8` started, echoed `trunk/8` and fed silence. A loudspeaker fed silence while the echo names a live line looks like a line with nobody on it, and nothing says otherwise. Now `--monitor-src` naming a channel beyond the capture count the device reports refuses to start, as `--monitor-ch` does for a bad playback channel. A `monitor/source/set` naming one is logged and dropped with no echo, like any invalid payload. On this system a capture count below 32 is itself a fault, and one the detector would suffer too (§16, capture channel count). Code consequence: the check at startup and on the command.
-
-## 1.10 Changes in Rev 10
-
-— The operator tap plays files (§7), following game_control.md Rev 25, 2026-09-30: `sbgame/audio/tap/play/set` and its echo `sbgame/audio/tap/play`, as a circuit's `play/set` and `play` (mqtt.md Rev 23). It is for the game program's diagnostics, which play speech into the operator's headset to check the tap's output path. The file sums over the operator tone, which is never displaced (§5.2), so the tap stays detectable while it plays; the tap has no trunk tones. Nothing else about the tap changes: its receive side, the optone check and the monitor source are as they were.
-
-— Code consequence, made the same day: the mixer sums a file on channel 23; the MQTT thread subscribes to the tap's `play/set`, handles it as a circuit's, and publishes `audio/tap/play` at start, on stop and on shutdown as it does a circuit's `play`. `ctest` covers the mix and the topic.
-
-## 1.11 Changes in Rev 11
-
-— The monitor plays a file (§10.4), following game_control.md Rev 29, 2026-10-08: `sbgame/audio/monitor/play/set` and its echo `sbgame/audio/monitor/play`, as a circuit's `play/set` and `play` (mqtt.md Rev 27). It is the tutor's voice in tutor mode, heard on the loudspeaker. The file is summed into the monitor chain after the source's filter, through a second copy of the same low-pass, then takes the monitor's gain and limiter: the loudspeaker is in the room with the operator's microphone, so the file is held out of the pilot band exactly as the source is, and the monitor's one level sets both. A new option, `--monitor-file-trim`, sets the file's level against the source's. Nothing else about the monitor changes.
-
-— Code consequence, made the same day: the file is slot 24's program source; `process_capture()` sums it into the chain and stops it at its end; the MQTT thread subscribes to the monitor's `play/set`, handles it as a circuit's, and publishes `audio/monitor/play` at start, on stop, on the game's loss and on shutdown; `ctest` covers the mix, the echo and the mute.
-
-## 1.12 Changes in Rev 12
-
-— An output self-check (§11.4), 2026-10-14. On the bench that afternoon, with only the audience monitor connected to the A32 and the test tone on 24, the A32's output meters showed channels 9, 17 and 25 steady near 0dBFS and, every 4–5s, a burst of about 1.5s taking nearly every output close to full scale; the detector heard the bursts on capture from 15:07:25 to 15:24:44. Nothing had been commanded, the log showed no xrun, clip or limiter count, and the A32's routing and clock were correct (ADAT 1–32 to analog 1–32, slaved to ADAT port 1, all four ports locked at 48kHz). Stopping `sbaudio` cleared the meters; `tone_out` driving the same channels at the same levels was clean; and `sbaudio` restarted, by hand at periods of 1024 and 256 and then under its service with the test tone on 24, was clean for the next half hour. So the process that had run since 07:32 got into a state that a restart cleared, and nothing says whether the bad samples were in its playback buffer or were corrupted after it. The check answers that the next time: it compares what the program is about to write with what each channel should carry. If it logs the channels the meter shows, the fault is in the program; if it stays silent while the meter misbehaves, it is after the program — ALSA, USB or the Digiface.
-
-— Code consequence, made the same day: `render()` records each channel's ceiling, and a scan of the playback buffer before each write counts the periods that exceed it per channel; the MQTT thread logs them with the counters (§11.2). `ctest` covers a clean render and a corrupted one.
-
-## 1.13 Changes in Rev 13
-
-— The detector's peer window, `--peer-window-db`, following station Rev 3.46 §8.7: a comb pilot counts only if it is within that many dB of the circuit's own pilot as well as `MARGIN_DB` above its floor. On the bench, 2026-10-15, the trunk board's strip-to-strip crosstalk, 72dB under each trunk's own pilot, sat 20–39dB above the floor and made every idle trunk `ambiguous`; a station cabled straight to a trunk arrived 3dB under the own pilot. 40dB is the starting value. A peer through the switchboard will arrive lower than through a cable, so §15 step 6 sets the window with the margin.
-
-— Code consequence, made the same day: the option, the test in the detector, and the startup log line reports both values. `ctest` has an idle trunk with that crosstalk, which reads idle, and a connected one, which reads its peer.
-
-## 1.14 Changes in Rev 14
-
-— `--op-window-db`, 20 by default, following station Rev 3.47: the operator tone counts only within that many dB of the circuit's own pilot. The tap's 9kHz leaks into other channels, 46dB under the own pilot on station 22, enough above the floor to light `op` on nine circuits with nothing bridged (2026-10-15). §15 step 6 now measures the operator tone on a bridged circuit as well.
-
-— Code consequence, made the same day: the test in the detector. `ctest` has the leak on an idle trunk, which reads `op` off.
-
-## 1.15 Changes in Rev 15
-
-— Following station Rev 3.48: `--peer-window-db` and `--op-window-db` compare absolute bin levels, not each bin's level above its own floor, and `--peer-window-db` defaults to 25, down from 40. With the trunks on the switchboard, floors 15–30dB apart made trunk crosstalk 44dB under the own pilot read 12dB under it, and false trunk-to-trunk peers were published (2026-10-16).
-
-— Code consequence, made the same day: the change in the detector, and the `ambiguous` log gives each pilot's level against the own pilot in brackets after its level above the floor, which is what the window reads. `ctest` has an idle trunk whose own bin's floor is raised 40dB, which reads idle.
-
-## 1.16 Changes in Rev 16
-
-— The monitor limiter's threshold is a setting, `--monitor-limit`, −60 to −3dBFS, −3 by default as before (§10.1). Found on the switchboard, 2026-10-16: moving a cord pair's switch clicks loudly on the loudspeaker. The switch makes and breaks the line the monitor follows, and the click reaches the output far above speech, where a limiter at −3dBFS never touches it. Set just above the loudest speech, the limiter holds the click to that level. The installation sets −30dBFS: with the monitor at −12dB and the tutor's files at −18, speech peaks about −33dBFS at the output. A click suppressor that mutes the monitor for a few tens of milliseconds on a jump no speech makes is the next step if the clicks at speech level still bother; it is not done.
-
-— Code consequence, made the same day: the option, and the limiter releases before it attacks, so the sample that sets its gain is never let back above the threshold. In the old order it overshot by a little — nothing at −3dBFS, about 0.6% at −30. `ctest` has a click at −1dBFS held to −30, and speech below it untouched.
-
-## 1.17 Changes in Rev 17
-
-— The line-disturbance gate (§10.5), 2026-10-16: the switch clicks were still heard at speech level under Rev 16's limiter, and ringing a station rumbled on the loudspeaker. A recording of the switchboard showed both as energy below 100Hz far above anything speech carries, so the source is muted while that lasts, plus a quarter second, behind a 10ms delay that lets it shut before the onset. This is the click suppressor Rev 16 kept in reserve, keyed on the low band rather than on a jump in level. `--monitor-gate` and `--monitor-gate-hold`; the counters line gains `gate`.
-
-— Code consequence, made the same day: `Engine::gate_step()`, the options, and the counter. `ctest` has speech passing, ringing shutting it, the hold, and the reopening.
-
-## 1.18 Changes in Rev 18
-
-— The speech detector's low-pass is sixth-order, and the installation's `--vad-floor` is −70dBFS (§9.2). Found on the switchboard, 2026-10-16: the detector heard the operator only when she spoke loudly. Bridged onto station 13 and counting one to ten at a normal level, she was not heard in a 30s listen. A recording of the line put her voice at −55 to −65dBFS in the detector's band, peaks −47, against a threshold of −50, the absolute bound, which no word cleared for the 200ms of 300 a start needs. Lowering the bound alone does not do: through one low-pass section the station's own pilot, measured at −58.4dBFS on the line, arrives at −71.5 and sets the floor, so floor + 10dB is −61, still above most of her voice. With three sections the pilot is at −97, under the line's own noise near −91, and with the bound at −70 the recording declares speech one second into the count, with no frame above −70 in the quiet before it. Her voice is about 30dB below the authored speech on the line; a stronger transmitter would give more margin, and the electret headset (kicad/electret) is the way to it.
-
-— Code consequence, made the same day: `butter_lowpass6()` in `dsp.cpp`, the detector's three sections, and the tests. `sbaudio.service` gains `--vad-floor -70`.
-
-## 1.32 Changes in Rev 32
-
-— A steady level is noise, not speech, and becomes the floor at once (§9.2), 2026-10-27. Played on the switchboard at 18:03, `times-pike`: the operator, her key already in, plugged the front cord into trunk 1, and the game listened for her 0.14s after the seizure. The floor came from the second before, the unseized trunk; `speech` was reported 0.3s in and `silence` never came, so the caller waited until she gave up and the call failed `cut off`. A raw capture of trunk 1 the same evening, in the detector's band: −107.7dBFS unseized, −69.2 seized and silent, steady to ±0.3dB, broadband and centred near 1.5kHz — the line's own noise once loop current flows — and her "Number, please" peaking −24 to −28. The installation's bar of −70 sat under the seized line. A listen started a second or more after a seizure takes the seized noise as its floor, which is why answers had worked. Two rules are added: 50 frames, 0.5s, of history that all lie within 3dB of each other, their highest more than 3dB above the floor, make that highest the floor at once, and the window starts again; and speech cannot be declared while the 30 frames of the window are that steady. Both apply only to a level at or below −55dBFS: a word varies by 10dB frame to frame, but a held vowel can be steady for half a second, and it is 40dB above the seized line's noise and 30dB above the bar, so a steady level that loud is a talker. Replayed through the detector, the capture with a listen started anywhere from 13.90s, the end of the plug's two contact clicks, reports no speech until her words and their end 1.3s later; started before or during the clicks, which the seizure's 100ms (control.md §8.1) and the game's reaction make unlikely, it reports a short false speech.
-
-— Code consequence, made the same day: `Listener::steady()` and the two rules in `vad.cpp`; `ctest` has the capture's levels, with her words both later and at once, and a held vowel at −30dBFS, at once and mid-sentence. The game program's 1.5s wait after a seizure, tried first, is not adopted: it would miss her if she spoke as she plugged in.
-
-## 1.31 Changes in Rev 31
-
-— A plug's click is not ring (§9.5), 2026-10-26. In play the same afternoon, plugging the rear cord into the called room's jack set `station/1/ringing` on the caller for 300ms (two blocks, the least that passed), and the game told the player she had rung the caller. Ring is nearly free of even harmonics, a click is not: each block's 40Hz amplitude must now be 20dB below its 20Hz as well, and three blocks in a row are needed, not two. In the Rev 30 capture the ring's 20Hz stood a median 53dB above its 40Hz, and 88 of its 94 blocks pass both tests; the six that do not are the edges of the three rings.
-
-— Code consequence: a second Goertzel at 40Hz in `ring_step()`; `RING_ON_BLOCKS` 3; the click in `ctest`.
-
-## 1.30 Changes in Rev 30
-
-— Ring heard on an off-hook station (new §9.5, §12, §13.1), Mark's request, 2026-10-26: `sbgame/station/<n>/ringing`, `"on"` or `"off"` (mqtt.md Rev 46). The station board's ring detector does not see ring on a station held off-hook: the board's loop load pulls the line from 80V to 17V AC on the front desk (Mark's meter), below the detector's turn-on, and `station/1/ring` stayed off through three rings. The ring reaches the station's capture channel through Tx01 all the same: in a raw capture of station 1 the same afternoon, 20Hz at −25.4dBFS during each ring against −85 to −123dBFS without one, its third harmonic at −38dBFS. The game program needs it to tell the player she has rung the caller (game_control.md §6.7, Rev 89).
-
-— Code consequence: a 20Hz Goertzel per station in `process_capture()`; `Topic::Ringing`; the `"off"` publish at start and at shutdown; `ctest`.
-
-## 1.29 Changes in Rev 29
-
-— The peer boost can be fixed by the game (§10.8, §12), 2026-10-25: `sbgame/audio/monitor/peer/set`, `"auto"` or a boost in dB, echoed on `sbgame/audio/monitor/peer` (mqtt.md Rev 45). On a free call the caller is live and nothing plays on the caller's line, so the own path is never measured and the boost would sit at `--monitor-peer-start`, which the installation sets for game calls. The game program knows which kind of call it is and sends the figure for a free call (game_control.md Rev 86). The program starts in `auto`, and returns to it with the source when it loses the game program (§13.2).
-
-— Code consequence: `Verb::MonitorPeer` and `Topic::MonitorPeer`; the subscription, its check and its echo; the fixed boost in `peer_boost_begin()` and `peer_boost_end()`; `fixed` in the log line; `ctest`.
-
-## 1.28 Changes in Rev 28
-
-— The peer boost (§10.8), Mark's request, 2026-10-24: on the loudspeaker the called party is usually much quieter than the caller. The monitor follows the caller's line, where the caller's file returns at full strength and the called party's arrives only through the cord. While a file plays on the line the source is patched to, and none on the source, the source is now raised by the difference between the two paths, measured in the call: each file's energy as sent against what it brings to the monitor. A measurement, not an AGC, so the gaps, the hiss and the clicks are not raised. Up to `--monitor-peer-max`; `--monitor-peer-start` until both paths are measured. Measured the same evening from a loudspeaker recording, line by line within about 1dB: station to station (2 ↔ 21) the own path +4.3dB and the peer path −11.5dB, 15.8dB apart; station to long distance (16 ↔ trunk 1) +3.2dB and −5.6dB, 8.7dB apart. The program's defaults are 15dB and 6dB; the installation sets 20dB and 12dB, between the two kinds of call.
-
-— Code consequence: `Shared::heard_peer`, written by the detector each hop; the boost in `process_capture()`, the file energies in `render()`; the two options; the log line; `ctest`.
-
-## 1.27 Changes in Rev 27
-
-— The installation's line-disturbance gate threshold goes from −70dBFS to −60 (§10.5), 2026-10-24. Mark heard a caller cut in and out on the loudspeaker in play (crane-stoneburner, station 22 as the monitor source, headset not keyed): the gate shut 1, 3 and 4 times in the call's three 10s windows with no xrun, no lost period and no cord moving, the 2026-10-19 symptom on the V16 salesman again. The live test of 2026-10-19 was never run; −60 is a step back toward Rev 17's figure, not a measurement. It lets about 10dB more LF through before the gate shuts, so a switch flip or a ring may now be heard faintly on the loudspeaker; if it is, the threshold is between the two and wants the recording.
-
-— Code consequence: none in the program; `sbaudio.service` sets `--monitor-gate -60`.
-
-## 1.26 Changes in Rev 26
-
-— An echo canceller on every circuit while it plays a file (§9.4), so a listen hears a caller who talks over the file instead of discarding those frames (§9.3). Asked for 2026-10-24 for free calls (game_control.md Rev 79), where Mark's "What power?" over the end of Thornhill's line went unheard. Measured first with `--record-line` (Rev 25) on station 21, the real phone at the far end: the file returns 12–15 dB down, 11.7ms late, its echo over within 26ms; a fixed filter takes 36–40dB off it. Trunks are not measured: their pilot returns only 5dB down, and the public line's audio from outside does not work yet. The canceller needs no measurement to be safe on them — until it has converged it changes nothing.
-
-— Regular play is unchanged. The game listens there only after a line has ended, and nothing a canceller does reaches a listen that starts after the file: its frames are kept out of the history the floor comes from, and a listen clears its window when it starts.
-
-— Code consequence, made the same day: `aec.h` and `aec.cpp`; `Engine::aec_feed()` in the render and the canceller's step in `process_capture()`; `Listener::frame()` gains `keep` and `min_db`; `--aec` and `--aec-delay`; `test_aec()`; `aec_check`, the canceller over a recording, for the bench.
-
-## 1.25 Changes in Rev 25
-
-— `--record-line SLOT[,SLOT...]`, a bench option (§10.6, §14): with every loudspeaker recording, the program also writes up to eight slots' output and capture, raw, to `<name>.line<SLOT>[-<SLOT>...].wav` beside it. It is for measuring how the circuit's own playback returns on its receive — the echo that §9.3 discards — to decide whether a software echo canceller can let the speech detector hear a caller who talks over a file (game_control.md Rev 78, 2026-10-24). Not set in service; added to the unit for a bench session and taken out after.
-
-— Code consequence, made the same day: `Engine::record_line()` after the render, `Shared::line_ring`, the second file in the Recorder.
-
-## 1.24 Changes in Rev 24
-
-— Slot 24 is a circuit again: station 24, a real telephone on station board 3 strip 8 (§2), following real_phone.md Rev 2 (adopted 2026-10-23), control.md Rev 33 and mqtt.md Rev 44. Strip 8 now has its relay, Cx01 and Tx01 fitted, so A32 channel 24 is a line interface in both directions like stations 1–22: its pilot, bin 696, is generated, its capture is a detector input, and it takes `play`, `listen`, `peer`, `op`, the monitor source and the test tone as any station does. Measured on the bench the same day, with the phone corded to station 22: 1kHz crossing in 9.3dB each way, reciprocal.
-
-— The monitor leaves A32 output 24 for the Digiface's own analog output, channels 33 and 34, the fallback of Rev 7 (§10.1). The default `--monitor-ch` is now `33,34`, and only 33 and 34 are accepted; 24 is a circuit and is refused like any other. The service already ran with `--monitor-ch 33`. The level is the Digiface's fixed +9.5dBu full scale; real_phone.md §4 has the cable.
-
-— Code consequence, for Claude Code: `channels.h` (slot 24 a station; `can_carry_monitor()` 33 and 34 only); the monitor's file kept in `prog_[0]`, the element no slot uses, where it was in `prog_[24]`; station numbers 1–22 and 24 wherever a station topic is validated; the tests.
-
-## 1.23 Changes in Rev 23
-
-— The installation's speech hangover is 0.5s, not the default 1.5s (§9.2), Mark's request, 2026-10-19: the pause between the operator's last word and the caller's line was too long, long enough to wonder whether the game had heard her. The caller's line starts on `"silence"`, which comes about 0.3s after her last loud frame, for the 30-frame window to clear, plus the hangover: about 1.8s at 1.5s, about 0.8s at 0.5s. The cost is that a pause of more than 0.5s inside what she says ends it there, and the caller speaks over the rest; Mark judges that the lesser fault.
-
-— Code consequence, made the same day: `sbaudio.service` sets `--vad-hangover 0.5`. The default is unchanged.
-
-## 1.22 Changes in Rev 22
-
-— The loudspeaker feed can be recorded (§10.6), Mark's request, 2026-10-18: a WAV of what is sent to the audience loudspeaker, named for the local date and time it started, `2026-10-18-14-32-05.wav`, converted to an MP3 beside it when it stops; both are kept. `audio/record/set` `"on"` or `"off"`, echoed on `audio/record` with the file's name, `"off"` or `"failed"` (mqtt.md Rev 36). The game program sends it from the page's Tools (game_control.md Rev 61, §7.7).
-
-— And played back (§10.7): `audio/playback/set` with a recording's name plays it on the loudspeaker in place of the monitor, at the level it was recorded, streamed from the file through a second ring, MQTT thread → audio thread, since an hour's recording is 690MB as floats. `audio/recordings` lists the ten newest with their lengths, for the page to choose from.
-
-— The audio thread touches no file for it (§3): while a recording runs it appends each period's monitor row to a 2^20-sample ring, 21.8s, and the MQTT thread empties the ring into the file on every pass of its 20ms loop. A full ring loses the period and counts it in the log. The MQTT thread already does file I/O, loading files to play (§7.2), so it gains no new kind of work. A recording is not game state: it continues through game and broker loss (§13.2), and stops at `--record-max`, four hours, so a forgotten one does not fill the disk.
-
-— Code consequence, made the same day: `rec.h` and `rec.cpp`, the ring and the Recorder; `Shared::rec_ring` and `rec_on`; the hand-over at the end of `process_capture()`; `handle_record()` and `publish_record()` in `net.cpp`; the Player, `Shared::play_ring` and `play_on`, the playback in place of the monitor row, `handle_playback()`, `publish_playback()` and `publish_recordings()`; `--record-dir` and `--record-max`; `test_recording()`. `sbaudio.service` gains `--record-dir /srv/sbgame/recordings`, which `make -C host sbgame-data` makes, owned by `sidell`. The MP3 needs `lame` on the host (`apt install lame`); without it the WAV is kept and the log says why.
-
-## 1.21 Changes in Rev 21
-
-— Ringback is the city ring of a real 803C tone alternator, measured from a recording, in place of a 420Hz carrier amplitude-modulated by 40Hz (§8.2). Mark's request, 2026-10-17, after comparing the two: ours had exactly three lines, 380, 420 and 460Hz, and none of the machine's character. The recording, of the Atlanta "755" step-by-step office (atlantatelephonehistory.org, `atlanta:ringing`, `1060-A-1333-755R.wav`; Mark's choice of the samples there), measured: every component a whole multiple of the ringing frequency, 19.744Hz — the machine ran 1.3% slow, and its cadence with it, 1.95s in 6.08s; almost no energy at the nominal 420Hz; the strongest lines at 420 ± 20, ± 60 and ± 100Hz, which is 420Hz multiplied by the 20Hz ringing current, and the 40Hz beat of that; a group near 1240Hz, three times 420, 18dB down; and a comb of low harmonics, 100–320Hz, 17–30dB down. The other two city rings measured, Tucker "938" and "577", have the same lines with the lower sideband strongest. A least-squares fit of the 755 recording to the harmonics of 19.744Hz, kept within 40dB of the strongest — 48 of them, all below 1.4kHz — is set on 20Hz exactly, so 420Hz nominal and the cadence 2s in 6s as before, and one period is 2400 samples. The hiss and the mercury interrupters' "shhh" of the recording, about 20dB under the ring in the silent interval, are not reproduced.
-
-— Code consequence, made the same day: `audio/src/cityring.h`, the 48 partials; the table built once in `prepare()` and played a sample at a time for ringback in `engine.cpp`; `test_trunk_tones()` in the tests, which checks reorder's cadence too. `tts/cue` reads the same partials for the loudspeaker's ring cue (game_control.md §6.6), so the trunks and the loudspeaker sound alike. `--tone-mod` now sets dial, busy and reorder only. No MQTT change.
-
-## 1.20 Changes in Rev 20
-
-— Reorder, the fast busy, added to the trunk tones (§8.1, §8.2), following game_control.md Rev 56, 2026-10-17: the game plays it on a trunk when the operator dials a number with too many digits or too few. The busy waveform interrupted at 120 IPM, 0.25s on and 0.25s off, which is how the period offices made it, from the same source as busy. `"reorder"` on `tone/set` (mqtt.md Rev 35).
-
-— Code consequence, made the same day: `ToneKind::Reorder`, its row in `TONES[]` and `TONE_NAME[]` in `engine.cpp`, and its name in `net.cpp`.
-
-## 1.19 Changes in Rev 19
-
-— The line-disturbance gate listens below 50Hz, not 100Hz, and the installation's threshold is −70dBFS, not −60 (§10.5). In play on the switchboard, 2026-10-16, the gate shut four and seven times in ten seconds in the middle of a conversation, with nobody at the board. A man's voice has its fundamental near 100–130Hz: the authored lines carry up to −42.5dBFS below 100Hz, which reaches a line at about −60, the threshold, and the gate was cutting words out of the loudspeaker. Below 50Hz the loudest line reaches it at −84 and the operator's own voice at −99, while ringing and switch thumps are still at −15 to −45; at −70 the recording of the switchboard is gated exactly as before.
-
-— Code consequence, made the same day: `GATE_LP_HZ`, and `sbaudio.service` sets `--monitor-gate -70`.
 
 # 2. Channel Plan
 
@@ -406,7 +162,7 @@ These are the Bell System tones of the period the 551 belongs to, before the pre
 
 Busy is the dial-tone waveform interrupted at 60 IPM, which is how the period offices made it — one tone source, one interrupter — and a listener tells the two apart by the cadence alone. That is faithful and it is also the reason to keep the busy cadence exact: a dial tone with a dropout could be mistaken for it. A scenario switches a trunk from ringback to busy, or from dial to busy after the operator dials a busy number, with one `tone/set`; the change takes effect at the next period and the new cadence starts from its on phase.
 
-**Ringback** (Rev 21) is one 2400-sample period of the city ring, built at startup from the partials in `audio/src/cityring.h` — each a harmonic of 20Hz with its amplitude and phase, measured from a recording of the Atlanta 755 office's 803C machine (§1.21) — set to a peak of 1 and played a sample at a time, so it costs less than the two sines it replaced. Every component is below 1.4kHz, clear of the comb. At the same peak as the other tones its RMS is 2.7dB higher.
+**Ringback** (Rev 21) is one 2400-sample period of the city ring, built at startup from the partials in `audio/src/cityring.h` — each a harmonic of 20Hz with its amplitude and phase, measured from a recording of the Atlanta 755 office's 803C machine (§17.21) — set to a peak of 1 and played a sample at a time, so it costs less than the two sines it replaced. Every component is below 1.4kHz, clear of the comb. At the same peak as the other tones its RMS is 2.7dB higher.
 
 Each other tone is a carrier sine multiplied by `(1 + m × sin(2π f_mod t))`, so the spectrum is the carrier plus one sideband either side at ± f_mod — 480, 600 and 720Hz for dial, busy and reorder (Rev 21: ringback was 380, 420 and 460Hz) — all inside the switchboard's passband and all well clear of the comb. Modulation depth m is an option, 1.0 by default; the period tones were made by beating two sources through a nonlinear element and the exact depth varied by office, so set it by ear against a recording if one is to hand. The generator is two phase-accumulator sines per tone, not the 4096-table, because these frequencies are not an integer number of cycles per 4096 samples and do not need to be — they are program audio, not pilots. Their harmonics are not a concern for the detector: a digitally generated sine has none, and the transformer's distortion at −20dBFS is far below the −60dBFS content rule.
 
@@ -431,7 +187,7 @@ Each other tone is a carrier sine multiplied by `(1 + m × sin(2π f_mod t))`, s
   ""            cancelled, or never issued. Empty is the cleared state.
 ```
 
-The final value — `"silence"` or `"timeout"` — persists until the next `listen/set` on that channel; a cancel clears it to empty. The game watches the transitions: out of `"listening"` for the start of speech, out of `"speech"` for the end. A game that finds `"timeout"` and needs to know which kind reads the value it replaced; one that was restarted mid-listen has lost the listen either way and reissues it. The payload's seconds bound only the wait for speech to start. The silence hangover and the maximum speech time are options, not payload (§14, §1.6).
+The final value — `"silence"` or `"timeout"` — persists until the next `listen/set` on that channel; a cancel clears it to empty. The game watches the transitions: out of `"listening"` for the start of speech, out of `"speech"` for the end. A game that finds `"timeout"` and needs to know which kind reads the value it replaced; one that was restarted mid-listen has lost the listen either way and reissues it. The payload's seconds bound only the wait for speech to start. The silence hangover and the maximum speech time are options, not payload (§14, §17.6).
 
 ## 9.2 Detector
 
@@ -485,7 +241,7 @@ The source's capture channel — 23, the tap, unless `monitor/source/set` has na
 
 Channels 33 and 34 are the Digiface's own analog output, a 6.3mm TRS jack, 33 on the tip and 34 on the ring, full scale +9.5dBu, fixed (real_phone.md §4). The amplifier takes 33 through a TS-to-XLR cable. From Rev 7 to Rev 23 the monitor was on A32 output 24, which is station 24 from Rev 24. Only 33 and 34 are accepted; a circuit or tap channel is refused at startup.
 
-The filter coefficients are computed at startup from the passband edge, stopband edge and attenuation, which are options, so that a different passband edge (§1.1) is a command-line change and not a code change. The coefficients are computed with a standard elliptic design; a unit test compares the realised stopband at 6000Hz against the requirement, because the lowest pilot sits exactly there and 70dB is what keeps it out of the loudspeaker.
+The filter coefficients are computed at startup from the passband edge, stopband edge and attenuation, which are options, so that a different passband edge (§17.1) is a command-line change and not a code change. The coefficients are computed with a standard elliptic design; a unit test compares the realised stopband at 6000Hz against the requirement, because the lowest pilot sits exactly there and 70dB is what keeps it out of the loudspeaker.
 
 Limiter: peak, threshold −3dBFS unless `--monitor-limit` sets it lower (Rev 16), instant attack, 100ms release. It is there so that setting the monitor level by ear with the operator on the headset cannot produce a clipped burst from a ring-trip transient or a shouted line, and its release is fast enough that it is not audible as pumping on speech.
 
@@ -505,7 +261,7 @@ What a circuit channel carries. Its own transmit returns on it at full strength,
 
 Switching, in the audio thread. A new source ramps the monitor gain down to silence over 20ms, the same ramp §10.2 uses. At the bottom of the ramp the input changes to the new channel, and the gain ramps back up over 20ms to the commanded gain, with `--monitor-tap-trim` applied or removed as the new source requires. The filter state is carried across the switch rather than cleared: the step from one input to the other happens at zero gain and has rung out by the time the ramp-up is audible. The echo is posted at the bottom of the ramp, when the input changes. A second `source/set` during a ramp takes over from wherever the ramp is. A `source/set` naming the source already in use is echoed and does nothing else. While the monitor is `"off"` the input changes at once, with no ramp, and is echoed.
 
-The tap trim. `--monitor-tap-trim`, in dB, is added to the gain only while the source is the tap. The tap arrives about 15dB below the operator's line (station §7.9.3); a circuit channel sees its line through T2 alone. The trim is set once on the bench so that the operator's voice sounds the same on either source at one monitor gain (§15 step 7), and `monitor/set` then stays one number. It is not echoed on `monitor`, which carries the commanded gain. Its range is −30 to +30dB; outside that the program refuses to start. The sum of the commanded gain and the trim is not clamped to `monitor/set`'s range. The limiter protects the output (Rev 9, §1.9).
+The tap trim. `--monitor-tap-trim`, in dB, is added to the gain only while the source is the tap. The tap arrives about 15dB below the operator's line (station §7.9.3); a circuit channel sees its line through T2 alone. The trim is set once on the bench so that the operator's voice sounds the same on either source at one monitor gain (§15 step 7), and `monitor/set` then stays one number. It is not echoed on `monitor`, which carries the commanded gain. Its range is −30 to +30dB; outside that the program refuses to start. The sum of the commanded gain and the trim is not clamped to `monitor/set`'s range. The limiter protects the output (Rev 9, §17.9).
 
 The game program chooses the source. This program does not know about calls, and falls back to the tap only when it loses the game or the broker (§13.2).
 
@@ -529,7 +285,7 @@ The file and the source are summed in float before the limiter, which protects t
 
 ## 10.5 The Line-Disturbance Gate
 
-Rev 17. A switch moved on the line the monitor follows, or ringing on or near it, reaches the loudspeaker as a click or a rumble far louder than speech. Both carry most of their energy below 50Hz — a step in the line's DC current, ringing at 20Hz — where speech has next to none. So the gate watches the source's raw capture, before the chain's high-pass, through a 50Hz low-pass (a second-order Butterworth, run twice; 100Hz at Rev 17, §1.19), and while that signal's peak exceeds `--monitor-gate`, and for `--monitor-gate-hold` after (0.25s), it shuts the source: down in 1ms, back up over 20ms. The filtered source passes through a 10ms delay ahead of the gate, so the gate is shut before a click's onset reaches the output. The delay is there whether or not the gate is on, so the chain's latency does not depend on a setting, and 10ms is well inside what §10.1's acoustic loop tolerates.
+Rev 17. A switch moved on the line the monitor follows, or ringing on or near it, reaches the loudspeaker as a click or a rumble far louder than speech. Both carry most of their energy below 50Hz — a step in the line's DC current, ringing at 20Hz — where speech has next to none. So the gate watches the source's raw capture, before the chain's high-pass, through a 50Hz low-pass (a second-order Butterworth, run twice; 100Hz at Rev 17, §17.19), and while that signal's peak exceeds `--monitor-gate`, and for `--monitor-gate-hold` after (0.25s), it shuts the source: down in 1ms, back up over 20ms. The filtered source passes through a 10ms delay ahead of the gate, so the gate is shut before a click's onset reaches the output. The delay is there whether or not the gate is on, so the chain's latency does not depend on a setting, and 10ms is well inside what §10.1's acoustic loop tolerates.
 
 Only the source is gated. A file on the monitor (§10.4) is summed in after the gate and plays on through it: the tutor is not cut off because a phone is ringing. The log's counters line reports how many times the gate shut in each ten seconds, `gate N`, so a threshold low enough to catch the operator's own voice shows up there.
 
@@ -721,7 +477,7 @@ In order, with the switchboard connected:
 3. Test tone on each channel in turn, meter at the board's D-Sub, then at the switchboard jack. This is the wiring check for all 32 A32 channels and the two Digiface outputs, and the level reference for everything after. For channel 24 the meter goes at the amplifier end of the monitor cable (station §7.9.8).
 4. Set the trunk tone level by measuring at the switchboard's trunk jack with dial tone on.
 5. Set the operator tone level per station §7.9.5, and confirm the operator cannot hear it.
-6. Set `MARGIN_DB`, `PEER_WINDOW_DB` and `OP_WINDOW_DB` per station §8.7, against a real cord-pair connection, and confirm no `ambiguous` with every cord patched. For the windows, run the program by hand for a few seconds with `--peer-window-db 200 --op-window-db 200`, so that everything above the floor is heard and every circuit hearing more than one pilot logs `ambiguous` with each level against the own pilot in brackets — the figure the window reads (`--dump` gives levels above each bin's floor, which is not it; station §1.27). Do it with the weakest connections patched — station to station and station to trunk, each with the operator bridged on and off. Each window must take the weakest connection with room to spare and stay short of the crosstalk: on the switchboard as cabled, 44dB or more under the own pilot (station §1.27).
+6. Set `MARGIN_DB`, `PEER_WINDOW_DB` and `OP_WINDOW_DB` per station §8.7, against a real cord-pair connection, and confirm no `ambiguous` with every cord patched. For the windows, run the program by hand for a few seconds with `--peer-window-db 200 --op-window-db 200`, so that everything above the floor is heard and every circuit hearing more than one pilot logs `ambiguous` with each level against the own pilot in brackets — the figure the window reads (`--dump` gives levels above each bin's floor, which is not it; station §14.48). Do it with the weakest connections patched — station to station and station to trunk, each with the operator bridged on and off. Each window must take the weakest connection with room to spare and stay short of the crosstalk: on the switchboard as cabled, 44dB or more under the own pilot (station §14.48).
 7. Set the amplifier's input gain with the test tone on channel 33, then set the monitor gain by ear with the operator on the headset and the limiter's activity in the log — it should be silent on ordinary speech. Then set `--monitor-tap-trim`: on a real call with the operator bridged to the calling line, switch `monitor/source/set` between `tap` and that circuit and trim until her voice is the same level on both. On the same call, once it is connected and talking, listen to the balance between the caller and the called party on the circuit source (§16).
 8. Set the speech detector's margin and floor with the operator speaking through a real connection, and confirm it does not trigger on a ring-trip or a relay.
 
@@ -736,3 +492,255 @@ In order, with the switchboard connected:
 - **Listening on the tap channel.** Not offered — the rough specification says station or trunk — but the tap always carries the operator's voice, and "has the operator said anything" may turn out to be a question the game wants to ask. One more accepted topic if so.
 - **The two sides of a call on a circuit source** (Rev 8). A circuit's own transmit returns on its own receive through its own transformer's secondary. The far end crosses two transformers and the cord circuit. The caller will be louder than the called party by an amount nothing measured so far predicts. Measure it at §15 step 7. If the difference is large enough to matter, the fix is a fixed cut applied to the monitor while the source channel has an active program source, which this program already knows for §9.3's exclusion: one more option, `--monitor-own-duck DB`, default 0. It would also cut the far end during any overlap, which scripted content rarely has. Not added until the bench asks for it.
 - **Reorder tone.** Not asked for and not added. If a scenario ever needs "the number you have dialled is not in service" as a tone rather than a recording, the period version is the busy waveform at 120 IPM — 0.25s on, 0.25s off — and is one more row here.
+
+# 17. Revision History
+
+## 17.33 Changes in Rev 33
+
+— The document made readable, Mark's request, 2026-10-30, as `game_control.md` Rev 95. The line under the title had grown into a list of topics and now gives only the revision. The changes in each revision move out of the Overview to this section at the end of the document, newest first, where Rev 19 to Rev 32 had been in descending order after Rev 18. The text of each entry is unchanged except for references to the renumbered sections, and wording that said an entry was "above". A new revision is added at the top of this section, and the line under the title changes only its number.
+
+— No code consequence.
+
+## 17.32 Changes in Rev 32
+
+— A steady level is noise, not speech, and becomes the floor at once (§9.2), 2026-10-27. Played on the switchboard at 18:03, `times-pike`: the operator, her key already in, plugged the front cord into trunk 1, and the game listened for her 0.14s after the seizure. The floor came from the second before, the unseized trunk; `speech` was reported 0.3s in and `silence` never came, so the caller waited until she gave up and the call failed `cut off`. A raw capture of trunk 1 the same evening, in the detector's band: −107.7dBFS unseized, −69.2 seized and silent, steady to ±0.3dB, broadband and centred near 1.5kHz — the line's own noise once loop current flows — and her "Number, please" peaking −24 to −28. The installation's bar of −70 sat under the seized line. A listen started a second or more after a seizure takes the seized noise as its floor, which is why answers had worked. Two rules are added: 50 frames, 0.5s, of history that all lie within 3dB of each other, their highest more than 3dB above the floor, make that highest the floor at once, and the window starts again; and speech cannot be declared while the 30 frames of the window are that steady. Both apply only to a level at or below −55dBFS: a word varies by 10dB frame to frame, but a held vowel can be steady for half a second, and it is 40dB above the seized line's noise and 30dB above the bar, so a steady level that loud is a talker. Replayed through the detector, the capture with a listen started anywhere from 13.90s, the end of the plug's two contact clicks, reports no speech until her words and their end 1.3s later; started before or during the clicks, which the seizure's 100ms (control.md §8.1) and the game's reaction make unlikely, it reports a short false speech.
+
+— Code consequence, made the same day: `Listener::steady()` and the two rules in `vad.cpp`; `ctest` has the capture's levels, with her words both later and at once, and a held vowel at −30dBFS, at once and mid-sentence. The game program's 1.5s wait after a seizure, tried first, is not adopted: it would miss her if she spoke as she plugged in.
+
+## 17.31 Changes in Rev 31
+
+— A plug's click is not ring (§9.5), 2026-10-26. In play the same afternoon, plugging the rear cord into the called room's jack set `station/1/ringing` on the caller for 300ms (two blocks, the least that passed), and the game told the player she had rung the caller. Ring is nearly free of even harmonics, a click is not: each block's 40Hz amplitude must now be 20dB below its 20Hz as well, and three blocks in a row are needed, not two. In the Rev 30 capture the ring's 20Hz stood a median 53dB above its 40Hz, and 88 of its 94 blocks pass both tests; the six that do not are the edges of the three rings.
+
+— Code consequence: a second Goertzel at 40Hz in `ring_step()`; `RING_ON_BLOCKS` 3; the click in `ctest`.
+
+## 17.30 Changes in Rev 30
+
+— Ring heard on an off-hook station (new §9.5, §12, §13.1), Mark's request, 2026-10-26: `sbgame/station/<n>/ringing`, `"on"` or `"off"` (mqtt.md Rev 46). The station board's ring detector does not see ring on a station held off-hook: the board's loop load pulls the line from 80V to 17V AC on the front desk (Mark's meter), below the detector's turn-on, and `station/1/ring` stayed off through three rings. The ring reaches the station's capture channel through Tx01 all the same: in a raw capture of station 1 the same afternoon, 20Hz at −25.4dBFS during each ring against −85 to −123dBFS without one, its third harmonic at −38dBFS. The game program needs it to tell the player she has rung the caller (game_control.md §6.7, Rev 89).
+
+— Code consequence: a 20Hz Goertzel per station in `process_capture()`; `Topic::Ringing`; the `"off"` publish at start and at shutdown; `ctest`.
+
+## 17.29 Changes in Rev 29
+
+— The peer boost can be fixed by the game (§10.8, §12), 2026-10-25: `sbgame/audio/monitor/peer/set`, `"auto"` or a boost in dB, echoed on `sbgame/audio/monitor/peer` (mqtt.md Rev 45). On a free call the caller is live and nothing plays on the caller's line, so the own path is never measured and the boost would sit at `--monitor-peer-start`, which the installation sets for game calls. The game program knows which kind of call it is and sends the figure for a free call (game_control.md Rev 86). The program starts in `auto`, and returns to it with the source when it loses the game program (§13.2).
+
+— Code consequence: `Verb::MonitorPeer` and `Topic::MonitorPeer`; the subscription, its check and its echo; the fixed boost in `peer_boost_begin()` and `peer_boost_end()`; `fixed` in the log line; `ctest`.
+
+## 17.28 Changes in Rev 28
+
+— The peer boost (§10.8), Mark's request, 2026-10-24: on the loudspeaker the called party is usually much quieter than the caller. The monitor follows the caller's line, where the caller's file returns at full strength and the called party's arrives only through the cord. While a file plays on the line the source is patched to, and none on the source, the source is now raised by the difference between the two paths, measured in the call: each file's energy as sent against what it brings to the monitor. A measurement, not an AGC, so the gaps, the hiss and the clicks are not raised. Up to `--monitor-peer-max`; `--monitor-peer-start` until both paths are measured. Measured the same evening from a loudspeaker recording, line by line within about 1dB: station to station (2 ↔ 21) the own path +4.3dB and the peer path −11.5dB, 15.8dB apart; station to long distance (16 ↔ trunk 1) +3.2dB and −5.6dB, 8.7dB apart. The program's defaults are 15dB and 6dB; the installation sets 20dB and 12dB, between the two kinds of call.
+
+— Code consequence: `Shared::heard_peer`, written by the detector each hop; the boost in `process_capture()`, the file energies in `render()`; the two options; the log line; `ctest`.
+
+## 17.27 Changes in Rev 27
+
+— The installation's line-disturbance gate threshold goes from −70dBFS to −60 (§10.5), 2026-10-24. Mark heard a caller cut in and out on the loudspeaker in play (crane-stoneburner, station 22 as the monitor source, headset not keyed): the gate shut 1, 3 and 4 times in the call's three 10s windows with no xrun, no lost period and no cord moving, the 2026-10-19 symptom on the V16 salesman again. The live test of 2026-10-19 was never run; −60 is a step back toward Rev 17's figure, not a measurement. It lets about 10dB more LF through before the gate shuts, so a switch flip or a ring may now be heard faintly on the loudspeaker; if it is, the threshold is between the two and wants the recording.
+
+— Code consequence: none in the program; `sbaudio.service` sets `--monitor-gate -60`.
+
+## 17.26 Changes in Rev 26
+
+— An echo canceller on every circuit while it plays a file (§9.4), so a listen hears a caller who talks over the file instead of discarding those frames (§9.3). Asked for 2026-10-24 for free calls (game_control.md Rev 79), where Mark's "What power?" over the end of Thornhill's line went unheard. Measured first with `--record-line` (Rev 25) on station 21, the real phone at the far end: the file returns 12–15 dB down, 11.7ms late, its echo over within 26ms; a fixed filter takes 36–40dB off it. Trunks are not measured: their pilot returns only 5dB down, and the public line's audio from outside does not work yet. The canceller needs no measurement to be safe on them — until it has converged it changes nothing.
+
+— Regular play is unchanged. The game listens there only after a line has ended, and nothing a canceller does reaches a listen that starts after the file: its frames are kept out of the history the floor comes from, and a listen clears its window when it starts.
+
+— Code consequence, made the same day: `aec.h` and `aec.cpp`; `Engine::aec_feed()` in the render and the canceller's step in `process_capture()`; `Listener::frame()` gains `keep` and `min_db`; `--aec` and `--aec-delay`; `test_aec()`; `aec_check`, the canceller over a recording, for the bench.
+
+## 17.25 Changes in Rev 25
+
+— `--record-line SLOT[,SLOT...]`, a bench option (§10.6, §14): with every loudspeaker recording, the program also writes up to eight slots' output and capture, raw, to `<name>.line<SLOT>[-<SLOT>...].wav` beside it. It is for measuring how the circuit's own playback returns on its receive — the echo that §9.3 discards — to decide whether a software echo canceller can let the speech detector hear a caller who talks over a file (game_control.md Rev 78, 2026-10-24). Not set in service; added to the unit for a bench session and taken out after.
+
+— Code consequence, made the same day: `Engine::record_line()` after the render, `Shared::line_ring`, the second file in the Recorder.
+
+## 17.24 Changes in Rev 24
+
+— Slot 24 is a circuit again: station 24, a real telephone on station board 3 strip 8 (§2), following real_phone.md Rev 2 (adopted 2026-10-23), control.md Rev 33 and mqtt.md Rev 44. Strip 8 now has its relay, Cx01 and Tx01 fitted, so A32 channel 24 is a line interface in both directions like stations 1–22: its pilot, bin 696, is generated, its capture is a detector input, and it takes `play`, `listen`, `peer`, `op`, the monitor source and the test tone as any station does. Measured on the bench the same day, with the phone corded to station 22: 1kHz crossing in 9.3dB each way, reciprocal.
+
+— The monitor leaves A32 output 24 for the Digiface's own analog output, channels 33 and 34, the fallback of Rev 7 (§10.1). The default `--monitor-ch` is now `33,34`, and only 33 and 34 are accepted; 24 is a circuit and is refused like any other. The service already ran with `--monitor-ch 33`. The level is the Digiface's fixed +9.5dBu full scale; real_phone.md §4 has the cable.
+
+— Code consequence, for Claude Code: `channels.h` (slot 24 a station; `can_carry_monitor()` 33 and 34 only); the monitor's file kept in `prog_[0]`, the element no slot uses, where it was in `prog_[24]`; station numbers 1–22 and 24 wherever a station topic is validated; the tests.
+
+## 17.23 Changes in Rev 23
+
+— The installation's speech hangover is 0.5s, not the default 1.5s (§9.2), Mark's request, 2026-10-19: the pause between the operator's last word and the caller's line was too long, long enough to wonder whether the game had heard her. The caller's line starts on `"silence"`, which comes about 0.3s after her last loud frame, for the 30-frame window to clear, plus the hangover: about 1.8s at 1.5s, about 0.8s at 0.5s. The cost is that a pause of more than 0.5s inside what she says ends it there, and the caller speaks over the rest; Mark judges that the lesser fault.
+
+— Code consequence, made the same day: `sbaudio.service` sets `--vad-hangover 0.5`. The default is unchanged.
+
+## 17.22 Changes in Rev 22
+
+— The loudspeaker feed can be recorded (§10.6), Mark's request, 2026-10-18: a WAV of what is sent to the audience loudspeaker, named for the local date and time it started, `2026-10-18-14-32-05.wav`, converted to an MP3 beside it when it stops; both are kept. `audio/record/set` `"on"` or `"off"`, echoed on `audio/record` with the file's name, `"off"` or `"failed"` (mqtt.md Rev 36). The game program sends it from the page's Tools (game_control.md Rev 61, §7.7).
+
+— And played back (§10.7): `audio/playback/set` with a recording's name plays it on the loudspeaker in place of the monitor, at the level it was recorded, streamed from the file through a second ring, MQTT thread → audio thread, since an hour's recording is 690MB as floats. `audio/recordings` lists the ten newest with their lengths, for the page to choose from.
+
+— The audio thread touches no file for it (§3): while a recording runs it appends each period's monitor row to a 2^20-sample ring, 21.8s, and the MQTT thread empties the ring into the file on every pass of its 20ms loop. A full ring loses the period and counts it in the log. The MQTT thread already does file I/O, loading files to play (§7.2), so it gains no new kind of work. A recording is not game state: it continues through game and broker loss (§13.2), and stops at `--record-max`, four hours, so a forgotten one does not fill the disk.
+
+— Code consequence, made the same day: `rec.h` and `rec.cpp`, the ring and the Recorder; `Shared::rec_ring` and `rec_on`; the hand-over at the end of `process_capture()`; `handle_record()` and `publish_record()` in `net.cpp`; the Player, `Shared::play_ring` and `play_on`, the playback in place of the monitor row, `handle_playback()`, `publish_playback()` and `publish_recordings()`; `--record-dir` and `--record-max`; `test_recording()`. `sbaudio.service` gains `--record-dir /srv/sbgame/recordings`, which `make -C host sbgame-data` makes, owned by `sidell`. The MP3 needs `lame` on the host (`apt install lame`); without it the WAV is kept and the log says why.
+
+## 17.21 Changes in Rev 21
+
+— Ringback is the city ring of a real 803C tone alternator, measured from a recording, in place of a 420Hz carrier amplitude-modulated by 40Hz (§8.2). Mark's request, 2026-10-17, after comparing the two: ours had exactly three lines, 380, 420 and 460Hz, and none of the machine's character. The recording, of the Atlanta "755" step-by-step office (atlantatelephonehistory.org, `atlanta:ringing`, `1060-A-1333-755R.wav`; Mark's choice of the samples there), measured: every component a whole multiple of the ringing frequency, 19.744Hz — the machine ran 1.3% slow, and its cadence with it, 1.95s in 6.08s; almost no energy at the nominal 420Hz; the strongest lines at 420 ± 20, ± 60 and ± 100Hz, which is 420Hz multiplied by the 20Hz ringing current, and the 40Hz beat of that; a group near 1240Hz, three times 420, 18dB down; and a comb of low harmonics, 100–320Hz, 17–30dB down. The other two city rings measured, Tucker "938" and "577", have the same lines with the lower sideband strongest. A least-squares fit of the 755 recording to the harmonics of 19.744Hz, kept within 40dB of the strongest — 48 of them, all below 1.4kHz — is set on 20Hz exactly, so 420Hz nominal and the cadence 2s in 6s as before, and one period is 2400 samples. The hiss and the mercury interrupters' "shhh" of the recording, about 20dB under the ring in the silent interval, are not reproduced.
+
+— Code consequence, made the same day: `audio/src/cityring.h`, the 48 partials; the table built once in `prepare()` and played a sample at a time for ringback in `engine.cpp`; `test_trunk_tones()` in the tests, which checks reorder's cadence too. `tts/cue` reads the same partials for the loudspeaker's ring cue (game_control.md §6.6), so the trunks and the loudspeaker sound alike. `--tone-mod` now sets dial, busy and reorder only. No MQTT change.
+
+## 17.20 Changes in Rev 20
+
+— Reorder, the fast busy, added to the trunk tones (§8.1, §8.2), following game_control.md Rev 56, 2026-10-17: the game plays it on a trunk when the operator dials a number with too many digits or too few. The busy waveform interrupted at 120 IPM, 0.25s on and 0.25s off, which is how the period offices made it, from the same source as busy. `"reorder"` on `tone/set` (mqtt.md Rev 35).
+
+— Code consequence, made the same day: `ToneKind::Reorder`, its row in `TONES[]` and `TONE_NAME[]` in `engine.cpp`, and its name in `net.cpp`.
+
+## 17.19 Changes in Rev 19
+
+— The line-disturbance gate listens below 50Hz, not 100Hz, and the installation's threshold is −70dBFS, not −60 (§10.5). In play on the switchboard, 2026-10-16, the gate shut four and seven times in ten seconds in the middle of a conversation, with nobody at the board. A man's voice has its fundamental near 100–130Hz: the authored lines carry up to −42.5dBFS below 100Hz, which reaches a line at about −60, the threshold, and the gate was cutting words out of the loudspeaker. Below 50Hz the loudest line reaches it at −84 and the operator's own voice at −99, while ringing and switch thumps are still at −15 to −45; at −70 the recording of the switchboard is gated exactly as before.
+
+— Code consequence, made the same day: `GATE_LP_HZ`, and `sbaudio.service` sets `--monitor-gate -70`.
+
+## 17.18 Changes in Rev 18
+
+— The speech detector's low-pass is sixth-order, and the installation's `--vad-floor` is −70dBFS (§9.2). Found on the switchboard, 2026-10-16: the detector heard the operator only when she spoke loudly. Bridged onto station 13 and counting one to ten at a normal level, she was not heard in a 30s listen. A recording of the line put her voice at −55 to −65dBFS in the detector's band, peaks −47, against a threshold of −50, the absolute bound, which no word cleared for the 200ms of 300 a start needs. Lowering the bound alone does not do: through one low-pass section the station's own pilot, measured at −58.4dBFS on the line, arrives at −71.5 and sets the floor, so floor + 10dB is −61, still above most of her voice. With three sections the pilot is at −97, under the line's own noise near −91, and with the bound at −70 the recording declares speech one second into the count, with no frame above −70 in the quiet before it. Her voice is about 30dB below the authored speech on the line; a stronger transmitter would give more margin, and the electret headset (kicad/electret) is the way to it.
+
+— Code consequence, made the same day: `butter_lowpass6()` in `dsp.cpp`, the detector's three sections, and the tests. `sbaudio.service` gains `--vad-floor -70`.
+
+## 17.17 Changes in Rev 17
+
+— The line-disturbance gate (§10.5), 2026-10-16: the switch clicks were still heard at speech level under Rev 16's limiter, and ringing a station rumbled on the loudspeaker. A recording of the switchboard showed both as energy below 100Hz far above anything speech carries, so the source is muted while that lasts, plus a quarter second, behind a 10ms delay that lets it shut before the onset. This is the click suppressor Rev 16 kept in reserve, keyed on the low band rather than on a jump in level. `--monitor-gate` and `--monitor-gate-hold`; the counters line gains `gate`.
+
+— Code consequence, made the same day: `Engine::gate_step()`, the options, and the counter. `ctest` has speech passing, ringing shutting it, the hold, and the reopening.
+
+## 17.16 Changes in Rev 16
+
+— The monitor limiter's threshold is a setting, `--monitor-limit`, −60 to −3dBFS, −3 by default as before (§10.1). Found on the switchboard, 2026-10-16: moving a cord pair's switch clicks loudly on the loudspeaker. The switch makes and breaks the line the monitor follows, and the click reaches the output far above speech, where a limiter at −3dBFS never touches it. Set just above the loudest speech, the limiter holds the click to that level. The installation sets −30dBFS: with the monitor at −12dB and the tutor's files at −18, speech peaks about −33dBFS at the output. A click suppressor that mutes the monitor for a few tens of milliseconds on a jump no speech makes is the next step if the clicks at speech level still bother; it is not done.
+
+— Code consequence, made the same day: the option, and the limiter releases before it attacks, so the sample that sets its gain is never let back above the threshold. In the old order it overshot by a little — nothing at −3dBFS, about 0.6% at −30. `ctest` has a click at −1dBFS held to −30, and speech below it untouched.
+
+## 17.15 Changes in Rev 15
+
+— Following station Rev 3.48: `--peer-window-db` and `--op-window-db` compare absolute bin levels, not each bin's level above its own floor, and `--peer-window-db` defaults to 25, down from 40. With the trunks on the switchboard, floors 15–30dB apart made trunk crosstalk 44dB under the own pilot read 12dB under it, and false trunk-to-trunk peers were published (2026-10-16).
+
+— Code consequence, made the same day: the change in the detector, and the `ambiguous` log gives each pilot's level against the own pilot in brackets after its level above the floor, which is what the window reads. `ctest` has an idle trunk whose own bin's floor is raised 40dB, which reads idle.
+
+## 17.14 Changes in Rev 14
+
+— `--op-window-db`, 20 by default, following station Rev 3.47: the operator tone counts only within that many dB of the circuit's own pilot. The tap's 9kHz leaks into other channels, 46dB under the own pilot on station 22, enough above the floor to light `op` on nine circuits with nothing bridged (2026-10-15). §15 step 6 now measures the operator tone on a bridged circuit as well.
+
+— Code consequence, made the same day: the test in the detector. `ctest` has the leak on an idle trunk, which reads `op` off.
+
+## 17.13 Changes in Rev 13
+
+— The detector's peer window, `--peer-window-db`, following station Rev 3.46 §8.7: a comb pilot counts only if it is within that many dB of the circuit's own pilot as well as `MARGIN_DB` above its floor. On the bench, 2026-10-15, the trunk board's strip-to-strip crosstalk, 72dB under each trunk's own pilot, sat 20–39dB above the floor and made every idle trunk `ambiguous`; a station cabled straight to a trunk arrived 3dB under the own pilot. 40dB is the starting value. A peer through the switchboard will arrive lower than through a cable, so §15 step 6 sets the window with the margin.
+
+— Code consequence, made the same day: the option, the test in the detector, and the startup log line reports both values. `ctest` has an idle trunk with that crosstalk, which reads idle, and a connected one, which reads its peer.
+
+## 17.12 Changes in Rev 12
+
+— An output self-check (§11.4), 2026-10-14. On the bench that afternoon, with only the audience monitor connected to the A32 and the test tone on 24, the A32's output meters showed channels 9, 17 and 25 steady near 0dBFS and, every 4–5s, a burst of about 1.5s taking nearly every output close to full scale; the detector heard the bursts on capture from 15:07:25 to 15:24:44. Nothing had been commanded, the log showed no xrun, clip or limiter count, and the A32's routing and clock were correct (ADAT 1–32 to analog 1–32, slaved to ADAT port 1, all four ports locked at 48kHz). Stopping `sbaudio` cleared the meters; `tone_out` driving the same channels at the same levels was clean; and `sbaudio` restarted, by hand at periods of 1024 and 256 and then under its service with the test tone on 24, was clean for the next half hour. So the process that had run since 07:32 got into a state that a restart cleared, and nothing says whether the bad samples were in its playback buffer or were corrupted after it. The check answers that the next time: it compares what the program is about to write with what each channel should carry. If it logs the channels the meter shows, the fault is in the program; if it stays silent while the meter misbehaves, it is after the program — ALSA, USB or the Digiface.
+
+— Code consequence, made the same day: `render()` records each channel's ceiling, and a scan of the playback buffer before each write counts the periods that exceed it per channel; the MQTT thread logs them with the counters (§11.2). `ctest` covers a clean render and a corrupted one.
+
+## 17.11 Changes in Rev 11
+
+— The monitor plays a file (§10.4), following game_control.md Rev 29, 2026-10-08: `sbgame/audio/monitor/play/set` and its echo `sbgame/audio/monitor/play`, as a circuit's `play/set` and `play` (mqtt.md Rev 27). It is the tutor's voice in tutor mode, heard on the loudspeaker. The file is summed into the monitor chain after the source's filter, through a second copy of the same low-pass, then takes the monitor's gain and limiter: the loudspeaker is in the room with the operator's microphone, so the file is held out of the pilot band exactly as the source is, and the monitor's one level sets both. A new option, `--monitor-file-trim`, sets the file's level against the source's. Nothing else about the monitor changes.
+
+— Code consequence, made the same day: the file is slot 24's program source; `process_capture()` sums it into the chain and stops it at its end; the MQTT thread subscribes to the monitor's `play/set`, handles it as a circuit's, and publishes `audio/monitor/play` at start, on stop, on the game's loss and on shutdown; `ctest` covers the mix, the echo and the mute.
+
+## 17.10 Changes in Rev 10
+
+— The operator tap plays files (§7), following game_control.md Rev 25, 2026-09-30: `sbgame/audio/tap/play/set` and its echo `sbgame/audio/tap/play`, as a circuit's `play/set` and `play` (mqtt.md Rev 23). It is for the game program's diagnostics, which play speech into the operator's headset to check the tap's output path. The file sums over the operator tone, which is never displaced (§5.2), so the tap stays detectable while it plays; the tap has no trunk tones. Nothing else about the tap changes: its receive side, the optone check and the monitor source are as they were.
+
+— Code consequence, made the same day: the mixer sums a file on channel 23; the MQTT thread subscribes to the tap's `play/set`, handles it as a circuit's, and publishes `audio/tap/play` at start, on stop and on shutdown as it does a circuit's `play`. `ctest` covers the mix and the topic.
+
+## 17.9 Changes in Rev 9
+
+— Written against Claude Code's report of 2026-09-24: `sbaudio` is at Rev 8. The report raised three places where Rev 8 was silent or read two ways. This revision settles them.
+
+— The tap trim has a range: −30 to +30dB, and `--monitor-tap-trim` outside it refuses to start, as any other invalid option does (§10.3, §14). Rev 8 gave no range. The effective gain — the commanded gain plus the trim — is deliberately not clamped to the −60 to +20dB of `monitor/set`. That range is for the command. The trim is an installation constant that makes the tap and a circuit sound the same at one commanded gain. Clamping the sum would cap the tap at a lower commanded gain than a circuit, which is the mismatch the trim exists to remove. The −3dBFS limiter is what protects the output (§10.1). Claude Code left the sum unclamped and asked whether that was intended. It is. Code consequence: the range check at startup.
+
+— State republished on reconnect is what the program is doing at reconnect (§12, §13.2). §13.2 said results posted while disconnected are discarded, and §12 said reconnect republishes state. For `monitor/source` the two pulled apart. A source changed while disconnected — the return to the tap, above all — would have been discarded as a result, and reconnect would have announced a circuit the program had already left. Claude Code kept the value current while disconnected and republished it. That is adopted. The discard applies to results the other threads post. State on reconnect is read from the program as it stands, for `monitor`, `monitor/source` and `test/<ch>` alike. No code consequence.
+
+— A source the device does not capture is refused (§10.3). Rev 8 validated a source against the circuit ranges only. So on a device presenting fewer than 32 capture channels, `--monitor-src trunk/8` started, echoed `trunk/8` and fed silence. A loudspeaker fed silence while the echo names a live line looks like a line with nobody on it, and nothing says otherwise. Now `--monitor-src` naming a channel beyond the capture count the device reports refuses to start, as `--monitor-ch` does for a bad playback channel. A `monitor/source/set` naming one is logged and dropped with no echo, like any invalid payload. On this system a capture count below 32 is itself a fault, and one the detector would suffer too (§16, capture channel count). Code consequence: the check at startup and on the command.
+
+## 17.8 Changes in Rev 8
+
+— The monitor can take its input from any station or trunk receive channel as well as from the tap (§10.3). Mark's decision, 2026-09-24. Rev 1 to Rev 7 fed the loudspeaker from the tap's receive channel only. The operator leaves a call when she throws the ring key to ring the called party, and does not come back to it, so the audience heard the request and the operator and then nothing of the conversation the scene was written for. A circuit's receive channel carries the whole conversation: its own transmit returns on it at full strength, because the interface has no hybrid (station §8.4), and the far end arrives through the cord. The operator's voice is on it too while she is bridged to that line.
+
+— One new command and its echo: `sbgame/audio/monitor/source/set` and `sbgame/audio/monitor/source`, with `"tap"` or a circuit id as the payload (mqtt.md Rev 13). `monitor/set` stays the gain alone, so the one-value rule of mqtt.md §2 holds. The game program chooses the source: the calling line of the call the operator most recently answered (game_control.md Rev 6 §6.4). This program knows nothing about calls and does not choose.
+
+— The chain after the input is unchanged. The station §8.8 filter removes a circuit channel's own pilot, its peer's pilot and the operator tone exactly as it removes the operator tone and pilots from the tap channel.
+
+— The switch is made under a 20ms ramp to silence and back (§10.3), the same ramp the gain uses, so a source change does not click.
+
+— Two options (§14). `--monitor-src` sets the source at startup, `tap` by default, so a bench run with no game behaves as Rev 7 did. `--monitor-tap-trim` is a gain applied only while the source is the tap. The tap arrives about 15dB below the operator's line (station §7.9.3), and a circuit channel sees its line through T2 alone, so without a trim one monitor gain cannot suit both. Its value is a bench setting (§15 step 7).
+
+— The source returns to the tap when the program loses the game or the broker (§13.2). The calls it was following have been torn down, and a crashed game should not leave the loudspeaker on a line nobody is using.
+
+— Not added: any correction for the balance between the two sides of a conversation on one circuit channel. The line's own transmit returns through its own transformer's secondary only; the far end crosses two transformers and the cord circuit. The own side will be louder by an amount nothing measured so far predicts. §16 records the fix to add if the bench says it is needed.
+
+— Code consequence, for Claude Code: subscribe to `monitor/source/set`; validate it and echo it on `monitor/source` (§12); switch the monitor's input in the audio thread as §10.3 says; `--monitor-src` and `--monitor-tap-trim`; the return to the tap in §13.2; `monitor/source` in the state published before birth (§12).
+
+## 17.7 Changes in Rev 7
+
+— The audience monitor moves to A32 output 24 and the operator tap to A32 channel 23, following station Rev 3.40 (Mark, 2026-09-23). Rev 1 to Rev 6 put the tap on channel 24 and sent the monitor to the Digiface's own analog output, playback 33 and 34. Station board 3 strip 7 is now the tap and strip 8's A32 output is the monitor feed, so stations are 1–22. §1, §2, §5.1, §6.3, §10, §11.1, §12, §14, §15 and §16 follow.
+
+— Why. An A32 output is balanced, and its analog level is set by the A32's per-channel reference and trim, recallable from its front panel. The Digiface jack is unbalanced and fixed at +9.5dBu full scale with no TotalMix under Linux, which left this program's gain as the only control ahead of the amplifier. Station §14.40 records the decision.
+
+— The Digiface is still opened at 34 playback channels, so nothing in §4 moves. Channels 33 and 34 carry silence except under the test tone, and are the fallback monitor output: going back to them is a command-line change, `--monitor-ch 33,34` (§14), not a code change. That option is new.
+
+— Capture channel 24 is now unused — station board 3 strip 8 has no receive path fitted — and nothing reads it. It is not a detector input. Comb slots 23 and 24 (bins 688 and 696) are not generated.
+
+— Code consequence, for Claude Code: the channel map of §2 and everything derived from it. Stations 1–22 in the per-circuit tables, the detector and the MQTT validation (§12); pilots on 1–22 and 25–32; the operator tone and the `optone` check on channel 23; the monitor chain reading capture 23 and writing playback 24, or the channels `--monitor-ch` names; capture 24 ignored; playback 33 and 34 silent unless named by `--monitor-ch` or under test. mqtt.md Rev 9 has the topic ranges.
+
+## 17.6 Changes in Rev 6
+
+— The listen reports the end of speech as well as the start. Rev 1 to Rev 5 made a listen one-shot: `"listening"`, then `"speech"` the moment speech was detected, and the listen was over. The game's scenarios need to know when the caller has finished talking, not only that they began — a scripted reply that starts while the caller is mid-sentence is the one thing the audience will notice. So the listen now continues after `"speech"` and reports `"silence"` when the talking stops, or `"timeout"` if it does not stop within a cap. One command still starts the whole sequence; the state topic carries it, which is what a retained state topic is for. §9.1 and §9.2.
+
+— The payload stays one number, the time allowed for speech to start. The two new times — the silence that counts as the end of speech, and the longest speech the program will wait out — are options with defaults (§14), not payload, because they describe how people talk and not a scenario, and because mqtt.md §2 says one value per topic. If a scenario ever needs its own cap, that is the point to add a second payload form; not before.
+
+— `"silence"` is a new value rather than the empty string, so that a listen that completed is never confused with one that was cancelled or never issued: empty stays the cleared state, as on every retained topic (mqtt.md §7). `"timeout"` is reused for both failures — speech never started, speech never stopped — because the game knows which by the value before it, and a game restarted mid-listen has lost the listen either way.
+
+— Code consequence, for Claude Code: `Engine::start_listen`, the VAD frame loop and `cancel_listen` change to the state machine of §9.2; two options, `--vad-hangover` and `--vad-max-speech`; `mqtt.md` Rev 8 has the payload values. mqtt.md Rev 8 follows.
+
+## 17.5 Changes in Rev 5
+
+— Cross-reference only. `esp32.md` is `control.md` and `ring/esp32.ino` is `control/control.ino` as of 2026-09-19 (control.md Rev 9); §1 and §17.3 follow. Nothing in this document changes.
+
+## 17.4 Changes in Rev 4
+
+— The three Rev 3 code consequences are fixed in `sbaudio` (2026-09-18); the build-state paragraph in §1 says so.
+
+— §14: the default MQTT client id is `sbgame-audio`, not `sbaudio`. Rev 3 wrote the binary's name; the program used `sbgame-audio`, which follows the ESP32's `sbgame-esp32` — the `sbgame-` prefix names the system the client belongs to, as the topic prefix does, and the broker's client list then reads as one system. Mark and Claude Code chose the program's form; the document follows.
+
+## 17.3 Changes in Rev 3
+
+— Written against the finished program, as control.md Rev 4 was against the firmware. Nine implementation decisions are adopted into the text with their reasoning, and three defects found in review are recorded here as code consequences for the Claude Code side.
+
+— Adopted, §3: the MQTT thread is a polled loop — `mosquitto_loop()` with a 20ms timeout, then drain the result queue, then repeat. A result posted by the audio or analysis thread reaches the broker within 20ms, inside the 43ms detector hop, and one thread does the whole job. The alternative — libmosquitto's own network thread plus an eventfd the audio thread would have to write — was not needed.
+
+— Adopted, §3 and §6.1: the analysis thread polls a two-slot mailbox with a 2ms sleep rather than waiting on a condition variable, so the audio thread touches nothing but an atomic to hand over a hop. Two snapshot buffers; if the analysis thread still holds the one due to be filled, the hop is dropped and counted, never waited for.
+
+— Adopted, §14: `--no-realtime`, and the audio thread's SCHED_FIFO priority is 70. `--window rect|hann` implements station §8.2's Hann fallback, with the guard offsets moved to ±4/±5 because Hann's main lobe is ±2 bins and guards at ±2/±3 would measure the pilot's own skirt. `--mqtt-user`, `--mqtt-pass`, `--mqtt-pass-file` and `--client-id` for mqtt.md §9; `--broker` takes `host[:port]`. FFTW wisdom is cached at `$SBAUDIO_WISDOM` or `~/.cache/sbaudio-wisdom`.
+
+— Adopted, §7.1: an empty `play/set` payload is a stop, the same as `"stop"`. A filename is at most 31 characters and may not contain a backslash or a control character, in addition to the `/` and `..` rules of mqtt.md §7. Adopted, §9.2 and §14: every dBFS figure in the program — the VAD floor and margin, the file content check, the logged levels — is referenced to a full-scale sine, RMS × √2, so `--vad-floor -50` means a signal whose RMS is that of a −50dBFS sine. Adopted, §13.2: reconnect backoff starts at 1s and doubles to 30s; the will is registered once on the handle and survives reconnects.
+
+— Code consequence 1, §3: the MQTT thread spins while disconnected. `mosquitto_loop()` returns at once with no connection, so between reconnect attempts the loop runs flat out — a core pegged for up to 30s at a time. Sleep 20ms per pass when not connected. Harmless to the audio thread, which is real-time, but wrong.
+
+— Code consequence 2, §6.1: the snapshot handover has a race. The audio thread checks a buffer's busy flag before filling it, but the analysis thread sets that flag only after it has taken the buffer's index from the mailbox, so a late-waking analysis thread can claim a buffer the audio thread has just started to overwrite. Separately, a hop that the analysis thread never collected is silently superseded and not counted. The protocol is restated in §6.1 so that the audio thread owns setting busy and the analysis thread owns clearing it, and a superseded hop is reclaimed and counted.
+
+— Code consequence 3, §12: `audio_status` `"online"` is published before the first detector pass rather than after it. The spec and mqtt.md §8.4 put state before birth; the program publishes birth and lets `peer`, `op` and `optone` follow on the next hop, up to 43ms later. Hold the birth message until the analysis thread has completed its first forced pass.
+
+— Minor, for the same pass: `ambiguous` logs its pilot list every hop, 23 lines a second for as long as the condition lasts; log it on the transition and at most once a second after. `--version` still reports Rev 1. The tarball reviewed did not include the build file, `pilot_loopback_test.cpp` or `docs/pilot-map.md`, so the §10.1 unit test on the elliptic stopband is unconfirmed; the startup log line that reports the realised response at 6000Hz covers it in practice.
+
+## 17.2 Changes in Rev 2
+
+— The Digiface is not addressed as `hw:Digiface`. Claude Code found on the host that ALSA registers the card under an alphanumeric identifier, not under the product name Rev 1 assumed in §4 and as the `--card` default in §14. §4 now says the card is addressed by whatever id `/proc/asound/cards` reports for it, §14's `--card` has no default and is required, and the id in use goes in the systemd unit alongside the other host-specific settings. Rev 1's default would have failed to open the device on every start.
+
+## 17.1 Changes in Rev 1
+
+— New document, written from a rough specification of the six functions above and from station §8 and mqtt.md Rev 4. The detector was the program's whole job until now and was specified only in station §8.7, with the program named but not described in mqtt.md §1. The five commanded functions are new.
+
+— One decision made that the rough specification left open: how the program reports that a file has finished. It asked for "an mqtt response when a file finishes playing". The response is the `play` state topic going empty (§7.4), not a new event topic. mqtt.md §2 allows one event in the design, `digit`, and records what an event costs: unretained, not idempotent, lost across a game restart. None of that is wanted here. A retained state topic carrying the filename while it plays, and cleared when it stops, tells the game the same thing and additionally tells a game program restarted mid-file what is playing.
+
+— One conflict with station §8.8 resolved in §8.8's favour. The rough specification asked for the monitor low-pass at 3kHz. Station §8.8 specifies a passband edge of 3.6kHz and a stopband edge of 5.6kHz, and it is the stopband edge that removes the lowest pilot at 6000Hz, not the passband edge. Moving the passband edge to 3kHz would cut the top of the 300–3400Hz band the switchboard passes and remove nothing that 3.6kHz does not already remove. The filter is as §8.8 specifies (§10). If the intent was a narrower, more "telephone" sound rather than pilot removal, that is a passband-edge parameter and is exposed as one.
+
+— Tone frequencies are the pre-precise-tone-plan Bell tones — dial tone 600Hz modulated by 120Hz, ringback 420Hz modulated by 40Hz at 2s on, 4s off — chosen by Mark on 2026-09-17, before this document was first uploaded, in place of the precise tones (350 + 440Hz, 440 + 480Hz) the first draft carried as the default. The 551 predates the precise tone plan and the exhibit is set in that period; the precise tones are what a modern ear expects and would be the one anachronism the operator hears on every call. The precise tones are recorded in §8.2 as the alternative, since they are the same generator with a different table.
+
+— Busy tone added to §8 at Mark's request, same day, after the first draft listed it as a possible extension: the game's scenarios will include called numbers that are busy. One more row in the §8.2 table and one more `tone/set` value; mqtt.md Rev 6 carries the payload.
+
+— The test tone replaces the pilot on its channel rather than summing with it, so the circuit reports `deaf` while the test tone is on (§11.1). Recorded so the `deaf` is not mistaken for a fault.
