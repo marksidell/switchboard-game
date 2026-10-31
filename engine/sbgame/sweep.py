@@ -1,8 +1,9 @@
 """Board sweeps from the Stream Deck (game_control.md §11.5, Rev 50).
 
 A check of the cabling after a recabling, with no game running: `trunks`
-gives each trunk one short ring in turn, so its lamp latches on the
-switchboard, and `stations` takes each station off-hook briefly in turn, in
+gives each trunk one short ring in turn, so its lamp lights on the
+switchboard, then cuts the switchboard's power for 1s, which resets the ring
+relay that latched and puts the lamp out; and `stations` takes each station off-hook briefly in turn, in
 jack order — the switchboard's rows from the top, 21-30, 11-20, 1-10, each
 left to right (§11.1) — so its lamp lights in the order the eye reads the board.
 Each step is put on the game log, so the page shows where the sweep has got to,
@@ -28,8 +29,10 @@ KINDS = ("trunks", "stations")
 ROWS = (range(21, 31), range(11, 21), range(1, 11))   # top row first (§11.1)
 
 BURST = 1.0          # s: the controller's short ring (control.md §8.4, Rev 30)
+CUT = 1.0            # s the switchboard is off: the controller's (control.md §5.4)
 OFF_HOOK = 1.0       # s a station is held off-hook
-PAUSE = 2.0          # s between one circuit and the next
+PAUSE = 2.0          # s between one station and the next
+TRUNK_PAUSE = 1.0    # s between one trunk's reset and the next ring
 
 
 def station_order(jacks: Iterable[Jack], stations: int) -> list[tuple[int, Jack]]:
@@ -59,20 +62,23 @@ async def run(kind: str, hw: Hw, jacks: Iterable[Jack], stations: int, trunks: i
     else:
         steps = [(f"station/{st}", f"jack {j.number} ({j.label}), station {st}")
                  for st, j in station_order(jacks, stations) if st != PHONE_STATION]
-    await say(f"test {kind}: {len(steps)}, {PAUSE:g}s apart")
+    pause = TRUNK_PAUSE if kind == "trunks" else PAUSE
+    await say(f"test {kind}: {len(steps)}, {pause:g}s apart")
     for i, (circuit, name) in enumerate(steps):
         if i:
-            await asyncio.sleep(PAUSE)
+            await asyncio.sleep(pause)
         note = ", out of service" if out_of_service(circuit) else ""
         if circuit in busy():
             await say(f"test {kind}: {name} passed over, under a diagnostic")
             continue
         n = int(circuit.split("/")[1])
         if kind == "trunks":
-            await say(f"test {kind}: {name} short ring{note}")
+            await say(f"test {kind}: {name} short ring, then switchboard reset{note}")
             try:
                 await hw.short_ring(n)
                 await asyncio.sleep(BURST)
+                await hw.power_cut()
+                await asyncio.sleep(CUT)
             except asyncio.CancelledError:
                 await asyncio.shield(hw.ring_trunk(n, False))
                 raise

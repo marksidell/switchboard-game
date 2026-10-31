@@ -465,7 +465,7 @@ async def main() -> int:
 
         print("\n== board sweeps (§11.5, Rev 50)")
         from sbgame import sweep
-        sweep.BURST = sweep.OFF_HOOK = sweep.PAUSE = 0.01
+        sweep.BURST = sweep.CUT = sweep.OFF_HOOK = sweep.PAUSE = sweep.TRUNK_PAUSE = 0.01
         check(link.state_v.get("game/sweep") == "", "no sweep at birth")
         order = [st for st, _ in sweep.station_order(g.gs.jacks, g.cfg.stations)]
         jacks = {int(j.circuit.split("/")[1]): j.number for j in g.gs.jacks
@@ -480,6 +480,11 @@ async def main() -> int:
         await asyncio.sleep(0.5)
         rung = [k for k, v in link.sent if k.endswith("/shortring/set")]
         check(rung == [f"trunk/{n}/shortring/set" for n in range(1, g.cfg.trunks + 1)], f"each trunk fitted one short ring, in order: {rung}")
+        steps = [k for k, v in link.sent if k.endswith("/shortring/set") or k == "ctl/power_cut/set"]
+        check(steps == [s for n in range(1, g.cfg.trunks + 1)
+                        for s in (f"trunk/{n}/shortring/set", "ctl/power_cut/set")],
+              "the switchboard reset after each ring")
+        check(all(v == "on" for k, v in link.sent if k == "ctl/power_cut/set"), "each a 1s cut, not a hold")
         check(link.state_v.get("game/sweep") == "", "and the sweep ends by itself")
         check("test trunks: done" in link.state_v.get("game/log", ""), "on the log")
         link.sent.clear()
@@ -512,7 +517,7 @@ async def main() -> int:
         await asyncio.sleep(0.05)
         await g.on_command("run", "off")
         check(link.state_v.get("game/sweep") == "" and g._sweep is None, "Stop ends a sweep")
-        sweep.BURST, sweep.OFF_HOOK, sweep.PAUSE = 1.0, 1.0, 2.0
+        sweep.BURST, sweep.CUT, sweep.OFF_HOOK, sweep.PAUSE, sweep.TRUNK_PAUSE = 1.0, 1.0, 1.0, 2.0, 1.0
 
         print("\n== recording and playback (§11.6, Rev 61)")
         check(b.audio_up, "the audio program is up for these")
