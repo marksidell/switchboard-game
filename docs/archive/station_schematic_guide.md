@@ -4,7 +4,7 @@
 
 Derived from station circuit Rev 3.25 and the KiCad library plan; R11/R12 value updated to station Rev 3.27 (22.1k → 22k 1%); tap and monitor strips updated to station Rev 3.40 (operator tap on board 3 strip 7, audience monitor output on strip 8); C19, the /RESET filter, added at station Rev 3.43.
 
-**Follows station Rev 3.44 and the designators as annotated on the rev 2 board.** The tables below give each part's KiCad reference in the Ref column, with x for the strip sheet's hundreds digit (2 for strip 1 to 9 for strip 8), and the name the document used until Rev 3.44 in the Doc name column. Station §14.44 has the full list. U2, C7, R9, R10, R13 and R17 are not on the board and have gone from the tables; the TVS101 bypass is missing from the board and has to be drawn in (TODO.md).
+**Follows station Rev 3.44 and the designators as annotated on the rev 2 board.** The tables below give each part's KiCad reference in the Ref column, with x for the strip sheet's hundreds digit (2 for strip 1 to 9 for strip 8), and the name the document used until Rev 3.44 in the Doc name column. Station §14.44 has the full list. U2, C7, R9, R10, R13 and R17 are not on the board and have gone from the tables; the TVS101 bypass is missing from the board and has to be drawn in.
 Structure: one root sheet carrying everything common, plus **8 instances of a single
 hierarchical sheet** `station_circuit.kicad_sch`.
 
@@ -432,7 +432,7 @@ the nearer 0.1µF to U103's output.
 |---|---|---|---|---|
 | J101, J102 | J3A, J3B | Amphenol 87180-066LF, 6P6C | `Connector_Generic:Conn_01x06` | `Connector_RJ:RJ12_Amphenol_54601-x06_Horizontal` — candidate |
 | TVS101 | TVS2 | SP721APP | `switchboard:SP721` | `Package_DIP:DIP-8_W7.62mm` |
-| — | C18 | 0.1µF | `Device:C` | `C_Disc_D5.1mm_W3.2mm_P5.00mm` — specified at Rev 3.26, **not drawn on the rev 2 board**; add it (TODO.md) |
+| — | C18 | 0.1µF | `Device:C` | `C_Disc_D5.1mm_W3.2mm_P5.00mm` — specified at Rev 3.26, **not drawn on the rev 2 board**; add it |
 | R102 | R18 | 10k | `Device:R` | DIN0207 — /RESET pull-up, **do fit** |
 | C109 | C19 | 0.1µF | `Device:C` | `C_Disc_D5.1mm_W3.2mm_P5.00mm` — /RESET filter, new at Rev 3.43; bodged on rev 2, drawn at the next revision |
 | U101 | U1 | MCP23017-E/SP, 0x20–0x22 by SW101 | `Interface_Expansion:MCP23017_SP` | `Package_DIP:DIP-28_W7.62mm` |

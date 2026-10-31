@@ -392,7 +392,7 @@ the schematic expresses the connection.
 |---|---|---|---|---|
 | U101 | U1 | MCP23017-E/SP, 0x23 | `Interface_Expansion:MCP23017_SP` | `Package_DIP:DIP-28_W7.62mm` |
 | TVS101 | TVS2 | SP721APP | `switchboard:SP721` | `Package_DIP:DIP-8_W7.62mm` |
-| C18 | C18 | 0.1µF | `Device:C` | `C_Disc_D5.1mm` — new at Rev 5.27; **not on the rev 2 board** (TODO.md) |
+| C18 | C18 | 0.1µF | `Device:C` | `C_Disc_D5.1mm` — new at Rev 5.27; **not on the rev 2 board** |
 | J101 | J3 | 6P6C | `Connector_Generic:Conn_01x06` | `Connector_RJ:RJ12_*` |
 | R101 | R_RST | 10k | `Device:R` | `R_Axial_DIN0207` — /RESET pull-up, **do fit** |
 | C110 | C19 | 0.1µF | `Device:C` | `C_Disc_D5.1mm` — /RESET filter, new at Rev 5.40 |

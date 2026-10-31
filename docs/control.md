@@ -677,7 +677,7 @@ Every break is inside §8.2's 25–100ms window, the longest with 18.5ms to spar
 
 — §4.2 loses step 8 and its later steps renumber, 8 to 11; §4.3's reference follows. §6.2's note that the bridge stays armed through a recovery now rests on this rather than on the gate being a boot check. §10's row for an expander absent at boot becomes report-only. §11 loses the pre-chain item to build without the bench option. The scan is unchanged and still published on `ctl/i2c`. Generator §6's Rev 56 pointers name the gate as what moved here; they are history and are left.
 
-— Firmware consequence, for Claude Code, made in the same commit: `startWaveform()` no longer refuses on a missing expander; `slavesPresent()`, the banner's arming-gate line, the boot-time `ARM INHIBITED` message and the `BENCH_ALLOW_MISSING_EXPANDERS` build option are removed. `TODO.md` loses the bench build.
+— Firmware consequence, for Claude Code, made in the same commit: `startWaveform()` no longer refuses on a missing expander; `slavesPresent()`, the banner's arming-gate line, the boot-time `ARM INHIBITED` message and the `BENCH_ALLOW_MISSING_EXPANDERS` build option are removed.
 
 ## 12.10 Changes in Rev 10
 
