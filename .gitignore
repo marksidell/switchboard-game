@@ -62,3 +62,6 @@ CLAUDE.md
 # crosstalksolutions.com/pub/Lenny.zip; tts/recorded/PERFORMERS.md has the details.
 /tts/recorded/free.lenny.*
 /wav/free.lenny.*
+
+# Mark's to-do list: local only
+/TODO.md
