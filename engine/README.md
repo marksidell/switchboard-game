@@ -37,6 +37,9 @@ loader in `tts/`, or the page — release the checkout and restart:
 ./release        # from the top of the repo
 ```
 
+It installs the two private voices if `private/` is present; `./release --public`
+leaves them out (`docs/tts_task.md` §5.1).
+
 The daemon runs its own installed copies: the code in `/opt/sbgame/venv`, and
 `script.yml` and the wavs under `/srv/sbgame`, because it cannot traverse
 `/home/sidell`. `release` installs all three and the page, checks the

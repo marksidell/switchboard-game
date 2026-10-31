@@ -146,17 +146,24 @@ Keep the template in one place so Mark can edit it. If a cast entry has an optio
 
 Describe voices by their qualities only. A prompt never names a real person or asks for an imitation of one.
 
-**Private build only — two reference recordings from film** (Mark, 2026-09-30). In the build Mark keeps for himself, `tts/voices/thornhill.wav` and `tts/voices/marysmith.wav` are not designed voices but short recordings from *North by Northwest* and *Easy Living*, with their transcripts as `sample_text`, so that those two characters are cloned from the actors. That build is never shown publicly. **Before any public showing** both are restored to their designed voices and every line they speak is rendered again:
+**Two private voices** (Mark, 2026-09-30; arranged this way 2026-10-31). `tts/voices/thornhill.*` and `tts/voices/marysmith.*` are the designed voices, Thornhill's take 4 and Mary Smith's take 1, and every line of theirs in `wav/` is rendered from them. For his own use Mark also keeps those two characters cloned from short recordings from *North by Northwest* and *Easy Living*. Those are never put in this repository nor shown publicly. They live in `private/`, which is gitignored and never pushed:
 
-```sh
-git log --oneline -- tts/voices/thornhill.wav tts/voices/marysmith.wav   # the last designed commit
-git checkout <that commit> -- tts/voices/thornhill.* tts/voices/marysmith.*
-tts/aws/generate --dry          # every Thornhill and Mary Smith line, "reference voice changed"
+```text
+private/voices/<person>.{wav,json}    the recording and its transcript
+private/manifest.json                 what the lines below were made from
+private/raw/, private/wav/            those two characters' lines, and only theirs
 ```
 
-The designed voices, Thornhill's take 4 and Mary Smith's take 1, are in the repository's history before 2026-09-30. Until then, run `tts/choose` with `--only`, naming the people just re-designed: without it, `choose` promotes a candidate for every cast member and would put designed voices back over the two recordings. Nothing else in the cast is modelled on a real person, but the tutor below, and the prompts rule above still holds for every voice designed.
+With `private/` present, the commands use the private voices for those two characters: `./release` lays `private/wav/` over the public set, `tts/aws/generate` renders their lines from the recordings, and `tts.process` writes them to `private/wav/`. `--public` on any of them leaves `private/` out, and a checkout without `private/` has nothing else to use. `./release` says which voices went in. Before any public showing, run `./release --public`.
 
-**The tutor — a reference recording from a Bell System training film** (Mark, 2026-10-09). `tts/voices/tutor.wav` is a short clip of the narrator of a Bell System training film, which is in the public domain and was posted by the Connections Museum on its YouTube channel. `tts/voices/tutor.json` carries the clip's exact transcript as `sample_text`, and its `source` (film, URL, start and end) and `licence`. Unlike the two film recordings above, it belongs to the public build too, by Mark's decision: the recording is public domain, and the narrator speaks as a trainer of operators, which is the part. The tutor is not designed: run `tts/choose` only with `--only` naming others, or it puts a designed candidate over the clip. The full recording is kept in the Syncthing share, not in the repository.
+The two sets go stale separately, so an edited line of theirs needs both:
+
+```sh
+tts/aws/generate && tts/.venv/bin/python -m tts.process
+tts/aws/generate --public && tts/.venv/bin/python -m tts.process --public
+```
+
+**The tutor — a reference recording from a Bell System training film** (Mark, 2026-10-09). `tts/voices/tutor.wav` is a short clip of the narrator of a Bell System training film, which is in the public domain and was posted by the Connections Museum on its YouTube channel. `tts/voices/tutor.json` carries the clip's exact transcript as `sample_text`, and its `source` (film, URL, start and end) and `licence`. Unlike the two recordings above, it belongs to the public build too, by Mark's decision: the recording is public domain, and the narrator speaks as a trainer of operators, which is the part. The tutor is not designed: run `tts/choose` only with `--only` naming others, or it puts a designed candidate over the clip. The full recording is kept in the Syncthing share, not in the repository.
 
 ## 5.2 The Sample Text
 

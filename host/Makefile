@@ -187,12 +187,19 @@ sbgame-install: sbgame-user sbgame-deck-user sbgame-host-user sbgame-data
 ## The daemon cannot traverse /home/sidell (0750), so it runs against copies.
 ## Re-run this after editing script.yml or regenerating wav/, then restart.
 ## Also makes /srv/sbgame/recordings, where sbaudio records the loudspeaker.
+## private/wav goes over the wavs if it is there (tts_task.md 5.1); VOICES=public
+## leaves it out. /srv/sbgame/voices says which went in.
+VOICES ?= $(if $(wildcard $(REPO)/private/wav),private,public)
 sbgame-data:
+	@test "$(VOICES)" = public || { test "$(VOICES)" = private && test -d $(REPO)/private/wav; } \
+	  || { echo "VOICES=$(VOICES): public, or private with private/wav present"; exit 1; }
 	@$(SUDO) install -d -m 755 /srv/sbgame
 	@$(SUDO) install -m 644 $(REPO)/script.yml /srv/sbgame/script.yml
 	@$(SUDO) rsync -a --delete $(REPO)/wav/ /srv/sbgame/wav/
+	@test "$(VOICES)" = public || $(SUDO) rsync -a $(REPO)/private/wav/ /srv/sbgame/wav/
+	@echo "$(VOICES)" | $(SUDO) tee /srv/sbgame/voices >/dev/null
 	@$(SUDO) chmod -R a+rX /srv/sbgame/script.yml /srv/sbgame/wav
-	@echo "script.yml and `ls /srv/sbgame/wav | wc -l` wavs installed"
+	@echo "script.yml and `ls /srv/sbgame/wav | wc -l` wavs installed, $(VOICES) voices"
 	@# audio.md 10.6: sbaudio, which runs as sidell, writes the loudspeaker
 	@# recordings here. Made once and never emptied by this target.
 	@$(SUDO) install -d -m 755 -o sidell -g sidell /srv/sbgame/recordings

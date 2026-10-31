@@ -26,7 +26,7 @@ PY=$REPO/tts/.venv/bin/python
 RAW=$REPO/tts/raw
 JOBS=$REPO/tts/jobs.json
 INSTANCE_TYPE=${INSTANCE_TYPE:-g6.xlarge}
-ONLY=""; KEEP=0; BATCH=1; DRY=0
+ONLY=""; KEEP=0; BATCH=1; DRY=0; PUBLIC=""
 
 while [ $# -gt 0 ]; do
     case $1 in
@@ -35,6 +35,7 @@ while [ $# -gt 0 ]; do
         --type)  INSTANCE_TYPE=$2; shift 2 ;;
         --keep)  KEEP=1; shift ;;
         --dry)   DRY=1; shift ;;     # plan only; launch nothing
+        --public) PUBLIC=--public; shift ;;   # no private voices (tts_task.md 5.1)
         *) die "unknown option: $1" ;;
     esac
 done
@@ -44,7 +45,7 @@ done
 
 echo "=== planning (6.3) ==="
 cd "$REPO"
-"$PY" -m tts.manifest --script "$SCRIPT_YML" --write-jobs "$JOBS" ${ONLY:+--only "$ONLY"}
+"$PY" -m tts.manifest --script "$SCRIPT_YML" --write-jobs "$JOBS" ${ONLY:+--only "$ONLY"} $PUBLIC
 cd "$(dirname "$0")"
 count=$("$PY" -c "import json,sys; print(len(json.load(open('$JOBS'))))")
 [ "$count" = 0 ] && { echo "nothing to generate — every line is up to date"; exit 0; }
@@ -82,6 +83,8 @@ echo "=== uploading ==="
 upload_tree "$REPO"
 rsync -az -e "$SSH" "$JOBS" ubuntu@"$PUBLIC_IP":~/jobs.json
 rsync -az -e "$SSH" "$REPO/tts/voices/" ubuntu@"$PUBLIC_IP":~/voices/
+[ -z "$PUBLIC" ] && [ -d "$REPO/private/voices" ] && \
+    rsync -az -e "$SSH" "$REPO/private/voices/" ubuntu@"$PUBLIC_IP":~/voices/
 [ "$FROM_BAKED" = 0 ] && { echo "=== setup ==="; run_setup; }
 
 echo "=== generating ==="
@@ -89,12 +92,12 @@ $SSH ubuntu@"$PUBLIC_IP" "~/tts-venv/bin/python ~/tts/remote/generate_lines.py \
     --jobs ~/jobs.json --voices ~/voices --out ~/raw --batch $BATCH"
 
 echo "=== copying back ==="
-mkdir -p "$RAW"
-rsync -az -e "$SSH" ubuntu@"$PUBLIC_IP":~/raw/ "$RAW/"
+rm -rf "$RAW/incoming"; mkdir -p "$RAW/incoming"
+rsync -az -e "$SSH" ubuntu@"$PUBLIC_IP":~/raw/ "$RAW/incoming/"
 
 echo "=== recording what was made (6.3) ==="
-cd "$REPO" && "$PY" -m tts.manifest --record "$JOBS" --raw "$RAW" || true
+cd "$REPO" && "$PY" -m tts.manifest --record "$JOBS" --raw "$RAW/incoming" $PUBLIC || true
 cd "$(dirname "$0")"
 echo
 echo "Now run the local step, which needs no GPU:"
-echo "  tts/.venv/bin/python -m tts.process"
+echo "  tts/.venv/bin/python -m tts.process $PUBLIC"

@@ -243,7 +243,26 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--only", default="", help="comma-separated base names to process")
     p.add_argument("--no-script", action="store_true",
                    help="process whatever is in --raw without checking it against the script")
+    p.add_argument("--public", action="store_true",
+                   help="leave private/ alone (tts_task.md 5.1)")
     args = p.parse_args(argv)
+
+    # The private voices first: private/raw to private/wav. A name in --only
+    # that has a private file means that one; --public means the other.
+    private_rc = 0
+    wanted_here = {s for s in args.only.split(",") if s}
+    private_raw = Path("private/raw")
+    if not args.public and args.raw != private_raw and private_raw.is_dir():
+        have = {s.stem for s in private_raw.glob("*.wav")}
+        mine = wanted_here & have if wanted_here else have
+        if mine:
+            private_rc = main(["--raw", str(private_raw), "--recorded", "private/recorded",
+                               "--out", "private/wav", "--no-script",
+                               "--only", ",".join(sorted(mine))])
+        if wanted_here:
+            args.only = ",".join(sorted(wanted_here - mine))
+            if not args.only:
+                return private_rc
 
     script: Script | None = None
     if not args.no_script:
@@ -305,7 +324,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{len(delivered)} delivered, {len(expected)} utterances in the script")
         if missing or orphan or failed:
             return 1
-    return 1 if failed else 0
+    return 1 if failed or private_rc else 0
 
 
 if __name__ == "__main__":

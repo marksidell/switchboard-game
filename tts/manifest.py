@@ -23,6 +23,8 @@ from tts.script import Script, Utterance
 
 DEFAULT_MANIFEST = Path("tts/manifest.json")
 VOICES = Path("tts/voices")
+PRIVATE = Path("private")    # the two private voices, not in the repo (tts_task.md 5.1)
+DEFAULT_RAW = Path("tts/raw")
 MODEL = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
 SEED_BASE = 1950
 
@@ -74,17 +76,24 @@ def save_manifest(entries: dict[str, dict], path: Path = DEFAULT_MANIFEST) -> No
     path.write_text(json.dumps(entries, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def private_speakers(public: bool = False) -> set[str]:
+    """Who speaks in a private voice: nobody with --public, or with no private/."""
+    return set() if public else {v.stem for v in (PRIVATE / "voices").glob("*.wav")}
+
+
 def plan(script: Script, *, voices: Path = VOICES, wav_dir: Path = Path("wav"),
          manifest: dict[str, dict] | None = None, model: str = MODEL,
-         seed_base: int = SEED_BASE, only: set[str] | None = None) -> list[Job]:
-    """Which lines need generating, and why. Order follows the script."""
+         seed_base: int = SEED_BASE, only: set[str] | None = None,
+         speakers: set[str] | None = None) -> list[Job]:
+    """Which lines need generating, and why. Order follows the script.
+    With speakers, only theirs."""
     manifest = {} if manifest is None else manifest
     only = only or set()
     jobs: list[Job] = []
     recorded = performers(script)       # §6.4: never rendered
 
     for u in script.utterances:
-        if u.speaker in recorded:
+        if u.speaker in recorded or (speakers is not None and u.speaker not in speakers):
             continue
         spoken = substitute(u.text, speaker=u.speaker)
         t_sha = text_hash(spoken)
@@ -139,22 +148,37 @@ def main(argv: list[str] | None = None) -> int:
                    help="write the job list as JSON for the remote generator")
     p.add_argument("--record", type=Path,
                    help="a job list that has been generated: record those that produced a file")
-    p.add_argument("--raw", type=Path, default=Path("tts/raw"))
+    p.add_argument("--raw", type=Path, default=DEFAULT_RAW,
+                   help="with --record, where the session's files came back to")
+    p.add_argument("--public", action="store_true",
+                   help="the public voices for everyone, none from private/")
     args = p.parse_args(argv)
+    private = private_speakers(args.public)
 
     if args.record:
+        # Each file goes from where it came back to beside the others of its
+        # set, so a failed line cannot be recorded on the strength of an old file.
         jobs = json.loads(args.record.read_text(encoding="utf-8"))
         entries = load_manifest(args.manifest)
+        private_entries = load_manifest(PRIVATE / "manifest.json") if private else {}
         kept = missing = 0
         for d in jobs:
-            if (args.raw / f"{d['name']}.wav").exists():
-                record(entries, Job(**{k: v for k, v in d.items()
-                                       if k in Job.__dataclass_fields__}))
+            mine = d["speaker"] in private
+            book = private_entries if mine else entries
+            src = args.raw / f"{d['name']}.wav"
+            if src.exists():
+                dst = (PRIVATE / "raw" if mine else DEFAULT_RAW) / src.name
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                src.replace(dst)
+                record(book, Job(**{k: v for k, v in d.items()
+                                    if k in Job.__dataclass_fields__}))
                 kept += 1
             else:
-                entries.pop(d["name"], None)   # it must be tried again next time
+                book.pop(d["name"], None)      # it must be tried again next time
                 missing += 1
         save_manifest(entries, args.manifest)
+        if private:
+            save_manifest(private_entries, PRIVATE / "manifest.json")
         print(f"recorded {kept}, {missing} produced no file and stay unrecorded")
         return 1 if missing else 0
 
@@ -169,9 +193,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  tts/pronounce.yml speakers: names {', '.join(unknown)}, not in the cast")
         return 1
     try:
+        only = {o for o in args.only.split(",") if o}
+        everyone = {u.speaker for u in script.utterances}
         jobs = plan(script, voices=args.voices, wav_dir=args.wav,
-                    manifest=load_manifest(args.manifest),
-                    only={o for o in args.only.split(",") if o})
+                    manifest=load_manifest(args.manifest), only=only,
+                    speakers=everyone - private)
+        if private:
+            jobs += plan(script, voices=PRIVATE / "voices", wav_dir=PRIVATE / "wav",
+                         manifest=load_manifest(PRIVATE / "manifest.json"), only=only,
+                         speakers=private)
     except FileNotFoundError as e:
         print(f"  {e}")
         return 1

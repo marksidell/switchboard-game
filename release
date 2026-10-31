@@ -1,7 +1,8 @@
 #!/bin/sh
 # Put this checkout on the host and restart the game program.
 #
-#   ./release
+#   ./release              with the two private voices, if private/ is here
+#   ./release --public     the public voices only (tts_task.md 5.1)
 #
 # Installs the engine and the loader into /opt/sbgame/venv, script.yml and
 # wav/ into /srv/sbgame, the page into /srv/sbgame/web, and the game
@@ -24,7 +25,13 @@ set -eu
 
 cd "$(dirname "$0")"
 
-make -C host sbgame-install
+case "${1:-}" in
+    "") voices="" ;;
+    --public) voices="VOICES=public" ;;
+    *) echo "usage: ./release [--public]" >&2; exit 2 ;;
+esac
+
+make -C host sbgame-install $voices
 sudo install -o root -g root -m 644 host/etc/sbgame/game.toml /etc/sbgame/game.toml
 sudo /opt/sbgame/venv/bin/sbgame --check -c /etc/sbgame/game.toml
 make -C host sbgame-web
@@ -39,3 +46,4 @@ sudo systemctl try-restart sbgame-netcheck
 sleep 2
 systemctl is-active sbgame
 journalctl -u sbgame --since "-10s" --no-pager -o cat
+echo "voices: $(cat /srv/sbgame/voices)"

@@ -63,5 +63,9 @@ CLAUDE.md
 /tts/recorded/free.lenny.*
 /wav/free.lenny.*
 
+# The two private voices: references, their lines and manifest (tts_task.md 5.1).
+# Never pushed, and never in this repository.
+/private/
+
 # Mark's to-do list: local only
 /TODO.md

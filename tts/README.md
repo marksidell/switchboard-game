@@ -76,6 +76,7 @@ audience hears them and is the only fair basis for choosing.
 | `record` | records a performed part's lines on this host (`--status`, `--print` a script to record elsewhere, `--import` those files); takes go to `recorded/`, never rendered over (tts_task.md §6.4) |
 | `playback.py` | playing a clip on the Digiface, for `audition` and `record` |
 | `recorded.py` | which parts are performed, and which takes are current |
+| `--public` on `aws/generate`, `process`, `manifest` | leaves out the two private voices under `private/` (tts_task.md §5.1) |
 | `aws/` | session machinery; `IAM-SETUP.md` is the credential and policy record |
 | `remote/` | what runs on the instance; `NOTES.md` holds the measured model facts |
 
