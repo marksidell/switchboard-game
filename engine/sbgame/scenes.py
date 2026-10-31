@@ -42,9 +42,22 @@ async def say(b: Board, hw: Hw, circuit: str, name: str, length: float,
     """Play one utterance on a circuit and return when it has finished.
 
     `length` is the file's duration, known from the wav at load time. It sets
-    our own deadline, in case the audio program never reports the end.
+    our own deadline, in case the audio program never reports the end. Another
+    say() on the same circuit replaces it, and it returns then: the loudspeaker
+    carries the tutor's prompts and the wrong-cord lines (game_control.md §7.7).
     """
     key = f"{circuit}/play"
+    echoed = False
+
+    def over(b: Board):
+        nonlocal echoed
+        if b.saw(key, name):
+            echoed = True
+        elif echoed:                    # another say()'s expect() has cleared it
+            return "replaced"
+        return ((b.get(key) == "missing" and "missing")
+                or (b.get(key) == "" and b.saw(key, name) and "done"))
+
     await b.expect(key)  # "pending" until the audio program echoes
     await hw.play(circuit, name)
     try:
@@ -52,10 +65,7 @@ async def say(b: Board, hw: Hw, circuit: str, name: str, length: float,
         # the "" from before the command can't pass, and "" counts only once
         # this file's own name has been echoed, so the late "" of a stop sent
         # just before cannot either.
-        r = await b.wait_until(
-            lambda b: (b.get(key) == "missing" and "missing")
-                      or (b.get(key) == "" and b.saw(key, name) and "done"),
-            length + MARGIN, abort_if=abort_if)
+        r = await b.wait_until(over, length + MARGIN, abort_if=abort_if)
     except BaseException:
         await _quietly(hw.stop(circuit))
         raise

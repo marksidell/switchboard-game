@@ -19,6 +19,7 @@ import sbgame.tutor as tutor_mod
 from sbgame.board import Board
 from sbgame.calls import Call
 from sbgame.flows import outside_to_station, station_to_outside, station_to_station, to_operator
+from sbgame.scenes import say
 from sbgame.script_data import Speech, Shape, build
 from sbgame.tutor import Tutor
 from tts.script import load
@@ -257,8 +258,10 @@ async def main() -> int:
     check("room 403" in t["ring-front-room403"].text, "a numbered jack is said as a room")
     check("dial Sunset four, four one oh one." in t["dial-pizza"].text,
           f"a number as the card prints it: {t['dial-pizza'].text[-80:]!r}")
-    check(t["dial-pizza"].text.endswith("seven, eight, four, four, one, zero, one."),
-          "and its digits one at a time, the exchange dialled as digits (Rev 69)")
+    check(t["dial-pizza"].text.endswith("That's seven eight four, four one oh one."),
+          "and as a person today says it, the exchange as digits (Rev 102)")
+    check(t["dial-rays"].text.endswith("That's seven eight four, five thousand."),
+          "round thousands said whole, as with the exchange name")
     check(t["say-operator.1"].text == "Say: How may I connect your call?",
           "an operator line, as she is to say it")
     check(all(u.speaker == "tutor" and u.name == ("brief." + k.removeprefix("brief-")
@@ -416,6 +419,24 @@ async def main() -> int:
     check(took < 0.5, f"the line ends at once, not after its 2s: {took:.2f}s")
     check(("audio/monitor/play/set", "stop") in h.link.sent, "the file is stopped")
     check(t.repeat_key == "" and t._again is None, "nothing left to repeat, and no repeats")
+    await t.stop()
+
+    print("\n== a wrong-cord line over her prompt fails nothing (§7.7, Rev 101)")
+    h = tutored(scene(Shape.STATION_TO_STATION))
+    await h.live()
+    t = h.ctx.tutor
+    t.lines["talk"] = Speech("tutor.talk", 2.0, "tutor")      # a long line
+    task = asyncio.create_task(t.say("talk", until=lambda b: b.on("station/9/op")))
+    await h.b.wait_until(lambda b: b.get("audio/monitor/play") == "tutor.talk", 5)
+    hint = asyncio.create_task(say(h.b, h.hw, "audio/monitor", "tutor.center", 0.2))
+    try:
+        await asyncio.wait_for(asyncio.shield(task), 1.0)
+        check(True, "her prompt returns once replaced, no timeout")
+    except Exception as e:
+        check(False, f"her prompt returns once replaced, no timeout: {e!r}")
+    await hint
+    check(("audio/monitor/play/set", "stop") not in h.link.sent, "and does not stop the line")
+    check(t.repeat_key == "talk", "and comes round again")
     await t.stop()
 
     print("\n== a caller left alone does not hang up in tutor pacing (Rev 92)")

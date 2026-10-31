@@ -10258,21 +10258,21 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "45fca50d3f9e8c0c",
+    "text_sha": "bb0efbcad59173a9",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.dial-ferries": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "6107265616aa6bb7",
+    "text_sha": "f3c271161d4e540d",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.dial-florist": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "2b144ec8ba7fedc3",
+    "text_sha": "4bdf001d46e433b0",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.dial-operator": {
@@ -10286,77 +10286,77 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "8e50558808c66676",
+    "text_sha": "3437e2a75e2ccda1",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.dial-pharmacy": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "2b8e32744cb1a1e8",
+    "text_sha": "79e5057c872eaf44",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.dial-pizza": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "6c353bb2e5e25b9e",
+    "text_sha": "c94c03686c690b76",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.dial-placepigalle": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "09992689a051413f",
+    "text_sha": "3be478c90f3f2db0",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.dial-police": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "e1a50a1a0a9b8a65",
+    "text_sha": "1239c3be961d2a52",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.dial-rays": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "7248d175425a8375",
+    "text_sha": "3f28369f6bd5dd79",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.dial-swedish": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "a286e97b5072ea3e",
+    "text_sha": "be3cb1b88fb146ac",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.dial-taxi": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "9e272b812e597da4",
+    "text_sha": "8489050a30eec9e2",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.dial-times": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "0b28a82792ff70ba",
+    "text_sha": "f2d372458efd9823",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.dial-v16company": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "5f63da290304b515",
+    "text_sha": "c47a82e522249524",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.dial-westernunion": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "a75b69ca8c0e62ac",
+    "text_sha": "6f042925ce72e1b5",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.for-you": {

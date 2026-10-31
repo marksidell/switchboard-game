@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 100. The changes in each revision are in §15.*
+*Rev 102. The changes in each revision are in §15.*
 
 # 1. Overview
 
@@ -372,7 +372,7 @@ The lines are in script.yml under `tutor:`. Each key is one line, rendered as `t
 | **Key** | **Rendered for** | **Fills in** |
 | --- | --- | --- |
 | `ring-front`, `ring-rear` | each jack a station is cabled to, named for the station, `tutor.ring-front-room403`, so moving a label to another jack changes no file | `{jack}`: "room 403" for a numbered jack, else its label |
-| `dial` | each outside line but the operator | `{number}`, as the operator's card prints it, and optionally `{number-digits}`, the digits to dial one at a time: "seven, eight, three, two, two, five, zero" |
+| `dial` | each outside line but the operator | `{number}`, as the operator's card prints it, and optionally `{number-digits}`, the number as a person today says it: "seven eight three, two two five oh", "seven eight four, five thousand" |
 | `say` | each operator line | `{line}` |
 
 Each is a whole sentence, not a phrase spliced into a sentence at play time, so it is spoken as one. A short form under `brief:` is expanded the same way and rendered as `brief.<key>`, `brief.ring-front-room403`, since `tutor.brief-…` would pass the 31 characters a name may have.
@@ -405,6 +405,7 @@ The third row is heard rather than seen: a station's own ring detector does not 
 - The ring cue (§9.2) sounds as for any ring, and the wrong-cord line replaces it if it is still playing.
 - A line not yet rendered is not said, and unlike the tutor's other lines it does not stop tutor mode being chosen (§7.1).
 - A caller left alone during the line waits its 10s afresh from the end of the line (§4).
+- A prompt of the tutor's still playing when the line starts is ended by it, and the call goes on. The prompt comes round again as usual if she has still not done what it asks.
 
 # 8. Free Calls: Lenny Mode
 
@@ -790,6 +791,18 @@ Before step 1: the certificate is issued (`host/README.md`, "The certificate"), 
 - **Screen wake lock** (§11.3). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 15. Revision History
+
+## 15.102 Changes in Rev 102
+
+— The tutor's `{number-digits}` is said as a person today says a number (§7), Mark's request, 2026-10-30: the first three digits, a pause, then the last four as they are said with the exchange name. "That's seven eight four, five thousand", where Rev 69 had "seven, eight, four, five, zero, zero, zero". Zero in those digits is now "oh", as with the exchange name, where Rev 69 had "zero".
+
+— Code consequence, for Claude Code: `dial_digits` in `tts/script.py`. The dial lines are rendered again. No game program change.
+
+## 15.101 Changes in Rev 101
+
+— A wrong-cord line over a tutor's prompt no longer fails the call (§7.7), Mark, 2026-10-30. Played at 18:04: 15s into `ring-rear-room204`, 16.4s long, the operator rang the trunk. `rang-trunk` replaced the prompt on the loudspeaker, the prompt never saw its own end, and at its 19.4s deadline its timeout failed the call as `not connected`, in tutor pacing, where nothing fails for being slow (§7.1).
+
+— Code consequence, for Claude Code: `say()` in `scenes.py` returns when another `say()` replaces it; `test_tutor.py`.
 
 ## 15.100 Changes in Rev 100
 

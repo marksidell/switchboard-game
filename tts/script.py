@@ -823,16 +823,16 @@ def number_words(number: str, exchanges: dict[str, str]) -> str:
 
 
 DIGITS_FIELD = "number-digits"
-DIAL_WORDS = ("zero",) + DIGIT_WORDS[1:]
 
 
 def dial_digits(number: str, exchanges: dict[str, str]) -> str:
-    """What the player dials, a digit at a time: 783-2250, Sunset three, as
-    "seven, eight, three, two, two, five, zero" (game_control.md 7, Rev 69).
-    The exchange's letters are dialled as their digits, and the commas give
-    the voice a beat between them. Zero, not "oh": she is naming a hole in
-    the dial, not reading a number from a card."""
-    return ", ".join(DIAL_WORDS[int(c)] for c in number if c.isdigit())
+    """What the player dials, as a person today says it: 783-2250 as "seven
+    eight three, two two five oh", 784-5000 as "seven eight four, five
+    thousand" (game_control.md 7, Rev 102). The exchange's letters are said as
+    their digits, the comma gives the voice its pause, and the last four are
+    said as number_words says them."""
+    digits = "".join(c for c in number if c.isdigit())
+    return " ".join(DIGIT_WORDS[int(c)] for c in digits[:3]) + ", " + _line_words(digits[3:])
 
 
 def _tutor_lines(raw: object, cast: dict, board: list[dict], stations: dict,
@@ -872,7 +872,7 @@ def _tutor_lines(raw: object, cast: dict, board: list[dict], stations: dict,
             bad(at, f"unreadable placeholder: {e}")
             return None
         want = {field_} if field_ else set()
-        # {number-digits} beside {number}: what to dial, digit by digit (Rev 69).
+        # {number-digits} beside {number}: what to dial, as said today (Rev 102).
         may = want | ({DIGITS_FIELD} if field_ == "number" else set())
         if not want <= used or used - may:
             bad(at, "takes " + (f"{{{field_}}}" if field_ else "no placeholder")
