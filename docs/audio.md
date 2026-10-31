@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 35. The changes in each revision are in §17.*
+*Rev 36. The changes in each revision are in §17.*
 
 # 1. Overview
 
@@ -12,7 +12,7 @@ The audio program is one of the two host programs (mqtt.md §1). It is C++, it r
 2. Plays a 48kHz `.wav` file on a station or trunk channel on command, and reports when it has finished.
 3. Plays dial tone, ringback, busy or reorder tone on a trunk channel on command, in the standard cadence, until told to stop.
 4. Listens for speech on a circuit channel on command and reports when speech starts, when it ends, or that it did neither in time, with an echo canceller so that a caller can be heard over the circuit's own file (§9.4).
-5. Watches every station's capture for 20Hz ring (§9.5).
+5. Watches every circuit's capture for 20Hz ring (§9.5).
 6. Pipes one receive channel to the loudspeaker through the low-pass filter of station §8.8 — the operator tap's by default, or a station's or trunk's on command (§10.3) — with a commanded on/off and level, a gate against line disturbances (§10.5), a boost for the far party (§10.8), and a file on command (§10.4).
 7. Records what the loudspeaker carries, and plays a recording back (§10.6, §10.7).
 8. Plays a 1kHz test tone on any output channel on command, as a wiring and level diagnostic.
@@ -284,17 +284,19 @@ While the file plays it is not added to the noise floor's history (§9.2), which
 
 **Bench.** On the station 21 recording of 2026-10-24, 16 lines: the canceller took 27–34dB off each line Mark did not talk over, and no decision window there reached more than 13 frames of 30 above threshold; the lines he talked over showed 11–19dB, the residual being him, and those he talked over for longer than the decision window were heard. `aec_check FILE.lineN.wav` runs the canceller over a `--record-line` recording and prints each frame.
 
-## 9.5 Ring Heard on a Station
+## 9.5 Ring Heard on a Circuit
 
 The station board's ring detector is across the line ahead of the relay (station §7.2), and it does not see ring on a station that is off-hook: the board's own loop load pulls the ring down from about 80V to 17V AC, below its turn-on. Ring on an off-hook station is what the player sends when she rings the wrong cord of a call from that room (game_control.md §7.7). It reaches the station's capture channel through Tx01, at about −25dBFS of 20Hz; without it the 20Hz band is below −85dBFS (measured, §17.30).
 
-So on every station's capture channel, 1–22 and 24, at all times: a 20Hz Goertzel over blocks of 4800 samples (100ms, exactly two cycles, so DC and 60Hz fall on the window's nulls), under a Hann window, which keeps a file returning at full strength on the same channel from leaking into the band.
+So on every circuit's capture channel, stations 1–22 and 24 and trunks 25–32, at all times: a 20Hz Goertzel over blocks of 4800 samples (100ms, exactly two cycles, so DC and 60Hz fall on the window's nulls), under a Hann window, which keeps a file returning at full strength on the same channel from leaking into the band.
 
 The block's 20Hz amplitude, in dBFS of a sine's peak, is compared with −50dBFS, and its 40Hz amplitude, from a second Goertzel, must be at least 20dB below the 20Hz: ring has almost no second harmonic, while a plug's click or a contact's bounce spreads across the low band. Three blocks in a row passing both (300ms) set `ringing` `"on"`; three in a row below it (300ms) set `"off"`. 
 
-Published on `sbgame/station/<n>/ringing` on change only, retained.
+Published on `sbgame/station/<n>/ringing` and `sbgame/trunk/<n>/ringing` on change only, retained.
 
-It is heard whether the station is on- or off-hook, but on-hook the relay has lifted Tx01 from the line and nothing reaches the channel, so in practice it reports off-hook ringing only. The ESP32's `station/<n>/ring` remains the report of a ringing on-hook station. Trunks are not watched: ringing a trunk is reported by the controller (control.md §8.3).
+It is heard whether the station is on- or off-hook, but on-hook the relay has lifted Tx01 from the line and nothing reaches the channel, so in practice it reports off-hook ringing only. The ESP32's `station/<n>/ring` remains the report of a ringing on-hook station.
+
+**On a trunk**, this is how the game knows the public line's ATA is ringing the switchboard, since the ATA is wired in place of the trunk's ring relay and the controller cannot see it (trunk_circuit.md §4.5). Measured on trunk 8 at 2026-10-31, a call from an iPhone, with the pilot off: −17.5dBFS of 20Hz, 40Hz at −71.8dBFS, −128dBFS between rings, one ring every 6s of about 2s, and −102dBFS on trunk 7. The thresholds are the station's. The audio program does not know which trunk is the public line, so it watches all eight. On the others, ring from the game's own relay does not reach the channel, because the relay has lifted the line; the player ringing a trunk with a cord may be heard, and the controller's `fault` `"ring_on_trunk"` remains the report of that.
 
 # 10. Audience Monitor
 
@@ -635,6 +637,12 @@ In order, with the switchboard connected:
 - **Listening on the tap channel.** Not offered — the rough specification says station or trunk — but the tap always carries the operator's voice, and "has the operator said anything" may turn out to be a question the game wants to ask. One more accepted topic if so.
 
 # 17. Revision History
+
+## 17.36 Changes in Rev 36
+
+— Ring is heard on trunks as well as stations (§9.5), Mark's request, 2026-10-31: he called the hotel from his iPhone and the page showed nothing, because the ATA rings the switchboard unseen. New topic `trunk/<n>/ringing` (mqtt.md Rev 49). The measurement that shows it works is in §9.5.
+
+— Code consequence, for Claude Code: `ring_step()` and `topic_for()` take every circuit slot; `test_ringing`.
 
 ## 17.35 Changes in Rev 35
 

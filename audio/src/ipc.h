@@ -92,7 +92,7 @@ enum class Topic : uint8_t {
     Peer,       // idx = slot
     Op,         // idx = slot
     OpTone,
-    Ringing,    // idx = station slot (audio.md 9.5, Rev 30)
+    Ringing,    // idx = circuit slot (audio.md 9.5, Rev 30, Rev 36)
     FreeBuf     // not a topic: a buffer the audio thread has finished with
 };
 

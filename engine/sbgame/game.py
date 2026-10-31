@@ -176,6 +176,7 @@ class Game:
         await link.state("game/tutor/more", "")
         await link.state("game/stations", str(self.cfg.stations))
         await link.state("game/trunks", str(self.cfg.trunks))
+        await link.state("game/public_trunk", str(self.cfg.public_trunk))
         assert self.diag is not None
         await self.diag.end_all()
         await self.diag.publish_all_off()

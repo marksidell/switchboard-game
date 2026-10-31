@@ -61,7 +61,6 @@ static bool topic_for(Topic t, int idx, char* out, size_t n)
         std::snprintf(out, n, "%saudio/monitor/peer", PREFIX); return true;
     case Topic::OpTone:  std::snprintf(out, n, "%saudio/optone",  PREFIX); return true;
     case Topic::Ringing: {                                // audio.md 9.5, Rev 30
-        if (chan::slot_circuit(idx).kind != chan::Kind::Station) return false;
         chan::circuit_id(idx, id, sizeof id);
         if (!id[0]) return false;
         std::snprintf(out, n, "%s%s/ringing", PREFIX, id);

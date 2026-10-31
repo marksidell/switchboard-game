@@ -77,6 +77,7 @@ async def main() -> int:
         print("\n== birth publishes a stopped game and the whole board")
         b, link, g, sess = await build_game(tmp)
         check(link.state_v.get("game/run") == "off", "run is off at birth (§2)")
+        check(link.state_v.get("game/public_trunk") == "8", "the public line is published (Rev 105)")
         check(link.state_v.get("game/call/1/scene") == "", "every slot is clear")
         labels = [k for k in link.state_v if k.startswith("board/station/") and k.endswith("/label")]
         check(len(labels) == 30, f"30 station jacks published, got {len(labels)}")

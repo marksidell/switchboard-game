@@ -541,17 +541,17 @@ void Engine::drain_commands()
 //   been named) through the chain of audio.md 10.1 into mon_row_,
 //   advance the ring position, and take a snapshot if a hop is due.
 // ring_step()                                                          [audio]
-//   audio.md 9.5: one period of every station's capture through its 20Hz
+//   audio.md 9.5: one period of every circuit's capture through its 20Hz
 //   Goertzel. At the end of each 100ms block the 20Hz amplitude is judged
 //   against RING_ON_DBFS, and `ringing` posted when the debounce turns. The
-//   block boundary is shared by every station, so one counter serves them all.
+//   block boundary is shared by every circuit, so one counter serves them all.
 void Engine::ring_step(int ncirc)
 {
     const double coeff  = 2.0 * std::cos(2.0 * M_PI * RING_HZ / SAMPLE_RATE);
     const double coeff2 = 2.0 * std::cos(2.0 * M_PI * 2.0 * RING_HZ / SAMPLE_RATE);
     unsigned n = ring_n_;
     for (int slot = 1; slot <= ncirc; ++slot) {
-        if (chan::slot_circuit(slot).kind != chan::Kind::Station) continue;
+        if (!chan::is_circuit_slot(slot)) continue;
         const float* src = &capf_[(size_t)(slot - 1) * period_];
         RingDet& r = ring_det_[slot];
         n = ring_n_;

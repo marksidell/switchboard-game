@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 48. The changes in each revision are in §12.*
+*Rev 50. The changes in each revision are in §12.*
 
 # 1. Overview
 
@@ -167,6 +167,7 @@ The audio program publishes what its pilot detector finds, per circuit; the stat
 | `sbgame/trunk/<1-8>/tone` | `"dial"`, `"ringback"`, `"busy"`, `"reorder"` or `""` | yes | The tone now playing on this trunk. Empty when none. |
 | `sbgame/station/<1-22, 24>/listen`, `sbgame/trunk/<1-8>/listen` | `"listening"`, `"speech"`, `"silence"`, `"timeout"` or `""` | yes | The listen on this circuit as it runs: `"listening"` from the command; `"speech"` when speech starts, and the listen continues; `"silence"` when it ends, which finishes the listen; `"timeout"` if speech never started within the commanded seconds or never ended within the program's cap. The final value persists until the next `listen/set`; empty after a cancel (audio.md §9.1). |
 | `sbgame/station/<1-22, 24>/ringing` | `"on"` or `"off"` | yes | 20Hz ring heard on this station's capture channel, which in practice means ring sent to it while it is off-hook, when its ring detector does not see it (audio.md §9.5). `"off"` at start. On change only. |
+| `sbgame/trunk/<1-8>/ringing` | `"on"` or `"off"` | yes | 20Hz ring heard on this trunk's capture channel, which is how the public line's ATA ringing the switchboard is known, with a ring every 6s of about 2s (audio.md §9.5). `"off"` at start. On change only. |
 | `sbgame/audio/monitor` | `"off"` or gain in dB | yes | The loudspeaker feed: muted, or the gain applied, as a signed decimal string. Echoes `monitor/set` after clamping to range (audio.md §10.2). |
 | `sbgame/audio/monitor/source` | `"tap"` or circuit id | yes | The receive channel the loudspeaker is fed from: the operator tap, or that station's or trunk's. Echoes `monitor/source/set` once the switch is made; `"tap"` after the program loses the game or the broker (audio.md §10.3, §13.2). |
 | `sbgame/audio/monitor/peer` | `"auto"` or dB | yes | The loudspeaker's peer boost: measured, or fixed at this figure. Echoes `monitor/peer/set`; `"auto"` at start and after the program loses the game (audio.md §10.8, §13.2). |
@@ -248,6 +249,7 @@ Published by the game program for the page, the deck and the play log. All retai
 | `sbgame/game/tutor/more` | a key under script.yml's `tutor:`, or `""` | yes | The full line More Help would say: set while the short form of that line, the last she finished, is repeatable (game_control.md §7). |
 | `sbgame/game/tutor/waiting` | `"more"`, `"next"` or `""` | yes | The tutor has finished speaking and waits for More Help or Next Call (`"more"`), or for Next Call alone (`"next"`); `""` otherwise. The deck flashes the key (game_control.md §7). |
 | `sbgame/game/stations`, `sbgame/game/trunks` | integer | yes | How many stations (0–22) and trunks (0–8) are fitted, from the configuration (game_control.md §12.2). Published at start. |
+| `sbgame/game/public_trunk` | integer | yes | The trunk the ATA feeds, the public line, from the configuration (game_control.md §8). Published at start. |
 | `sbgame/game/diag/<target>/<test>` | `"on"` or `"off"` | yes | A diagnostic's state: `<target>` is `station/<1-22, 24>`, `trunk/<1-8>` or `tap`; `<test>` is `hook` (stations), `ring` (trunks), `tone`, `voice` or `monitor` (game_control.md §11.4). All `"off"` at start. |
 | `sbgame/game/log` | text | yes | The last 50 events, newest first, one per line (game_control.md §12.3). |
 | `sbgame/game/error` | text, or `""` | yes | The last page command the game program rejected, and why; cleared by the next accepted command. |
@@ -397,7 +399,7 @@ Then `game_status` = `"online"`, state before birth as the audio program does. T
 
 On audio program start or reconnect, publish in this order:
 
-1. `play` and `listen` empty for every circuit, `tone` empty for every trunk, `audio/tap/play` and `audio/monitor/play` empty; `monitor`, `monitor/source` and `monitor/peer` as configured; `test/<ch>` off for every channel; `ringing` off for every station; `audio/record`, `audio/recordings` and `audio/playback`.
+1. `play` and `listen` empty for every circuit, `tone` empty for every trunk, `audio/tap/play` and `audio/monitor/play` empty; `monitor`, `monitor/source` and `monitor/peer` as configured; `test/<ch>` off for every channel; `ringing` off for every station and trunk; `audio/record`, `audio/recordings` and `audio/playback`.
 2. `peer`, `op` and `optone` from the first detector pass.
 3. `audio_status` = `online`.
 
@@ -487,6 +489,14 @@ Recorded so the reasoning survives the move from the circuit documents, whose ch
 - Moving past Mosquitto 2.x: what it means for this system is the `per_listener_settings` and password-file defaults. The WebSockets listener carries MQTT alone, which is not marked for removal.
 
 # 12. Revision History
+
+## 12.50 Changes in Rev 50
+
+— `sbgame/game/public_trunk` added (§6.1), following game_control.md Rev 105, 2026-10-31. An addition; no existing topic or payload changes.
+
+## 12.49 Changes in Rev 49
+
+— `sbgame/trunk/<1-8>/ringing` added (§5), from the audio program, following audio.md Rev 36, 2026-10-31: `"on"` while 20Hz ring is heard on the trunk's capture channel. An addition; no existing topic or payload changes.
 
 ## 12.48 Changes in Rev 48
 

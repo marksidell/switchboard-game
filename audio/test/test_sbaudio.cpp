@@ -1408,14 +1408,14 @@ static void test_peer_boost()
 
 static void test_ringing()
 {
-    std::printf("ring heard on a station (audio.md 9.5, Rev 30)\n");
+    std::printf("ring heard on a circuit (audio.md 9.5, Rev 30, Rev 36)\n");
     auto sh = std::make_unique<Shared>();
     AlsaStream st;
     Engine eng(*sh, st);
     eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH);
     // Station 1 rung at the level measured on the switchboard, -25 dBFS rms;
     // station 2 carrying loud speech-band tone and hum, which must not count;
-    // trunk 1 rung too, which is not watched; station 3 a plug's contact
+    // trunk 1 rung too, as the public line's ATA rings it; station 3 a plug's contact
     // bouncing, steps that decay through the transformer (Rev 31).
     const double ring = 0.056 * M_SQRT2;
     double ph = 0.0;
@@ -1451,7 +1451,10 @@ static void test_ringing()
     }
     for (const auto& x : seen) std::printf("    %s\n", x.c_str());
     std::printf("    on at %.2f s, off at %.2f s\n", t_on, t_off);
-    check(seen.size() == 2 && seen[0] == "1 on" && seen[1] == "1 off", "station 1 on then off, nothing else");
+    const std::string t1 = std::to_string(chan::trunk_slot(1));
+    check(seen.size() == 4 && seen[0] == "1 on" && seen[1] == t1 + " on"
+          && seen[2] == "1 off" && seen[3] == t1 + " off",
+          "station 1 and trunk 1 on then off, nothing else");
     check(t_on > 0.5 && t_on < 0.95, "on within 450 ms of the ring starting");
     check(t_off > 2.0 && t_off < 2.45, "off within 450 ms of it stopping");
 }

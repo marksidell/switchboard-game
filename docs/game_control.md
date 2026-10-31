@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 103. The changes in each revision are in §15.*
+*Rev 106. The changes in each revision are in §15.*
 
 # 1. Overview
 
@@ -419,7 +419,7 @@ There are two kinds of free caller, both real people.
 
 **Station 24**, the real telephone on jack 18 (§12.2, real_phone.md). When `station/24/lifted` goes on, the game closes station 24's relay (`hook/set` `"on"`), which puts the line on channel 24 so its pilot, `op` and `peer` work. The phone's own lamp is the switchboard's. The caller is gone when `lifted` goes off, and the relay is opened again.
 
-**Trunk 8**, the public line: the Grandstream ATA's FXS port, which outside callers reach by dialling its number (trunk_circuit.md §4.5). The game cannot see it ring. The free call begins when the operator answers it, with `trunk/8/seize` and `trunk/8/op` both on. The caller is gone when `seize` goes off for more than a second, because the operator has pulled the cord, or the far end hung up and the ATA dropped the loop. Which trunk is the public line is `public_trunk` in the configuration, 8 by default, and no scene ever uses it (§12.2).
+**Trunk 8**, the public line: the Grandstream ATA's FXS port, which outside callers reach by dialling its number (trunk_circuit.md §4.5). The controller cannot see it ring. The audio program hears it, `trunk/8/ringing` (audio.md §9.5), and the page flashes the tile with each ring (§11.1), but the game does nothing with it. The free call begins when the operator answers it, with `trunk/8/seize` and `trunk/8/op` both on. The caller is gone when `seize` goes off for more than a second, because the operator has pulled the cord, or the far end hung up and the ATA dropped the loop. Which trunk is the public line is `public_trunk` in the configuration, 8 by default, and no scene ever uses it (§12.2).
 
 ## 8.2 Answering and Connecting
 
@@ -580,8 +580,8 @@ A tile shows little:
 
 | **State** | **Station jack** | **Trunk jack** |
 | --- | --- | --- |
-| fault | `peer` `"ambiguous"` or `"deaf"` for a second, `play` `"missing"` | the same, or `fault` set |
-| ringing | `ring` on, flashing | `ring` on, flashing with the cadence |
+| fault | `peer` `"ambiguous"` or `"deaf"` for a second, `play` `"missing"` | the same, or `fault` `"ring_on_trunk"` |
+| ringing | `ring` on, flashing | `ring` on, or `ringing` on the public line (§8), flashing with the cadence |
 | calling | `hook` on, `op` off and `peer` empty: the line lamp is lit, nobody has answered | — |
 | connected | `peer` set, in a colour shared by both ends of the pair | `peer` set, the same way |
 | operator on | `op` on | `op` on |
@@ -791,6 +791,26 @@ Before step 1: the certificate is issued (`host/README.md`, "The certificate"), 
 - **Screen wake lock** (§11.3). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 15. Revision History
+
+## 15.106 Changes in Rev 106
+
+— `bad_dial` does not light a trunk's tile (§11.1), Mark's request, 2026-10-31. It stays set until the next good digit, so a misdial would leave the tile showing a fault after the call had moved on. The tile's panel still shows it.
+
+— Code consequence, for Claude Code: `tileState()` in `app.js`.
+
+## 15.105 Changes in Rev 105
+
+— Only the public line's tile flashes on `ringing` (§11.1), Mark's request, 2026-10-31. Rev 104 flashed any trunk's, which on the others could only be the player ringing one with a cord, and looked like a call coming in. The game publishes the trunk as `game/public_trunk` (mqtt.md Rev 50).
+
+— A trunk's `fault` now shows on its tile, as §11.1 has always said (Mark, 2026-10-31). The page tested it for `"on"`, and the controller's values are `"ring_on_trunk"` and `"bad_dial"`, so it never did.
+
+— Code consequence, for Claude Code: `tileState()` in `app.js`; `game/public_trunk` in `game.py`; `test_game.py`.
+
+## 15.104 Changes in Rev 104
+
+— The page shows a call ringing on the public line (§8, §11.1), Mark's request, 2026-10-31: a trunk tile flashes while `ringing` is on (mqtt.md Rev 49), so he can tell from the iPad that a call has arrived. It flashes only with each ring, about 2s in 6s, and the game itself takes no action on it.
+
+— Code consequence, for Claude Code: `tileState()` and the trunk's detail panel in `app.js`.
 
 ## 15.103 Changes in Rev 103
 

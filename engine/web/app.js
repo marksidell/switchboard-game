@@ -189,8 +189,11 @@ function tileState(kind, circuit, label) {
   if (circuit in peerFaultSince && Date.now() - peerFaultSince[circuit] < PEER_FAULT_MS)
     peer = peerBefore[circuit];        // held, as the game holds it (§4)
   if (peer === 'ambiguous' || peer === 'deaf' || get(`${circuit}/play`) === 'missing'
-      || on(`${circuit}/fault`)) return 'fault';
-  if (on(`${circuit}/ring`)) return 'ringing';
+      || get(`${circuit}/fault`) === 'ring_on_trunk') return 'fault';
+  // The public line's `ringing` is its ATA, which the controller cannot see
+  // (Rev 104). On another trunk it could only be a cord: `fault` says that.
+  if (on(`${circuit}/ring`)
+      || (circuit === `trunk/${get('game/public_trunk')}` && on(`${circuit}/ringing`))) return 'ringing';
   if (offHook && !on(`${circuit}/op`) && !peer)
     return 'calling';
   if (peer) return 'connected';
@@ -605,7 +608,7 @@ function showPanel(kind, n) {
     for (const f of (kind === 'station'
                        ? [...(circuit === `station/${PHONE_STATION}` ? ['lifted'] : []),
                           'hook', 'ring', 'peer', 'op', 'play', 'listen', 'fault']
-                                        : ['seize', 'ring', 'peer', 'op', 'play', 'tone', 'listen', 'fault']))
+                                        : ['seize', 'ring', 'ringing', 'peer', 'op', 'play', 'tone', 'listen', 'fault']))
       rows.push([f, get(`${circuit}/${f}`) || '—', cmds && f === own ? own : '']);
     if (kind === 'trunk') rows.push(['dialled', get(`${circuit}/dialled`) || '—']);
     const using = [...occupiedSlots()].find(

@@ -8,6 +8,7 @@ Printed things for the game, and how to print them.
 | `cards.pdf` | Operator's cards | `cards.py` |
 | `dial-card-WAverly-7-2004.pdf` | Dial card | `dialcard.py` |
 | `stream-deck-help.jpg` | Help placard behind the Stream Deck | drawn by hand |
+| `call-the-hotel.jpg` | Placard next to the switchboard, with the number to call | drawn by hand |
 | `bench/` | Bench sheets and checklists | |
 
 ## Printers
@@ -23,3 +24,8 @@ automatic queue and IPP Everywhere fail.
 Print `stream-deck-help.jpg` from IrfanView on the colour Brother MFC printer: custom print size,
 width 15, maintaining the aspect ratio, portrait. That width is what lines the two arrows up with
 the Start and mode keys, so keep it if the image is redrawn at the same layout.
+
+## The call-the-hotel placard
+
+Print `call-the-hotel.jpg` from IrfanView on the colour Brother MFC printer: custom print size,
+width 26, maintaining the aspect ratio, landscape.
