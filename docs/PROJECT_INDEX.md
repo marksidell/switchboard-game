@@ -16,7 +16,7 @@ of this file.
 |---|---|---|
 | `mqtt.md` | **48** | The MQTT design: broker, clients, topic naming, every message by publisher, QoS and retention, liveness, broker configuration and access list. |
 | `control.md` | **41** | The firmware specification: startup order, ring generation, I²C map, station and trunk behaviour, dial pulse timing, failsafes. |
-| `audio.md` | **34** | The audio program specification: channel plan, output mixer, detector scheduling, file playback, trunk tones, speech detection, audience monitor, MQTT interface. |
+| `audio.md` | **35** | The audio program specification: channel plan, output mixer, detector scheduling, file playback, trunk tones, speech detection, audience monitor, MQTT interface. |
 | `game_control.md` | **103** | The game program, status page and Stream Deck: what a game is, call pacing, the deck of scenes, tallies, call slots, the log, the jack map. |
 | `pilot-map.md` | — | Slot ↔ bin ↔ circuit assignment and the detector constants. Authoritative. |
 | `audio-io.md` | — | Channel map, measured reference levels, bench tools. |
@@ -36,7 +36,7 @@ The KiCad drawing guides for all three boards are in `archive/`, as records of h
 | File | Rev | Covers |
 |---|---|---|
 | `real_phone.md` | **5** | How the decision for a real telephone on the board was reached, adopted 2026-10-23. |
-| `grandstream_trunk.md` | **6** | Bench notes on a Grandstream HT80x V2 ATA on a trunk jack. The design is `trunk_circuit.md` §4.5. |
+| `grandstream_trunk.md` | **7** | Bench notes on a Grandstream HT80x V2 ATA on a trunk jack. The design is `trunk_circuit.md` §4.5. |
 | `lenny-spec.txt` | — | Mark's spec for Lenny mode, as he wrote it. The design is `game_control.md` §8. |
 
 ## Task briefs

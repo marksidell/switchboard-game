@@ -774,3 +774,18 @@ There are a total of 367 utterances. You can also talk to Lenny himself, if the 
 dials an outside number not in the game's list.
 
 *Number, please?*
+
+## Afterword
+
+### License
+
+The code and documents here are under the [MIT License](LICENSE), with two exceptions.
+
+MQTT.js, in `engine/web/mqtt.min.js`, has its own MIT license,
+[copied beside it](engine/web/mqtt.LICENSE.md).
+
+The Lenny recordings are not in this repository. They circulate freely on the internet, but
+no one seems able to say who holds the rights, so I can't pass on a license for them. To
+hear Lenny, download [Lenny.zip](https://crosstalksolutions.com/pub/Lenny.zip) and process
+the files as `tts/recorded/PERFORMERS.md` describes. Without them, the rest of the game
+is unaffected except that the operator's call to an unknown number has no one to answer it.

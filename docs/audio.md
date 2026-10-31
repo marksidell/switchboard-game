@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 34. The changes in each revision are in §17.*
+*Rev 35. The changes in each revision are in §17.*
 
 # 1. Overview
 
@@ -334,7 +334,7 @@ The high-pass is second order. The low-pass is per station §8.8: elliptic, 8th 
 
 The only buffering beyond the period is the 10ms delay, 480 samples, which is always in the path whether or not the gate is on. The loop through the room is the constraint §8.8 records, so nothing else is added.
 
-Channels 33 and 34 are the Digiface's own analog output, a 6.3mm TRS jack, 33 on the tip and 34 on the TRS ring, full scale +9.5dBu, fixed (real_phone.md §4). The amplifier takes 33 through a TS-to-XLR cable. Only 33 and 34 are accepted; a circuit or tap channel is refused at startup.
+Channels 33 and 34 are the Digiface's own analog output, a 6.3mm TRS jack, 33 on the tip and 34 on the TRS ring, full scale +9.5dBu, fixed (real_phone.md §4). The amplifier's balanced input takes 33 through a 600Ω transformer. Only 33 and 34 are accepted; a circuit or tap channel is refused at startup.
 
 The filter coefficients are computed at startup from the passband edge, stopband edge and attenuation, which are options, so that a different passband edge (§17.1) is a command-line change and not a code change. The coefficients are computed with a standard elliptic design; a unit test compares the realised stopband at 6000Hz against the requirement, because the lowest pilot sits exactly there and 70dB is what keeps it out of the loudspeaker.
 
@@ -635,6 +635,10 @@ In order, with the switchboard connected:
 - **Listening on the tap channel.** Not offered — the rough specification says station or trunk — but the tap always carries the operator's voice, and "has the operator said anything" may turn out to be a question the game wants to ask. One more accepted topic if so.
 
 # 17. Revision History
+
+## 17.35 Changes in Rev 35
+
+— The amplifier's feed from channel 33 is now through a 600Ω transformer between the Digiface's unbalanced jack and the amplifier's balanced input, in place of the TS-to-XLR cable (§10.1). Fitted by Mark, 2026-10-30. No code consequence.
 
 ## 17.34 Changes in Rev 34
 

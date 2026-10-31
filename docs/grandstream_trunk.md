@@ -1,8 +1,8 @@
 # 551 Switchboard Simulator — A Grandstream ATA on a Trunk Jack (Bench Notes)
 
-Rev 6 — 2026-10-30. Bench notes, Mark's measurements. The design that puts the
-ATA on trunk 8 is in trunk_circuit.md §4.5. The ATA is a Grandstream HT80x V2; its administration guide is in
-`reference/HT80x-V2-–-Administration-Guide.pdf`.
+Rev 7 — 2026-10-30. Bench notes, Mark's measurements. The design that puts the
+ATA on trunk 8 is in trunk_circuit.md §4.5. The ATA is a Grandstream HT80x V2; its administration guide is
+[on Grandstream's site](https://documentation.grandstream.com/knowledge-base/ht80x-v2-administration-guide/).
 
 ## 1. Measured
 
@@ -47,6 +47,10 @@ does not trip, and at 55 Vrms, the ATA's maximum, it does (Mark, 2026-10-22).
   operator rings trunk 8 by mistake.
 
 ## Revision History
+
+### Changes in Rev 7
+
+— The ATA's administration guide is linked rather than kept in the repository (Mark, 2026-10-30).
 
 ### Changes in Rev 6
 

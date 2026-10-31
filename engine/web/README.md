@@ -8,6 +8,7 @@ index.html    the page; the vendored MQTT.js version is noted at the top
 app.js        everything the page does
 style.css
 mqtt.min.js   MQTT.js 5.10.1, the browser build from the npm package's dist/
+mqtt.LICENSE.md  MQTT.js's license, from the same package
 ```
 
 Install with `make -C host sbgame-web`.

@@ -57,3 +57,8 @@ __pycache__/
 
 CLAUDE.md
 .claude/
+
+# The Lenny recordings: licence not stated, so not redistributed here. From
+# crosstalksolutions.com/pub/Lenny.zip; tts/recorded/PERFORMERS.md has the details.
+/tts/recorded/free.lenny.*
+/wav/free.lenny.*
