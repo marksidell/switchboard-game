@@ -174,16 +174,16 @@ Everything is packaged in a 6U travel case.
 
 ### The Control Board
 
-<p align="center">
-  <img src="docs/images/control-board.jpg" width="75%" />
-</p>
-
 An ESP32 on the control board controls and monitors the trunks and
 stations via a daisy-chained I2C bus. I chose the Olimex part because
 it can be powered via its Ethernet interface using PoE.
 The ESP32's ground is tied to the 24 V supply that also powers
 the switchboard. PoE keeps that ground isolated from the PC.
 A small TP-Link 5-port switch connects the ESP32 to the PC and provides power.
+
+<p align="center">
+  <img src="docs/images/control-board.jpg" width="75%" />
+</p>
 
 The board also generates ring voltage, used by the trunks to signal
 the switchboard and also supplied to the switchboard so that it can
@@ -231,12 +231,12 @@ ESP32 can operate to cycle power to the switchboard, effectively rebooting it.
 
 ### The Trunk Board
 
+The circuit between a central office (CO) and a telephone (station) is a DC loop.
+To the trunk board, the switchboard is the telephone: the board plays the central office.
+
 <p align="center">
   <img src="docs/images/trunk-board.jpg" width="75%" />
 </p>
-
-The circuit between a central office (CO) and a telephone (station) is a DC loop.
-To the trunk board, the switchboard is the telephone: the board plays the central office.
 
 The CO powers the loop. When the phone is *onhook* (hung up) it presents an open
 circuit to the CO. When a person picks up the phone it goes *offhook* and presents
@@ -259,7 +259,10 @@ I used a constant 30 mA current instead, as modern line cards do.
 
 The schematic below shows one of the eight trunk circuits.
 
-[trunk schematic]
+<p align="center">
+  <img src="docs/images/trunk-schematic.jpg" width="75%" />
+</p>
+
 
 The two transistors and associated components in the upper left make up a 28 mA
 constant-current source, which is close enough to the nominal 30 mA.
@@ -323,12 +326,13 @@ values of the resistors in front of the optoisolator input.
 
 ### The Station Board
 
+The station board is a mirror of the trunk board.
+
 <p align="center">
   <img src="docs/images/station-board.jpg" width="75%" />
 </p>
 
-The station board is a mirror of the trunk board. The station board's
-eight circuits must do the following:
+The station board's eight circuits must do the following:
 
 - Detect ring from the CO (in our case, from the switchboard).
 - Go offhook by presenting a DC load to the loop circuit.
