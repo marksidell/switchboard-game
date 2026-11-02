@@ -5,6 +5,9 @@ switchboard, unmodified, wired to modern hardware that plays sixty
 characters calling a 1950s hotel. The game listens for the operator to say
 "Number, please," and then the calls keep coming.*
 
+Watch this [YouTube video](https://www.youtube.com/placeholder/) to
+see the game in action.
+
 On tours at the Connections Museum in Seattle, guests really enjoy
 learning the basics of operating a traditional switchboard. In this
 project I built a game around a working switchboard in which simulated
@@ -24,8 +27,7 @@ There are calls within the hotel, calls from guests to local businesses (which
 the operator must dial), outbound long-distance calls, and calls from various
 outside locations to guests at the hotel. After a call has been
 connected, the parties have a brief conversation.
-People watching the game can hear
-everything over an audience loudspeaker.
+People watching the game can hear everything over an audience loudspeaker.
 
 The game has sixty characters, each with a unique voice, who perform in
 over a hundred simulated call scenes. The game presents the scenes to
@@ -49,9 +51,6 @@ has connected the current one. But in one scene everyone
 in the hotel calls at nearly the same time to complain about a dog who
 is causing havoc everywhere. (The dog in question is Martha, who can
 talk and in one scene orders room service.)
-
-Watch this [YouTube video](https://www.youtube.com/placeholder/) to
-see the game in action.
 
 ## The Switchboard
 
@@ -135,6 +134,8 @@ From the point of view of a station, the switchboard looks like a
 central office, which can ring and connect calls to the station.
 
 ## The Game Hardware
+
+![front](docs/images/case-front.jpg) ![back](docs/images/case-back.jpg)
 
 Because the switchboard was intact, one of my design
 goals was not to modify it in any way and to build the game hardware
