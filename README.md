@@ -174,6 +174,10 @@ Everything is packaged in a 6U travel case.
 
 ### The Control Board
 
+<p align="center">
+  <img src="docs/images/control-board.jpg" width="75%" />
+</p>
+
 An ESP32 on the control board controls and monitors the trunks and
 stations via a daisy-chained I2C bus. I chose the Olimex part because
 it can be powered via its Ethernet interface using PoE.
@@ -226,6 +230,10 @@ a trunk lamp lit. So, I designed and added a small daughter board with a relay t
 ESP32 can operate to cycle power to the switchboard, effectively rebooting it.
 
 ### The Trunk Board
+
+<p align="center">
+  <img src="docs/images/trunk-board.jpg" width="75%" />
+</p>
 
 The circuit between a central office (CO) and a telephone (station) is a DC loop.
 To the trunk board, the switchboard is the telephone: the board plays the central office.
@@ -314,6 +322,10 @@ relay's contact bounce left it. I fixed the problem by adjusting the
 values of the resistors in front of the optoisolator input.
 
 ### The Station Board
+
+<p align="center">
+  <img src="docs/images/station-board.jpg" width="75%" />
+</p>
 
 The station board is a mirror of the trunk board. The station board's
 eight circuits must do the following:
