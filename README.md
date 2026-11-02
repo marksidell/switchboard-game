@@ -135,12 +135,6 @@ central office, which can ring and connect calls to the station.
 
 ## The Game Hardware
 
-<p float="left">
-  <img src="docs/images/case-front.jpg" width="45%" />
-  <img src="docs/images/case-back.jpg" width="45%" />
-</p>
-![front](docs/images/case-front.jpg) ![back](docs/images/case-back.jpg)
-
 Because the switchboard was intact, one of my design
 goals was not to modify it in any way and to build the game hardware
 to stand in for the telephones and outside trunks that would connect to
@@ -171,7 +165,10 @@ from their mobile phones.
 
 Everything is packaged in a 6U travel case.
 
-[photos of front and back of the assembled case]
+<p float="left">
+  <img src="docs/images/case-front.jpg" width="45%" />
+  <img src="docs/images/case-back.jpg" width="45%" />
+</p>
 
 ### The Control Board
 
