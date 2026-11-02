@@ -9,6 +9,8 @@ Printed things for the game, and how to print them.
 | `dial-card-WAverly-7-2004.pdf` | Dial card | `dialcard.py` |
 | `stream-deck-help.jpg` | Help placard behind the Stream Deck | drawn by hand |
 | `call-the-hotel.jpg` | Placard next to the switchboard, with the number to call | drawn by hand |
+| `guest-directory-cover.pdf` | Conference booklet cover, on printed green | `guest-directory-cover.html`, printed from Chrome |
+| `guest-directory-cover-for-card.pdf` | The same cover with no background, for colored card | the same, with `--stock` set to white |
 | `bench/` | Bench sheets and checklists | |
 
 ## Printers

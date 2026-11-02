@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 50. The changes in each revision are in §12.*
+*Rev 51. The changes in each revision are in §12.*
 
 # 1. Overview
 
@@ -411,6 +411,8 @@ On page connect or reconnect: subscribe to `sbgame/#`. The retained topics are t
 
 Mosquitto on the Linux host, portland, with two listeners — plain MQTT for every client but the page, and plain WebSockets on loopback for the page, which reaches it through nginx — no anonymous clients, and an access list. On Ubuntu, in `/etc/mosquitto/conf.d/sbgame.conf` (`host/` holds the installed copy); the distribution's own `mosquitto.conf` already sets persistence and the log and includes that directory.
 
+The ESP32 reaches the broker by name, `portland.sidell.org`, looked up on each connection attempt through the DNS server its DHCP lease names. The name resolves at home and on the travel router (`host/README.md`, The name), where portland has different addresses.
+
 ```text
 per_listener_settings false
 allow_anonymous false
@@ -489,6 +491,10 @@ Recorded so the reasoning survives the move from the circuit documents, whose ch
 - Moving past Mosquitto 2.x: what it means for this system is the `per_listener_settings` and password-file defaults. The WebSockets listener carries MQTT alone, which is not marked for removal.
 
 # 12. Revision History
+
+## 12.51 Changes in Rev 51
+
+— The ESP32 finds the broker by name, `portland.sidell.org`, Mark's request, 2026-10-31 (§9). The travel router's LAN is 192.168.8.x, so portland's address differs by place, and the firmware had it as a number. Topics and payloads are unchanged. Firmware consequence: `MQTT_BROKER_HOST` in `control/secrets.h`, which is not committed; no source changes.
 
 ## 12.50 Changes in Rev 50
 

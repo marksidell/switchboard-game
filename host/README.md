@@ -126,22 +126,24 @@ neither, since their connections are to Mosquitto, which is not reloaded at all.
 
 ## The name
 
-`game.kr3am.org` resolves to portland's address. That address is the same at home
-and on the travel router, whose LAN mirrors the home subnet and its reservations.
-How the name reaches the iPad differs by place:
+`game.kr3am.org` and `portland.sidell.org` resolve to portland's address, and
+`switchboard.sidell.org` to the trunk 8 ATA's. The addresses differ by place, each
+fixed by a DHCP reservation: 192.168.0.x at home, 192.168.8.x on the travel router.
+The ESP32 uses `portland.sidell.org` to find the broker (`mqtt.md` §9). How the
+names reach the clients differs by place:
 
 - **At home**, public DNS: an A record in Route 53, in the kr3am.org zone,
   `game.kr3am.org` to portland's address. OPNsense's resolver returns it as it does
   for portland's existing Route 53 name on the other domain. No entry on OPNsense.
-- **On the road**, the GL.iNet Slate 7: NETWORK → DNS → Edit Hosts, one line with
-  the same name and address. It answers without an upstream, so it works at a venue
+- **On the road**, the GL.iNet Slate 7: NETWORK → DNS → Edit Hosts, one line per
+  name, with its address on that LAN. It answers without an upstream, so it works at a venue
   with no internet, and it is not subject to the router's filtering of public
   answers that point at private addresses. If AdGuard Home is turned on in that
   router, the router stops consulting Edit Hosts, and the entry moves to AdGuard
   Home's DNS rewrites.
 
-The iPad takes its DNS from whichever router it is on, so it needs no setting of
-its own. The certificate's challenge TXT record sits in the same zone during issue
+The iPad and the ESP32 take their DNS from whichever router they are on, so they need
+no setting of their own. The certificate's challenge TXT record sits in the same zone during issue
 and renewal and does not disturb the A record.
 
 If the host's address ever changes, the Route 53 record and the Edit Hosts line
