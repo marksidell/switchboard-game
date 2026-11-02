@@ -135,6 +135,10 @@ central office, which can ring and connect calls to the station.
 
 ## The Game Hardware
 
+<p float="left">
+  <img src="docs/images/case-front.jpg" width="45%" />
+  <img src="docs/images/case-back.jpg" width="45%" />
+</p>
 ![front](docs/images/case-front.jpg) ![back](docs/images/case-back.jpg)
 
 Because the switchboard was intact, one of my design
