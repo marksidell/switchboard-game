@@ -263,7 +263,6 @@ The schematic below shows one of the eight trunk circuits.
   <img src="docs/images/trunk-schematic.png" width="80%" />
 </p>
 
-
 The two transistors and associated components in the upper left make up a 28 mA
 constant-current source, which is close enough to the nominal 30 mA.
 
@@ -296,10 +295,6 @@ The first design fed the trunk through a 330 &Omega; resistor, and a ring
 key held by mistake would put 7 to 10 watts into a 1 W part. The
 constant-current source fixes the problem, because it passes the same current
 whether the line is idle, seized or being rung into.
-
-The following schematic shows the common section of the trunk board.
-
-[trunks common schematic]
 
 The ESP32 controls and monitors all trunk circuits via an MCP23017 I2C I/O expander.
 Each trunk has a control output to activate the ring relay and a sense input
@@ -340,7 +335,9 @@ The station board's eight circuits must do the following:
 
 The schematic below shows one of the eight station circuits.
 
-[station schematic]
+<p align="center">
+  <img src="docs/images/station-schematic.png" width="80%" />
+</p>
 
 Tip and ring from the switchboard connect to the relay on the left. The relay is
 normally open. To go offhook, the ESP32 turns the relay on, putting a 330 &Omega; resistor
@@ -367,10 +364,6 @@ used for other purposes, there are twenty-two game stations. I distributed
 the twenty-two stations and the real telephone across the thirty switchboard jacks, leaving seven unused.
 In theory I could have added a fourth station board, but the real limiting
 factor is the thirty-two Ferrofish channels.
-
-The following schematic shows the common section of the station board.
-
-[stations common schematic]
 
 The ESP32 controls and monitors all station circuits via an MCP23017 I2C I/O expander.
 Each station has a control output to activate the offhook relay and a sense input
