@@ -260,7 +260,7 @@ I used a constant 30 mA current instead, as modern line cards do.
 The schematic below shows one of the eight trunk circuits.
 
 <p align="center">
-  <img src="docs/images/trunk-schematic.jpg" width="75%" />
+  <img src="docs/images/trunk-schematic.png" width="75%" />
 </p>
 
 
