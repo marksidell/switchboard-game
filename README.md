@@ -142,7 +142,9 @@ it.
 
 The figure below is a block diagram of the game hardware.
 
-[hardware block diagram]
+<p align="center">
+  <img src="docs/images/hardware-block-diagram.jpg" width="50%" />
+</p>
 
 I designed and built the following items:
 
