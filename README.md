@@ -135,7 +135,7 @@ central office, which can ring and connect calls to the station.
 
 ## The Game Hardware
 
-![front](docs/images/case-front.jpg) ![back](docs/images/case-back.jpg)
+![front](docs/images/game-front.jpg) ![back](docs/images/game-back.jpg)
 
 Because the switchboard was intact, one of my design
 goals was not to modify it in any way and to build the game hardware
