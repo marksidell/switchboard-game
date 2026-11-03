@@ -52,6 +52,8 @@ in the hotel calls at nearly the same time to complain about a dog who
 is causing havoc everywhere. (The dog in question is Martha, who can
 talk and in one scene orders room service.)
 
+<!-- pagebreak -->
+
 ## The Switchboard
 
 I built the game around a model 551 switchboard, which Western
@@ -84,6 +86,8 @@ All it needed to work reliably
 was to clean the jacks and cord plugs,
 replace a few lamps, and replace a row of jacks that had failed.
 (The last task entailed reconnecting forty-nine wires.)
+
+<!-- pagebreak -->
 
 ### How the Switchboard Works
 
@@ -420,7 +424,9 @@ to settle matters. Of course, it also can't see or touch the switchboard,
 so every hardware fact has to come from me or the test equipment.
 Occasionally I need to remind myself that I'm not becoming my intern's intern.
 
-Now, the software. The figure below is a block diagram of the game software.
+### Software Overview
+
+The figure below is a block diagram of the game software.
 
 <p align="center">
   <img src="docs/images/software-block-diagram.jpg" width="75%" />
@@ -442,7 +448,7 @@ to the broker.
 MQTT also makes it easier to debug. With `mosquitto_sub` I can see the whole
 game live. A debugging daemon, `sbgame-mqttlog`, records every message. When
 something doesn't seem right, I can note the time and describe the problem to
-my intern, who can then scour the logs. Usually it finds the problem in a few seconds
+Claude, which can then scour the logs. Usually it finds the problem in a few seconds
 and starts working on a fix.
 
 ### Who's on First
@@ -453,7 +459,7 @@ each other by cord pairs and which channels the operator
 is keyed to. Without this knowledge the game wouldn't be able to
 monitor and progress through play.
 
-The solution I devised is to have pilot tones constantly play on all
+The solution I came up with is to have pilot tones constantly play on all
 channels, including on a tap on the operator headset, and to run an
 FFT on every channel. When a cord connects two lines, each one hears
 the other's tone and reports which line it's patched
@@ -461,7 +467,7 @@ to. The operator tap plays a 9 kHz pilot tone. When other channels
 hear the tone, they know the operator is keyed in.
 The tap also feeds the operator's voice to the audience loudspeaker when no call is in play.
 
-This solution was the key to making the game actually work
+The pilot tone scheme made the game possible
 while maintaining my prime directive: not modifying the switchboard.
 A nice side benefit is that each channel can report an error when
 it cannot hear its own tone, as a `deaf` message. When a channel
@@ -497,8 +503,7 @@ which places two notches inside the 6-9 kHz pilot band.
 
 ### The ESP32 Firmware
 
-The ESP32 firmware is written in C++. It supports OTA updates so that my
-intern and I can flash new code over the LAN.
+The ESP32 firmware is written in C++. It supports OTA updates over the LAN.
 
 These are the functions performed by the firmware:
 
@@ -556,6 +561,10 @@ the Digiface, and switching it to class-compliant mode fixed it.
 
 ### The Stream Deck
 
+<p align="left">
+  <img src="docs/images/stream-deck.jpg" width="20%" />
+</p>
+
 A Stream Deck+ sits on the switchboard and provides buttons for controlling
 the game and checking the state of play. The `sbgame-streamdeck` program controls
 the deck. The program talks to the game only through MQTT. If the game program crashes, the deck stays up and shows the game as offline.
@@ -589,9 +598,8 @@ With ramp 0, the rate is constant.
 
 In addition to the Stream Deck, I decided to add an iPad display late in the game.
 The Mosquitto MQTT broker made the addition remarkably simple. Mosquitto has a WebSockets
-interface that allows a web client to receive and send MQTT messages. Implementing
-the display was a simple matter of writing client JavaScript to handle the messages
-and manage the display.
+interface that allows a web client to receive and send MQTT messages.
+JavaScript on the client processes the messages and manages the display.
 
 An nginx web server running on the PC serves static content and proxies the Mosquitto WebSockets channel.
 It hosts the website at `game.kr3am.org` (my ham call sign) using a proper Let's Encrypt certificate,
@@ -641,7 +649,7 @@ iPad and Stream Deck included, without a switchboard.
 ### Generating the Speech
 
 The Hotel Ballard acting troupe has 60 players who say 1717 pre-recorded utterances.
-My software generates the speech using Qwen3-TTS, Alibaba's open-weights speech model.
+The software generates the speech using Qwen3-TTS, Alibaba's open-weights speech model.
 Since I don't have sufficient processing power at home, I run it on an AWS instance in the cloud.
 The instance is g6.xlarge, with one NVIDIA L4 GPU with 24 GB, 4 vCPUs and 16 GB of RAM.
 
@@ -799,11 +807,13 @@ dials an outside number not in the game's list.
 
 *Number, please?*
 
+<!-- pagebreak -->
+
 ## Afterword
 
 ### Thank You
 
-This project would not exist without the generosity of these people, and I am grateful to all of them.
+Without the generosity and encouragement of these people, I'd still be thinking I might do this project someday.
 
 Peter Amstein has enthusiastically supported the project. He arranged for me to have
 a switchboard to play with, and he drove it all the way to Santa Cruz for its
@@ -816,12 +826,13 @@ hotel guests. Whatever cable, plug, lamp or jack I needed, she had.
 David Dintenfass built the bracket for the ginormous ring transformer and
 meticulously cleaned the switchboard plugs and jacks.
 
-Beth Holmgren, my spouse, was the first player and my moral support.
-She edited this document; any errors that remain are mine.
-
 Jonathan Balik was the talent in the YouTube video; he made it fun to watch.
 
 Eric Rhinelander and Remco Enthoven cheered me on throughout.
+
+Beth Holmgren, my spouse, was the first player and my moral support.
+She suggested that Martha the dog be a hotel guest and reminded me of, hey, you
+remind me of a man. She also edited this document; any errors that remain are mine.
 
 ### License
 
