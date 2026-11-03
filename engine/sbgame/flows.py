@@ -77,6 +77,10 @@ PATCH_WAIT = 8.0
 HANG_UP = 1.5
 DIAL_FIRST = 30.0
 ANSWER_AFTER = 3.0        # s of ring before a room answers, right or wrong (Rev 82; 1.5 before)
+# §3.2: busy tone plays four bursts, then stops, before the game listens for
+# her. On the cord the tone reaches the caller's line, and the speech detector
+# takes it for her voice, so a listen under it never hears her stop.
+BUSY_HOLD = 3.5
 
 
 log = logging.getLogger("flow")
@@ -840,6 +844,8 @@ async def busy_scene(ctx: Ctx) -> Outcome:
         # She goes back to the caller and says the line is engaged. The scene's
         # conversation is the caller's replies, each after she has spoken.
         try:
+            await _hold(ctx, BUSY_HOLD, gone)
+            await ctx.hw.tone(trunk, "off")
             await _tut(ctx, "busy-heard", abort_if=gone)                # tutor
             for line in ctx.scene.conversation:
                 await _operator_speaks(ctx, caller, line, gone)

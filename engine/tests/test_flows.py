@@ -388,6 +388,7 @@ async def main() -> int:
     # Rev 60, the same.
     flows.NUDGE_AFTER, flows.PATCH_WAIT, flows.ANSWER_AFTER, flows.DIAL_FIRST = \
         D * 4, D * 6, D, D * 10
+    flows.BUSY_HOLD = D * 2
 
     print("\n== station to station, a good operator")
     h = Harness(scene(Shape.STATION_TO_STATION))
@@ -618,6 +619,12 @@ async def main() -> int:
     check(r.ok, "succeeds")
     check(h.connected, "connected at busy tone (§3.3)")
     check(Stage.BUSY in h.stages, f"showed the busy stage: {h.stages}")
+    sent = h.link.sent
+    busy_at = sent.index(("trunk/3/tone/set", "busy"))
+    off_at = next((i for i, m in enumerate(sent) if i > busy_at and m == ("trunk/3/tone/set", "off")), None)
+    heard_at = next((i for i, (k, _) in enumerate(sent) if i > busy_at and k == "station/12/listen/set"), None)
+    check(off_at is not None and heard_at is not None and off_at < heard_at,
+          f"busy tone stops before the game listens for her (§3.2): off {off_at}, listen {heard_at}")
 
     print("\n== a call to the operator")
     h = Harness(scene(Shape.TO_OPERATOR, to_line="", to_station=None,

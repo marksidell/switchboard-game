@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 108. The changes in each revision are in §15.*
+*Rev 109. The changes in each revision are in §15.*
 
 # 1. Overview
 
@@ -79,7 +79,7 @@ Each call in progress occupies one of eight slots, `game/call/<1-8>/…`. A slot
 - `routing` — waiting for the operator to ring a station or take a trunk.
 - `dialling` — the operator has seized a trunk; digits are arriving. Dial tone is on the trunk from a second after the seizure to the first digit, and again on each fresh seizure if she hangs up and tries again.
 - `ringing` — the called station is ringing, or ringback is on the trunk.
-- `busy` — busy tone is on the trunk, or the called station is found engaged (§6.6); waiting for the operator to go back to the caller.
+- `busy` — busy tone is on the trunk, or the called station is found engaged (§6.6); waiting for the operator to go back to the caller. Busy tone plays four bursts, 3.5s, and stops, whether or not her cord is still in the trunk; only then does the game listen for her on the caller's line. Through the cord the tone reaches the caller's line, and the speech detector would take it for her voice and never hear her stop.
 - `talking` — the conversation is playing.
 - `operator` — a call to the operator; the caller is waiting for the operator to speak.
 
@@ -793,6 +793,12 @@ Before step 1: the certificate is issued (`host/README.md`, "The certificate"), 
 - **Screen wake lock** (§11.3). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 15. Revision History
+
+## 15.109 Changes in Rev 109
+
+— Busy tone stops after four bursts, 3.5s, before the game listens for the operator (§3.2), Mark's decision, 2026-11-03. Found on the switchboard that day, in `beaumont-times`: the trunk gave busy tone, he told the Colonel the line was busy, and the Colonel never answered. With the front cord still in the trunk, the tone reached the caller's line; the speech detector reported speech 0.4s after the tone began, and never silence while it played, so the game waited for her to finish for 13s, until she took the cords down and the call failed as `cut off`. It worked only for an operator who took the front cord out first and kept her key thrown, which a newcomer will not know to do. A real exchange keeps busy tone on until the line is released; that waits on the speech detector learning to ignore the tone.
+
+— Code consequence, for Claude Code: `BUSY_HOLD` and `busy_scene()` in `flows.py`; `test_flows.py`.
 
 ## 15.108 Changes in Rev 108
 
