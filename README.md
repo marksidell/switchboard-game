@@ -67,14 +67,18 @@ It is a beautiful device, and she kept it in lovely condition.
 When she no longer had room for it, she donated it to the Connections Museum. 
 The museum later passed it on to me for this project.
 
-[photo of switchboard]
+<p align="center">
+  <img src="docs/images/switchboard.jpg" width="50%" />
+</p>
 
 Many switchboards that show up on eBay are "gutless wonders" with the
 relays and other circuitry that made them work torn out. (Tearing out
 the guts made a switchboard much lighter.) Fortunately, Ms. Bell's
 switchboard is intact and fully operational.
 
-[photo of rear of switchboard]
+<p align="center">
+  <img src="docs/images/switchboard-back.jpg" width="50%" />
+</p>
 
 The only thing needed to
 make it work reliably was to clean the jacks and cord plugs and
@@ -97,7 +101,9 @@ in order to tear down the connection.
 
 The photo below identifies the elements of a switchboard.
 
-[closeup of front with labels]
+<p align="center">
+  <img src="docs/images/switchboard-front.jpg" width="75%" />
+</p>
 
 On the switchboard face are three rows of ten jacks. The jacks
 connect to *stations*, the name for telephones in the building. A lamp below
