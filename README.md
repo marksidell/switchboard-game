@@ -596,6 +596,10 @@ With ramp 0, the rate is constant.
 
 ### The iPad Display
 
+<p align="left">
+  <img src="docs/images/ipad.png" width="30%" />
+</p>
+
 In addition to the Stream Deck, I decided to add an iPad display late in the game.
 The Mosquitto MQTT broker made the addition remarkably simple. Mosquitto has a WebSockets
 interface that allows a web client to receive and send MQTT messages.
