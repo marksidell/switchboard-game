@@ -25,7 +25,7 @@ ExecStart=/usr/local/bin/sbaudio \
     --period 256 --periods 3 \
     --broker localhost:1883 \
     --mqtt-user sbgame-audio --mqtt-pass-file /etc/sbgame/mqtt-audio.pass \
-    --wav-dir /home/sidell/s/sbgame/wav \
+    --wav-dir /srv/sbgame/wav \
     --record-dir /srv/sbgame/recordings \
     --monitor 0 \
     --monitor-ch 33 \
