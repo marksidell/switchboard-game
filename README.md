@@ -776,7 +776,14 @@ With this configuration, the game can detect when someone
 picks up the phone and can hear the person speaking.
 The pilot tones are also quite audible in the telephone's earpiece.
 I fixed that problem by stashing the same low-pass filter
-used for the operator headset inside the phone.
+used for the operator headset inside the phone. The photo below
+shows the filter in the phone. The unpopulated section is for
+an electret microphone for the operator headset I ended up not
+needing.
+
+<p align="left">
+  <img src="docs/images/telephone-filter.jpg" width="25%" />
+</p>
 
 I connected the ATA to trunk 8 and modified a trunk channel to work with
 it:
