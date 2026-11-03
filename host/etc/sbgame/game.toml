@@ -31,9 +31,9 @@ session_db = "/var/lib/sbgame/sessions.db"
 pace = "tutor"
 idle_tutor = 300            # stopped this long in another pacing: back to tutor (Rev 44)
 gap = 20.0
-ramp = 0.0
-floor = 5.0
-jitter = 0.0             # percent: each wait drawn from gap_now × (1 ± jitter/100)
+ramp = 1.0
+floor = 8.0
+jitter = 30.0            # percent: each wait drawn from gap_now × (1 ± jitter/100)
 pause = 3.0              # listen: seconds from the board emptying to the next call
 
 # Timeouts (§5). Starting values for play-testing.

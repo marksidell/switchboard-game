@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 106. The changes in each revision are in §15.*
+*Rev 108. The changes in each revision are in §15.*
 
 # 1. Overview
 
@@ -180,7 +180,7 @@ where `connected` is the number of calls connected so far in this game. `gap`, `
 
 A change to any of the four takes effect at the next scheduling, not on a call already scheduled.
 
-Ranges, clamped by the game program and echoed as applied: `gap` 0–600s, `ramp` 0–60s, `floor` 0–600s and not above `gap`, `jitter` 0–100%, and listen's `pause` 0–60s. Starting values come from the game program's configuration file: manual pacing, `gap` 20, `ramp` 0, `floor` 5, `jitter` 0, `pause` 3. They hold across games until changed, and return to the configured values when the game program restarts.
+Ranges, clamped by the game program and echoed as applied: `gap` 0–600s, `ramp` 0–60s, `floor` 0–600s and not above `gap`, `jitter` 0–100%, and listen's `pause` 0–60s. Starting values come from the game program's configuration file: manual pacing, `gap` 20, `ramp` 1, `floor` 8, `jitter` 30, `pause` 3. They are set for a newcomer's game: the wait starts at 20s and comes down 1s for each call connected, reaching the floor at the twelfth, and never falls into a rhythm a player can count. They hold across games until changed, and return to the configured values when the game program restarts.
 
 ## 5.5 Not Yet: Calls Before Connection
 
@@ -201,6 +201,8 @@ Mark wants, later, a mode where a new call can arrive before the operator has co
 **Scenes that follow another.** An `after:` scene (script.yml, "Order") is never in the shuffle. It starts `delay` seconds after the scene it follows has ended, in either pacing, as long as that scene was **connected** (§3.3). If it wasn't — the operator never answered, or never put the call through — the `after:` scene is dropped and the log says so. It is part of the story, not a new deal: `nbn-trace` two seconds after `nbn-kaplan`, `hale-pizza` three minutes after `hale-busy`. An `after:` scene may itself be followed, so a story can run to any number of calls; each scene has at most one follower, and the chain has no loop. From the moment it is scheduled until it starts, its lines and people count as busy for dealing. If any of them is still busy in another call when its delay runs out, it waits until all are free and then starts. It counts as a call. It has a call number, it counts in `started`, and it succeeds or fails like any other call. It does not reset the schedule. The page shows a waiting `after:` scene in the log with its start time.
 
 **Scenes that start with another**. An `after:` scene marked `mode: concurrent` starts `delay` seconds after the scene it follows has *started*, not ended, and whether or not that scene is ever connected: it is scheduled as that call opens. So a chain of them puts several calls in progress almost at once. Its `delay` may be a pair, `[2, 5]`, for a wait drawn evenly between the two, from the game's seed apart from the shuffle's, so a replay draws the same. Like any `after:` scene its lines and people are busy while it waits, and it waits for them to come free; it waits for a free slot too (below), so a scenario longer than eight calls keeps all eight slots full rather than losing its tail. Stop drops it. The follower it has in turn is scheduled only once it starts, so the chain pauses while the slots are full.
+
+**Two waiting scenes that need the same line or person.** A waiting `after:` scene holds its lines and people, so two of them can each need something the other holds. Once both delays have run out, one goes first and the other waits for that call to end, as for any call in progress. A scene in a scenario (§6.5) goes before one that is not; otherwise the one whose delay ran out first goes first. Until its delay has run out a waiting scene keeps its lines and people from every other, and a call in progress is never passed over. The log names both: "panic-dobbs goes before dobbs-callback, which waits for it".
 
 At most eight calls are in progress at once — the number of call slots (§3.2). A call that would be a ninth is not started, and is treated like a scene that cannot be dealt; a waiting `mode: concurrent` scene waits for a slot instead.
 
@@ -791,6 +793,18 @@ Before step 1: the certificate is issued (`host/README.md`, "The certificate"), 
 - **Screen wake lock** (§11.3). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 15. Revision History
+
+## 15.108 Changes in Rev 108
+
+— The automatic pacing's starting values are `ramp` 1, `floor` 8 and `jitter` 30 (§5.4), Mark's request, 2026-11-03, for a newcomer's game. They had been 0, 5 and 0 since each was introduced, which left auto at a fixed 20s however long a game ran, with a rhythm a player could count. Now the game gets busier as it goes, as the ramp was meant to make it, and it reaches its floor at the twelfth call connected, about ten minutes into a game like the one played that day. The floor of 8s, not 5s, is because the gap is counted from the connection: at 5s the next call rang while the last conversation was still under way, which is steep for a first game. Each value can still be changed from the deck or the page during a game.
+
+— Code consequence, for Claude Code: the defaults in `config.py`, `host/etc/sbgame/game.toml`, and the stepper help in `app.js`.
+
+## 15.107 Changes in Rev 107
+
+— Two waiting `after:` scenes that need the same line or person no longer wait for each other for ever (§6.1), Mark's decision, 2026-11-03. Found on the switchboard that day: `dobbs-callback`, due at 13:29:59, and the panic scenario's `panic-dobbs`, due at 13:30:01, both need Mr. Dobbs and room 105. Each found the other holding them, so neither started. Because `panic-dobbs` is in a scenario, the automatic schedule waited for it (§6.5), and no further call was dealt until Stop. Now, once both delays have run out, the scene in a scenario goes first, and otherwise the one due first. The scenario goes first so that its calls still come close together. Had `panic-dobbs` waited for the whole of `dobbs-callback`, the panic's calls after it would have waited too.
+
+— Code consequence, for Claude Code: `_after_timer()` and `_after_rank()` in `game.py`; `test_game.py`.
 
 ## 15.106 Changes in Rev 106
 

@@ -104,6 +104,7 @@ class Game:
         self._rear_since: dict[int, float] = {}          # trunk -> op on, seize off since, Rev 93
         self._afters: dict[str, asyncio.Task] = {}      # scene id -> timer task
         self._pending_after: dict[str, Holding] = {}    # what a waiting after holds
+        self._after_due: dict[str, float] = {}          # a waiting after past its delay: when it fell due
         self._scheduler: asyncio.Task | None = None
         self._decks_recorded = 0        # how many of deck.orders are in SQLite
         self.diag: Diagnostics | None = None
@@ -599,6 +600,7 @@ class Game:
         self._flows.clear()
         self._afters.clear()
         self._pending_after.clear()
+        self._after_due.clear()
         await self.slots.clear_all()
         self.pacing.next_at = None
         await self._monitor("tap")                  # §9.1
@@ -1043,6 +1045,13 @@ class Game:
         self._afters[scene.id] = asyncio.create_task(
             self._after_timer(scene, delay), name=f"after-{scene.id}")
 
+    def _after_rank(self, scene_id: str) -> tuple[int, float, str]:
+        """Which of two waiting `after:` scenes, both past their delay, starts
+        first when each holds what the other needs (§6.1): a scenario's scene,
+        then the one due first. Lower goes first."""
+        return (0 if self.gs.in_scenario(scene_id) else 1,
+                self._after_due.get(scene_id, 0.0), scene_id)
+
     async def _after_timer(self, scene: SceneDef, delay: float) -> None:
         try:
             at = time.time() + delay
@@ -1050,11 +1059,19 @@ class Game:
             await self._say(f"{scene.id} follows in {secs}s, at "
                             f"{time.strftime('%H:%M:%S', time.localtime(at))}")
             await asyncio.sleep(delay)
+            self._after_due[scene.id] = at
             # Its lines may still be busy in another call: wait for them (§6.1).
             # A concurrent one waits for a free slot too, rather than being lost.
+            # Another waiting scene past its delay and ranked behind this one
+            # gives way to it, so two never wait on each other.
+            ahead_of: set[str] = set()
+            behind: dict[int, str] = {}
             while self.running:
                 mine = self._pending_after.get(scene.id)
-                others = [h for h in self._held() if h is not mine]
+                behind = {id(h): sid for sid, h in self._pending_after.items()
+                          if sid in self._after_due
+                          and self._after_rank(sid) > self._after_rank(scene.id)}
+                others = [h for h in self._held() if h is not mine and id(h) not in behind]
                 lines, people = set(scene.needs), set(self.gs.needs_people(scene.id))
                 tutor_busy = self.tutor is not None and (
                     self._tutor_task is not None or any(True for _ in self.slots or ()))
@@ -1064,7 +1081,13 @@ class Game:
                         lines & h.lines or people & h.people for h in others):
                     break
                 await asyncio.sleep(0.5)
+            for h in self._held():
+                sid = behind.get(id(h))
+                if sid and sid not in ahead_of and (lines & h.lines or people & h.people):
+                    ahead_of.add(sid)
+                    await self._say(f"{scene.id} goes before {sid}, which waits for it")
             self._pending_after.pop(scene.id, None)
+            self._after_due.pop(scene.id, None)
             self._afters.pop(scene.id, None)
             if self.running:
                 started = self.tallies.started
@@ -1076,6 +1099,7 @@ class Game:
                     await self._reschedule()
         except asyncio.CancelledError:
             self._pending_after.pop(scene.id, None)
+            self._after_due.pop(scene.id, None)
             raise
 
     # ---- the scheduler (§5.2) -------------------------------------------

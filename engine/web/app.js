@@ -522,9 +522,9 @@ const HELP = {
            'No ramp and no jitter; the automatic settings are left alone.']],
   pause: ['pause', ['Listen: seconds between the board emptying and the next call.'], '0–60 s, steps of 1. Starts at 3.'],
   gap: ['gap', ['Automatic: seconds from one call being connected to the next call, at the start of a game.'], '0–600 s, steps of 5. Starts at 20.'],
-  ramp: ['ramp', ['Automatic: seconds taken off the gap for each call connected. 0 keeps the rate constant.'], '0–60 s, steps of 1. Starts at 0.'],
-  floor: ['floor', ['Automatic: the shortest the ramp takes the gap. Never above gap.'], '0–600 s, steps of 1. Starts at 5.'],
-  jitter: ['jitter', ['Automatic: each wait drawn evenly within this percentage either side of the gap. At 20 s and 50%, every wait is 10–30 s. 0 is a fixed wait.'], '0–100 %, steps of 10. Starts at 0.'],
+  ramp: ['ramp', ['Automatic: seconds taken off the gap for each call connected. 0 keeps the rate constant.'], '0–60 s, steps of 1. Starts at 1.'],
+  floor: ['floor', ['Automatic: the shortest the ramp takes the gap. Never above gap.'], '0–600 s, steps of 1. Starts at 8.'],
+  jitter: ['jitter', ['Automatic: each wait drawn evenly within this percentage either side of the gap. At 20 s and 50%, every wait is 10–30 s. 0 is a fixed wait.'], '0–100 %, steps of 10. Starts at 30.'],
 };
 
 let helpTimer = null, helpSwallow = false;

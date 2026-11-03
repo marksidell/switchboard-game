@@ -290,7 +290,7 @@ async def main() -> int:
         await g.on_command("next", "")
         check("no game" in link.state_v.get("game/error", ""),
               "next with no game running is refused")
-        check(link.state_v.get("game/jitter") == "0", "jitter published at birth, 0")
+        check(link.state_v.get("game/jitter") == "30", "jitter published at birth, 30")
         await g.on_command("jitter", "150")
         check(link.state_v.get("game/jitter") == "100", "jitter clamped to 100")
         await g.on_command("jitter", "30")
@@ -708,6 +708,43 @@ async def main() -> int:
         await g._start_call()
         check(not any(c.scene == "p0" for c in g.slots), "never dealt in listen")
         await g.stop("stop")
+
+        print("\n== two waiting after: scenes that need the same person (§6.1, Rev 107)")
+        # 2026-11-03 on the switchboard: dobbs-callback and the panic's
+        # panic-dobbs both waited for Dobbs, each held by the other, until Stop.
+        g.pacing.pace = "manual"        # before Start: listen would deal a call at once
+        await g.start()
+        check(not any(True for _ in g.slots), "the board is empty")
+        cb = dc.replace(g.gs.scenes["dobbs-callback"], delay=D, delay_max=D)
+        pd = dc.replace(g.gs.scenes["panic-dobbs"], delay=D * 2, delay_max=D * 2)
+        check(g.gs.in_scenario(pd.id) and not g.gs.in_scenario(cb.id),
+              "panic-dobbs is in the scenario, dobbs-callback is not")
+        g._schedule_after(cb)
+        g._schedule_after(pd)
+        await asyncio.sleep(D * 6)
+        on = {c.scene for c in g.slots}
+        check("panic-dobbs" in on and "dobbs-callback" not in on
+              and "dobbs-callback" in g._pending_after,
+              f"the scenario's scene starts though due later; the other waits: {sorted(on)}")
+        check("panic-dobbs goes before dobbs-callback" in link.state_v.get("game/log", ""),
+              "the log says which went first")
+        await g.stop("stop")
+        check(not g._after_due, "Stop forgets when they fell due")
+
+        g.pacing.pace = "manual"
+        await g.start()
+        for sid in ("x1", "x2"):
+            g.gs.scenes[sid] = dc.replace(g.gs.scenes["dobbs-callback"], id=sid)
+            g.gs.people[sid] = g.gs.people["dobbs-callback"]
+        g._schedule_after(dc.replace(g.gs.scenes["x1"], delay=D * 2, delay_max=D * 2))
+        g._schedule_after(dc.replace(g.gs.scenes["x2"], delay=D, delay_max=D))
+        await asyncio.sleep(0.5 + D * 6)        # x2's first look finds x1 not yet due
+        on = {c.scene for c in g.slots}
+        check("x2" in on and "x1" not in on and "x1" in g._pending_after,
+              f"neither in a scenario: the one due first starts: {sorted(on)}")
+        await g.stop("stop")
+        for sid in ("x1", "x2"):
+            del g.gs.scenes[sid], g.gs.people[sid]
 
         print("\n== a scenario chosen from the page (§6.5, Rev 40)")
         await g.start()

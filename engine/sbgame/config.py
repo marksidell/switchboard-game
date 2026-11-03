@@ -37,12 +37,12 @@ class Config:
     wav_dir: str = "wav"
 
     # ---- pacing, the starting values (game_control.md §5.4) ------------
-    # "manual pacing, gap 20, ramp 0, floor 5, jitter 0"
+    # "manual pacing, gap 20, ramp 1, floor 8, jitter 30"
     pace: str = "manual"
     gap: float = 20.0
-    ramp: float = 0.0
-    floor: float = 5.0
-    jitter: float = 0.0            # percent (Rev 12); 0 is the fixed wait
+    ramp: float = 1.0
+    floor: float = 8.0
+    jitter: float = 30.0           # percent (Rev 12); 0 is the fixed wait
     pause: float = 3.0             # listen's wait after the board empties (Rev 17)
     # Back to tutor after this long stopped in another pacing (Rev 44), so
     # the next visitor finds the game as a newcomer should; 0 never does.
