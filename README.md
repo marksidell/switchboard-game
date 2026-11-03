@@ -419,7 +419,9 @@ Occasionally I need to remind myself that I'm not becoming my intern's intern.
 
 Now, the software. The figure below is a block diagram of the game software.
 
-[software block diagram]
+<p align="center">
+  <img src="docs/images/software-block-diagram.jpg" width="75%" />
+</p>
 
 ### MQTT and Mosquitto
 
