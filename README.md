@@ -562,7 +562,7 @@ the Digiface, and switching it to class-compliant mode fixed it.
 ### The Stream Deck
 
 <p align="left">
-  <img src="docs/images/stream-deck.jpg" width="40%" />
+  <img src="docs/images/stream-deck.jpg" width="30%" />
 </p>
 
 A Stream Deck+ sits on the switchboard and provides buttons for controlling
@@ -597,7 +597,7 @@ With ramp 0, the rate is constant.
 ### The iPad Display
 
 <p align="left">
-  <img src="docs/images/ipad.png" width="70%" />
+  <img src="docs/images/ipad.png" width="55%" />
 </p>
 
 In addition to the Stream Deck, I decided to add an iPad display late in the game.
