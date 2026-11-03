@@ -562,7 +562,7 @@ the Digiface, and switching it to class-compliant mode fixed it.
 ### The Stream Deck
 
 <p align="left">
-  <img src="docs/images/stream-deck.jpg" width="50%" />
+  <img src="docs/images/stream-deck.jpg" width="40%" />
 </p>
 
 A Stream Deck+ sits on the switchboard and provides buttons for controlling
