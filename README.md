@@ -597,7 +597,7 @@ With ramp 0, the rate is constant.
 ### The iPad Display
 
 <p align="left">
-  <img src="docs/images/ipad.png" width="30%" />
+  <img src="docs/images/ipad.png" width="40%" />
 </p>
 
 In addition to the Stream Deck, I decided to add an iPad display late in the game.
