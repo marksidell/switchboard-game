@@ -2,7 +2,7 @@
 
 **Receiver Low-Pass Filter**
 
-*Rev 1. The changes in each revision are in §8.*
+*Rev 2. The changes in each revision are in §8.*
 
 # 1. Overview
 
@@ -13,7 +13,7 @@ One design serves both. It is drawn in `kicad/electret`, J3 (from the circuit) t
 | Where | Fitted | Measured |
 |---|---|---|
 | Station 24's 500 set, jack 18 | Yes, transmitter half unstuffed (§5) | 2026-11-03, in place (§6) |
-| The operator's headset, in the box on the cord | Not yet | Not yet (§7) |
+| The operator's headset, in the box on the cord | Yes | 2026-11-03, in place (§6.4) |
 
 # 2. Design
 
@@ -74,6 +74,8 @@ A filter in the line instead was considered and rejected. Loop current through t
 
 # 6. Measured in Place, 2026-11-03
 
+§6.1 to §6.3 are the 500 set, §6.4 the headset.
+
 ## 6.1 Setup
 
 The filter fitted in the 500 set, the phone off-hook on jack 18 (room 203) and corded to the front desk, station 1. Station 1 carries the lowest pilot, 6000Hz. The operator's key was thrown. AD3 scope 1 across the receiver, in record mode, at 50kS/s on the 5V range. The game program was stopped.
@@ -115,11 +117,35 @@ As a check, the response at 6kHz less 20dB predicts −99dBV for that pilot: the
 
 Not checked by ear. An estimate: with speech at 75–85dB SPL at the ear, the 6000Hz pilot is about 15–25dB SPL before the receiver's own roll-off above 3–4kHz. That is near a young listener's threshold at 6kHz in a quiet room, and masked by any speech or room noise.
 
+## 6.4 The Headset
+
+The headset corded and keyed onto station 1, the front desk, with nothing else on the cord. AD3 scope 1 across the headset receiver. The steps are §6.1's with `hold.py 1`, station 1 alone. The results are in `kicad/electret/measurements/headset_inplace_response.txt`.
+
+The AD3's ground must be tied to the 24V supply's negative, the star point (`station_circuit.md` §10.1). The operator's circuit otherwise floats against the AD3's ground, which comes from portland over USB, and the scope reads mains common-mode as signal. Without that lead it showed 1.85V rms of 60Hz and 0.52V of 120Hz across the receiver, clipping the 5V range, while nothing was heard in the headset. With it, 60Hz was −90.6dBV. The 500 set did not need the lead: its receiver is referenced through the station board.
+
+The path is station 1's board, the switchboard, the operator's circuit, the filter, the receiver. The 1kHz tone reached the receiver at −33.7dBV (20.7mV), 8dB above the 500 set's. Relative to it:
+
+| Hz | 100 | 200 | 300 | 600 | 1k–1.5k | 1.9k–3.0k | 3.8k–4.8k | 5.08k | 5.38k | 5.7k | 6.04k | 6.4k–7.6k | 8.06k | 8.54k | 9.05k | 9.59k |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| dB | −27 | −4.6 | −2.5 | −1.1 | ±0.3 | +2 to +2.6 | 0 to +0.8 | −5.4 | −14 | −22 | −34.5 | −36 to −41 | −44 | −66 | −44 | −39 |
+
+The least in the pilot band is 34.5dB, at 6.04kHz, against the 39.4dB computed (§4): a shortfall like the 500 set's. The cutoff is the same as there, flat to 4.8kHz and −5dB at 5.08kHz.
+
+The pilots with no program playing:
+
+| | dBV |
+|---|---|
+| 6000Hz, station 1 | −86.5 |
+| 8156.25Hz, station 24, not connected | −119.5, at the floor |
+| 9000Hz, the operator | −100.5 |
+| 60Hz | −90.6 |
+
+The 6000Hz pilot is 52.8dB below the 1kHz tone, and the operator tone 67dB below. The response at 6kHz less 20dB predicts 54.5dB below for the pilot.
+
 # 7. Open Items
 
-In the headset, once built:
+In the headset:
 
-- The response across the receiver.
 - Sidetone, by ear.
 - The operator's outgoing level on the tap channel.
 - `optone` and `op` detection with the operator bridged.
@@ -127,6 +153,12 @@ In the headset, once built:
 In the 500 set: a listening test by someone who hears above 6kHz.
 
 # 8. Revision History
+
+## 8.2 Changes in Rev 2
+
+— The filter is fitted in the operator's headset and measured in place, 2026-11-03 (§6.4). The AD3's ground must go to the 24V supply's negative for this measurement; without it mains common-mode swamps the reading. The response is like the 500 set's: flat to 4.8kHz, at least 34.5dB down in the pilot band against 39.4dB computed. The 6000Hz pilot is 52.8dB below a 1kHz tone at speech level and the operator tone 67dB below. The headset's response is taken off the open items (§7).
+
+— No code consequence.
 
 ## 8.1 Changes in Rev 1
 

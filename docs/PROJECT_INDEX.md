@@ -27,7 +27,7 @@ of this file.
 |---|---|---|
 | `station_circuit.md` | **3.52** | Station interface: 8 strips per board, three boards, ring detection, off-hook, audio, the operator tap, the real telephone on station 24. |
 | `trunk_circuit.md` | **5.57** | Trunk interface, 8 circuits: constant-current loop feed, seizure detection, ring relay, the Grandstream ATA on trunk 8. |
-| `headset.md` | **1** | Receiver low-pass for the operator's headset and station 24's 500 set: design, the measurements behind it, the response in place. |
+| `headset.md` | **2** | Receiver low-pass for the operator's headset and station 24's 500 set: design, the measurements behind it, the response in place. |
 | `ring_generator.md` | **79** | Ring generator: H-bridge, transformer, and the Olimex ESP32 that is the system's I²C master. |
 
 The KiCad drawing guides for all three boards are in `archive/`, as records of how the schematics were drawn. The boards are built, and the guides are not kept current; the trunk guide's §7 still has the PCB netclasses and stack-up.
