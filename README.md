@@ -782,7 +782,7 @@ an electret microphone for the operator headset I ended up not
 needing.
 
 <p align="left">
-  <img src="docs/images/telephone-filter.jpg" width="25%" />
+  <img src="docs/images/telephone-filter.jpg" width="40%" />
 </p>
 
 I connected the ATA to trunk 8 and modified a trunk channel to work with
