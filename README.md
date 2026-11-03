@@ -74,15 +74,16 @@ The museum later passed it on to me for this project.
 Many switchboards that show up on eBay are "gutless wonders" with the
 relays and other circuitry that made them work torn out. (Tearing out
 the guts made a switchboard much lighter.) Fortunately, Ms. Bell's
-switchboard is intact and fully operational.
+switchboard was essentially intact and operational.
 
 <p align="center">
   <img src="docs/images/switchboard-back.jpg" width="50%" />
 </p>
 
-The only thing needed to
-make it work reliably was to clean the jacks and cord plugs and
-replace a few lamps.
+All it needed to work reliably
+was to clean the jacks and cord plugs,
+replace a few lamps, and replace a row of jacks that had failed.
+(The last task entailed reconnecting forty-nine wires.)
 
 ### How the Switchboard Works
 
@@ -160,15 +161,17 @@ I designed and built the following items:
 
 Other elements include:
 
-- An Ubuntu mini PC running the game software.
-- A Ferrofish A32 Pro 32-channel analog converter, connected to the
-PC via an RME Digiface USB 4-port ADAT interface.
+- An Ubuntu [mini PC](https://www.geekompc.com/geekom-a5-mini-pc/) running the game software.
+- A [Ferrofish A32 Pro](https://www.ferrofish.com/a32pro-converter-multimode)
+32-channel analog converter, connected to the
+PC via an [RME Digiface USB](https://rme-audio.de/digiface-usb.html) 4-port ADAT interface.
 - A 24 V power supply, to power both the trunk and station boards and
 the switchboard.
-- A Stream Deck+, used to control the game.
+- A [Stream Deck+](https://www.elgato.com/us/en/p/stream-deck-plus), used to control the game.
 - An iPad displaying a live view of the switchboard state.
 - An audience monitor speaker.
-- A Grandstream HT801 analog telephone adapter (ATA), which allows people to call the switchboard
+- A [Grandstream HT801](https://www.grandstream.com/products/gateways-and-atas/analog-telephone-adaptors/product/ht801)
+analog telephone adapter (ATA), which allows people to call the switchboard
 from their mobile phones.
 
 Everything is packaged in a 6U travel case.
@@ -286,7 +289,7 @@ that the operator has plugged a cord into the trunk (and seized the trunk)
 as soon as it happens, and the circuit cannot sense loop current while
 its ring relay is on. Fortunately, the switchboard trunk ring relays latch
 on the first burst of ring. So the ESP32 firmware is designed to send a
-burst of ring. I found that a one-second burst is sufficient to cause
+single burst. I found that a one-second burst is sufficient to cause
 the switchboard relays to latch reliably.
 (I could go on about how a CO applies ring on top of the
 DC loop current...)
@@ -745,7 +748,7 @@ be neat to have a real telephone connected to the switchboard. That way, people
 watching someone play operator could pick up the phone and pretend to be a hotel guest.
 As one can imagine, this idea led to significant feature creep. Next we decided
 it would be even cooler if folks could call the switchboard from their mobile
-phones via one of the switchboard trunks. Sarah, the museum's Chief Engineer,
+phones via one of the switchboard trunks. Sarah Autumn, the museum's Chief Engineer,
 configured a public phone number for the switchboard on her Asterisk server, and I
 added a Grandstream analog telephone adapter (ATA) to the game.
 
@@ -797,6 +800,28 @@ dials an outside number not in the game's list.
 *Number, please?*
 
 ## Afterword
+
+### Thank You
+
+This project would not exist without the generosity of these people, and I am grateful to all of them.
+
+Peter Amstein has enthusiastically supported the project. He arranged for me to have
+a switchboard to play with, and he drove it all the way to Santa Cruz for its
+first appearance at a conference.
+
+Sarah Autumn suggested adding Lenny mode. She set up a public phone number
+to allow people to call the switchboard from their own phones and chat with
+hotel guests. Whatever cable, plug, lamp or jack I needed, she had.
+
+David Dintenfass built the bracket for the ginormous ring transformer and
+meticulously cleaned the switchboard plugs and jacks.
+
+Beth Holmgren, my spouse, was the first player and my moral support.
+She edited this document; any errors that remain are mine.
+
+Jonathan Balik was the talent in the YouTube video; he made it fun to watch.
+
+Eric Rhinelander and Remco Enthoven cheered me on throughout.
 
 ### License
 
