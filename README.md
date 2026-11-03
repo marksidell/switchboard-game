@@ -562,7 +562,7 @@ the Digiface, and switching it to class-compliant mode fixed it.
 ### The Stream Deck
 
 <p align="left">
-  <img src="docs/images/stream-deck.jpg" width="20%" />
+  <img src="docs/images/stream-deck.jpg" width="50%" />
 </p>
 
 A Stream Deck+ sits on the switchboard and provides buttons for controlling
@@ -597,7 +597,7 @@ With ramp 0, the rate is constant.
 ### The iPad Display
 
 <p align="left">
-  <img src="docs/images/ipad.png" width="40%" />
+  <img src="docs/images/ipad.png" width="70%" />
 </p>
 
 In addition to the Stream Deck, I decided to add an iPad display late in the game.
@@ -777,12 +777,12 @@ picks up the phone and can hear the person speaking.
 The pilot tones are also quite audible in the telephone's earpiece.
 I fixed that problem by stashing the same low-pass filter
 used for the operator headset inside the phone. The photo below
-shows the filter in the phone. The unpopulated section is for
-an electret microphone for the operator headset I ended up not
-needing.
+shows the filter in the phone.
+The unpopulated section is an electret microphone circuit for the operator headset,
+which I ended up not needing.
 
 <p align="left">
-  <img src="docs/images/telephone-filter.jpg" width="40%" />
+  <img src="docs/images/telephone-filter.jpg" width="70%" />
 </p>
 
 I connected the ATA to trunk 8 and modified a trunk channel to work with
