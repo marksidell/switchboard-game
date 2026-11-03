@@ -781,7 +781,7 @@ shows the filter in the phone.
 The unpopulated section is an electret microphone circuit for the operator headset,
 which I ended up not needing.
 
-<p align="left">
+<p align="center">
   <img src="docs/images/telephone-filter.jpg" width="70%" />
 </p>
 
