@@ -466,7 +466,7 @@ async def main() -> int:
 
         print("\n== board sweeps (§11.5, Rev 50)")
         from sbgame import sweep
-        sweep.BURST = sweep.CUT = sweep.OFF_HOOK = sweep.PAUSE = sweep.TRUNK_PAUSE = 0.01
+        sweep.BURST = sweep.LATCH_HOLD = sweep.CUT = sweep.OFF_HOOK = sweep.PAUSE = sweep.TRUNK_PAUSE = 0.01
         check(link.state_v.get("game/sweep") == "", "no sweep at birth")
         order = [st for st, _ in sweep.station_order(g.gs.jacks, g.cfg.stations)]
         jacks = {int(j.circuit.split("/")[1]): j.number for j in g.gs.jacks

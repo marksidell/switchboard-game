@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 110. The changes in each revision are in §15.*
+*Rev 111. The changes in each revision are in §15.*
 
 # 1. Overview
 
@@ -649,7 +649,7 @@ Tests of one circuit at a time, from the page, for bring-up and fault-finding. E
 
 A check of the cabling, with no game running, from the page's Tools, under Diagnostics: `trunks` and `stations`, a tap to start one and a tap on the same button while it runs to stop it, the button filled while its sweep runs and dimmed while a game does; and from the Stream Deck (§10), key 5 pressed twice within 0.5s for the trunks and key 6 for the stations; a single press of the running sweep's own key stops it, as does the other key pressed twice. `game/sweep/set` `"trunks"` or `"stations"` starts one, and `"off"` stops it; the game program echoes the sweep running on `game/sweep`, `""` when none is.
 
-- **Trunks.** Each fitted trunk in turn, 1 to `trunks` but not the public line (§8), gets one short ring (`shortring/set`, control.md §8.4). A working lamp lights. When the 1s burst ends the switchboard's power is cut for 1s (`ctl/power_cut/set` `"on"`), which resets the ring relay that latched and puts the lamp out, and the next trunk follows 1s after power returns.
+- **Trunks.** Each fitted trunk in turn, 1 to `trunks` but not the public line (§8), gets one short ring (`shortring/set`, control.md §8.4). A working lamp lights. When the 1s burst ends the sweep waits 3s: a lamp whose ring relay latched stays lit all that time, and one that did not has gone out with the burst. Then the switchboard's power is cut for 1s (`ctl/power_cut/set` `"on"`), which resets the relay and puts the lamp out, and the next trunk follows 0.5s after power returns.
 - **Stations.** Each station cabled to a jack but station 24, the real telephone, whose relay lights nothing, in jack order — the rows from the top, 21–30, 11–20, 1–10, each left to right (§11.1) — goes off-hook (`hook/set`) for 1s, and the next follows 2s after it goes back on-hook.
 
 Out-of-service circuits (§12.2) are swept with the rest, since a sweep is how one is found to work again; the log line says it is out of service. A circuit under a diagnostic (§11.4) is passed over, so a sweep never releases a hook the page is holding. A trunk sweep's power cuts take the whole switchboard down, so a test or a free call running at the same time is interrupted by each. Each step goes on the game log (§12.3), `test stations: jack 23 (463), station 11 off-hook`, so the page shows where the sweep has got to, and the circuit's own echoes light its tile.
@@ -795,6 +795,12 @@ Before step 1: the certificate is issued (`host/README.md`, "The certificate"), 
 - **Screen wake lock** (§11.3). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 15. Revision History
+
+## 15.111 Changes in Rev 111
+
+— The trunk sweep holds each lamp 3s before the reset (§11.5), Mark's request, 2026-11-03. It cut the power as soon as the 1s burst ended, so a lamp that lit only while ring was applied looked the same as one whose ring relay had latched. Found the same day, when trunk 2 rang in for `ld-pike` and its lamp did not stay lit. Now a latched lamp stays lit for the 3s after the burst, and one that did not latch goes out with the burst. The wait before the next trunk is 0.5s, where it was 1s.
+
+— Code consequence, for Claude Code: `LATCH_HOLD` and `TRUNK_PAUSE` in `sweep.py`; `test_game.py`.
 
 ## 15.110 Changes in Rev 110
 
