@@ -868,7 +868,9 @@ central office.
     The Connections Museum still has that switch, the last panel
     switch in the world, and it still works. It's my favorite piece of equipment in the museum.
 
-[^2]: Martha is inspired by the children's book *Martha Calling*, by Susan Meddaugh.
+[^2]: Martha is inspired by the children's book
+[*Martha Calling*](https://bookshop.org/p/books/martha-calling-susan-meddaugh/1ac79748684d5a6e?ean=9780395827413),
+by Susan Meddaugh.
 
 [^3]: The first operators were teenage boys, who swore at callers and
 played pranks on the line. In 1878 the Boston Telephone Dispatch
