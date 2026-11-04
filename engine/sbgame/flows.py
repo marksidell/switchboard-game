@@ -71,6 +71,7 @@ DIAL_SETTLE = 3.0
 # and not dialled for DIAL_FIRST gets reorder, outside tutor mode (Rev 84:
 # 30s, where it was 15s, time to look a number up).
 NUDGE_AFTER = 6.0
+AWAY = 5.0                # s away from a caller before it asks again on her return (Rev 112)
 PATCH_WAIT = 8.0
 # s between a party's last words and its hanging up (§3.4, Rev 75): the time it
 # takes to put a receiver back on its hook.
@@ -421,6 +422,11 @@ async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
     of a station jack, so a pulled answering cord and a switch centred before
     the front cord goes in look the same; the wait is what tells them apart.
     Not in tutor pacing (Rev 92).
+
+    When she comes back on the caller's line, the answering cord alone, after
+    AWAY or more, the caller says the request again once she has spoken, or
+    after NUDGE_AFTER if she does not (§3.5): a guest kept waiting does not
+    sit silent.
     """
     def lost(b: Board) -> bool:
         if b.on(f"{caller}/op") or b.get(f"{caller}/peer"):
@@ -428,6 +434,33 @@ async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
         if caller.startswith("trunk/"):
             return not b.on(f"{caller}/seize")
         return _fresh(ctx)(b) is None
+
+    def on_line(b: Board) -> bool:
+        return b.on(f"{caller}/op") or "/" in (b.get(f"{caller}/peer") or "")
+
+    async def returns() -> None:
+        """She leaves the caller and comes back on with the answering cord
+        alone, not patched on: the caller asks again."""
+        while True:
+            await ctx.b.wait_until(lambda b: not on_line(b), None)
+            left = time.time()
+            await ctx.b.wait_until(on_line, None)
+            if time.time() - left < AWAY or "/" in (ctx.b.get(f"{caller}/peer") or ""):
+                continue
+            gone = lambda b: not on_line(b)
+            try:
+                await hear(ctx.b, ctx.hw, caller, NUDGE_AFTER, abort_if=gone)
+                if ctx.b.get(f"{caller}/play"):          # a wrong-cord line, say
+                    continue
+                ctx.say_event(f"{caller}: asks again")
+                try:
+                    await say(ctx.b, ctx.hw, caller, ctx.scene.request.name,
+                              ctx.scene.request.seconds, abort_if=gone)
+                except asyncio.CancelledError:          # routed meanwhile
+                    await asyncio.shield(_quietly(ctx.hw.stop(caller)))
+                    raise
+            except Abandoned:
+                pass                                    # she left again
 
     async def watch() -> None:
         while True:
@@ -451,13 +484,16 @@ async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
 
     task = asyncio.ensure_future(work)
     watcher = asyncio.ensure_future(watch())
+    asker = asyncio.ensure_future(returns())
     try:
         done, _ = await asyncio.wait({task, watcher}, return_when=asyncio.FIRST_COMPLETED)
     except BaseException:
-        task.cancel()
-        watcher.cancel()
-        await asyncio.gather(task, watcher, return_exceptions=True)
+        for t in (task, watcher, asker):
+            t.cancel()
+        await asyncio.gather(task, watcher, asker, return_exceptions=True)
         raise
+    asker.cancel()
+    await asyncio.gather(asker, return_exceptions=True)
     if task in done:
         watcher.cancel()
         await asyncio.gather(watcher, return_exceptions=True)

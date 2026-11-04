@@ -656,7 +656,7 @@ async def main() -> int:
         check(not g._afters, "Stop dropped the waiting after: scene")
         await sess.close()
 
-        print("\n== reorder on a trunk after its call, while the cord stays in (§3.4, Rev 110)")
+        print("\n== reorder on a trunk after its call, while the cord stays in (§3.4, Rev 110, 112)")
         import sbgame.game as game_mod
         was = game_mod.REORDER_AFTER
         game_mod.REORDER_AFTER = D * 3
@@ -675,6 +675,14 @@ async def main() -> int:
         check(("trunk/4/tone/set", "reorder") not in link.sent, "not at once")
         await asyncio.sleep(D * 4)
         check(("trunk/4/tone/set", "reorder") in link.sent, "reorder once the wait is up")
+        link.sent.clear()
+        await b.update("trunk/4/peer", "station/2")         # that cord now on a new caller
+        await asyncio.sleep(D * 2)
+        check(("trunk/4/tone/set", "off") in link.sent, "quiet while patched to a line (Rev 112)")
+        link.sent.clear()
+        await b.update("trunk/4/peer", "")
+        await asyncio.sleep(HOLD + D * 2)            # an empty peer is held first
+        check(("trunk/4/tone/set", "reorder") in link.sent, "and back when patched to nobody")
         await b.update("trunk/4/seize", "off")
         await asyncio.sleep(D * 2)
         check(("trunk/4/tone/set", "off") in link.sent and 4 not in g._tails,

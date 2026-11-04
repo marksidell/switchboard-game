@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 111. The changes in each revision are in §15.*
+*Rev 112. The changes in each revision are in §15.*
 
 # 1. Overview
 
@@ -107,11 +107,13 @@ These are the milestones the game program must expose to the scheduler. How it r
 
 After a call's last line, the parties hang up 1.5s later, not at once: the time it takes to put a receiver down. The same after the operator's closing words, or where a call to her has none, and after an engaged caller's last line.
 
-When the call was on a trunk, the far end has gone too. If her cord is still in the trunk 4s after the call ends, the trunk gets reorder, the fast busy, until she takes the cord down, so a line left up after the long-distance operator's charges, or a guest's outside call, is not silent. The log says so. A new call taking that trunk ends it, and so does Stop.
+When the call was on a trunk, the far end has gone too. If her cord is still in the trunk 4s after the call ends, the trunk gets reorder, the fast busy, until she takes the cord down, so a line left up after the long-distance operator's charges, or a guest's outside call, is not silent. The log says so. While the trunk is patched to a line — that cord pair used to answer the next caller with its front cord still in the trunk — it is quiet, so the caller is heard, and reorder comes back if it is unpatched again. A new call taking that trunk ends it, and so does Stop.
 
 ## 3.5 Wrong Moves
 
 A wrong connection is logged but is not a failure on its own (§4). A wrong room rung answers, "Hello?", the caller says it is not who they asked for, and it hangs up; a right room rung on a cord not patched to the caller says "Hello?" after 8s and hangs up after 8s more; a party waiting for her to speak says "Hello? Operator?" after 6s of silence; and a trunk taken and not dialled for 15s gets reorder and fails as `misdialled` (§15.60). An operator who plugs the wrong jack and corrects it within the connect timeout has made the call. A wrong number of the right length gets busy tone on the trunk until she hangs it up, and she may redial; one too long or too short is `misdialled`. The game takes a number as dialled 3s after its last digit, so as to hear a digit too many; a fresh seizure gets dial tone again, a second after it, as on every seizure for a call out.
+
+A caller she leaves before it is connected, and comes back to with the answering cord alone after 5s or more, says its request again: once she has spoken, or after 6s if she does not. A guest kept waiting does not sit silent, and an operator who has lost track of a call hears what it wanted. The log says "asks again". A shorter absence, such as centring the key before the front cord goes in, does not count.
 
 ## 3.6 Which Trunk a Call Rings In On
 
@@ -795,6 +797,12 @@ Before step 1: the certificate is issued (`host/README.md`, "The certificate"), 
 - **Screen wake lock** (§11.3). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 15. Revision History
+
+## 15.112 Changes in Rev 112
+
+— A caller says its request again when she comes back to it (§3.5), and reorder on a trunk left up stops while the trunk is patched to a line (§3.4), Mark's request, 2026-11-03. Found on the switchboard that day, in `lobby-pike`: she answered the lobby with a cord pair whose front cord was still in trunk 1 from the call before. The reorder Rev 110 had put on that trunk came in 2s into the lobby's request and covered it. She left the lobby to answer another call, came back 35s after the request, and heard nothing, since the guest had asked once and was waiting to be put through. It looked like the game had frozen.
+
+— Code consequence, for Claude Code: `AWAY` and `returns()` in `_unless_abandoned()` in `flows.py`; `_trunk_tail()` in `game.py`; `test_flows.py`, `test_game.py`.
 
 ## 15.111 Changes in Rev 111
 

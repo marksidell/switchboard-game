@@ -194,6 +194,24 @@ async def pulls_the_cord_before_routing(h: Harness) -> None:
     await asyncio.sleep(60)
 
 
+async def leaves_and_comes_back(h: Harness) -> None:
+    """She answers, hears the request, leaves the caller longer than AWAY, and
+    comes back on with the answering cord alone (§3.5, Rev 112): the caller
+    asks again; then she puts it through."""
+    c, want = "station/12", 2
+    await answers(h, c)
+    await request_heard(h, c)
+    await h.b.update(f"{c}/op", "off")
+    await asyncio.sleep(D * 4)
+    await h.b.update(f"{c}/op", "on")
+    await request_heard(h, c)
+    await h.b.update(f"station/{want}/ring", "on")
+    await h.b.wait_until(lambda b: b.on(f"station/{want}/hook"), 5)
+    await h.b.update(f"station/{want}/ring", "off")
+    await h.b.update(f"{c}/peer", f"station/{want}")
+    await h.b.update(f"station/{want}/peer", c)
+
+
 async def outgoing_operator(h: Harness, number: str, answer: bool = True) -> None:
     c = "station/12"
     await answers(h, c)
@@ -389,6 +407,7 @@ async def main() -> int:
     flows.NUDGE_AFTER, flows.PATCH_WAIT, flows.ANSWER_AFTER, flows.DIAL_FIRST = \
         D * 4, D * 6, D, D * 10
     flows.BUSY_HOLD = D * 2
+    flows.AWAY = D * 2
 
     print("\n== station to station, a good operator")
     h = Harness(scene(Shape.STATION_TO_STATION))
@@ -400,6 +419,17 @@ async def main() -> int:
                        Stage.RINGING, Stage.TALKING], f"stages {h.stages}")
     check(("station/12/hook/set", "off") in h.link.sent
           and ("station/2/hook/set", "off") in h.link.sent, "hung both up in finally")
+
+    print("\n== she leaves the caller and comes back: it asks again (§3.5, Rev 112)")
+    h = Harness(scene(Shape.STATION_TO_STATION))
+    r = await h.run(station_to_station, leaves_and_comes_back)
+    asked = [v for k, v in h.link.sent if k == "station/12/play/set" and v == "t.1"]
+    check(r.ok and len(asked) == 2, f"the request twice, and the call goes through: {len(asked)}, {r.reason!r}")
+    check(any("asks again" in e for e in h.events), "logged")
+    h = Harness(scene(Shape.STATION_TO_STATION))
+    r = await h.run(station_to_station, good_station_operator)
+    asked = [v for k, v in h.link.sent if k == "station/12/play/set" and v == "t.1"]
+    check(len(asked) == 1, f"not when she never leaves: {len(asked)}")
 
     print("\n== the operator rings the wrong station, then the right one")
     h = Harness(scene(Shape.STATION_TO_STATION))

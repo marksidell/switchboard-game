@@ -960,11 +960,13 @@ class Game:
 
     async def _trunk_tail(self, n: int) -> None:
         """§3.4: the far end has hung up. Reorder REORDER_AFTER later, while
-        her cord is still in the trunk, until she takes it down, or a new
-        call takes the trunk."""
-        seized = f"trunk/{n}/seize"
+        her cord is still in the trunk and the trunk is patched to nobody,
+        until she takes it down, or a new call takes the trunk. Patched to a
+        line, the trunk is quiet, so a new caller on that cord is heard."""
+        seized, peer = f"trunk/{n}/seize", f"trunk/{n}/peer"
         taken = lambda: any(c.trunk == f"trunk/{n}" for c in (self.slots or ()))
         released = lambda b: not b.on(seized) or taken()
+        patched = lambda b: "/" in (b.get(peer) or "")
         playing = False
         try:
             try:
@@ -972,10 +974,21 @@ class Game:
                 return
             except TimeoutError:
                 pass
-            playing = True
-            await self.hw.tone(n, "reorder")
-            await self._say(f"trunk/{n}: reorder, the far end has hung up")
-            await self.b.wait_until(released, None)
+            told = False
+            while not released(self.b):
+                if patched(self.b):
+                    if playing:
+                        await self.hw.tone(n, "off")
+                        playing = False
+                    await self.b.wait_until(lambda b: released(b) or not patched(b), None)
+                else:
+                    if not playing:
+                        await self.hw.tone(n, "reorder")
+                        playing = True
+                        if not told:
+                            await self._say(f"trunk/{n}: reorder, the far end has hung up")
+                            told = True
+                    await self.b.wait_until(lambda b: released(b) or patched(b), None)
         except Exception:                       # Offline, or the broker gone
             pass
         finally:
