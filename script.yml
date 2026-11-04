@@ -108,6 +108,15 @@
 #     It is dealt once a game, as the next call once n calls have been
 #     handled, never in tutor or listen pacing; its concurrent followers are
 #     the rest of the scenario.
+#     live: <n>, 1 to 8, on that first scene: a follower due to start waits
+#     while n or more of the game's calls are not yet connected, so the
+#     operator never has more than n waiting on her (game_control.md 6.5).
+#
+# Stories (game_control.md 6.1, Rev 114):
+#     follows: [<scene>, ...] on a scene in the deck: the deck passes it over
+#     while any scene named is still to come this round, so a guest's story
+#     is dealt in order. A named after: scene is still to come while the
+#     scene it follows is. Not a timer: the scene is an ordinary deal.
 #
 # Active:
 #     Every scene says active: true or active: false. The game plays only
@@ -1449,6 +1458,7 @@ jacks:
 scenes:
     nbn-valet:
         active: true
+        follows: [nbn-kaplan]
         calling:
             line: room403
             person: thornhill
@@ -1743,6 +1753,7 @@ scenes:
     # Inactive until 8 is rendered; 2-7 are unchanged.
     albright-portland:
         active: true
+        follows: [albright-florist]
         calling:
             line: room302
             person: albright
@@ -1859,6 +1870,7 @@ scenes:
     # From the lobby house phone, outgoing.
     pike-taxi:
         active: true
+        follows: [pike-breakfast, times-pike, pike-demo, pike-finch, lobby-pike, ld-pike, pike-collect]
         calling:
             line: lobby
             person: pike
@@ -1913,6 +1925,7 @@ scenes:
 
     easyliving-v16:
         active: true
+        follows: [marysmith-desk]
         calling:
             line: v16company
             person: carsalesman
@@ -2348,6 +2361,7 @@ scenes:
 
     dobbs-omaha:
         active: true
+        follows: [dobbs-salmon]
         calling:
             line: room105
             person: dobbs
@@ -2517,6 +2531,7 @@ scenes:
     # Harold Pike, vacuum cleaners.
     pike-collect:
         active: true
+        follows: [ld-pike]
         calling:
             line: room204
             person: pike
@@ -2814,6 +2829,7 @@ scenes:
 
     restaurant-albright:
         active: true
+        follows: [albright-pearls]
         calling:
             line: restaurant
             person: hostess
@@ -3004,6 +3020,7 @@ scenes:
 
     hale-dnd:
         active: true
+        follows: [hale-champagne]
         calling:
             line: room305
             person: hale
@@ -3032,6 +3049,7 @@ scenes:
 
     housekeeping-hale:
         active: true
+        follows: [hale-dnd]
         calling:
             line: housekeeping
             person: housekeeper
@@ -3181,6 +3199,7 @@ scenes:
 
     lindqvist-rays:
         active: true
+        follows: [canlis-lindqvist]
         calling:
             line: room401
             person: lindqvist
@@ -3347,6 +3366,7 @@ scenes:
 
     crane-noise:
         active: true
+        follows: [nbn-kaplan, nbn-valet]
         calling:
             line: room404
             person: crane
@@ -3759,6 +3779,7 @@ scenes:
     panic:
         active: true
         after_handled: 10
+        live: 3
         calling:
             line: imperialsuite
             person: marysmith
@@ -4163,6 +4184,7 @@ scenes:
     # Mary Smith, who is being given everything.
     marysmith-coffee:
         active: true
+        follows: [marysmith-desk]
         calling:
             line: imperialsuite
             person: marysmith
@@ -4219,6 +4241,7 @@ scenes:
 
     bellcap-marysmith:
         active: true
+        follows: [marysmith-desk]
         calling:
             line: bellcaptain
             person: bellcaptain
@@ -4585,6 +4608,7 @@ scenes:
 
     valet-beaumont:
         active: true
+        follows: [lindqvist-valet]
         calling:
             line: bellcaptain
             person: bellcaptain
@@ -4613,6 +4637,7 @@ scenes:
 
     beaumont-pigalle:
         active: true
+        follows: [beaumont-pemberton]
         calling:
             line: room205
             person: beaumont
@@ -4643,6 +4668,7 @@ scenes:
 
     beaumont-pemberton:
         active: true
+        follows: [pemb-canary]
         calling:
             line: room205
             person: beaumont
@@ -4673,6 +4699,7 @@ scenes:
 
     beaumont-sister:
         active: true
+        follows: [beaumont-pigalle]
         calling:
             line: room205
             person: beaumont
@@ -4865,6 +4892,7 @@ scenes:
 
     finch-pharmacy:
         active: true
+        follows: [finch-lost, finch-badge, finch-wife]
         calling:
             line: room303
             person: finch
@@ -5021,6 +5049,7 @@ scenes:
 
     finch-hollis:
         active: true
+        follows: [finch-pharmacy]
         calling:
             line: room303
             person: finch

@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 112. The changes in each revision are in §15.*
+*Rev 114. The changes in each revision are in §15.*
 
 # 1. Overview
 
@@ -196,7 +196,9 @@ Mark wants, later, a mode where a new call can arrive before the operator has co
 
 **The shuffle.** At game start the game program takes every active scene in script.yml without `after:` and shuffles it into a list, the shuffle. Every new call, manual or scheduled, is dealt from the shuffle. So every scene is played once before any is played twice, in an order that differs from game to game. A scene marked `active: false` is not played at all: it is never in the shuffle and never follows another, and its wavs need not exist.
 
-**Dealing.** A new call takes the first scene in the shuffle whose lines and people are all free, and removes it. A scene's lines are its calling and called lines, stations and outside names alike. Its people are the `person:` under `calling` and `called`. A call to the operator has no called line or person. A line or person is busy if it belongs to a call in progress, or to a waiting `after:` scene (below). Scenes passed over stay where they are, so a scene held back because its line was busy comes up at the next call. If no scene in the shuffle can be dealt, the call does not start, the log says so, and in scheduled pacing the scheduler tries again after `gap_now`. A `next/set` that cannot be satisfied this way is reported on `game/error`.
+**Dealing.** A new call takes the first scene in the shuffle whose lines and people are all free, and removes it. A scene's lines are its calling and called lines, stations and outside names alike. Its people are the `person:` under `calling` and `called`. A call to the operator has no called line or person. A line or person is busy if it belongs to a call in progress, or to a waiting `after:` scene (below). Scenes passed over stay where they are, so a scene held back because its line was busy, or by `follows:` (below), comes up at the next call. If no scene in the shuffle can be dealt, the call does not start, the log says so, and in scheduled pacing the scheduler tries again after `gap_now`. A `next/set` that cannot be satisfied this way is reported on `game/error`.
+
+**Stories: a scene dealt after others.** A scene in the shuffle may carry `follows:`, a list of scenes. While any scene it names is still to come in this round, the shuffle passes it over, as it passes over a scene whose line is busy, and it is dealt after them. A named scene is still to come while it is in the shuffle, while it is a call in progress or a waiting `after:` scene, and, for an `after:` scene, while the scene it follows is still to come. So it can name a scene down a chain, such as `pemb-canary`. A named scene that can no longer come this round holds nothing back: one already played, one dropped because the scene before it was not connected (below), or one that is inactive or out of the circuits fitted. A chosen scene (§6.4) and a tutor lesson (§7) are dealt regardless. It is how a guest's story is told in order across the game: Pike does not leave for his train before his other calls, and the Colonel does not book a table for Mrs. Pemberton before he has asked her. `follows:` is not on an `after:` scene or a scenario's first scene (§6.5), names no scene twice, and does not loop.
 
 **Reshuffle.** When the shuffle is empty it is shuffled again from the full list, and dealing carries on. If the new shuffle would start with the scene dealt last, that scene moves to second place, so no scene plays twice in a row across the reshuffle. The log records each reshuffle.
 
@@ -249,7 +251,9 @@ It is dealt in manual and auto pacing only: never in tutor mode, which is one ca
 
 **While the scenario is running** — any of its calls in progress or any of its scenes waiting to start — the schedule waits, as listen waits for every call to end, and runs its gap from when the last of them has ended. Next Call still deals in manual pacing.
 
-`panic` is the first, at the tenth call: Martha the dog loose in the hotel, a complaint from every guest room but hers, from the lobby and from the restaurant, four to eight seconds apart, ending with Martha calling from her own room.
+**At most `live` waiting**. A scenario's first scene may carry `live: <n>`, 1 to 8. While any of the game's calls not yet connected (§3.3) number `n` or more, a follower whose delay has run out waits, as it waits for a free slot (§6.1), and starts when one of them is connected or ends. So the operator never has more than `n` calls waiting on her at once, however fast the scenario's delays run; a call connected and talking does not count. A call to the operator counts until its request has played. With no `live:`, the slots are the only bound.
+
+`panic` is the first, at the tenth call, with `live: 3`: Martha the dog loose in the hotel, a complaint from every guest room but hers, from the lobby and from the restaurant, four to eight seconds apart, ending with Martha calling from her own room.
 
 ## 6.6 A Station Found Engaged
 
@@ -797,6 +801,18 @@ Before step 1: the certificate is issued (`host/README.md`, "The certificate"), 
 - **Screen wake lock** (§11.3). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 15. Revision History
+
+## 15.114 Changes in Rev 114
+
+— Stories are dealt in order, `follows:` on a scene (§6.1), Mark's request, 2026-11-04. Some scenes tell a story across the game: `nbn-valet` makes sense only after `nbn-kaplan`, Pike leaves for his train in `pike-taxi` and should get no calls after it, and the Hales put up the do-not-disturb sign before housekeeping asks about it. The shuffle dealt them in any order. `after:` was not the way: it starts a scene on a timer after another ends, where these are ordinary deals that need only come later. Nineteen scenes carry it, in eleven stories: North by Northwest, Pike, the Hales, the Colonel and Mrs. Pemberton, Dobbs, Mrs. Albright's roses and pearls, Finch, Lindqvist's two restaurants, Lindqvist's truck, and Mary Smith.
+
+— Code consequence, for Claude Code: `follows` in `script_data.py` and `tts/script.py`; `_ready()` and `_to_come()` in `deck.py`, and what `deal()` is given by `game.py`; `follows:` on the scenes in script.yml; `test_game.py`.
+
+## 15.113 Changes in Rev 113
+
+— A scenario can bound how many calls wait on the operator at once, `live:` on its first scene (§6.5), and `panic` has `live: 3`, Mark's request, 2026-11-04: the panic's calls, four to eight seconds apart, came in a little too fast even for him. Slowing them further would also slow the panic for an operator who keeps up; the bound slows it only for one who falls behind. Waiting means not yet connected (§3.3), Mark's decision: a call that is connected and talking leaves her free.
+
+— Code consequence, for Claude Code: `live` in `script_data.py` and `tts/script.py`; the wait in `_after_timer()` in `game.py`; `live: 3` on `panic` in script.yml; `test_game.py`.
 
 ## 15.112 Changes in Rev 112
 

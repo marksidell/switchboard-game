@@ -502,6 +502,34 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
                 bad(f"scenes.{scene_id}.after_handled", f"not a whole number of calls: {n!r}")
             if after is not None:
                 bad(f"scenes.{scene_id}.after_handled", "not on a scene with after:")
+        # live: at most n of the game's calls waiting on the operator while the
+        # scenario deals (game_control.md 6.5, Rev 113).
+        if "live" in scene:
+            n = scene["live"]
+            if not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= 8:
+                bad(f"scenes.{scene_id}.live", f"not a number of calls from 1 to 8: {n!r}")
+            if "after_handled" not in scene:
+                bad(f"scenes.{scene_id}.live", "only on a scenario's first scene, with after_handled:")
+
+        # follows: scenes the shuffle deals this one after (game_control.md 6.1,
+        # Rev 114). A loop through them, or through after:, is checked below.
+        if "follows" in scene:
+            at = f"scenes.{scene_id}.follows"
+            f = scene["follows"]
+            if not isinstance(f, list) or not f or not all(isinstance(x, str) for x in f):
+                bad(at, f"not a list of scenes: {f!r}")
+            else:
+                for x in f:
+                    if x not in scenes:
+                        bad(at, f"{x!r} is not a scene")
+                    elif x == scene_id:
+                        bad(at, "names itself")
+                if len(set(f)) != len(f):
+                    bad(at, "names a scene twice")
+            if after is not None:
+                bad(at, "not on a scene with after:; it is dealt on a timer, not from the shuffle")
+            if "after_handled" in scene:
+                bad(at, "not on a scenario's first scene")
 
         # if_busy: caller lines for a called station found engaged
         # (game_control.md 6.6, Rev 39). Only between two rooms.
@@ -694,6 +722,30 @@ def load(path: Path | str = DEFAULT_SCRIPT) -> Script:
                 break
             seen.add(at)
             at = after_of[at]
+
+    # --- follows: no loop (game_control.md 6.1, Rev 114) ---------------------
+    # A scene waits for those it names, and a named after: scene for the one
+    # it follows; a loop through either would hold every scene in it for ever.
+    waits_on: dict[str, list[str]] = {}
+    for i, sc in scenes.items():
+        if not isinstance(sc, dict):
+            continue
+        w = [x for x in (sc.get("follows") or []) if isinstance(x, str) and x in scenes]
+        if sc.get("after") in scenes:
+            w.append(sc["after"])
+        waits_on[i] = w
+    state: dict[str, int] = {}
+    def _loops(i: str) -> bool:
+        state[i] = 1
+        for j in waits_on.get(i, []):
+            if state.get(j) == 1 or (state.get(j) is None and _loops(j)):
+                return True
+        state[i] = 2
+        return False
+    for i, sc in scenes.items():
+        if isinstance(sc, dict) and sc.get("follows") and state.get(i) is None:
+            if _loops(i):
+                bad(f"scenes.{i}.follows", "is part of a loop of follows: and after:")
 
     # --- the tutor (game_control.md 7) -------------------------------------
     tutor = _tutor_lines(data.get("tutor"), cast, board, stations, outside,

@@ -11,6 +11,9 @@ belongs to a call in progress *or* to an `after:` scene that is waiting to
 start — otherwise the deck could deal a scene using the very line a caller is
 about to call back on. People are held the same way: one voice cannot be in
 two calls at once.
+
+A scene with `follows:` is passed over the same way while a scene it names is
+still to come this round (§6.1, Rev 114), so a guest's story is dealt in order.
 """
 
 from __future__ import annotations
@@ -61,8 +64,23 @@ class Deck:
                 return False
         return True
 
-    def deal(self, held: list[Holding]) -> tuple[SceneDef | None, str]:
-        """Take the first scene whose lines and people are all free.
+    def _to_come(self, sid: str, live: frozenset[str] | set[str]) -> bool:
+        """Whether the scene can still play this round (§6.1, Rev 114): in the
+        deck, in progress or waiting to start, or an `after:` scene whose
+        predecessor is still to come. A chain has no loop (the loader's check)."""
+        if sid in self._cards or sid in live:
+            return True
+        sc = self.gs.scenes.get(sid)
+        return sc is not None and bool(sc.after) and self._to_come(sc.after, live)
+
+    def _ready(self, scene: SceneDef, live: frozenset[str] | set[str]) -> bool:
+        return not any(self._to_come(f, live) for f in scene.follows)
+
+    def deal(self, held: list[Holding],
+             live: frozenset[str] | set[str] = frozenset()) -> tuple[SceneDef | None, str]:
+        """Take the first scene whose lines and people are all free, and
+        whose `follows:` have all played. `live` is the scenes in progress or
+        waiting to start.
 
         Returns the scene and "", or None and the reason nothing could be
         dealt — which the caller logs, and reports on game/error if the page
@@ -77,14 +95,15 @@ class Deck:
         for _ in range(2):
             for i, sid in enumerate(self._cards):
                 scene = self.gs.scenes[sid]
-                if self._free(scene, held):
+                if self._free(scene, held) and self._ready(scene, live):
                     del self._cards[i]
                     self._last_dealt = sid
                     return scene, ""
             if self._cards:
                 # Some remain, all of them blocked. Do not reshuffle: they
                 # keep their places and come up when the lines free.
-                return None, "every scene left in the deck is using a busy line"
+                return None, ("every scene left in the deck is using a busy line"
+                              " or waits for a scene still to come")
             self._shuffle()
         return None, "every scene is using a busy line"
 

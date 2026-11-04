@@ -210,6 +210,22 @@ async def main() -> int:
             ("mode: concurrent on a scene with no after:",
              real.replace("    nbn-valet:\n        active: true\n",
                           "    nbn-valet:\n        active: true\n        mode: concurrent\n", 1)),
+            ("live: on a scene that does not start a scenario",
+             real.replace("    nbn-valet:\n        active: true\n",
+                          "    nbn-valet:\n        active: true\n        live: 3\n", 1)),
+            ("live: of no calls",
+             real.replace("        after_handled: 10\n        live: 3\n",
+                          "        after_handled: 10\n        live: 0\n", 1)),
+            ("follows: on an after: scene",
+             real.replace("    nbn-trace:\n        active: true\n",
+                          "    nbn-trace:\n        active: true\n        follows: [pike-demo]\n", 1)),
+            ("follows: naming no scene",
+             real.replace("        follows: [nbn-kaplan]\n", "        follows: [nbn-nobody]\n", 1)),
+            ("follows: in a loop",
+             real.replace("    nbn-kaplan:\n        active: true\n",
+                          "    nbn-kaplan:\n        active: true\n        follows: [nbn-valet]\n", 1)),
+            ("follows: naming itself",
+             real.replace("        follows: [nbn-kaplan]\n", "        follows: [nbn-valet]\n", 1)),
             ("a delay: range upside down",
              real.replace("    nbn-trace:\n        active: true\n",
                           "    nbn-trace:\n        active: true\n        delay: [5, 2]\n", 1)
@@ -622,6 +638,43 @@ async def main() -> int:
         await g.stop("stop")
         await sess.close()
 
+        print("\n== follows: a story is dealt in order (§6.1, Rev 114)")
+        from sbgame.deck import Deck
+        gs = g.gs
+        stories = {i: sc.follows for i, sc in gs.scenes.items() if sc.follows}
+        check(len(stories) == 19, f"19 scenes carry follows:, got {len(stories)}")
+        def ahead(f: str) -> str:
+            # A named after: scene is dealt as the head of its chain.
+            while gs.scenes[f].after:
+                f = gs.scenes[f].after
+            return f
+        bad_order = []
+        for seed in range(40):
+            d = Deck(gs, seed=seed)
+            order = []
+            for _ in range(len(gs.deck_scenes())):
+                sc, why = d.deal([])
+                check(sc is not None, f"seed {seed}: a scene dealt ({why})") if sc is None else None
+                if sc is None:
+                    break
+                order.append(sc.id)
+            at = {sid: k for k, sid in enumerate(order)}
+            for sid, fs in stories.items():
+                for f in fs:
+                    if at[ahead(f)] > at[sid]:
+                        bad_order.append((seed, sid, f))
+        check(not bad_order, f"over 40 shuffles every story in order: {bad_order[:3]}")
+        d = Deck(gs, seed=1)
+        d._cards = ["beaumont-pemberton"]
+        check(d.deal([], {"pemb-towels"})[0] is None,
+              "waits while the chain to pemb-canary is still running")
+        check(d.deal([], {"pemb-canary"})[0] is None, "and while pemb-canary is waiting or on")
+        check(d.deal([])[0].id == "beaumont-pemberton",
+              "and is dealt once the chain has played or been dropped")
+        d._cards = ["nbn-valet", "lindqvist-times"]
+        sc, why = d.deal([], {"nbn-kaplan"})
+        check(sc is not None and sc.id == "lindqvist-times", "a call in progress holds it back too")
+
         print("\n== an after: scene is dropped when its parent never connected (§6.1)")
         b, link, g, sess = await build_game(tmp, pace="manual")
         await g.start()
@@ -853,6 +906,29 @@ async def main() -> int:
             await g.slots.close(c)
         await asyncio.sleep(1.0)
         check(any(c.scene == "p1" for c in g.slots), "and starts when a slot frees")
+        await g.stop("stop")
+        await sess.close()
+
+        print("\n== live: a follower waits while that many wait on her (§6.5, Rev 113)")
+        b, link, g, sess = await build_game(tmp, pace="manual")
+        check(g.gs.scenes["panic"].live == 3, "panic has live: 3")
+        live_chain = [dc.replace(chain[0], live=2)] + chain[1:]
+        for sc, orig in zip(live_chain, picked):
+            g.gs.scenes[sc.id] = sc
+            g.gs.people[sc.id] = g.gs.people[orig.id]
+        for orig in picked:
+            g.gs.scenes.pop(orig.id, None)
+        check(g.gs.scenario_live("p2") == 2 and g.gs.scenario_live(ops[-1].id) is None,
+              "its followers share the bound; other scenes have none")
+        await g.start()
+        await g._start_call(scene=g.gs.scenes["p0"])
+        await asyncio.sleep(D * 10)
+        on = {c.scene for c in g.slots}
+        check(on == {"p0", "p1"} and "p2" in g._pending_after,
+              f"two unconnected, so p2 waits: {sorted(on)}")
+        next(c for c in g.slots if c.scene == "p1").connected = True
+        await asyncio.sleep(1.0)
+        check(any(c.scene == "p2" for c in g.slots), "and starts once one is connected")
         await g.stop("stop")
         await sess.close()
 

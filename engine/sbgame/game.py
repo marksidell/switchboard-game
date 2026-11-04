@@ -818,7 +818,8 @@ class Game:
                 scene = q
                 await self._say(f"lesson {q.id} dealt")
         if scene is None:
-            scene, why = self.deck.deal(self._held())
+            live = {c.scene for c in self.slots} | set(self._pending_after)
+            scene, why = self.deck.deal(self._held(), live)
             if scene is None:
                 await self._say(f"no call: {why}")
                 if asked:
@@ -1114,7 +1115,8 @@ class Game:
             await asyncio.sleep(delay)
             self._after_due[scene.id] = at
             # Its lines may still be busy in another call: wait for them (§6.1).
-            # A concurrent one waits for a free slot too, rather than being lost.
+            # A concurrent one waits for a free slot too, rather than being lost,
+            # and in a scenario with live: for fewer than that many unconnected.
             # Another waiting scene past its delay and ranked behind this one
             # gives way to it, so two never wait on each other.
             ahead_of: set[str] = set()
@@ -1130,6 +1132,10 @@ class Game:
                     self._tutor_task is not None or any(True for _ in self.slots or ()))
                 full = (scene.concurrent and self.slots is not None
                         and self.slots.free_slot() is None)
+                # A scenario's live: bounds the calls waiting on her (§6.5).
+                live = self.gs.scenario_live(scene.id) if scene.concurrent else None
+                if live is not None and self.slots is not None:
+                    full = full or sum(1 for c in self.slots if not c.connected) >= live
                 if not tutor_busy and not full and not any(
                         lines & h.lines or people & h.people for h in others):
                     break

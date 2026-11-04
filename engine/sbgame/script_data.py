@@ -71,6 +71,8 @@ class SceneDef:
     delay_max: float = 0.0      # a range [delay, delay_max] if above delay (Rev 39)
     concurrent: bool = False    # mode: concurrent, starts with the one it follows (§6.1)
     after_handled: int | None = None   # starts a scenario after n handled (§6.5)
+    live: int | None = None     # a scenario's bound on calls waiting on her (§6.5, Rev 113)
+    follows: tuple[str, ...] = ()   # dealt after these this round (§6.1, Rev 114)
     if_busy: tuple[Speech, ...] = ()   # if the called station is engaged (§6.6)
     closing: str = ""           # her closing line's name (§6.3); the caller waits for it (Rev 47)
     caller_voice: str = ""      # cast member who speaks the caller's lines, for reactions (Rev 60)
@@ -192,6 +194,18 @@ class GameScript:
             sc = self.scenes.get(sc.after)
         return False
 
+    def scenario_live(self, scene_id: str) -> int | None:
+        """The `live:` of the scenario a concurrent follower belongs to, else
+        None (§6.5, Rev 113)."""
+        sc = self.scenes.get(scene_id)
+        while sc is not None:
+            if sc.after_handled is not None:
+                return sc.live
+            if not sc.concurrent:
+                return None
+            sc = self.scenes.get(sc.after)
+        return None
+
     def followers(self, scene_id: str) -> list[SceneDef]:
         return [s for s in self.scenes.values() if s.after == scene_id]
 
@@ -260,6 +274,8 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
             delay=float(lo), delay_max=float(hi),
             concurrent=raw.get("mode") == "concurrent",
             after_handled=raw.get("after_handled"),
+            live=raw.get("live"),
+            follows=tuple(raw.get("follows") or ()),
             if_busy=tuple(speech(u, "caller") for u in s.busy_lines(sid)),
             closing=s.closings.get(sid, ""),
         )
