@@ -5638,15 +5638,15 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "jim_hale",
-    "text_sha": "745f1c8df49cb697",
+    "text_sha": "87e3161fbbc33e7c",
     "voice_sha": "ef009f5ee9418ac0"
   },
   "hale-cans.2": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "valet",
-    "text_sha": "f125a6b46764ca6d",
-    "voice_sha": "998d77d4a381a2bc"
+    "speaker": "bellcaptain",
+    "text_sha": "623a2eb512ddda55",
+    "voice_sha": "fca126ddb00be043"
   },
   "hale-cans.3": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -5658,9 +5658,9 @@
   "hale-cans.4": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "valet",
+    "speaker": "bellcaptain",
     "text_sha": "804313d0031c22ff",
-    "voice_sha": "998d77d4a381a2bc"
+    "voice_sha": "fca126ddb00be043"
   },
   "hale-cans.5": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -5672,9 +5672,9 @@
   "hale-cans.6": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "valet",
+    "speaker": "bellcaptain",
     "text_sha": "37e49e90a41dbc33",
-    "voice_sha": "998d77d4a381a2bc"
+    "voice_sha": "fca126ddb00be043"
   },
   "hale-cans.7": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -5686,9 +5686,9 @@
   "hale-cans.8": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "valet",
+    "speaker": "bellcaptain",
     "text_sha": "e7a84e4c7e1044cc",
-    "voice_sha": "998d77d4a381a2bc"
+    "voice_sha": "fca126ddb00be043"
   },
   "hale-champagne.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -7031,15 +7031,15 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "lindqvist",
-    "text_sha": "4e75a06b3ccb66fd",
+    "text_sha": "2761d070b515918e",
     "voice_sha": "618937de1a22a50a"
   },
   "lindqvist-valet.2": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "valet",
-    "text_sha": "1a77ebfd2c38cc46",
-    "voice_sha": "998d77d4a381a2bc"
+    "speaker": "bellcaptain",
+    "text_sha": "d41da619041ceb8b",
+    "voice_sha": "fca126ddb00be043"
   },
   "lindqvist-valet.3": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -7051,9 +7051,9 @@
   "lindqvist-valet.4": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "valet",
+    "speaker": "bellcaptain",
     "text_sha": "62c0ded11c68d704",
-    "voice_sha": "998d77d4a381a2bc"
+    "voice_sha": "fca126ddb00be043"
   },
   "lindqvist-valet.5": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -7065,9 +7065,9 @@
   "lindqvist-valet.6": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "valet",
+    "speaker": "bellcaptain",
     "text_sha": "f8879c460ac402b2",
-    "voice_sha": "998d77d4a381a2bc"
+    "voice_sha": "fca126ddb00be043"
   },
   "lindqvist-valet.7": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -11111,9 +11111,9 @@
   "valet-beaumont.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "valet",
+    "speaker": "bellcaptain",
     "text_sha": "be693ffa34703ff4",
-    "voice_sha": "998d77d4a381a2bc"
+    "voice_sha": "fca126ddb00be043"
   },
   "valet-beaumont.2": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -11125,9 +11125,9 @@
   "valet-beaumont.3": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "valet",
-    "text_sha": "196810c18b17b82d",
-    "voice_sha": "998d77d4a381a2bc"
+    "speaker": "bellcaptain",
+    "text_sha": "4da30493d2a16f6d",
+    "voice_sha": "fca126ddb00be043"
   },
   "valet-beaumont.4": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -11139,9 +11139,9 @@
   "valet-beaumont.5": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "valet",
+    "speaker": "bellcaptain",
     "text_sha": "3cf204069e2a317b",
-    "voice_sha": "998d77d4a381a2bc"
+    "voice_sha": "fca126ddb00be043"
   },
   "valet-beaumont.6": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -11153,9 +11153,9 @@
   "valet-beaumont.7": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
-    "speaker": "valet",
+    "speaker": "bellcaptain",
     "text_sha": "6c20d0706176205c",
-    "voice_sha": "998d77d4a381a2bc"
+    "voice_sha": "fca126ddb00be043"
   },
   "valet-beaumont.8": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",

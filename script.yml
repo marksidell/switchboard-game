@@ -3064,15 +3064,15 @@ scenes:
             line: room305
             person: jim_hale
         called:
-            line: valet
-            person: valet
+            line: bellcaptain
+            person: bellcaptain
         request:
             id: 1
             operator: internal-greeting
-            text: Operator, can you get me the fellow who parks the cars?
+            text: Operator, can you get me the bell captain? It's about my car.
         conversation:
             -   id: 2
-                called: Valet.
+                called: Bell captain. Gus speaking.
             -   id: 3
                 caller: This is Jim Hale, room 305. We came in the blue Ford. Could you take the tin cans off the back bumper?
             -   id: 4
@@ -3242,15 +3242,15 @@ scenes:
             line: room401
             person: lindqvist
         called:
-            line: valet
-            person: valet
+            line: bellcaptain
+            person: bellcaptain
         request:
             id: 1
             operator: internal-greeting
-            text: The valet, please.
+            text: The bell captain, please.
         conversation:
             -   id: 2
-                called: Valet service.
+                called: Bell captain.
             -   id: 3
                 caller: My truck is in your garage. The green one. It smells of fish.
             -   id: 4
@@ -4586,8 +4586,8 @@ scenes:
     valet-beaumont:
         active: true
         calling:
-            line: valet
-            person: valet
+            line: bellcaptain
+            person: bellcaptain
         called:
             line: room205
             person: beaumont
@@ -4599,7 +4599,7 @@ scenes:
             -   id: 2
                 called: Beaumont here.
             -   id: 3
-                caller: Colonel, this is the valet. There's a small scratch on your Cadillac's fender.
+                caller: Colonel, this is Gus, the bell captain. There's a small scratch on your Cadillac's fender.
             -   id: 4
                 called: A scratch? Who did it?
             -   id: 5
