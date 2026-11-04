@@ -112,8 +112,8 @@ async def main() -> int:
             ("a jack naming no station",
              spare.replace('label: "Garage"\n', 'label: "Garage"\n        station: attic\n', 1)),
             ("wait: in a call to the operator",
-             real.replace("                caller: Thank you. Room 404. Good night.\n",
-                          "                caller: Thank you. Room 404. Good night.\n"
+             real.replace("                caller: Thank you. Room 404.\n",
+                          "                caller: Thank you. Room 404.\n"
                           "                wait: true\n", 1)),
             ("a line whose person: is not in the cast",
              real.replace("                called: Valet service.\n",

@@ -631,9 +631,9 @@ freecall:
             - That is a very reasonable proposal. We will discuss it in person.
             - Yes. Yes. And where are you now, exactly?
     hostess:
-        greeting: Good evening, the Stoneburner. This is the hostess speaking.
+        greeting: Good afternoon, the Stoneburner. This is the hostess speaking.
         lines:
-            - Oh, I'm sorry, could you say that again? We have the dinner rush just now.
+            - Oh, I'm sorry, could you say that again? We have the lunch rush just now.
         loop:
             - Yes, of course. And how many in your party?
             - Oh, I'm sure we can find something. Would you mind a table near the kitchen?
@@ -683,7 +683,7 @@ freecall:
             - And was there anything else? The ice bucket? The shower curtain?
             - Ja, I'll make a note. I have many notes.
     desk_clerk:
-        greeting: Front desk, good evening.
+        greeting: Front desk, good afternoon.
         lines:
             - Yes, how may I help you? Sorry, could you give me your name again?
         loop:
@@ -698,7 +698,7 @@ freecall:
     concierge:
         greeting: Concierge's desk. Fairweather speaking.
         lines:
-            - Ah, how delightful. And how may I be of service this evening?
+            - Ah, how delightful. And how may I be of service this afternoon?
         loop:
             - But of course. I know just the person.
             - Mm, yes. The Ambassador said precisely the same thing to me, only last week.
@@ -880,7 +880,7 @@ freecall:
             - You want anchovies on that? Nobody wants anchovies.
             - Yeah, yeah. I'm writing it down.
     maitre_d:
-        greeting: Canlis. Good evening.
+        greeting: Canlis. Good afternoon.
         lines:
             - Of course. And may I have the name for the reservation?
         loop:
@@ -893,7 +893,7 @@ freecall:
             - And will anyone be joining you?
             - Very good. I shall make a note of it.
     florist:
-        greeting: Harbor Florist, good morning!
+        greeting: Harbor Florist, good afternoon!
         lines:
             - Oh, I love a phone call. Now, who are the flowers for?
         loop:
@@ -1029,7 +1029,7 @@ freecall:
         loop:
             - One moment, please.
             - Is the patient a relative?
-            - I'm sorry, could you repeat that? It's very busy here this evening.
+            - I'm sorry, could you repeat that? It's very busy here this afternoon.
             - Visiting hours are two to four and seven to eight.
             - I'm afraid I can't give out that information over the telephone.
             - Mm hm. And your name?
@@ -1648,10 +1648,10 @@ scenes:
                 operator:
                     id: 3
                     text: Certainly, six-thirty. And your room, please?
-                caller: Thank you. Room 404. Good night.
+                caller: Thank you. Room 404.
         closing:
             id: 4
-            text: Six-thirty, room 404. Good night, ma'am.
+            text: Six-thirty tomorrow, room 404. Good day, ma'am.
 
     # Outgoing.
     lindqvist-canlis:
@@ -1668,7 +1668,7 @@ scenes:
             text: Operator, ring Canlis for me, would you?
         conversation:
             -   id: 2
-                called: Good evening, this is Canlis.
+                called: Good afternoon, this is Canlis.
             -   id: 3
                 caller: This is Nils Lindqvist. I want a table for four tonight. Eight o'clock.
             -   id: 4
@@ -1736,7 +1736,7 @@ scenes:
             -   id: 6
                 called: And don't let anyone sign for it but me.
             -   id: 7
-                caller: Nobody but you, Doctor. Good night.
+                caller: Nobody but you, Doctor. Good day.
 
     # Outgoing long distance: the hotel operator dials 0, asks the local
     # operator for long distance, and the long-distance operator comes on.
@@ -2012,7 +2012,7 @@ scenes:
             -   id: 6
                 called: Wool, not scratchy. Yes, ma'am.
             -   id: 7
-                caller: And warm it first. Good night, Mrs. Olsen.
+                caller: And warm it first. Good day, Mrs. Olsen.
 
     pemb-pillows:
         active: true
@@ -2042,7 +2042,7 @@ scenes:
             -   id: 7
                 caller: I'll know which one it is, Mrs. Olsen. Don't think I won't.
             -   id: 8
-                called: Yes, Mrs. Pemberton. Good night.
+                called: Yes, Mrs. Pemberton. Good day.
 
     pemb-towels:
         active: true
@@ -2725,7 +2725,7 @@ scenes:
             -   id: 8
                 called: No, please, not tonight, I think I'm coming down with something.
             -   id: 9
-                caller: Tomorrow, then! Good night, Mr. Finch.
+                caller: Tomorrow, then! Goodbye, Mr. Finch.
 
     # Mrs. Albright.
     albright-pigalle:
@@ -2744,7 +2744,7 @@ scenes:
             -   id: 2
                 called: Place Pigalle, bonsoir.
             -   id: 3
-                caller: Good evening. I'd like a table for two tonight. Mrs. Albright.
+                caller: Good afternoon. I'd like a table for two tonight. Mrs. Albright.
             -   id: 4
                 called: Mais oui, madame. Eight o'clock? By the window, you can see the ferries on the Sound.
             -   id: 5
@@ -3162,7 +3162,7 @@ scenes:
         request:
             id: 1
             operator: outside-greeting
-            text: Good evening. Canlis calling for Mr. Nils Lindqvist, room 401.
+            text: Good afternoon. Canlis calling for Mr. Nils Lindqvist, room 401.
         conversation:
             -   id: 2
                 called: Ahoy, Lindqvist here.
@@ -3220,7 +3220,7 @@ scenes:
             -   id: 2
                 operator:
                     id: 5
-                    text: Yes, sir. It's very thick this evening.
+                    text: Yes, sir. It's very thick this afternoon.
                 caller: Thick? Ya, I thought so. My boys want to go out at four.
             -   id: 3
                 operator:
@@ -3231,10 +3231,10 @@ scenes:
                 operator:
                     id: 7
                     text: Of course, Mr. Lindqvist. Three-thirty.
-                caller: Thank you. You're a good girl. Tell your father he raised you right.
+                caller: Thank you. You're a good egg. Tell your folks they raised you right.
         closing:
             id: 8
-            text: I'll tell him, Mr. Lindqvist. Good night.
+            text: I'll tell him, Mr. Lindqvist. Goodbye.
 
     lindqvist-valet:
         active: true
@@ -3307,7 +3307,7 @@ scenes:
             -   id: 2
                 called: Ferries, Colman Dock.
             -   id: 3
-                caller: Good morning. I wish to go to Victoria, in British Columbia. Is a passport required?
+                caller: Good afternoon. I wish to go to Victoria, in British Columbia. Is a passport required?
             -   id: 4
                 called: No, ma'am. Just some identification. The Princess Marguerite leaves at eight.
             -   id: 5
@@ -3413,9 +3413,9 @@ scenes:
             text: The hotel dining room, please.
         conversation:
             -   id: 2
-                called: The Stoneburner, good evening.
+                called: The Stoneburner, good afternoon.
             -   id: 3
-                caller: Good evening. Do you serve anything plain? Boiled chicken, perhaps. No sauce.
+                caller: Good afternoon. Do you serve anything plain? Boiled chicken, perhaps. No sauce.
             -   id: 4
                 called: The chef could do a poached chicken breast, ma'am.
             -   id: 5
@@ -3427,7 +3427,7 @@ scenes:
             -   id: 8
                 called: Six o'clock, a table for one, away from the band. Very good, Miss Crane.
             -   id: 9
-                caller: Thank you. Good evening.
+                caller: Thank you. Good day.
 
     # Dr. Hollis, visiting surgeon.
     hollis-swedish:
@@ -3448,7 +3448,7 @@ scenes:
             -   id: 3
                 caller: This is Dr. Hollis. I'm operating at seven tomorrow. Is the patient prepared?
             -   id: 4
-                called: Yes, Doctor. Nothing by mouth after midnight, as you ordered.
+                called: Yes, Doctor. Nothing by mouth since noon, as you ordered.
             -   id: 5
                 caller: Good. And the instruments?
             -   id: 6
@@ -3456,7 +3456,7 @@ scenes:
             -   id: 7
                 caller: Count them three times. I'll see you at six-thirty.
             -   id: 8
-                called: Three times, Doctor. Good night.
+                called: Three times, Doctor. Good day.
 
     swedish-hollis:
         active: true
@@ -3478,13 +3478,13 @@ scenes:
             -   id: 3
                 caller: Doctor, the patient has eaten a ham sandwich.
             -   id: 4
-                called: After midnight?
+                called: Since noon?
             -   id: 5
                 caller: His wife brought it in, Doctor. He says he was starving.
             -   id: 6
-                called: Then we operate at noon instead. And nobody brings him anything else. Not even a mint.
+                called: Then we operate tomorrow afternoon instead. And nobody brings him anything else. Not even a mint.
             -   id: 7
-                caller: Not even a mint. Yes, Doctor. Good night.
+                caller: Not even a mint. Yes, Doctor. Good day.
 
     hollis-wakeup:
         active: true
@@ -3500,7 +3500,7 @@ scenes:
                 operator:
                     id: 4
                     text: Five o'clock, Doctor. Certainly.
-                caller: Not five-oh-one. Five. I must have a scalpel in my hand at seven.
+                caller: Not five-oh-one. Five. I have a gallbladder at seven.
             -   id: 3
                 operator:
                     id: 5
@@ -3508,7 +3508,7 @@ scenes:
                 caller: And keep ringing until I answer. I sleep like the dead. Occupational hazard.
         closing:
             id: 6
-            text: I'll keep ringing, Doctor. Good night.
+            text: I'll keep ringing, Doctor. Good day.
 
     ld-hollis:
         active: true
@@ -3563,7 +3563,7 @@ scenes:
             -   id: 5
                 caller: Can I watch?
             -   id: 6
-                called: Only from the other side of the table, Mr. Barrett. Good night.
+                called: Only from the other side of the table, Mr. Barrett. Good day.
 
     hollis-valet:
         active: true
@@ -3765,7 +3765,7 @@ scenes:
         request:
             id: 1
             operator: internal-greeting
-            text: Operator? Something has eaten my breakfast. The whole tray, right outside my door. Even the marmalade.
+            text: Operator? Something has eaten my lunch. The whole tray, right outside my door. Even the parsley.
         conversation:
             -   id: 2
                 operator:
@@ -3821,7 +3821,7 @@ scenes:
                 operator:
                     id: 3
                     text: She belongs to a guest, Mr. Dobbs. Someone is on the way to catch her.
-                caller: Well, back home in Wahoo she'd be out herding cattle. Tell her I said good morning.
+                caller: Well, back home in Wahoo she'd be out herding cattle. Tell her I said good afternoon.
 
     panic-vance:
         active: true
@@ -3842,7 +3842,7 @@ scenes:
             -   id: 2
                 called: Front desk.
             -   id: 3
-                caller: This is Lorraine Vance in 201. Something is barking outside my door, and it is not yet noon.
+                caller: This is Lorraine Vance in 201. Something is barking outside my door, and it is barely one o'clock.
             -   id: 4
                 called: I'm terribly sorry, Miss Vance. It's a dog. We're trying to catch her.
             -   id: 5
@@ -3894,7 +3894,7 @@ scenes:
         request:
             id: 1
             operator: internal-greeting
-            text: Operator, a hound has seized my morning paper from the mat and retreated down the hall with it.
+            text: Operator, a hound has seized my afternoon paper from the mat and retreated down the hall with it.
         conversation:
             -   id: 2
                 operator:
@@ -4185,7 +4185,7 @@ scenes:
             -   id: 6
                 called: Usually caviar, madam. And a magnum of champagne.
             -   id: 7
-                caller: For breakfast? Oh, no, no. Just the doughnut. Two doughnuts. And how much is that? No, don't tell me.
+                caller: In the middle of the afternoon? Oh, no, no. Just the doughnut. Two doughnuts. And how much is that? No, don't tell me.
             -   id: 8
                 called: Two doughnuts. Very good, madam.
 
@@ -4203,7 +4203,7 @@ scenes:
             text: The front desk, please.
         conversation:
             -   id: 2
-                called: Front desk. Good morning, Miss Smith.
+                called: Front desk. Good afternoon, Miss Smith.
             -   id: 3
                 caller: Look, there's been some kind of mistake. I can't pay for this room. I have seven dollars and a nickel.
             -   id: 4
@@ -4568,7 +4568,7 @@ scenes:
                 operator:
                     id: 5
                     text: Oh five hundred, sir?
-                caller: That's five in the morning, young lady. Military time.
+                caller: That's five in the morning, civilian. Military time.
             -   id: 3
                 operator:
                     id: 6
@@ -4581,7 +4581,7 @@ scenes:
                 caller: Splendid. Carry on.
         closing:
             id: 8
-            text: Good night, Colonel.
+            text: Very good, Colonel.
 
     valet-beaumont:
         active: true
@@ -4627,7 +4627,7 @@ scenes:
             -   id: 2
                 called: Place Pigalle, bonsoir.
             -   id: 3
-                caller: Good evening, madam. Colonel Augustus Beaumont. A table for two at seven. And, do you serve grits?
+                caller: Good afternoon, madam. Colonel Augustus Beaumont. A table for two at seven. And, do you serve grits?
             -   id: 4
                 called: Grits, monsieur? Non. We have a very nice omelette.
             -   id: 5
@@ -4699,10 +4699,10 @@ scenes:
             -   id: 13
                 caller: Colonel Augustus Beaumont. The Hotel Ballard, room 205. And I shall want the time and charges.
             -   id: 14
-                called: Rate operator? Savannah, Georgia. Route and night person rate from Seattle.
+                called: Rate operator? Savannah, Georgia. Route and day person rate from Seattle.
                 person: operator
             -   id: 15
-                called: Chicago, Atlanta, Savannah. Night person, 2-4-0.
+                called: Chicago, Atlanta, Savannah. Day person, 2-4-0.
                 person: rate_operator
                 pause: 3
             -   id: 16
@@ -4756,7 +4756,7 @@ scenes:
                 called: A lady? Augustus Beaumont, you are sixty-eight years old.
                 person: lucinda
             -   id: 11
-                caller: I am Sixty-seven, Lucinda. Good night.
+                caller: I am sixty-seven, Lucinda. Goodbye.
             -   id: 27
                 called: Seattle? Time and charges for room 205. Three minutes. Two dollars and forty cents.
                 person: operator
@@ -4861,7 +4861,7 @@ scenes:
             -   id: 6
                 called: She's right. They were. I forgot.
             -   id: 7
-                caller: Very good, sir. Good night.
+                caller: Very good, sir. Goodbye.
 
     finch-pharmacy:
         active: true
@@ -5045,7 +5045,7 @@ scenes:
             -   id: 7
                 caller: How did you know?
             -   id: 8
-                called: I'm a surgeon, Mr. Finch. Go to sleep. If you die in the night, call me.
+                called: I'm a surgeon, Mr. Finch. Lie down. If you die before dinner, call me.
 
     finch-lost:
         active: true
