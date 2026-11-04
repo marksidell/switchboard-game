@@ -14,8 +14,7 @@ project I built a game around a working switchboard in which simulated
 calls allow a player to more fully experience what it was like to be a
 telephone operator.
 
-In the game, the player is the operator at the Hotel Ballard in 1958
-(the year Seattle converted from six- to seven-digit phone numbers).
+In the game, the player is the operator at the Hotel Ballard in 1958.[^1]
 Simulated calls arrive from various parties both inside and outside the
 hotel, and the operator connects the calls as requested. The operator
 answers a call by plugging in a cord, asks what the caller wants,
@@ -50,7 +49,7 @@ Normally, the game doesn't start the next call until after the player
 has connected the current one. But in one scene everyone
 in the hotel calls at nearly the same time to complain about a dog who
 is causing havoc everywhere. (The dog in question is Martha, who can
-talk and in one scene orders room service.[^1])
+talk and in one scene orders room service.[^2])
 
 <!-- pagebreak -->
 
@@ -121,7 +120,7 @@ from outside.
 
 Below the jacks are ten pairs of cords the operator uses to connect
 calls. Each pair has a front and a rear cord.
-She[^2] plugs one cord into a jack to answer an incoming call and
+She[^3] plugs one cord into a jack to answer an incoming call and
 then plugs the other cord into the desired destination.
 With ten cord pairs, the switchboard can handle at most ten calls at
 once.
@@ -294,9 +293,7 @@ as soon as it happens, and the circuit cannot sense loop current while
 its ring relay is on. Fortunately, the switchboard trunk ring relays latch
 on the first burst of ring. So the ESP32 firmware is designed to send a
 single burst. I found that a one-second burst is sufficient to cause
-the switchboard relays to latch reliably.
-(I could go on about how a CO applies ring on top of the
-DC loop current...)
+the switchboard relays to latch reliably.[^4]
 
 The optoisolator on the lower right completes the circuit. It detects that current
 is flowing through the loop, indicating that the station (in our case, the switchboard)
@@ -552,7 +549,7 @@ playing a recorded utterance.
 plain busy and fast busy, played on the trunks as the operator dials out. These
 are the Bell System tones of the 1950s, not the modern ones.
 The ringback is rebuilt from a recording of a real 803C tone alternator,
-because my museum friends insisted.
+because my museum friends insisted.[^5]
 - Check its own output. When the Ferrofish's meters started showing
 bursts of noise, I added a check that compares every sample `sbaudio`
 sends with what it should be. The check found nothing wrong while the
@@ -804,10 +801,7 @@ the game can't see the ATA's ring at all. It first learns of an outside call whe
 
 Now that other people can call the switchboard, we had to figure out something for them to do.
 Sarah suggested having Lenny stay at the hotel.
-Lenny is a famous telephone chatbot, sixteen recordings played one at a time whenever the caller pauses.
-Lenny's responses are odd, confused,
-and off-the-wall, but they are convincing enough that some telemarketers have
-tried to engage with him for an hour or more.
+Lenny is a famous telephone chatbot, sixteen recordings played one at a time whenever the caller pauses.[^6]
 
 The operator can connect a human caller to any of the local stations and can also dial out
 to any of the businesses configured in the game. That's 37 characters who could answer. So,
@@ -839,7 +833,8 @@ meticulously cleaned the switchboard plugs and jacks.
 
 Jonathan Balik was the talent in the YouTube video; he made it fun to watch.
 
-Eric Rhinelander and Remco Enthoven cheered me on throughout.
+Eric Rhinelander and Remco Enthoven cheered me on throughout. I learned
+the term gutless wonder from Remco.
 
 Beth Holmgren, my spouse, was the first player and my moral support.
 She suggested that Martha the dog be a rambunctious hotel guest and reminded me of, hey, you
@@ -858,10 +853,41 @@ hear Lenny, download [Lenny.zip](https://crosstalksolutions.com/pub/Lenny.zip) a
 the files as `tts/recorded/PERFORMERS.md` describes. Without them, the rest of the game
 is unaffected except that the operator's call to an unknown number has no one to answer it.
 
-[^1]: Martha is inspired by the children's book *Martha Calling*, by Susan Meddaugh.
+[^1]: Before dial service, a caller told the operator the name of the exchange and
+the number in that exchange. For example: "MAin 6247". When AT&T introduced dial
+service, an engineer named W. G. Blauvelt suggested adding letters to the dial
+so that people could continue using the familiar names. Dial service came to
+Seattle in 1923, when the first panel switch was installed in the Parkway
+central office.
 
-[^2]: The first operators were teenage boys, who swore at callers and
+    At that time, Seattle had six-digit phone numbers: the exchange
+    name followed by four digits. In 1958 the city converted to a seven-digit
+    dialing plan, where the first three digits named the exchange. The conversion
+    was part of a national push to standardize for direct-dial long distance calling.
+
+    The Connections Museum still has that switch, the last panel
+    switch in the world, and it still works. It's my favorite piece of equipment in the museum.
+
+[^2]: Martha is inspired by the children's book *Martha Calling*, by Susan Meddaugh.
+
+[^3]: The first operators were teenage boys, who swore at callers and
 played pranks on the line. In 1878 the Boston Telephone Dispatch
 Company hired Emma Nutt, the first woman operator, and by the 1880s
 the job belonged to women.
 
+[^4]: A real central office solves the problem of detecting seizure while ringing,
+called ring trip, by applying the ring voltage on top of the DC loop voltage. That way,
+the trunk equipment can detect the flow of loop current caused by the remote
+station going offhook even while the phone is ringing.
+
+[^5]: The 803C was one of many tone plants used in Bell System central offices,
+a machine that generated ringing, dial tone, busy and ringback. Its ringback isn't a
+clean tone. It is 420 Hz mixed with the 20 Hz ringing current,
+which gives it a charming warble. 
+The recording I used is from an Atlanta office, and I rebuilt the sound from its 48 strongest frequencies.
+
+[^6]: Lenny is a polite old man whose responses are odd, confused, and off-the-wall.
+He was released on the internet in 2013 to waste
+telemarketers' time, and callers have stayed on the line with him
+longer than one might imagine. A 2017 study (Sahin et al., SOUPS)
+measured how well he works.
