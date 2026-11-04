@@ -1,9 +1,9 @@
 # The Switchboard Game
 
-*This game puts the player at the cords of a real Western Electric 551
+*This game puts the player in front of a real Western Electric 551
 switchboard, unmodified, wired to modern hardware that plays sixty
-characters calling a 1950s hotel. The game listens for the operator to say
-"Number, please," and then the calls keep coming.*
+characters who are calling a 1950s hotel.
+A lamp lights, a caller waits, and the game listens for "Number, please."*
 
 Watch this [YouTube video](https://www.youtube.com/placeholder/) to
 see the game in action.
@@ -50,7 +50,7 @@ Normally, the game doesn't start the next call until after the player
 has connected the current one. But in one scene everyone
 in the hotel calls at nearly the same time to complain about a dog who
 is causing havoc everywhere. (The dog in question is Martha, who can
-talk and in one scene orders room service.)
+talk and in one scene orders room service.[^1])
 
 <!-- pagebreak -->
 
@@ -66,7 +66,7 @@ they replaced the switchboard with an automatic PBX and gave it to her
 as a retirement gift. She displayed it in her living room for many
 years.
 It is a beautiful device, and she kept it in lovely condition.
-When she no longer had room for it, she donated it to the Connections Museum. 
+When she no longer had room for it, in 2024 she donated it to the Connections Museum.
 The museum later passed it on to me for this project.
 
 <p align="center">
@@ -121,7 +121,7 @@ from outside.
 
 Below the jacks are ten pairs of cords the operator uses to connect
 calls. Each pair has a front and a rear cord.
-She plugs one cord into a jack to answer an incoming call and
+She[^2] plugs one cord into a jack to answer an incoming call and
 then plugs the other cord into the desired destination.
 With ten cord pairs, the switchboard can handle at most ten calls at
 once.
@@ -169,9 +169,9 @@ Other elements include:
 - A [Ferrofish A32 Pro](https://www.ferrofish.com/a32pro-converter-multimode)
 32-channel analog converter, connected to the
 PC via an [RME Digiface USB](https://rme-audio.de/digiface-usb.html) 4-port ADAT interface.
-- A 24 V power supply, to power both the trunk and station boards and
+- A 24 V power supply to power both the trunk and station boards and
 the switchboard.
-- A [Stream Deck+](https://www.elgato.com/us/en/p/stream-deck-plus), used to control the game.
+- A [Stream Deck+](https://www.elgato.com/us/en/p/stream-deck-plus) used to control the game.
 - An iPad displaying a live view of the switchboard state.
 - An audience monitor speaker.
 - A [Grandstream HT801](https://www.grandstream.com/products/gateways-and-atas/analog-telephone-adaptors/product/ht801)
@@ -198,18 +198,18 @@ A small TP-Link 5-port switch connects the ESP32 to the PC and provides power.
   <img src="docs/images/control-board.jpg" width="75%" />
 </p>
 
-The board also generates ring voltage, used by the trunks to signal
-the switchboard and also supplied to the switchboard so that it can
+The board also generates ring voltage that the trunks use to signal
+the switchboard and the switchboard uses to
 ring stations. Ring is nominally 90 volts RMS at 20 Hz.
 Commercial ring
 generators are available, but small ones typically don't generate
-sufficient voltage to reliably trigger the switchboard trunk ring
-detection relays. Also, I thought it would be enlightening to build my
+sufficient voltage to trigger the switchboard trunk ring
+detection relays reliably. Also, I thought it would be enlightening to build my
 own.
 
 In my design, the ESP32 generates a PWM digital signal,
 which controls a MOSFET H-bridge operating at 24 volts. The PWM
-signal is a 40 kHz carrier whose duty cycle follows a 20 Hz sine.
+signal is a 40 kHz carrier with a duty cycle that follows a 20 Hz sine.
 The bridge drives a
 mains transformer wired backwards to step the signal up to about 80 volts.
 This was the best I could do with the available transformer, but it is high enough.
@@ -227,7 +227,7 @@ carrier on the output at over &plusmn;250 V peaks, until a 1 &micro;F capacitor
 across the winding turned it into a sine. (Observant readers may discern this is the
 first time I've built one of these things.)
 
-If I do a rev 2, a better design
+If I build a rev 2, a better design
 might be a more standard DC-to-AC inverter. These use a high-frequency
 square wave to drive a much smaller step-up transformer. The output of
 this transformer is rectified and filtered to provide DC at the desired peak voltage.
@@ -239,7 +239,7 @@ I'd be trading the big transformer for a much higher parts count.
 The switchboard's trunk ring relays latch when they receive the first burst of ringing so that
 the trunk lamp stays lit until the operator plugs a cord into the trunk jack.
 After designing the control board I realized that a player could abandon the game and leave
-a trunk lamp lit. So, I designed and added a small daughter board with a relay that the
+a trunk lamp lit. So I designed and added a small daughter board with a relay that the
 ESP32 can operate to cycle power to the switchboard, effectively rebooting it.
 
 ### The Trunk Board
@@ -259,7 +259,7 @@ is in series with a capacitor so that the ringer passes the AC but no DC,
 and the line still reads as open.)
 
 By convention one wire of a telephone loop is called *tip* and the other is *ring*.
-These names derive from the elements of a telephone plug: tip, ring and sleeve.
+These names derive from the elements of a telephone plug: tip, ring, and sleeve.
 Sleeve is used on a switchboard for control.
 
 The trunk board's eight circuits must do the following:
@@ -395,12 +395,12 @@ It surprised me by presenting a framework for working code.
 Given the amount of code to be written and the short timeline
 I had set for the project, I simply threw up my hands and told Claude to write it all.
 
-So, the division of labor has become this: I designed the hardware, drew the schematics,
+So, this is how I divided the labor: I designed the hardware, drew the schematics,
 laid out the PCBs and assembled the boards. I set the requirements and reviewed the specifications;
 Claude Code wrote most of the code
 and, equally important, maintained the specifications. Claude is a much better
-note-taker than I. Every step of the process, every design decision, every misstep,
-every bug, every hardware test, everything, is documented. After five weeks of
+note-taker than I. It documents every step of the process, every design decision, every misstep,
+every bug, every hardware test, everything. After five weeks of
 development, the game's
 [specification](docs/game_control.md) is at its 100th revision.
 When there were problems that spanned hardware and software, I was able to work
@@ -415,7 +415,7 @@ Lying in bed, I described the problem.
 Claude confirmed from the logs that, indeed, a player (likely me!) had rung
 the wrong cord into a trunk twenty times in the past week.
 We then quickly devised a way for the game to detect the error and have the 
-tutor explain what to do. Then I fell back asleep.
+tutor explain what to do. Then I fell asleep.
 
 But my intern isn't infallible. It sometimes states things confidently that
 turn out to be wrong. Usually the errors are obvious,
@@ -842,7 +842,7 @@ Jonathan Balik was the talent in the YouTube video; he made it fun to watch.
 Eric Rhinelander and Remco Enthoven cheered me on throughout.
 
 Beth Holmgren, my spouse, was the first player and my moral support.
-She suggested that Martha the dog be a hotel guest and reminded me of, hey, you
+She suggested that Martha the dog be a rambunctious hotel guest and reminded me of, hey, you
 remind me of a man. She also edited this document; any errors that remain are mine.
 
 ### License
@@ -857,3 +857,11 @@ no one seems able to say who holds the rights, so I can't pass on a license for 
 hear Lenny, download [Lenny.zip](https://crosstalksolutions.com/pub/Lenny.zip) and process
 the files as `tts/recorded/PERFORMERS.md` describes. Without them, the rest of the game
 is unaffected except that the operator's call to an unknown number has no one to answer it.
+
+[^1]: Martha is inspired by the children's book *Martha Calling*, by Susan Meddaugh.
+
+[^2]: The first operators were teenage boys, who swore at callers and
+played pranks on the line. In 1878 the Boston Telephone Dispatch
+Company hired Emma Nutt, the first woman operator, and by the 1880s
+the job belonged to women.
+

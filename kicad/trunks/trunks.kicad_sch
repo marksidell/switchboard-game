@@ -4,6 +4,11 @@
 	(generator_version "9.0")
 	(uuid "41418a7a-8fa7-4aa9-8c49-9865935c24b2")
 	(paper "A4")
+	(title_block
+		(title "Switchboard Game Trunk Board")
+		(date "21-Sep-2026")
+		(rev "2")
+	)
 	(lib_symbols
 		(symbol "Connector:DB25_Socket"
 			(pin_names

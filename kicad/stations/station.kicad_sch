@@ -4,6 +4,11 @@
 	(generator_version "9.0")
 	(uuid "dd9ec08d-1831-41b8-8a27-c27ab353a819")
 	(paper "A4")
+	(title_block
+		(title "Switchboard Game Station Board - Station")
+		(date "21-Sep-2026")
+		(rev "2")
+	)
 	(lib_symbols
 		(symbol "Device:C"
 			(pin_numbers

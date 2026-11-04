@@ -31,3 +31,11 @@ p:has(> img) { break-inside: avoid; margin: 10pt 0; }
 /* A sentence that introduces a list, table or figure stays with it. */
 p:has(+ ul), p:has(+ ol), p:has(+ table), p:has(+ p > img) { break-after: avoid; }
 img { max-width: 100%; max-height: 8.6in; }
+
+/* Footnotes, as markdown-it's footnote plugin writes them: numbered at the end. */
+.footnote-ref { font-size: 8pt; line-height: 0; }
+hr.footnotes-sep { border: 0; border-top: 0.5pt solid #888; width: 30%; margin: 18pt 0 6pt; }
+section.footnotes { font-size: 10pt; }
+section.footnotes ol { padding-left: 16pt; }
+section.footnotes li p { margin: 0 0 4pt; }
+.footnote-backref { display: none; }

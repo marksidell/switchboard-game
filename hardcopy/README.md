@@ -11,7 +11,7 @@ Printed things for the game, and how to print them.
 | `call-the-hotel.jpg` | Placard next to the switchboard, with the number to call | drawn by hand |
 | `guest-directory-cover.pdf` | Conference booklet cover, on printed green | `guest-directory-cover.html`, printed from Chrome |
 | `guest-directory-cover-for-card.pdf` | The same cover with no background, for colored card | the same, with `--stock` set to white |
-| `README.pdf` | The top-level README for the binder, images included; `<!-- pagebreak -->` in the README starts a new page | `readme-pdf.py`, `readme-pdf.css` |
+| `README.pdf` | The top-level README for the binder, images included; `<!-- pagebreak -->` in the README starts a new page; footnotes print as endnotes; needs `python3-markdown-it` and `python3-mdit-py-plugins` | `readme-pdf.py`, `readme-pdf.css` |
 | `bench/` | Bench sheets and checklists | |
 
 ## Printers

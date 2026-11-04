@@ -3,12 +3,11 @@
 	(generator "eeschema")
 	(generator_version "9.0")
 	(uuid "236c5127-79e3-444e-bdfb-083160cd4da4")
-	(paper "A4")
+	(paper "A5")
 	(title_block
-		(title "Switchboard power cut")
-		(date "2026-10-19")
+		(title "Switchboard Game Switchboard Power Control")
+		(date "19-Oct-2026")
 		(rev "1")
-		(company "551 Switchboard Simulator")
 	)
 	(lib_symbols
 		(symbol "Connector:Screw_Terminal_01x02"

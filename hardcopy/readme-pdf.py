@@ -6,10 +6,12 @@
 Writes hardcopy/README.pdf by default. A line reading <!-- pagebreak --> in the
 README starts a new page here and is invisible on GitHub. The automatic rules
 (headings stay with their text, images and tables do not split) and the look are
-in readme-pdf.css. Needs python3-markdown-it and Google Chrome 131 or later."""
+in readme-pdf.css. Footnotes ([^1]) print as endnotes at the end, as on GitHub.
+Needs python3-markdown-it, python3-mdit-py-plugins and Google Chrome 131 or later."""
 import pathlib, re, subprocess, sys, tempfile
 
 from markdown_it import MarkdownIt
+from mdit_py_plugins.footnote import footnote_plugin
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -20,7 +22,10 @@ def main() -> None:
     out = pathlib.Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else HERE / "README.pdf"
     source = (ROOT / "README.md").read_text()
     source = BREAK.sub('<div style="break-after: page"></div>', source)
-    body = MarkdownIt("commonmark", {"html": True}).enable("table").render(source)
+    md = MarkdownIt("commonmark", {"html": True}).enable("table").use(footnote_plugin)
+    # A plain superscript number, not the plugin's "[1]".
+    md.add_render_rule("footnote_caption", lambda self, tokens, idx, *_: str(tokens[idx].meta["id"] + 1))
+    body = md.render(source)
     page = (
         '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
         f'<base href="{ROOT.as_uri()}/"><title>The Switchboard Game</title>'
