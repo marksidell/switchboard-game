@@ -59,6 +59,10 @@ _TRUNK_OP_SEIZE = re.compile(r"^trunk/(\d+)/(?:op|seize)$")   # a rear cord in i
 # s of op on and seize off together before it counts, beyond the board's hold
 # on op going off, which outlasts a pulled front cord's seizure (§7.7, Rev 93)
 REAR_HOLD = 1.0
+# §3.4: after a call on a trunk ends, the far end has hung up. With her cord
+# still in the trunk, the trunk gets reorder this long after, until she
+# takes it down.
+REORDER_AFTER = 4.0
 PLAYER = re.compile(r"^(?:station|trunk)/\d+/(?:peer|op|seize|dialled|digit)$|^station/\d+/ring$")
 
 log = logging.getLogger("game")
@@ -103,6 +107,7 @@ class Game:
         self._hint_end: dict[int, float] = {}            # call -> its line's end, Rev 91
         self._rear_since: dict[int, float] = {}          # trunk -> op on, seize off since, Rev 93
         self._afters: dict[str, asyncio.Task] = {}      # scene id -> timer task
+        self._tails: dict[int, asyncio.Task] = {}       # trunk -> reorder after its call (§3.4)
         self._pending_after: dict[str, Holding] = {}    # what a waiting after holds
         self._after_due: dict[str, float] = {}          # a waiting after past its delay: when it fell due
         self._scheduler: asyncio.Task | None = None
@@ -592,11 +597,12 @@ class Game:
         await self._end_tutor()                     # §7
         for t in list(self._flows.values()):
             t.cancel()
-        for t in list(self._afters.values()):
+        for t in list(self._afters.values()) + list(self._tails.values()):
             t.cancel()
         # Let the cancellations run their `finally` blocks before clearing.
         await asyncio.gather(*self._flows.values(), *self._afters.values(),
-                             return_exceptions=True)
+                             *self._tails.values(), return_exceptions=True)
+        self._tails.clear()
         self._flows.clear()
         self._afters.clear()
         self._pending_after.clear()
@@ -927,6 +933,11 @@ class Game:
             self.session.call_ended(call.number, outcome.reason, call.trunk, call.digits)
         await self.slots.close(call)
         await self._publish_tallies()
+        if call.trunk and self.running:
+            n = int(call.trunk.split("/")[1])
+            if n not in self._tails:
+                self._tails[n] = asyncio.create_task(self._trunk_tail(n),
+                                                     name=f"tail-trunk-{n}")
 
         if self.tutor is not None and self.running:
             # §7: she sees the call down; nothing is dealt meanwhile.
@@ -946,6 +957,35 @@ class Game:
                     f"dropped {follower.id}: {scene.id} was never connected")
 
         await self._reschedule(keep=True)
+
+    async def _trunk_tail(self, n: int) -> None:
+        """§3.4: the far end has hung up. Reorder REORDER_AFTER later, while
+        her cord is still in the trunk, until she takes it down, or a new
+        call takes the trunk."""
+        seized = f"trunk/{n}/seize"
+        taken = lambda: any(c.trunk == f"trunk/{n}" for c in (self.slots or ()))
+        released = lambda b: not b.on(seized) or taken()
+        playing = False
+        try:
+            try:
+                await self.b.wait_until(released, REORDER_AFTER)
+                return
+            except TimeoutError:
+                pass
+            playing = True
+            await self.hw.tone(n, "reorder")
+            await self._say(f"trunk/{n}: reorder, the far end has hung up")
+            await self.b.wait_until(released, None)
+        except Exception:                       # Offline, or the broker gone
+            pass
+        finally:
+            if playing and not taken():
+                try:
+                    await self.hw.tone(n, "off")
+                except Exception:
+                    pass
+            if self._tails.get(n) is asyncio.current_task():
+                del self._tails[n]
 
     # ---- tutor mode (§7) ------------------------------------------------
 

@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 109. The changes in each revision are in §15.*
+*Rev 110. The changes in each revision are in §15.*
 
 # 1. Overview
 
@@ -106,6 +106,8 @@ These are the milestones the game program must expose to the scheduler. How it r
 ## 3.4 Hanging Up
 
 After a call's last line, the parties hang up 1.5s later, not at once: the time it takes to put a receiver down. The same after the operator's closing words, or where a call to her has none, and after an engaged caller's last line.
+
+When the call was on a trunk, the far end has gone too. If her cord is still in the trunk 4s after the call ends, the trunk gets reorder, the fast busy, until she takes the cord down, so a line left up after the long-distance operator's charges, or a guest's outside call, is not silent. The log says so. A new call taking that trunk ends it, and so does Stop.
 
 ## 3.5 Wrong Moves
 
@@ -793,6 +795,12 @@ Before step 1: the certificate is issued (`host/README.md`, "The certificate"), 
 - **Screen wake lock** (§11.3). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 15. Revision History
+
+## 15.110 Changes in Rev 110
+
+— A trunk left up after its call gets reorder (§3.4), Mark's request, 2026-11-03: when the long-distance operator had given time and charges and hung up, the operator heard nothing on the cord, where a real line would give her the fast busy after a few seconds. Now, 4s after a call on a trunk ends, the trunk gets reorder while her cord is still in it, until she takes it down.
+
+— Code consequence, for Claude Code: `REORDER_AFTER` and `_trunk_tail()` in `game.py`; `test_game.py`.
 
 ## 15.109 Changes in Rev 109
 

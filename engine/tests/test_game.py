@@ -656,6 +656,50 @@ async def main() -> int:
         check(not g._afters, "Stop dropped the waiting after: scene")
         await sess.close()
 
+        print("\n== reorder on a trunk after its call, while the cord stays in (§3.4, Rev 110)")
+        import sbgame.game as game_mod
+        was = game_mod.REORDER_AFTER
+        game_mod.REORDER_AFTER = D * 3
+        b, link, g, sess = await build_game(tmp, pace="manual")
+        await g.start()
+        out = next(sc for sc in g.gs.scenes.values() if sc.to_station is None and sc.from_station
+                   and not sc.busy and sc.dial and not sc.after)
+        await b.update("trunk/4/seize", "on")
+        call = C(slot=1, number=1, scene=out.id, from_line=out.from_line, to_line=out.to_line)
+        call.trunk = "trunk/4"
+        await g.slots.open(call)
+        call.connected = True
+        link.sent.clear()
+        await g._finish_call(call, out, Outcome(True))
+        await asyncio.sleep(D)
+        check(("trunk/4/tone/set", "reorder") not in link.sent, "not at once")
+        await asyncio.sleep(D * 4)
+        check(("trunk/4/tone/set", "reorder") in link.sent, "reorder once the wait is up")
+        await b.update("trunk/4/seize", "off")
+        await asyncio.sleep(D * 2)
+        check(("trunk/4/tone/set", "off") in link.sent and 4 not in g._tails,
+              "off when she takes the cord down")
+
+        await b.update("trunk/4/seize", "on")
+        call = C(slot=1, number=2, scene=out.id, from_line=out.from_line, to_line=out.to_line)
+        call.trunk = "trunk/4"
+        await g.slots.open(call)
+        link.sent.clear()
+        await g._finish_call(call, out, Outcome(False, "cut off"))
+        await b.update("trunk/4/seize", "off")
+        await asyncio.sleep(D * 5)
+        check(("trunk/4/tone/set", "reorder") not in link.sent, "none once the cord is out")
+        await b.update("trunk/4/seize", "on")
+        call = C(slot=1, number=3, scene=out.id, from_line=out.from_line, to_line=out.to_line)
+        call.trunk = "trunk/4"
+        await g.slots.open(call)
+        await g._finish_call(call, out, Outcome(True))
+        await g.stop("stop")
+        check(not g._tails, "Stop ends it")
+        await b.update("trunk/4/seize", "off")
+        game_mod.REORDER_AFTER = was
+        await sess.close()
+
         print("\n== a scenario: dealt after n handled, followers start together (§6.5, Rev 39)")
         import dataclasses as dc
         b, link, g, sess = await build_game(tmp, pace="manual")
