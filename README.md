@@ -82,7 +82,7 @@ switchboard was essentially intact and operational.
 </p>
 
 To make it work reliably, all I needed to do was
-was to clean the jacks and cord plugs,
+to clean the jacks and cord plugs,
 replace a few lamps, and replace a row of jacks that had failed.
 (The last task entailed reconnecting forty-nine wires.)
 
@@ -156,6 +156,8 @@ The figure below is a block diagram of the game hardware.
   <img src="docs/images/hardware-block-diagram.jpg" width="75%" />
 </p>
 
+<!-- pagebreak -->
+
 I designed and built the following items:
 
 - A control board containing an Olimex ESP32-POE-ISO and a ring generator circuit.
@@ -190,6 +192,8 @@ Here is the game during development:
   <img src="docs/images/dev-front.jpg" width="45%" />
   <img src="docs/images/dev-back.jpg" width="45%" />
 </p>
+
+<!-- pagebreak -->
 
 ### The Control Board
 
@@ -251,7 +255,7 @@ ESP32 can operate to cycle power to the switchboard, effectively rebooting it.
 ### The Trunk Board
 
 The circuit between a central office (CO) and a telephone (station) is a DC loop.
-To the trunk board, the switchboard is the telephone; the board plays the central office.
+To the trunk board, the switchboard is the telephone: the board plays the central office.
 
 The CO powers the loop. When the phone is *onhook* (hung up) it presents an open
 circuit to the CO. When a person picks up the phone it goes *offhook* and presents
@@ -389,6 +393,8 @@ to signal ring detected.
 The board is powered by 24 volts. The common board section includes a 5 V regulator
 to power the relays and a 3.3 V regulator for the I2C interface.
 
+<!-- pagebreak -->
+
 ## The Game Software
 
 First, I'll address the question many readers will have. Did I use
@@ -427,6 +433,8 @@ but sometimes I need to futz at the bench or force it to review logs
 to settle matters. Of course, it also can't see or touch the switchboard,
 so every hardware fact has to come from me or the test equipment.
 Occasionally I need to remind myself that I'm not becoming my intern's intern.
+
+<!-- pagebreak -->
 
 ### Software Overview
 
@@ -651,8 +659,9 @@ martha-roomservice:
         called: Room service.
     -   id: 3
         caller: >
-           Hello, room service? This is room 103. I'd like to order 8 t-bone steaks, rare, no salad,
-           a half-dozen pork chops, rack of lamb, with a side order of chicken.
+           Hello, room service? This is room 103. I'd like to order
+           8 t-bone steaks, rare, no salad, a half-dozen pork chops,
+           rack of lamb, with a side order of chicken.
     -   id: 4
         called: Will that be all, ma'am?
     -   id: 5
@@ -691,7 +700,7 @@ iPad and Stream Deck included, without a switchboard.
 The Hotel Ballard acting troupe has 60 players who say 1717 pre-recorded utterances.
 The software generates the speech using Qwen3-TTS, Alibaba's open-weights speech model.
 Since I don't have sufficient processing power at home, I run it on an AWS instance in the cloud.
-The instance is a g6.xlarge, with one NVIDIA L4 GPU with 24 GB, 4 vCPUs, and 16 GB of RAM.
+The instance is a g6.xlarge, with one NVIDIA L4 GPU (24 GB), 4 vCPUs, and 16 GB of RAM.
 
 The file `script.yml` contains specifications for the players and what they say.
 Each specification describes the desired type of voice: sex, accent, and other
@@ -707,7 +716,7 @@ to make the studio-quality recordings sound more like they're on a 1950s phone l
 The low-pass filter also keeps the speech clear of the 6-9 kHz pilot tones.
 
 The file `tts/pronounce.yml` fixes Qwen3 pronunciation mistakes by respelling words.
-For example, the model reads (room) "401" as "four hundred one," but a 1950s guest says "four oh one."
+For example, the model reads room number "401" as "four hundred one," but a 1950s guest says "four oh one."
 
 The tutor is a special case. For that voice I wanted the sound of an experienced operator.
 Serendipitously, the Connections Museum recently posted an old Bell System film,
@@ -812,7 +821,9 @@ With this configuration, the game can detect when someone
 picks up the phone and can hear the person speaking.
 The pilot tones are also quite audible in the telephone's earpiece.
 I fixed that problem by stashing the same low-pass filter
-used for the operator headset inside the phone. The photo below
+used for the operator headset inside the phone.
+
+The photo below
 shows the filter in the phone.
 The unpopulated section is an electret microphone circuit for the operator headset,
 which I ended up not needing.
@@ -874,7 +885,7 @@ meticulously cleaned the switchboard plugs and jacks.
   <img src="docs/images/david-polishing.jpg" width="40%" />
 </p>
 
-Jonathan Balik was the talent in the YouTube video; he made it fun to watch.
+Jonathan Balik was the talent in the YouTube video; he's hilarious.
 
 Eric Rhinelander and Remco Enthoven cheered me on throughout. I learned
 the term gutless wonder from Remco.
@@ -920,24 +931,24 @@ played pranks on the line. In 1878 the Boston Telephone Dispatch
 Company hired Emma Nutt, the first woman operator, and by the 1880s
 the job belonged to women.
 
-[^4}: Pushing the rear key away from the operator connects a station to a trunk
+[^4]: Pushing the rear key away from the operator connects a station to a trunk
 directly, allowing a dial telephone to be used to place outgoing calls.
 This setting also allows for nighttime operation, when the operator is away.
-An call from the outside will ring the connected station.
+A call from the outside will ring the connected station.
 
-[^4]: A real central office solves the problem of detecting seizure while ringing,
+[^5]: A real central office solves the problem of detecting seizure while ringing,
 called ring trip, by applying the ring voltage on top of the DC loop voltage. That way,
 the trunk equipment can detect the flow of loop current caused by the remote
 station going offhook even while the phone is ringing. If I build a rev 2 trunk board,
 it would be interesting to have it do proper ring trip.
 
-[^5]: The 803C was one of many tone plants used in Bell System central offices,
+[^6]: The 803C was one of many tone plants used in Bell System central offices,
 a machine that generated ringing, dial tone, busy and ringback. Its ringback isn't a
 clean tone. It is 420 Hz mixed with the 20 Hz ringing current,
 which gives it a charming warble. 
 The recording I used is from an Atlanta office, and I rebuilt the sound from its 48 strongest frequencies.
 
-[^6]: Lenny is a polite old man whose responses are odd, confused, and off-the-wall.
+[^7]: Lenny is a polite old man whose responses are odd, confused, and off-the-wall.
 He was released on the internet in 2013 to waste
 telemarketers' time, and callers have stayed on the line with him
 longer than one might imagine. A 2017 study (Sahin et al., SOUPS)
