@@ -1,4 +1,4 @@
----
+IO---
 # Switchboard game script.
 #
 # The general flow is this:
@@ -1913,7 +1913,9 @@ scenes:
             -   id: 2
                 called: Room service.
             -   id: 3
-                caller: Hello, room service? This is room 103. I'd like to order 8 t-bone steaks, rare, no salad, a half-dozen pork chops, rack of lamb, with a side order of chicken.
+                caller: >
+                  Hello, room service? This is room 103. I'd like to order 8 t-bone steaks, rare, no salad,
+                a half-dozen pork chops, rack of lamb, with a side order of chicken.
             -   id: 4
                 called: Will that be all, ma'am?
             -   id: 5

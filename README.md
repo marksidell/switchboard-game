@@ -17,7 +17,7 @@ telephone operator.
 In the game, the player is the operator at the Hotel Ballard in 1958.[^1]
 Simulated calls arrive from various parties both inside and outside the
 hotel, and the operator connects the calls as requested. The operator
-answers a call by plugging in a cord, asks what the caller wants,
+answers a call by plugging in a cord, and then asks what the caller wants,
 plugs the other cord of the pair into the jack for the desired station or line,
 rings the called party or dials the number, and pulls both
 cords when the call is over.
@@ -42,13 +42,13 @@ start the next call.
 starting slowly and gradually increasing the pace over time.
 
 - In *listen* mode calls arrive automatically, but each one waits until
-the previous conversation has ended. This allows the audience to hear
+the previous conversation has ended, allowing the audience to hear
 each complete conversation.
 
 Normally, the game doesn't start the next call until after the player
 has connected the current one. But in one scene everyone
 in the hotel calls at nearly the same time to complain about a dog who
-is causing havoc everywhere. (The dog in question is Martha, who can
+is causing havoc everywhere. (The dog is Martha, who can
 talk and in one scene orders room service.[^2])
 
 <!-- pagebreak -->
@@ -65,7 +65,7 @@ they replaced the switchboard with an automatic PBX and gave it to her
 as a retirement gift. She displayed it in her living room for many
 years.
 It is a beautiful device, and she kept it in lovely condition.
-When she no longer had room for it, in 2024 she donated it to the Connections Museum.
+In 2024, when she no longer had room for it, she donated it to the Connections Museum.
 The museum later passed it on to me for this project.
 
 <p align="center">
@@ -81,7 +81,7 @@ switchboard was essentially intact and operational.
   <img src="docs/images/switchboard-back.jpg" width="50%" />
 </p>
 
-All it needed to work reliably
+To make it work reliably, all I needed to do was
 was to clean the jacks and cord plugs,
 replace a few lamps, and replace a row of jacks that had failed.
 (The last task entailed reconnecting forty-nine wires.)
@@ -130,7 +130,7 @@ and the operator should tear down the call by pulling the cords from the jacks.
 Each cord pair has two *keys*, or switches, in front of it. The
 operator pushes the front key away from her to connect
 her headset, and pulls it to ring the station on the front cord. 
-She pulls the rear key to ring the station on the rear cord.
+She pulls the rear key to ring the station on the rear cord.[^4]
 
 The operator uses the dial to the right of the switches to place
 outgoing calls. (Phones connected to the switchboard typically have no
@@ -184,9 +184,16 @@ Everything is packaged in a 6U travel case.
   <img src="docs/images/case-back.jpg" width="45%" />
 </p>
 
+Here is the game during development:
+
+<p float="left">
+  <img src="docs/images/dev-front.jpg" width="45%" />
+  <img src="docs/images/dev-back.jpg" width="45%" />
+</p>
+
 ### The Control Board
 
-An ESP32 on the control board controls and monitors the trunks and
+An ESP32 controls and monitors the trunks and
 stations via a daisy-chained I2C bus. I chose the Olimex part because
 it can be powered via its Ethernet interface using PoE.
 The ESP32's ground is tied to the 24 V supply that also powers
@@ -238,17 +245,13 @@ I'd be trading the big transformer for a much higher parts count.
 The switchboard's trunk ring relays latch when they receive the first burst of ringing so that
 the trunk lamp stays lit until the operator plugs a cord into the trunk jack.
 After designing the control board I realized that a player could abandon the game and leave
-a trunk lamp lit. So I designed and added a small daughter board with a relay that the
+a trunk lamp lit and the switchboard buzzer buzzing. So I designed and added a small daughter board with a relay that the
 ESP32 can operate to cycle power to the switchboard, effectively rebooting it.
 
 ### The Trunk Board
 
 The circuit between a central office (CO) and a telephone (station) is a DC loop.
-To the trunk board, the switchboard is the telephone: the board plays the central office.
-
-<p align="center">
-  <img src="docs/images/trunk-board.jpg" width="75%" />
-</p>
+To the trunk board, the switchboard is the telephone; the board plays the central office.
 
 The CO powers the loop. When the phone is *onhook* (hung up) it presents an open
 circuit to the CO. When a person picks up the phone it goes *offhook* and presents
@@ -269,6 +272,10 @@ I used a constant 30 mA current instead, as modern line cards do.
 - Detect when the station goes offhook and the loop is *seized*.
 - Provide a path for the audio signal to and from the Ferrofish analog converter.
 
+<p align="center">
+  <img src="docs/images/trunk-board.jpg" width="75%" />
+</p>
+
 The schematic below shows one of the eight trunk circuits.
 
 <p align="center">
@@ -288,12 +295,12 @@ which sends 80 volts AC to the trunk.
 
 Normally, a CO would send the standard
 ring cadence of 2 seconds on, 4 seconds off. However, the trunk needs to detect
-that the operator has plugged a cord into the trunk (and seized the trunk)
+that the operator has plugged a cord into the trunk jack (and seized the trunk)
 as soon as it happens, and the circuit cannot sense loop current while
 its ring relay is on. Fortunately, the switchboard trunk ring relays latch
 on the first burst of ring. So the ESP32 firmware is designed to send a
 single burst. I found that a one-second burst is sufficient to cause
-the switchboard relays to latch reliably.[^4]
+the switchboard relays to latch reliably.[^5]
 
 The optoisolator on the lower right completes the circuit. It detects that current
 is flowing through the loop, indicating that the station (in our case, the switchboard)
@@ -310,7 +317,7 @@ The ESP32 controls and monitors all trunk circuits via an MCP23017 I2C I/O expan
 Each trunk has a control output to activate the ring relay and a sense input
 to signal offhook.
 
-The trunk loops are powered by 24 volts. The common section includes a 5 V regulator
+The trunk loops are powered by 24 volts. The common board section includes a 5 V regulator
 to power the relays and a 3.3 V regulator for the I2C interface.
 
 
@@ -368,7 +375,7 @@ the operator's headset, and includes only the transformer section. I'll explain
 the purpose of the tap later. A second circuit on the same board is configured
 to work with a real telephone connected to the switchboard. This allows people
 watching the game to pick up a phone and talk to the operator. The special
-telephone circuit simply omits the loop load resistor. (More on this later.)
+telephone circuit simply omits the loop load resistor. (More on this later, too.)
 With these two circuits
 used for other purposes, there are twenty-two game stations. I distributed
 the twenty-two stations and the real telephone across the thirty switchboard jacks, leaving seven unused.
@@ -379,14 +386,14 @@ The ESP32 controls and monitors all station circuits via an MCP23017 I2C I/O exp
 Each station has a control output to activate the offhook relay and a sense input
 to signal ring detected.
 
-The board is powered by 24 volts. The common section includes a 5 V regulator
+The board is powered by 24 volts. The common board section includes a 5 V regulator
 to power the relays and a 3.3 V regulator for the I2C interface.
 
 ## The Game Software
 
 First, I'll address the question many readers will have. Did I use
 AI to develop this game? The simple answer is an unreserved yes. I started
-by using Claude as a sounding board for hardware design questions, and I found it quite useful.
+by using Claude as a sounding board for hardware design questions and found it quite useful.
 When I was about to start writing the ESP32 firmware I asked it about my design ideas.
 It surprised me by presenting a framework for working code.
 Given the amount of code to be written and the short timeline
@@ -468,7 +475,7 @@ The pilot tone scheme made the game possible
 while maintaining my prime directive: not modifying the switchboard.
 A nice side benefit is that each channel can report an error when
 it cannot hear its own tone, as a `deaf` message. When a channel
-hears more than one tone, it reports `ambiguous`, which means
+hears more than one other tone, it reports `ambiguous`, which means
 a cord fault or crosstalk.
 
 The pilot tones start at 6 kHz, above the nominal 3.4 kHz telephone
@@ -549,7 +556,7 @@ playing a recorded utterance.
 plain busy and fast busy, played on the trunks as the operator dials out. These
 are the Bell System tones of the 1950s, not the modern ones.
 The ringback is rebuilt from a recording of a real 803C tone alternator,
-because my museum friends insisted.[^5]
+because my museum friends insisted.[^6]
 - Check its own output. When the Ferrofish's meters started showing
 bursts of noise, I added a check that compares every sample `sbaudio`
 sends with what it should be. The check found nothing wrong while the
@@ -605,7 +612,8 @@ JavaScript on the client processes the messages and manages the display.
 An nginx web server running on the PC serves static content and proxies the Mosquitto WebSockets channel.
 It hosts the website at `game.kr3am.org` (my ham call sign) using a proper Let's Encrypt certificate,
 because web clients kinda insist on it. Of
-course, certbot renews it automatically, proving ownership through DNS, so the PC never has to be exposed to the internet.
+course, certbot renews it automatically, proving ownership through DNS (AWS Route 53),
+so the PC never has to be exposed to the internet.
 
 The iPad displays a replica of the switchboard jacks, showing their status, along with a list of queued
 calls, a log of game events, a game health panel, and buttons for controlling the game that duplicate
@@ -623,6 +631,37 @@ the switchboard power on and off.
 The game engine, written in Python, runs the game. A single file, `script.yml`, completely specifies the game: the list
 of characters, details about each scene (who says what when), which jack each trunk and station is wired to,
 and more. The same file also drives the speech rendering, so adding a scene or a character needs no code changes.
+Below is a small section of the file.
+
+```yaml
+martha-roomservice:
+  active: true
+  calling:
+    line: room103
+    person: martha
+  called:
+    line: roomservice
+    person: waiter
+  request:
+    id: 1
+    operator: internal-greeting
+    text: Connect me to room service.
+  conversation:
+    -   id: 2
+        called: Room service.
+    -   id: 3
+        caller: >
+           Hello, room service? This is room 103. I'd like to order 8 t-bone steaks, rare, no salad,
+           a half-dozen pork chops, rack of lamb, with a side order of chicken.
+    -   id: 4
+        called: Will that be all, ma'am?
+    -   id: 5
+        caller: Just leave it on the floor, please.
+    -   id: 6
+        called: Our pleasure.
+    -   id: 7
+        caller: woof! woof! woof!
+```
 
 There's a lot of complexity under the hood; here are a few of the more interesting parts:
 
@@ -652,10 +691,10 @@ iPad and Stream Deck included, without a switchboard.
 The Hotel Ballard acting troupe has 60 players who say 1717 pre-recorded utterances.
 The software generates the speech using Qwen3-TTS, Alibaba's open-weights speech model.
 Since I don't have sufficient processing power at home, I run it on an AWS instance in the cloud.
-The instance is g6.xlarge, with one NVIDIA L4 GPU with 24 GB, 4 vCPUs and 16 GB of RAM.
+The instance is a g6.xlarge, with one NVIDIA L4 GPU with 24 GB, 4 vCPUs, and 16 GB of RAM.
 
 The file `script.yml` contains specifications for the players and what they say.
-Each player specification describes the desired type of voice: sex, accent, and other
+Each specification describes the desired type of voice: sex, accent, and other
 characteristics. The software uses the description and a sample of text the player
 will speak to have the Qwen3 VoiceDesign model invent a voice and generate three samples.
 I audition the samples and choose
@@ -668,7 +707,7 @@ to make the studio-quality recordings sound more like they're on a 1950s phone l
 The low-pass filter also keeps the speech clear of the 6-9 kHz pilot tones.
 
 The file `tts/pronounce.yml` fixes Qwen3 pronunciation mistakes by respelling words.
-For example, the model reads "401" as "four hundred one," but a 1950s guest says "four oh one."
+For example, the model reads (room) "401" as "four hundred one," but a 1950s guest says "four oh one."
 
 The tutor is a special case. For that voice I wanted the sound of an experienced operator.
 Serendipitously, the Connections Museum recently posted an old Bell System film,
@@ -801,7 +840,7 @@ the game can't see the ATA's ring at all. It first learns of an outside call whe
 
 Now that other people can call the switchboard, we had to figure out something for them to do.
 Sarah suggested having Lenny stay at the hotel.
-Lenny is a famous telephone chatbot, sixteen recordings played one at a time whenever the caller pauses.[^6]
+Lenny is a famous telephone chatbot, sixteen recordings played one at a time whenever the caller pauses.[^7]
 
 The operator can connect a human caller to any of the local stations and can also dial out
 to any of the businesses configured in the game. That's 37 characters who could answer. So,
@@ -830,6 +869,10 @@ hotel guests. Whatever cable, plug, lamp or jack I needed, she had.
 
 David Dintenfass built the bracket for the ginormous ring transformer and
 meticulously cleaned the switchboard plugs and jacks.
+
+<p align="left">
+  <img src="docs/images/david-polishing.jpg" width="40%" />
+</p>
 
 Jonathan Balik was the talent in the YouTube video; he made it fun to watch.
 
@@ -865,8 +908,8 @@ central office.
     dialing plan, where the first three digits named the exchange. The conversion
     was part of a national push to standardize for direct-dial long distance calling.
 
-    The Connections Museum still has that switch, the last panel
-    switch in the world, and it still works. It's my favorite piece of equipment in the museum.
+    The Connections Museum still has that 1923 switch, the last panel
+    switch in the world, and it still works. It's my favorite artifact in the museum.
 
 [^2]: Martha is inspired by the children's book
 [*Martha Calling*](https://bookshop.org/p/books/martha-calling-susan-meddaugh/1ac79748684d5a6e?ean=9780395827413),
@@ -877,10 +920,16 @@ played pranks on the line. In 1878 the Boston Telephone Dispatch
 Company hired Emma Nutt, the first woman operator, and by the 1880s
 the job belonged to women.
 
+[^4}: Pushing the rear key away from the operator connects a station to a trunk
+directly, allowing a dial telephone to be used to place outgoing calls.
+This setting also allows for nighttime operation, when the operator is away.
+An call from the outside will ring the connected station.
+
 [^4]: A real central office solves the problem of detecting seizure while ringing,
 called ring trip, by applying the ring voltage on top of the DC loop voltage. That way,
 the trunk equipment can detect the flow of loop current caused by the remote
-station going offhook even while the phone is ringing.
+station going offhook even while the phone is ringing. If I build a rev 2 trunk board,
+it would be interesting to have it do proper ring trip.
 
 [^5]: The 803C was one of many tone plants used in Bell System central offices,
 a machine that generated ringing, dial tone, busy and ringback. Its ringback isn't a
