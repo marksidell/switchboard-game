@@ -180,15 +180,15 @@ from their mobile phones.
 Everything is packaged in a 6U travel case.
 
 <p float="left">
-  <img src="docs/images/case-front.jpg" width="50%" />
-  <img src="docs/images/case-back.jpg" width="50%" />
+  <img src="docs/images/case-front.jpg" width="45%" />
+  <img src="docs/images/case-back.jpg" width="45%" />
 </p>
 
 Here is the game during development:
 
 <p float="left">
-  <img src="docs/images/dev-front.jpg" width="50%" />
-  <img src="docs/images/dev-back.jpg" width="50%" />
+  <img src="docs/images/dev-front.jpg" width="45%" />
+  <img src="docs/images/dev-back.jpg" width="45%" />
 </p>
 
 ### The Control Board
