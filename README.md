@@ -631,7 +631,7 @@ the switchboard power on and off.
 The game engine, written in Python, runs the game. A single file, `script.yml`, completely specifies the game: the list
 of characters, details about each scene (who says what when), which jack each trunk and station is wired to,
 and more. The same file also drives the speech rendering, so adding a scene or a character needs no code changes.
-Below is a small section of the file.
+Below is one scene specification.
 
 ```yaml
 martha-roomservice:
