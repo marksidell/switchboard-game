@@ -1,4 +1,4 @@
-**551 Switchboard Simulator**
+**Switchboard Game**
 
 **Controller Firmware**
 

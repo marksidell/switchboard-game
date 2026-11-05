@@ -12,6 +12,7 @@ Printed things for the game, and how to print them.
 | `guest-directory-cover.pdf` | Conference booklet cover, on printed green | `guest-directory-cover.html`, printed from Chrome |
 | `guest-directory-cover-for-card.pdf` | The same cover with no background, for colored card | the same, with `--stock` set to white |
 | `README.pdf` | The top-level README for the binder, images included; `<!-- pagebreak -->` in the README starts a new page; footnotes print as endnotes; needs `python3-markdown-it` and `python3-mdit-py-plugins` | `readme-pdf.py`, `readme-pdf.css` |
+| `game_control.pdf` | `docs/game_control.md` for the binder: its title block on page one, file and revision at every page's foot; `python3 hardcopy/doc-pdf.py docs/game_control.md`, and the same for any other spec in `docs/` | `doc-pdf.py`, `doc-pdf.css` |
 | `bench/` | Bench sheets and checklists | |
 
 ## Printers

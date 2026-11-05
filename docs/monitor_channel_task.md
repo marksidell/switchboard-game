@@ -1,4 +1,4 @@
-**551 Switchboard Simulator**
+**Switchboard Game**
 
 **Claude Code Task — Audience Monitor to A32 Output 24, Operator Tap to Channel 23**
 

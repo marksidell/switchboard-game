@@ -1,4 +1,4 @@
-**551 Switchboard Simulator**
+**Switchboard Game**
 
 **Speech Generation Task — for Claude Code**
 

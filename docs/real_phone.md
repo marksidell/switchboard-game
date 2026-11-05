@@ -1,4 +1,4 @@
-# 551 Switchboard Simulator — A Real Telephone on the Board (Decision Record)
+# Switchboard Game — A Real Telephone on the Board (Decision Record)
 
 Rev 5 — 2026-10-30. Adopted, option B (Mark, 2026-10-23). The design is now in
 `station_circuit.md` §7.9.8, `audio.md`, `pilot-map.md`, `control.md` §7.4, `mqtt.md` and

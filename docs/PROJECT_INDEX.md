@@ -1,4 +1,4 @@
-# 551 Switchboard Simulator — Project Index
+# Switchboard Game — Project Index
 
 Current as of 2026-10-30. When a document's revision changes, change its number here. What
 changed in each revision is in that document's Revision History, not here.

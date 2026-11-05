@@ -1,4 +1,4 @@
-# 551 Switchboard Simulator — A Grandstream ATA on a Trunk Jack (Bench Notes)
+# Switchboard Game — A Grandstream ATA on a Trunk Jack (Bench Notes)
 
 Rev 7 — 2026-10-30. Bench notes, Mark's measurements. The design that puts the
 ATA on trunk 8 is in trunk_circuit.md §4.5. The ATA is a Grandstream HT80x V2; its administration guide is

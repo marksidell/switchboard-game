@@ -1,4 +1,4 @@
-**551 Switchboard Simulator**
+**Switchboard Game**
 
 **Trunk Interface Circuit Design**
 

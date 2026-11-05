@@ -1,4 +1,4 @@
-/* 551 Switchboard Simulator — the status page (game_control.md §11).
+/* Switchboard Game — the status page (game_control.md §11).
  *
  * The page never shows what it asked for, only what was echoed (§11.2). A tap
  * publishes a /set and changes nothing on screen; the display moves when the
