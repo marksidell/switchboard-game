@@ -93,12 +93,12 @@ replace a few lamps, and replace a row of jacks that had failed.
 A switchboard must provide these functions:
 
 - A person at a telephone must be able to *signal* the operator.
+- The operator must be able to answer the incoming call.
 - The operator must be able to talk to the caller to determine whom
 the person wants to call.
-- The operator must be able to determine if the desired destination is
-available, not busy on another call. (A destination is busy if a cord is plugged into its jack.)
-- The operator must be able to connect to the desired destination.
-- The operator must be able to alert the desired destination by
+- The operator must be able to determine if the desired destination is available. (A destination is busy if a cord is plugged into its jack.)
+- The operator must be able to connect to the destination.
+- The operator must be able to alert the destination by
 ringing its telephone.
 - The operator must be able to *supervise* the call to know when the parties have hung up
 in order to tear down the connection.
