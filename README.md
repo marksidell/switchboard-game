@@ -74,7 +74,7 @@ The museum later passed it on to me for this project.
 
 Many switchboards that show up on eBay are "gutless wonders" with the
 relays and other circuitry that made them work torn out. (Tearing out
-the guts made a switchboard much lighter.) Fortunately, Ms. Bell's
+the guts makes a switchboard much lighter.) Fortunately, Ms. Bell's
 switchboard was essentially intact and operational.
 
 <p align="center">
