@@ -14,11 +14,6 @@ project I built a game around a working switchboard in which simulated
 calls allow a player to more fully experience what it was like to be a
 telephone operator.
 
-<p float="left">
-  <img src="docs/images/jonathan-playing.png" width="45%" />
-  <img src="docs/images/cords.png" width="45%" />
-</p>
-
 In the game, the player is the operator at the Hotel Ballard in 1958.[^1]
 Simulated calls arrive from various parties both inside and outside the
 hotel, and the operator connects the calls as requested. The operator
@@ -26,6 +21,11 @@ answers a call by plugging in a cord, and then asks what the caller wants,
 plugs the other cord of the pair into the jack for the desired station or line,
 rings the called party or dials the number, and pulls both
 cords when the call is over.
+
+<p float="left">
+  <img src="docs/images/jonathan-playing.png" width="45%" />
+  <img src="docs/images/cords.png" width="45%" />
+</p>
 
 There are calls within the hotel, calls from guests to local businesses (which
 the operator must dial), outbound long-distance calls, and calls from various
