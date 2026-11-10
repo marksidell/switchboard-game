@@ -14,6 +14,11 @@ project I built a game around a working switchboard in which simulated
 calls allow a player to more fully experience what it was like to be a
 telephone operator.
 
+<p float="left">
+  <img src="docs/images/jonathan-playing.png" width="45%" />
+  <img src="docs/images/cords.png" width="45%" />
+</p>
+
 In the game, the player is the operator at the Hotel Ballard in 1958.[^1]
 Simulated calls arrive from various parties both inside and outside the
 hotel, and the operator connects the calls as requested. The operator
