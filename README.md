@@ -23,8 +23,8 @@ rings the called party or dials the number, and pulls both
 cords when the call is over.
 
 <p float="left">
-  <img src="docs/images/jonathan-playing.png" width="45%" />
-  <img src="docs/images/cords.png" width="45%" />
+  <img src="docs/images/jonathan-playing.jpg" width="45%" />
+  <img src="docs/images/cords.jpg" width="45%" />
 </p>
 
 There are calls within the hotel, calls from guests to local businesses (which
@@ -61,8 +61,8 @@ talk and in one scene orders room service.[^2])
 ## The Switchboard
 
 I built the game around a model 551 switchboard, which Western
-Electric began producing in 1927. You could find these switchboards in
-small businesses, hotels, schools, and similar establishments.
+Electric began producing in 1927. These switchboards were common
+in small businesses, hotels, schools, and similar establishments.
 
 My switchboard lived at the Southern California Edison office in Los
 Angeles. The longtime operator there was Marie Bell. When she retired,
@@ -95,13 +95,13 @@ replace a few lamps, and replace a row of jacks that had failed.
 
 ### How the Switchboard Works
 
-A switchboard must provide these functions:
+A switchboard must provide these functions:[^3]
 
 - A person at a telephone must be able to *signal* the operator.
 - The operator must be able to answer the incoming call.
 - The operator must be able to talk to the caller to determine whom
 the person wants to call.
-- The operator must be able to determine if the desired destination is available. (A destination is busy if a cord is plugged into its jack.)
+- The operator must be able to determine if the desired destination is available. (It is busy if a cord is already in its jack.)
 - The operator must be able to connect to the destination.
 - The operator must be able to alert the destination by
 ringing its telephone.
@@ -125,7 +125,7 @@ from outside.
 
 Below the jacks are ten pairs of cords the operator uses to connect
 calls. Each pair has a front and a rear cord.
-She[^3] plugs one cord into a jack to answer an incoming call and
+She[^4] plugs one cord into a jack to answer an incoming call and
 then plugs the other cord into the desired destination.
 With ten cord pairs, the switchboard can handle at most ten calls at
 once.
@@ -135,7 +135,7 @@ and the operator should tear down the call by pulling the cords from the jacks.
 Each cord pair has two *keys*, or switches, in front of it. The
 operator pushes the front key away from her to connect
 her headset, and pulls it to ring the station on the front cord. 
-She pulls the rear key to ring the station on the rear cord.[^4]
+She pulls the rear key to ring the station on the rear cord.[^5]
 
 The operator uses the dial to the right of the switches to place
 outgoing calls. (Phones connected to the switchboard typically have no
@@ -309,7 +309,7 @@ as soon as it happens, and the circuit cannot sense loop current while
 its ring relay is on. Fortunately, the switchboard trunk ring relays latch
 on the first burst of ring. So the ESP32 firmware is designed to send a
 single burst. I found that a one-second burst is sufficient to cause
-the switchboard relays to latch reliably.[^5]
+the switchboard relays to latch reliably.[^6]
 
 The optoisolator on the lower right completes the circuit. It detects that current
 is flowing through the loop, indicating that the station (in our case, the switchboard)
@@ -569,7 +569,7 @@ playing a recorded utterance.
 plain busy and fast busy, played on the trunks as the operator dials out. These
 are the Bell System tones of the 1950s, not the modern ones.
 The ringback is rebuilt from a recording of a real 803C tone alternator,
-because my museum friends insisted.[^6]
+because my museum friends insisted.[^7]
 - Check its own output. When the Ferrofish's meters started showing
 bursts of noise, I added a check that compares every sample `sbaudio`
 sends with what it should be. The check found nothing wrong while the
@@ -856,7 +856,7 @@ the game can't see the ATA's ring at all. It first learns of an outside call whe
 
 Now that other people can call the switchboard, we had to figure out something for them to do.
 Sarah suggested having Lenny stay at the hotel.
-Lenny is a famous telephone chatbot, sixteen recordings played one at a time whenever the caller pauses.[^7]
+Lenny is a famous telephone chatbot, sixteen recordings played one at a time whenever the caller pauses.[^8]
 
 The operator can connect a human caller to any of the local stations and can also dial out
 to any of the businesses configured in the game. That's 37 characters who could answer. So,
@@ -873,7 +873,12 @@ dials an outside number not in the game's list.
 
 ### Thank You
 
-Without the generosity and encouragement of these people, I'd still be thinking I might do this project someday.
+In 2018 I saw a talk at Strange Loop by Emilia Lazer-Walker about a
+game she was building around a gutless switchboard. I came away
+thinking it would be fun to try something like it.
+
+Without the generosity and encouragement of these people,
+this game would still be just an idea.
 
 Peter Amstein has enthusiastically supported the project. He arranged for me to have
 a switchboard to play with, and he drove it all the way to Santa Cruz for its
@@ -931,29 +936,34 @@ central office.
 [*Martha Calling*](https://bookshop.org/p/books/martha-calling-susan-meddaugh/1ac79748684d5a6e?ean=9780395827413),
 by Susan Meddaugh.
 
-[^3]: The first operators were teenage boys, who swore at callers and
+[^3]: George Coy created the first telephone exchange in New Haven, CT, only two years
+after Bell received his patent. He built a switchboard with whatever was on hand: carriage bolts, teapot-lid handles,
+and bustle wire. Despite being quite primitive, it performed all of the necessary functions save one,
+supervision. To know when a call had ended, the operators eavesdropped.
+
+[^4]: The first operators were teenage boys, who swore at callers and
 played pranks on the line. In 1878 the Boston Telephone Dispatch
 Company hired Emma Nutt, the first woman operator, and by the 1880s
 the job belonged to women.
 
-[^4]: Pushing the rear key away from the operator connects a station to a trunk
+[^5]: Pushing the rear key away from the operator connects a station to a trunk
 directly, allowing a dial telephone to be used to place outgoing calls.
 This setting also allows for nighttime operation, when the operator is away.
 A call from the outside will ring the connected station.
 
-[^5]: A real central office solves the problem of detecting seizure while ringing,
+[^6]: A real central office solves the problem of detecting seizure while ringing,
 called ring trip, by applying the ring voltage on top of the DC loop voltage. That way,
 the trunk equipment can detect the flow of loop current caused by the remote
 station going offhook even while the phone is ringing. If I build a rev 2 trunk board,
 it would be interesting to have it do proper ring trip.
 
-[^6]: The 803C was one of many tone plants used in Bell System central offices,
+[^7]: The 803C was one of many tone plants used in Bell System central offices,
 a machine that generated ringing, dial tone, busy and ringback. Its ringback isn't a
 clean tone. It is 420 Hz mixed with the 20 Hz ringing current,
 which gives it a charming warble. 
 The recording I used is from an Atlanta office, and I rebuilt the sound from its 48 strongest frequencies.
 
-[^7]: Lenny is a polite old man whose responses are odd, confused, and off-the-wall.
+[^8]: Lenny is a polite old man whose responses are odd, confused, and off-the-wall.
 He was released on the internet in 2013 to waste
 telemarketers' time, and callers have stayed on the line with him
 longer than one might imagine. A 2017 study (Sahin et al., SOUPS)
