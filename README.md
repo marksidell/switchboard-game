@@ -936,8 +936,8 @@ central office.
 [*Martha Calling*](https://bookshop.org/p/books/martha-calling-susan-meddaugh/1ac79748684d5a6e?ean=9780395827413),
 by Susan Meddaugh.
 
-[^3]: George Coy created the first telephone exchange in New Haven, CT, only two years
-after Bell received his patent. He built a switchboard with whatever was on hand: carriage bolts, teapot-lid handles,
+[^3]: George Coy opened the first telephone exchange in New Haven, CT, only two years
+after Bell received his patent. He designed a switchboard and built it from whatever was on hand: carriage bolts, teapot-lid handles,
 and bustle wire. Despite being quite primitive, it performed all of the necessary functions save one,
 supervision. To know when a call had ended, the operators eavesdropped.
 
