@@ -123,7 +123,10 @@ async def run(cfg: Config) -> int:
         log.info("stopping")
         # Tear down a game in progress first, so the controller and the audio
         # program are left idle rather than holding a call we walked away from.
-        await game.stop("the game program is shutting down")
+        try:
+            await game.stop("the game program is shutting down")
+        except Exception as e:                  # the link may be what failed
+            log.warning("could not stop the game cleanly: %s", e)
         await game.free.close()
         try:
             await asyncio.wait_for(link.state("ctl/game_status", "offline"), 2)
