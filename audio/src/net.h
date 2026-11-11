@@ -84,6 +84,7 @@ private:
     void publish(const char* topic, const char* value, bool retain = true);
     void publish_result(const Result& r);
     void publish_initial();
+    void publish_cleared_sources();
     void publish_birth_when_ready(double now);
     void drain_results(bool publishing);
     void check_heartbeat(double now);
