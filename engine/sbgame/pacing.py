@@ -13,18 +13,18 @@ so the game tightens as it goes. A change to gap, ramp, floor or jitter takes
 effect at the next scheduling, not on a call already scheduled, which is why
 the value is read when the timer is set rather than held.
 
-`jitter` (§5.4, Rev 12) takes the regularity out: each wait is drawn evenly
+`jitter` (§5.4) takes the regularity out: each wait is drawn evenly
 from gap_now × (1 ± jitter/100). Its mean is still gap_now, so the pace the
 three settings describe is unchanged and only the rhythm goes. The floor
 bounds gap_now, the centre, and not the draw — bounding the draw would push
 the short ones up to the floor and lift the mean near it. The draws come
 from the game's seed, so a replay draws the same sequence.
 
-Listen (§5.3, Rev 16): counted from the moment the board is empty — the
+Listen (§5.3): counted from the moment the board is empty — the
 most recent call has ended and no `after:` scene is waiting — so calls never
 overlap and every conversation is heard to its hang-up. What "empty" means is
 the game's to judge (game.py `_idle`). The wait is `pause`, its own value and
-the same every time (Rev 17): listen is for enjoying the conversations, not
+the same every time: listen is for enjoying the conversations, not
 for pressure, so it has no ramp and no jitter, and auto's four are left alone.
 """
 
@@ -35,7 +35,7 @@ import time
 from dataclasses import dataclass, field
 
 
-# Tutor first, as the deck cycles them (game_control.md §7, Rev 32): manual
+# Tutor first, as the deck cycles them (game_control.md §7): manual
 # pacing with the tutor's voice, so not automatic.
 PACES = ("tutor", "manual", "auto", "listen")
 AUTOMATIC = ("auto", "listen")     # the paces the scheduler starts calls in
@@ -48,7 +48,7 @@ class Pacing:
     ramp: float = 0.0
     floor: float = 5.0
     jitter: float = 0.0        # percent, 0-100: each wait is gap_now × (1 ± jitter/100)
-    pause: float = 3.0         # listen's wait after the board empties (Rev 17)
+    pause: float = 3.0         # listen's wait after the board empties
 
     # Set when a call is connected or ends; None while a call is waiting to be
     # connected, which is when no next call is scheduled and next_at is empty.

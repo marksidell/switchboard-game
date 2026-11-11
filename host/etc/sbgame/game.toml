@@ -47,6 +47,10 @@ speak_timeout = 30.0     # the operator to speak when a line is waiting
 max_speech = 20.0
 audio_margin = 3.0
 
+# The ATA that feeds the public trunk (trunk_circuit.md 4.5), which
+# sbgame-netcheck reads from this file to look at its registration (mqtt.md 6.3).
+ata_host = "switchboard.sidell.org"
+
 # The circuits fitted (game_control.md 12.2, Rev 25): the first `stations` of
 # 1-22 and the first `trunks` of 1-8. A scene needing more is left out. The
 # command line's --stations and --trunks override these.

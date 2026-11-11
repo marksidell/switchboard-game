@@ -1,13 +1,12 @@
-"""Free calls, Lenny mode (game_control.md §8, Rev 74), against the echoing
-fake controller and audio program of the sim harness. No broker, no hardware.
-
-    cd engine && PYTHONPATH=.:tests ./.venv/bin/python tests/test_freecall.py
+"""Free calls, Lenny mode (game_control.md §8), against the echoing fake
+controller and audio program of harness.py. No broker, no hardware.
 """
 
 import asyncio
-import logging
-import sys
 
+import pytest
+
+import sbgame.dialling as dialling
 import sbgame.freecall as fcm
 from sbgame.board import Board
 from sbgame.config import Config
@@ -16,32 +15,19 @@ from sbgame.freecall import FreeCalls
 from sbgame.link import Hw
 from sbgame.script_data import FreeLines, Speech
 
-from test_sim import FakeLink, D, HOLD
-
-logging.basicConfig(level=logging.WARNING, stream=sys.stdout)
-
-# The module's waits at the tests' speed.
-fcm.LISTEN = D * 10
-fcm.LISTEN_AGAIN = D * 15
-fcm.TURN_END = D * 3
-fcm.PATCH_WAIT = D * 10
-fcm.DIAL_DELAY = D
-fcm.DIAL_FIRST = D * 20
-fcm.DIAL_PAUSE = D * 8
-fcm.DIAL_SETTLE = D * 5
-fcm.RINGBACK_KNOWN = D
-fcm.RINGBACK_LENNY = D * 2
-fcm.RETRY = D * 5
-fcm.ROOM_ANSWER = D * 4
-
-failures = 0
+from harness import FakeLink, D, HOLD
 
 
-def check(ok: bool, what: str) -> None:
-    global failures
-    print(f"    {what:<60} {'ok' if ok else 'FAIL'}")
-    if not ok:
-        failures += 1
+@pytest.fixture(autouse=True)
+def fast(monkeypatch):
+    """The module's waits at the tests' speed."""
+    for mod, name, v in ((fcm, "LISTEN", D * 10), (fcm, "LISTEN_AGAIN", D * 15),
+                         (fcm, "TURN_END", D * 3), (fcm, "PATCH_WAIT", D * 10),
+                         (dialling, "DIAL_DELAY", D), (fcm, "DIAL_FIRST", D * 20),
+                         (dialling, "DIAL_PAUSE", D * 8), (dialling, "DIAL_SETTLE", D * 5),
+                         (fcm, "RINGBACK_KNOWN", D), (fcm, "RINGBACK_LENNY", D * 2),
+                         (fcm, "RETRY", D * 5), (fcm, "ROOM_ANSWER", D * 4)):
+        monkeypatch.setattr(mod, name, v)
 
 
 class Talker(FakeLink):
@@ -105,25 +91,25 @@ class StubGame:
         self.hw = Hw(self.link)
         self.gs = GS()
         self.cfg = Config()
-        self._station_lines = {21: frozenset({"room403"}), 24: frozenset({"phone"})}
+        self.station_lines = {21: frozenset({"room403"}), 24: frozenset({"phone"})}
         self.log = object()
         self.said: list[str] = []
-        self.monitor: list[str] = []
+        self.monitored: list[str] = []
         self.wanted: set[int] = set()
         self.in_calls: set[str] = set()
         self.free = FreeCalls(self)
 
-    async def _say(self, text: str) -> None:
+    async def say(self, text: str) -> None:
         self.said.append(text)
 
-    async def _monitor(self, src: str, peer: str = "auto") -> None:
-        self.monitor.append(src)
+    async def monitor(self, src: str, peer: str = "auto") -> None:
+        self.monitored.append(src)
         self.peer = peer
 
-    def _circuits_in_calls(self, free: bool = True) -> set[str]:
+    def circuits_in_calls(self, free: bool = True) -> set[str]:
         return set(self.in_calls) | (self.free.circuits() if free else set())
 
-    def _wanted_stations(self) -> set[int]:
+    def wanted_stations(self) -> set[int]:
         return set(self.wanted)
 
     async def live(self) -> None:
@@ -147,57 +133,55 @@ async def until(b: Board, pred, t: float = 5.0):
         return r
 
 
-async def phone_to_room() -> None:
-    print("\n== the phone, put through to room 403 (§8)")
+async def test_phone_to_room() -> None:
+    """The phone, put through to room 403 (§8)."""
     g = StubGame()
     await g.live()
     runner = asyncio.create_task(g.free.run())
     b = g.b
     await b.update("station/24/lifted", "on")
     await until(b, lambda b: b.on("station/24/hook"))
-    check(True, "lifted: station 24's relay closes")
+    # lifted: station 24's relay closes
     await b.update("station/24/op", "on")
-    await until(b, lambda b: g.monitor == ["station/24"])
-    check("free call: phone answered" in g.said, "answered: logged, and the loudspeaker moves to it")
-    check(g.peer == "6", "with the peer boost fixed at 6dB (Rev 86)")
-    check(g.free.routing(), "routing until she puts it through")
+    await until(b, lambda b: g.monitored == ["station/24"])
+    assert "free call: phone answered" in g.said, "answered: logged, and the loudspeaker moves to it"
+    assert g.peer == "6", "with the peer boost fixed at 6dB"
+    assert g.free.routing(), "routing until she puts it through"
 
     g.wanted = {21}
     await b.update("station/21/ring", "on")
     await asyncio.sleep(D * 5)
-    check(not b.on("station/21/hook"), "a room a game call wants is that call's")
+    assert not b.on("station/21/hook"), "a room a game call wants is that call's"
     g.wanted = set()
     await b.update("station/21/ring", "off")
     await asyncio.sleep(D)
     await b.update("station/21/ring", "on")
     await asyncio.sleep(fcm.ROOM_ANSWER / 2)
-    check(not b.on("station/21/hook"), "a room rung: not at once")
+    assert not b.on("station/21/hook"), "a room rung: not at once"
     await until(b, lambda b: b.on("station/21/hook"))
-    check(True, "a room rung: it answers after ROOM_ANSWER")
+    # a room rung: it answers after ROOM_ANSWER
     await b.update("station/21/ring", "off")
     await b.update("station/21/peer", "station/24")
     await b.update("station/24/peer", "station/21")
     await until(b, lambda b: len(g.played("station/21")) >= 7, 10)
     p = g.played("station/21")
-    check(p[:7] == ["free.thornhill.g", "free.thornhill.1", "free.thornhill.2", "free.thornhill.3",
-                    "free.thornhill.4", "free.thornhill.5", "free.thornhill.2"],
-          f"greeting, his line, then the loop round: {p[:7]}")
-    check(any("phone to room403, thornhill answers" in s for s in g.said), "logged who answers")
+    assert (p[:7] == ["free.thornhill.g", "free.thornhill.1", "free.thornhill.2", "free.thornhill.3",
+                    "free.thornhill.4", "free.thornhill.5", "free.thornhill.2"]), f"greeting, his line, then the loop round: {p[:7]}"
+    assert any("phone to room403, thornhill answers" in s for s in g.said), "logged who answers"
     held = g.free.holdings()
-    check(held == [Holding(frozenset({"room403", "phone"}), frozenset({"thornhill"}))],
-          f"holds the lines and the person: {held}")
-    check(g.free.circuits() == {"station/24", "station/21"}, "its circuits")
+    assert held == [Holding(frozenset({"room403", "phone"}), frozenset({"thornhill"}))], f"holds the lines and the person: {held}"
+    assert g.free.circuits() == {"station/24", "station/21"}, "its circuits"
 
     await b.update("station/24/lifted", "off")
     await until(b, lambda b: not b.on("station/21/hook") and not b.on("station/24/hook"))
-    check(True, "hung up: the room and station 24's relay open")
+    # hung up: the room and station 24's relay open
     await until(b, lambda b: "free call: phone hung up" in g.said)
-    check(not g.free.circuits(), "and the free call is gone")
+    assert not g.free.circuits(), "and the free call is gone"
     runner.cancel()
 
 
-async def cord_out_then_again() -> None:
-    print("\n== the cord pulled: back to waiting, then put through again")
+async def test_cord_out_then_again() -> None:
+    """The cord pulled: back to waiting, then put through again."""
     g = StubGame()
     await g.live()
     runner = asyncio.create_task(g.free.run())
@@ -212,16 +196,16 @@ async def cord_out_then_again() -> None:
     await until(b, lambda b: "free.thornhill.g" in g.played("station/21"))
     await b.update("station/21/peer", "")
     await until(b, lambda b: not b.on("station/21/hook"))
-    check(True, "cord out: the room hangs up")
+    # cord out: the room hangs up
     await until(b, lambda b: g.free.routing())
-    check(g.free.circuits() == {"station/24"}, "and the caller waits again")
+    assert g.free.circuits() == {"station/24"}, "and the caller waits again"
     await b.update("station/24/lifted", "off")
     await until(b, lambda b: not g.free.circuits())
     runner.cancel()
 
 
-async def nobody_patched() -> None:
-    print("\n== a room answers and no cord comes (§3.5, Rev 60)")
+async def test_nobody_patched() -> None:
+    """A room answers and no cord comes (§3.5)."""
     g = StubGame()
     await g.live()
     runner = asyncio.create_task(g.free.run())
@@ -233,15 +217,15 @@ async def nobody_patched() -> None:
     await until(b, lambda b: b.on("station/21/hook"))
     await b.update("station/21/ring", "off")
     await until(b, lambda b: not b.on("station/21/hook"))
-    check(g.played("station/21") == ["hello.thornhill"], "Hello?, then it hangs up")
-    check(g.free.routing(), "and the caller waits again")
+    assert g.played("station/21") == ["hello.thornhill"], "Hello?, then it hangs up"
+    assert g.free.routing(), "and the caller waits again"
     await b.update("station/24/lifted", "off")
     await until(b, lambda b: not g.free.circuits())
     runner.cancel()
 
 
-async def silent_caller() -> None:
-    print("\n== a caller who says nothing: Hello? soon, then less often (Rev 78)")
+async def test_silent_caller() -> None:
+    """A caller who says nothing: Hello? soon, then less often."""
     g = StubGame(Silent)
     await g.live()
     runner = asyncio.create_task(g.free.run())
@@ -256,51 +240,50 @@ async def silent_caller() -> None:
     await b.update("station/24/peer", "station/21")
     await until(b, lambda b: g.played("station/21").count("hello.thornhill") >= 2, 10)
     p = g.played("station/21")
-    check(p[:3] == ["free.thornhill.g", "hello.thornhill", "hello.thornhill"],
-          f"greeting, then Hello? and Hello? again, no line: {p[:3]}")
+    assert p[:3] == ["free.thornhill.g", "hello.thornhill", "hello.thornhill"], f"greeting, then Hello? and Hello? again, no line: {p[:3]}"
     want = [D * 2 + fcm.LISTEN, D * 2 + fcm.LISTEN_AGAIN]
-    check(all(abs(a - b) < 1e-6 for a, b in zip(g.link.listens[:2], want)) and len(g.link.listens) >= 2,
-          f"each listen from the line's start, the line and LISTEN, then LISTEN_AGAIN: {g.link.listens[:2]}")
+    assert all(abs(a - b) < 1e-6 for a, b in zip(g.link.listens[:2], want)) and len(g.link.listens) >= 2, f"each listen from the line's start, the line and LISTEN, then LISTEN_AGAIN: {g.link.listens[:2]}"
     await b.update("station/24/lifted", "off")
     await until(b, lambda b: not g.free.circuits())
     runner.cancel()
 
 
-async def public_line_out(number: str, who: str, ringback: str) -> None:
-    print(f"\n== the public line, {number} dialled on trunk 3")
+@pytest.mark.parametrize("number, who, ringback",
+                         [("2835678", "maitre_d", "known"), ("5551212", "lenny", "unknown")])
+async def test_public_line_out(number: str, who: str, ringback: str) -> None:
+    """The public line: a number dialled on trunk 3."""
     g = StubGame()
     await g.live()
     runner = asyncio.create_task(g.free.run())
     b = g.b
     await b.update("trunk/8/seize", "on")
     await asyncio.sleep(D * 3)
-    check(not g.free.circuits(), "seized but not answered: nothing yet")
+    assert not g.free.circuits(), "seized but not answered: nothing yet"
     await b.update("trunk/8/op", "on")
     await until(b, lambda b: g.free.routing())
-    check(g.free.circuits() == {"trunk/8"}, "answered: a free call")
+    assert g.free.circuits() == {"trunk/8"}, "answered: a free call"
     await b.update("trunk/3/seize", "on")
     await asyncio.sleep(D * 3)
-    check(not g.sent("trunk/3/tone/set"), "a trunk not patched to the caller is not its")
+    assert not g.sent("trunk/3/tone/set"), "a trunk not patched to the caller is not its"
     await b.update("trunk/3/peer", "trunk/8")
     await until(b, lambda b: b.get("trunk/3/tone") == "dial")
-    check(True, "patched: dial tone")
+    # patched: dial tone
     for d in number:
         await b.update("trunk/3/digit", d)
         await asyncio.sleep(D / 2)
     await until(b, lambda b: f"free.{who}.g" in g.played("trunk/3"))
     tones = g.sent("trunk/3/tone/set")
-    check(tones[:4] == ["dial", "off", "ringback", "off"], f"dial tone, ringback: {tones[:4]}")
-    check(any(f"dialled {number}" in s and f"{who} answers" in s for s in g.said),
-          f"{who} answers")
+    assert tones[:4] == ["dial", "off", "ringback", "off"], f"dial tone, ringback: {tones[:4]}"
+    assert any(f"dialled {number}" in s and f"{who} answers" in s for s in g.said), f"{who} answers"
     await until(b, lambda b: len(g.played("trunk/3")) >= 3)
     await b.update("trunk/8/seize", "off")
     await until(b, lambda b: not g.free.circuits())
-    check(g.sent("trunk/3/play/set")[-1] == "stop", "the caller gone: the trunk's file stops")
+    assert g.sent("trunk/3/play/set")[-1] == "stop", "the caller gone: the trunk's file stops"
     runner.cancel()
 
 
-async def public_line_short() -> None:
-    print("\n== three digits and a pause: fast busy, not Lenny (Rev 80)")
+async def test_public_line_short() -> None:
+    """Three digits and a pause: fast busy, not Lenny."""
     g = StubGame()
     await g.live()
     runner = asyncio.create_task(g.free.run())
@@ -314,21 +297,21 @@ async def public_line_short() -> None:
     for d in "283":
         await b.update("trunk/3/digit", d)
         await asyncio.sleep(D / 2)
-    await asyncio.sleep(fcm.DIAL_PAUSE / 2)
-    check(b.get("trunk/3/tone") != "reorder", "a pause shorter than DIAL_PAUSE: still dialling")
+    await asyncio.sleep(dialling.DIAL_PAUSE / 2)
+    assert b.get("trunk/3/tone") != "reorder", "a pause shorter than DIAL_PAUSE: still dialling"
     await until(b, lambda b: b.get("trunk/3/tone") == "reorder")
-    check(not g.played("trunk/3"), "then fast busy, and nobody answers")
-    check(any("too few digits" in s for s in g.said), "logged as too few digits")
+    assert not g.played("trunk/3"), "then fast busy, and nobody answers"
+    assert any("too few digits" in s for s in g.said), "logged as too few digits"
     await b.update("trunk/3/seize", "off")
     await until(b, lambda b: g.sent("trunk/3/tone/set")[-1] == "off")
-    check(True, "released: the fast busy stops")
+    # released: the fast busy stops
     await b.update("trunk/8/seize", "off")
     await until(b, lambda b: not g.free.circuits())
     runner.cancel()
 
 
-async def scene_trunk_rules() -> None:
-    print("\n== the routing flows leave the public line and a free call's trunk alone")
+async def test_scene_trunk_rules() -> None:
+    """The routing flows leave the public line and a free call's trunk alone."""
     from sbgame.flows import Ctx, _fresh
     from sbgame.calls import Call, Slots
     from sbgame.script_data import SceneDef
@@ -343,26 +326,9 @@ async def scene_trunk_rules() -> None:
               scene=sc, say_event=lambda t: None, mark_connected=None, set_monitor=None,
               free_callers=lambda: {"station/24"}, public_trunk=8)
     await b.update("trunk/8/seize", "on")
-    check(_fresh(ctx)(b) is None, "the public line is never a scene's")
+    assert _fresh(ctx)(b) is None, "the public line is never a scene's"
     await b.update("trunk/2/seize", "on")
     await b.update("trunk/2/peer", "station/24")
-    check(_fresh(ctx)(b) is None, "nor a trunk patched to a free caller")
+    assert _fresh(ctx)(b) is None, "nor a trunk patched to a free caller"
     await b.update("trunk/4/seize", "on")
-    check(_fresh(ctx)(b) == 4, "any other trunk seized is")
-
-
-async def main() -> int:
-    await phone_to_room()
-    await cord_out_then_again()
-    await nobody_patched()
-    await silent_caller()
-    await public_line_out("2835678", "maitre_d", "known")
-    await public_line_out("5551212", "lenny", "unknown")
-    await public_line_short()
-    await scene_trunk_rules()
-    print("\nall passed" if not failures else f"\nFAILURES: {failures}")
-    return 1 if failures else 0
-
-
-if __name__ == "__main__":
-    sys.exit(asyncio.run(main()))
+    assert _fresh(ctx)(b) == 4, "any other trunk seized is"

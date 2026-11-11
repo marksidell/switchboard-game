@@ -1,4 +1,4 @@
-"""The ring cue (game_control.md §9.2, Rev 51).
+"""The ring cue (game_control.md §9.2).
 
 While any station reports ring (`station/<n>/ring`, ring voltage arriving from
 the switchboard), the audience loudspeaker plays a steady ringback tone, so the

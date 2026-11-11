@@ -9,10 +9,9 @@ Three rules run through all five:
 **A wrong connection is not a failure.** The operator who rings the wrong jack
 and corrects herself within the connect timeout has made the call (§3.5). So
 every "wait for the right thing" loop logs the wrong thing and keeps waiting
-until the deadline, rather than ending the call. The game answers only the
-correct station: a wrong one rings out and nobody picks up, which is Mark's
-ruling for the MVP — contriving a wrong party to answer and say something is a
-later refinement.
+until the deadline, rather than ending the call. A wrong room answers, if the
+script gives its occupant a "hello" reaction, and hangs up (§3.5); it never
+takes the call.
 
 **Every flow cleans up in `finally`**, on a normal end, an error, and
 cancellation — which is how Stop and losing a client arrive. Cleanup commands
@@ -23,7 +22,7 @@ themselves when they lose the game (mqtt.md §8.2).
 `op` goes on while the call is in `signalling` is the answer, and the only
 point in a call where the loudspeaker moves.
 
-In tutor mode (§7, Rev 29) `ctx.tutor` is set, and the flows stop at each
+In tutor mode (§7) `ctx.tutor` is set, and the flows stop at each
 step for her to say what comes next. Each place is marked `# tutor`. She is
 never speaking while the game listens: every listen goes through
 `_operator_speaks()`, which says her prompt first and waits for it to end.
@@ -37,52 +36,38 @@ import time
 from dataclasses import dataclass, field
 from typing import Awaitable, Callable
 
-from .board import Abandoned, Board, LIVE_AUDIO, Offline
+from .board import Abandoned, Board
 from .calls import Call, Reason, Slots, Stage
 from .config import Config
+from .dialling import dial_tone, read_number
 from .link import Hw
 from .script_data import SceneDef, Shape, Speech
-from .scenes import _quietly, hear, ringing_station, say
+from .scenes import quietly, hear, ringing_station, say
 from .tutor import REPEAT, REPEATS, Tutor
 
-# §3.5, Rev 46: dial tone comes this long after the trunk is seized, as an
-# exchange takes a moment to connect a register; and a caller left with
-# neither the operator nor a connection, with no trunk up, hangs up after
-# ABANDON before the call is connected - ABANDON_MISDIALLED once she has
-# dialled a wrong number for it (Rev 48: 10s and 5s, where Rev 46 had 20s).
-DIAL_DELAY = 1.0
+# §3.5: a caller left with neither the operator nor a connection, and no trunk
+# up, hangs up after ABANDON before the call is connected; after ABANDON_MISDIALLED
+# once she has dialled a wrong number for it.
 ABANDON = 10.0
 ABANDON_MISDIALLED = 5.0
-# §3.5, Rev 56: a number dialled with too many digits or too few gets reorder,
-# the fast busy, until she releases the trunk; since Rev 84 she may then take
-# a trunk and dial again, and the call fails as `misdialled` only if the
-# connect timeout runs out after a reorder. Too few is a pause of
-# DIAL_PAUSE after a digit, short of the number; too many is a digit more
-# within DIAL_SETTLE of the last one it needs, which is how long the game
-# waits before it takes a number as dialled - longer than a dial takes to
-# return and run ten pulses (control.md §8).
-DIAL_PAUSE = 10.0
-DIAL_SETTLE = 3.0
-# §3.5, Rev 60: what a party does when the operator leaves it hanging. A party
-# waiting for her to speak says "Hello? Operator?" after NUDGE_AFTER of
-# silence, then goes on after as long again. A party she rings that is not
-# patched to its caller says "Hello?" after PATCH_WAIT, and hangs up after as
-# long again; one she rings by mistake answers, and hangs up. A trunk taken
-# and not dialled for DIAL_FIRST gets reorder, outside tutor mode (Rev 84:
-# 30s, where it was 15s, time to look a number up).
-NUDGE_AFTER = 6.0
-AWAY = 5.0                # s away from a caller before it asks again on her return (Rev 112)
-PATCH_WAIT = 8.0
-# s between a party's last words and its hanging up (§3.4, Rev 75): the time it
-# takes to put a receiver back on its hook.
-HANG_UP = 1.5
+# §3.5: a trunk taken and not dialled for DIAL_FIRST gets reorder, outside
+# tutor mode; time to look a number up. Free calls wait less (freecall.py).
 DIAL_FIRST = 30.0
-ANSWER_AFTER = 3.0        # s of ring before a room answers, right or wrong (Rev 82; 1.5 before)
+# §3.5: what a party does when the operator leaves it hanging. A party waiting
+# for her to speak says "Hello? Operator?" after NUDGE_AFTER of silence, then
+# goes on after as long again. A party she rings that is not patched to its
+# caller says "Hello?" after PATCH_WAIT, and hangs up after as long again.
+NUDGE_AFTER = 6.0
+PATCH_WAIT = 8.0
+AWAY = 5.0                # s away from a caller before it asks again on her return
+# s between a party's last words and its hanging up (§3.4): the time it takes
+# to put a receiver back on its hook.
+HANG_UP = 1.5
+ANSWER_AFTER = 3.0        # s of ring before a room answers, right or wrong
 # §3.2: busy tone plays four bursts, then stops, before the game listens for
 # her. On the cord the tone reaches the caller's line, and the speech detector
 # takes it for her voice, so a listen under it never hears her stop.
 BUSY_HOLD = 3.5
-
 
 log = logging.getLogger("flow")
 
@@ -108,22 +93,22 @@ class Ctx:
     set_monitor: Callable[[str], Awaitable[None]]  # §9.1
     tutor: Tutor | None = None                     # §7, in tutor mode
     jack_of: Callable[[int], int | None] = lambda n: None   # station -> its jack (§12.1)
-    misdialled: bool = False                       # a wrong number this call (§3.5, Rev 48)
-    reordered: bool = False                        # fast busy this call (§3.5, Rev 84)
-    # Rev 60: a party's reactions, by kind and cast member, and who answers a
-    # room nobody expects to be rung.
+    misdialled: bool = False                       # a wrong number this call (§3.5)
+    reordered: bool = False                        # fast busy this call (§3.5)
+    # A party's reactions, by kind and cast member, and who answers a room
+    # nobody expects to be rung (§3.5).
     reaction: Callable[[str, str], Speech | None] = lambda kind, voice: None
     occupant: Callable[[int], str] = lambda n: ""
-    # Rev 60: trunks already up when this call began to route, and not
-    # released since: not this call's, so never taken as the one she seized.
+    # Trunks already up when this call began to route, and not released
+    # since: not this call's, so never taken as the one she seized.
     stale_trunks: set[int] = field(default_factory=set)
-    # Rev 74: free calls (§8). The circuits of free callers, whether one is
-    # waiting to be put through, and the public line, which no scene takes.
+    # Free calls (§8): the circuits of free callers, whether one is waiting
+    # to be put through, and the public line, which no scene takes.
     free_callers: Callable[[], set[str]] = lambda: set()
     free_routing: Callable[[], bool] = lambda: False
     public_trunk: int = 0
-    # Rev 91: when the tutor's last wrong-cord line for this call ends (§7.7),
-    # from which a caller left alone waits afresh.
+    # When the tutor's last wrong-cord line for this call ends (§7.7), from
+    # which a caller left alone waits afresh.
     hint_end: Callable[[], float] = lambda: 0.0
 
     @property
@@ -164,7 +149,7 @@ async def _operator_speaks(ctx: Ctx, where: str, sp: Speech, abort_if,
         if nudge is None:
             await hear(ctx.b, ctx.hw, where, ctx.cfg.speak_timeout, abort_if=abort_if)
             return
-        # Rev 60: not 30s of silence. "Hello? Operator?", then on with the line.
+        # Not 30s of silence: "Hello? Operator?", then on with the line.
         if await hear(ctx.b, ctx.hw, where, NUDGE_AFTER, abort_if=abort_if) == "timeout":
             ctx.say_event(f"{where}: the operator did not speak")
             await say(ctx.b, ctx.hw, where, nudge.name, nudge.seconds, abort_if=abort_if)
@@ -189,7 +174,7 @@ async def _operator_speaks(ctx: Ctx, where: str, sp: Speech, abort_if,
             finally:
                 press.cancel()
                 if not listen.done():
-                    # Repeat Help (Rev 35): stop listening, say it again, and
+                    # Repeat Help (§7.4): stop listening, say it again, and
                     # listen afresh. hear() cancels the listen as it unwinds.
                     pressed = True
                     listen.cancel()
@@ -228,7 +213,7 @@ async def _answer(ctx: Ctx, caller: str) -> None:
     op = lambda b: b.on(f"{caller}/op")
     if caller.startswith("trunk/"):
         # Only a front cord seizes a trunk: the operator heard through a
-        # rear cord has not answered (§9.1, Rev 94).
+        # rear cord has not answered (§9.1).
         op = lambda b: b.on(f"{caller}/op") and b.on(f"{caller}/seize")
     # tutor: from a room the game cannot see the cord go in, so both steps
     # are one line; a trunk is seized by the cord, so they are two (§7).
@@ -269,7 +254,7 @@ async def _hold(ctx: Ctx, seconds: float, abort_if) -> None:
 
 
 async def _lead_in(ctx: Ctx, circuit: str, sp: Speech, abort_if) -> None:
-    """A line's pause: and ringback: (§6.2, Rev 20), after any wait.
+    """A line's pause: and ringback: (§6.2), after any wait.
 
     The pause is silence: the next operator on the route taking the call, a
     party walking to the telephone. Ringback is the far end ringing, heard on
@@ -283,7 +268,7 @@ async def _lead_in(ctx: Ctx, circuit: str, sp: Speech, abort_if) -> None:
         try:
             await _hold(ctx, sp.ringback, abort_if)
         finally:
-            await _quietly(ctx.hw.tone(n, "off"))
+            await quietly(ctx.hw.tone(n, "off"))
 
 
 async def _wait_for_right_station(ctx: Ctx, want: int, deadline: float) -> None:
@@ -304,8 +289,8 @@ async def _wait_for_right_station(ctx: Ctx, want: int, deadline: float) -> None:
         if n == want:
             return
         if ctx.free_routing():
-            # Rev 74: a free caller waits to be put through, so the room is
-            # likely theirs (§8): not a wrong party for this call.
+            # A free caller waits to be put through, so the room is likely
+            # theirs (§8): not a wrong party for this call.
             await ctx.b.wait_until(lambda b, n=n: not b.on(f"station/{n}/ring"),
                                    ctx.left(deadline))
             continue
@@ -321,7 +306,7 @@ async def _wait_for_right_station(ctx: Ctx, want: int, deadline: float) -> None:
 
 
 async def _wrong_party(ctx: Ctx, n: int, deadline: float) -> None:
-    """She has rung station n, not the one asked for (§3.5, Rev 60). Whoever is
+    """She has rung station n, not the one asked for (§3.5). Whoever is
     in that room answers, "Hello?"; the caller, if patched to it, says that is
     not who they asked for; and the room hangs up. Not a room already in a
     call, nor the caller's own."""
@@ -343,13 +328,13 @@ async def _wrong_party(ctx: Ctx, n: int, deadline: float) -> None:
             await say(ctx.b, ctx.hw, caller, wrong.name, wrong.seconds)
         await asyncio.sleep(0.5)
     finally:
-        await _quietly(ctx.hw.hook(n, False))   # hangs up: the cord lamp lights
+        await quietly(ctx.hw.hook(n, False))   # hangs up: the cord lamp lights
 
 
 async def _picks_up(ctx: Ctx, caller: str, n: int, deadline: float) -> bool:
     """The called room answers; True once it is patched to the caller. Not
     patched within PATCH_WAIT, it says "Hello?"; not within as long again, it
-    hangs up, and False: she must ring it again (§3.5, Rev 60)."""
+    hangs up, and False: she must ring it again (§3.5)."""
     called = f"station/{n}"
     joined = lambda b: b.get(f"{caller}/peer") == called
     await ctx.hw.hook(n, True)                     # the called party answers
@@ -372,23 +357,16 @@ async def _picks_up(ctx: Ctx, caller: str, n: int, deadline: float) -> bool:
     return False
 
 
-def _any_seized(b: Board) -> int | None:
-    for n in range(1, 9):
-        if b.on(f"trunk/{n}/seize"):
-            return n
-    return None
-
-
 def _fresh(ctx: Ctx):
-    """A trunk up that is this call's to take (Rev 60): not one already up
-    when it began to route. A stale trunk released and taken again is fresh."""
+    """A trunk up that is this call's to take: not one already up when it
+    began to route. A stale trunk released and taken again is fresh."""
     def seized(b: Board) -> int | None:
         free = ctx.free_callers()
-        for n in range(1, 9):
+        for n in ctx.cfg.fitted_trunks():
             if not b.on(f"trunk/{n}/seize"):
                 ctx.stale_trunks.discard(n)
             elif n == ctx.public_trunk or b.get(f"trunk/{n}/peer") in free:
-                continue                # the public line, or a free call's (Rev 74)
+                continue                # the public line, or a free call's
             elif n not in ctx.stale_trunks:
                 return n
         return None
@@ -397,8 +375,8 @@ def _fresh(ctx: Ctx):
 
 def _note_stale(ctx: Ctx) -> None:
     """The trunks up as routing begins belong to other calls, or are cords
-    left in from an earlier one (Rev 60)."""
-    ctx.stale_trunks = {n for n in range(1, 9) if ctx.b.on(f"trunk/{n}/seize")}
+    left in from an earlier one."""
+    ctx.stale_trunks = {n for n in ctx.cfg.fitted_trunks() if ctx.b.on(f"trunk/{n}/seize")}
 
 
 async def _seized_trunk(ctx: Ctx, deadline: float) -> int:
@@ -406,22 +384,16 @@ async def _seized_trunk(ctx: Ctx, deadline: float) -> int:
     return await ctx.b.wait_until(_fresh(ctx), ctx.left(deadline))
 
 
-async def _dial_tone(ctx: Ctx, trunk: int) -> None:
-    """Dial tone on a freshly seized trunk, after DIAL_DELAY (§3.5, Rev 46)."""
-    await asyncio.sleep(DIAL_DELAY)
-    await ctx.hw.tone(trunk, "dial")
-
-
 async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
     """Run `work`, the routing of a call; raise Abandoned if the caller is lost
-    for ABANDON seconds first (§3.5, Rev 46).
+    for ABANDON seconds first (§3.5).
 
     Lost: the operator is not on the caller's line, it is patched to nothing,
     and no trunk is up - for a trunk caller, its own; for a station, any, since
     she may be dialling out for it. The game cannot see a cord go into or out
     of a station jack, so a pulled answering cord and a switch centred before
     the front cord goes in look the same; the wait is what tells them apart.
-    Not in tutor pacing (Rev 92).
+    Not in tutor pacing.
 
     When she comes back on the caller's line, the answering cord alone, after
     AWAY or more, the caller says the request again once she has spoken, or
@@ -447,17 +419,17 @@ async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
             await ctx.b.wait_until(on_line, None)
             if time.time() - left < AWAY or "/" in (ctx.b.get(f"{caller}/peer") or ""):
                 continue
-            gone = lambda b: not on_line(b)
+            away = lambda b: not on_line(b)
             try:
-                await hear(ctx.b, ctx.hw, caller, NUDGE_AFTER, abort_if=gone)
+                await hear(ctx.b, ctx.hw, caller, NUDGE_AFTER, abort_if=away)
                 if ctx.b.get(f"{caller}/play"):          # a wrong-cord line, say
                     continue
                 ctx.say_event(f"{caller}: asks again")
                 try:
                     await say(ctx.b, ctx.hw, caller, ctx.scene.request.name,
-                              ctx.scene.request.seconds, abort_if=gone)
+                              ctx.scene.request.seconds, abort_if=away)
                 except asyncio.CancelledError:          # routed meanwhile
-                    await asyncio.shield(_quietly(ctx.hw.stop(caller)))
+                    await asyncio.shield(quietly(ctx.hw.stop(caller)))
                     raise
             except Abandoned:
                 pass                                    # she left again
@@ -472,19 +444,24 @@ async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
                     await ctx.b.wait_until(lambda b: not lost(b), max(0.0, until - time.time()))
                     break
                 except TimeoutError:
-                    # Rev 92: in tutor pacing nobody hangs up; checked here, at
-                    # each expiry, so a change of pacing mid-call is followed.
+                    # In tutor pacing nobody hangs up; checked here, at each
+                    # expiry, so a change of pacing mid-call is followed.
                     if _tutoring(ctx) is not None:
                         until = time.time() + wait
                         continue
-                    # Rev 91: a wrong-cord line restarts the wait from its end.
+                    # A wrong-cord line restarts the wait from its end.
                     until = ctx.hint_end() + wait
                     if until <= time.time():
                         return
 
+    def asker_failed(t: asyncio.Task) -> None:
+        if not t.cancelled() and (e := t.exception()) is not None:
+            log.warning("%s: asking again failed", ctx.scene.id, exc_info=e)
+
     task = asyncio.ensure_future(work)
     watcher = asyncio.ensure_future(watch())
     asker = asyncio.ensure_future(returns())
+    asker.add_done_callback(asker_failed)
     try:
         done, _ = await asyncio.wait({task, watcher}, return_when=asyncio.FIRST_COMPLETED)
     except BaseException:
@@ -506,7 +483,7 @@ async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
 
 
 async def _closing(ctx: Ctx, caller: str, abort_if) -> None:
-    """Her closing words, waited for before the caller hangs up (§6.3, Rev 47).
+    """Her closing words, waited for before the caller hangs up (§6.3).
 
     A scene's closing: is what she says after its last line - "That call was
     from the lobby, sir." In tutor mode she is prompted to say it. A closing
@@ -515,12 +492,12 @@ async def _closing(ctx: Ctx, caller: str, abort_if) -> None:
     """
     sc = ctx.scene
     if not sc.closing:
-        await asyncio.sleep(HANG_UP)            # Rev 75
+        await asyncio.sleep(HANG_UP)
         return
     sp = Speech(name=sc.closing, seconds=0.0, by="caller", operator=sc.closing)
     try:
         await _operator_speaks(ctx, caller, sp, abort_if)
-        await asyncio.sleep(HANG_UP)            # Rev 75
+        await asyncio.sleep(HANG_UP)
     except TimeoutError:
         log.info("%s: closing not heard", sc.id)
     except Abandoned:
@@ -540,15 +517,15 @@ async def _wait_for_right_number(ctx: Ctx, trunk: int, want: str,
     a release and a fresh seizure, which clears `dialled` (board.py), so this
     also follows the operator onto another trunk if she takes one. Dial tone,
     which the caller has started, stops at the first digit and comes back on
-    each fresh seizure (§3.5, Rev 42); a wrong number gets busy tone until she
-    hangs up (Rev 46).
+    each fresh seizure (§3.5); a wrong number gets busy tone until she hangs
+    up.
     """
     digits = "".join(c for c in want if c.isdigit())
     wrong_seen: set[str] = set()
     released = lambda b, t: not b.on(f"trunk/{t}/seize") and "released"
     while True:
-        # Rev 60: a trunk not dialled gets reorder, as an exchange gave up on
-        # a register left waiting - but not while the tutor teaches (§7).
+        # A trunk not dialled gets reorder, as an exchange gave up on a
+        # register left waiting - but not while the tutor teaches (§7).
         first = ctx.left(deadline) if _tutoring(ctx) else min(DIAL_FIRST, ctx.left(deadline))
         try:
             got = await ctx.b.wait_until(
@@ -561,7 +538,8 @@ async def _wait_for_right_number(ctx: Ctx, trunk: int, want: str,
             got = await _reorder(ctx, trunk, "none", want, deadline)
         if got != "released":
             await ctx.hw.tone(trunk, "off")
-            got = await _number(ctx, trunk, len(digits), deadline)
+            got = await read_number(ctx.b, trunk, lambda d: len(d) == len(digits), len(digits),
+                                    left=lambda: ctx.left(deadline))
         if got in ("short", "long"):
             got = await _reorder(ctx, trunk, got, want, deadline)
         if got == "released":
@@ -569,7 +547,7 @@ async def _wait_for_right_number(ctx: Ctx, trunk: int, want: str,
             await ctx.hw.tone(trunk, "off")
             trunk = await _seized_trunk(ctx, deadline)
             await ctx.slots.set(ctx.call, "trunk", f"trunk/{trunk}")
-            await _dial_tone(ctx, trunk)
+            await dial_tone(ctx.b, ctx.hw, trunk)
             continue
         if got == digits:
             await ctx.slots.set(ctx.call, "digits", got)
@@ -579,38 +557,16 @@ async def _wait_for_right_number(ctx: Ctx, trunk: int, want: str,
             wrong_seen.add(got)
             ctx.say_event(f"dialled {got}, wanted {want}")
             log.info("%s: wrong number %s", ctx.scene.id, got)
-        await ctx.hw.tone(trunk, "busy")                # Rev 46: not silence
-        ctx.misdialled = True                           # Rev 48: less patience
+        await ctx.hw.tone(trunk, "busy")                # not silence
+        ctx.misdialled = True                           # less patience (§3.5)
         # Wait for her to release and try again.
         await ctx.b.wait_until(lambda b, t=trunk: not b.on(f"trunk/{t}/seize"),
                                ctx.left(deadline))
 
 
-async def _number(ctx: Ctx, trunk: int, n: int, deadline: float) -> str:
-    """The digits once a number of `n` is dialled, or "short", "long" or
-    "released" (§3.5, Rev 56). The first digit is in already."""
-    while True:
-        have = ctx.b.dialled(trunk)
-        if len(have) > n:
-            return "long"
-        wait = DIAL_SETTLE if len(have) == n else DIAL_PAUSE
-        left = ctx.left(deadline)
-        try:
-            got = await ctx.b.wait_until(
-                lambda b, t=trunk, k=len(have): ((not b.on(f"trunk/{t}/seize") and "released")
-                                                 or len(b.dialled(t)) > k),
-                min(wait, left))
-        except TimeoutError:
-            if wait >= left:
-                raise                   # the call's own deadline, not the pause
-            return have if len(have) == n else "short"
-        if got == "released":
-            return "released"
-
-
 async def _reorder(ctx: Ctx, trunk: int, why: str, want: str, deadline: float) -> str:
-    """Fast busy until she releases the trunk (§5, Rev 56); then "released",
-    and she may take a trunk and dial again (Rev 84)."""
+    """Fast busy until she releases the trunk (§3.5); then "released", and
+    she may take a trunk and dial again."""
     got = ctx.b.dialled(trunk)
     what = {"long": "too many digits", "short": "too few digits", "none": "nothing dialled"}[why]
     ctx.say_event(f"dialled {got or 'nothing'}, wanted {want}: {what}")
@@ -621,7 +577,7 @@ async def _reorder(ctx: Ctx, trunk: int, why: str, want: str, deadline: float) -
         await ctx.b.wait_until(lambda b, t=trunk: not b.on(f"trunk/{t}/seize"),
                                ctx.left(deadline))
     finally:
-        await _quietly(ctx.hw.tone(trunk, "off"))
+        await quietly(ctx.hw.tone(trunk, "off"))
     return "released"
 
 
@@ -655,12 +611,12 @@ async def _converse(ctx: Ctx, caller: str, called: str) -> None:
                            abort_if=broken)
         await _lead_in(ctx, where, line, broken)
         await _play(ctx, where, line, broken)
-    await asyncio.sleep(HANG_UP)                # Rev 75: then the receivers go down
+    await asyncio.sleep(HANG_UP)                # then the receivers go down
 
 
 def _centred(*circuits: str):
     """until: her talk switch is back in the centre - she is on none of the
-    pair's lines - so the prompt to centre it can stop (§7, Rev 58)."""
+    pair's lines - so the prompt to centre it can stop (§7)."""
     return lambda b: not any(b.on(f"{c}/op") for c in circuits)
 
 
@@ -700,16 +656,75 @@ async def _found_engaged(ctx: Ctx, caller: str, gone) -> Outcome:
     the if_busy: lines, each after she has spoken (§6.6)."""
     ctx.say_event(f"{ctx.scene.to_line} is engaged")
     await ctx.slots.set_stage(ctx.call, Stage.BUSY, time.time() + ctx.cfg.speak_timeout)
-    await ctx.mark_connected()                             # §3.3, Rev 39
+    await ctx.mark_connected()                             # §3.3
     try:
-        for line in ctx.scene.if_busy:
-            await _operator_speaks(ctx, caller, line, gone)
-            await _lead_in(ctx, caller, line, gone)
-            await _play(ctx, caller, line, gone)
-        await asyncio.sleep(HANG_UP)            # Rev 75
+        await _replies(ctx, caller, ctx.scene.if_busy, gone)
+        await asyncio.sleep(HANG_UP)
     except TimeoutError:
         return Outcome(False, Reason.TIMEOUT)
     return Outcome(True)
+
+
+def _gone(caller: str):
+    """abort_if: she has pulled the answering cord, and the caller is on nothing."""
+    return lambda b: (not b.on(f"{caller}/op") and not b.get(f"{caller}/peer")
+                      and "operator pulled the answering cord")
+
+
+async def _open_call(ctx: Ctx, caller: str, trunk: int | None = None) -> Outcome | None:
+    """The caller signals, she answers, and the request plays (§3.1): from a
+    room, off-hook; from outside, a ring on `trunk`. None once the request has
+    played, else the failure."""
+    if trunk is None:
+        await ctx.hw.hook(ctx.scene.from_station, True)        # the lamp lights
+    else:
+        await ctx.slots.set(ctx.call, "trunk", caller)
+        await ctx.hw.short_ring(trunk)                          # §3.3
+    try:
+        await _answer(ctx, caller)
+    except TimeoutError:
+        return Outcome(False, Reason.NO_ANSWER)
+    finally:
+        if trunk is not None:
+            await quietly(ctx.hw.ring_trunk(trunk, False))
+    try:
+        await _request(ctx, caller, _gone(caller))
+    except TimeoutError:
+        return Outcome(False, Reason.TIMEOUT)
+    return None
+
+
+async def _replies(ctx: Ctx, caller: str, lines, gone) -> None:
+    """The caller's lines, each played after she has spoken."""
+    for line in lines:
+        await _operator_speaks(ctx, caller, line, gone)
+        await _lead_in(ctx, caller, line, gone)
+        await _play(ctx, caller, line, gone)
+
+
+async def _route_out(ctx: Ctx, caller: str) -> int:
+    """Stages `routing` and `dialling`: she takes a trunk and dials the
+    scene's number. The trunk, once she has; TimeoutError if she never does."""
+    sc = ctx.scene
+    deadline = time.time() + ctx.cfg.connect_timeout
+    await ctx.slots.set_stage(ctx.call, Stage.ROUTING, deadline)
+    _note_stale(ctx)
+
+    async def route() -> int:
+        await _tut(ctx, "trunk-front", until=_fresh(ctx))            # tutor
+        t = await _seized_trunk(ctx, deadline)
+        await ctx.slots.set(ctx.call, "trunk", f"trunk/{t}")
+        await ctx.slots.set_stage(ctx.call, Stage.DIALLING, deadline)
+        await dial_tone(ctx.b, ctx.hw, t)
+        await _tut(ctx, _dial_key(sc),                              # tutor
+                   until=lambda b, t=t: b.dialled(t) or not b.on(f"trunk/{t}/seize"))
+        return await _wait_for_right_number(ctx, t, sc.dial, deadline)
+    return await _unless_abandoned(ctx, caller, route())
+
+
+def _not_routed(ctx: Ctx) -> Outcome:
+    """A call out not connected in time: misdialled if it met reorder (§4)."""
+    return Outcome(False, Reason.MISDIALLED if ctx.reordered else Reason.NOT_CONNECTED)
 
 
 # ----------------------------------------------------------------- flows ----
@@ -720,18 +735,9 @@ async def station_to_station(ctx: Ctx) -> Outcome:
     caller, called = f"station/{sc.from_station}", f"station/{sc.to_station}"
     answered = False                # the called station is off-hook for this call
     try:
-        await ctx.hw.hook(sc.from_station, True)          # the lamp lights
-        try:
-            await _answer(ctx, caller)
-        except TimeoutError:
-            return Outcome(False, Reason.NO_ANSWER)
-
-        gone = lambda b: (not b.on(f"{caller}/op") and not b.get(f"{caller}/peer")
-                          and "operator pulled the answering cord")
-        try:
-            await _request(ctx, caller, gone)
-        except TimeoutError:
-            return Outcome(False, Reason.TIMEOUT)
+        if (failed := await _open_call(ctx, caller)) is not None:
+            return failed
+        gone = _gone(caller)
 
         deadline = time.time() + ctx.cfg.connect_timeout
         await ctx.slots.set_stage(ctx.call, Stage.ROUTING, deadline)
@@ -768,10 +774,10 @@ async def station_to_station(ctx: Ctx) -> Outcome:
         # A station found engaged belongs to the other call: leave it be.
         for n in (sc.from_station, sc.to_station if answered or not sc.if_busy else None):
             if n is not None:
-                await _quietly(ctx.hw.hook(n, False))
-        await _quietly(ctx.hw.stop(caller))
+                await quietly(ctx.hw.hook(n, False))
+        await quietly(ctx.hw.stop(caller))
         if answered or not sc.if_busy:
-            await _quietly(ctx.hw.stop(called))
+            await quietly(ctx.hw.stop(called))
 
 
 async def station_to_outside(ctx: Ctx) -> Outcome:
@@ -779,35 +785,12 @@ async def station_to_outside(ctx: Ctx) -> Outcome:
     caller = f"station/{sc.from_station}"
     trunk: int | None = None
     try:
-        await ctx.hw.hook(sc.from_station, True)
+        if (failed := await _open_call(ctx, caller)) is not None:
+            return failed
         try:
-            await _answer(ctx, caller)
+            trunk = await _route_out(ctx, caller)
         except TimeoutError:
-            return Outcome(False, Reason.NO_ANSWER)
-
-        gone = lambda b: (not b.on(f"{caller}/op") and not b.get(f"{caller}/peer")
-                          and "operator pulled the answering cord")
-        try:
-            await _request(ctx, caller, gone)
-        except TimeoutError:
-            return Outcome(False, Reason.TIMEOUT)
-
-        deadline = time.time() + ctx.cfg.connect_timeout
-        await ctx.slots.set_stage(ctx.call, Stage.ROUTING, deadline)
-        _note_stale(ctx)
-        async def route() -> int:
-            await _tut(ctx, "trunk-front", until=_fresh(ctx))            # tutor
-            t = await _seized_trunk(ctx, deadline)
-            await ctx.slots.set(ctx.call, "trunk", f"trunk/{t}")
-            await ctx.slots.set_stage(ctx.call, Stage.DIALLING, deadline)
-            await _dial_tone(ctx, t)
-            await _tut(ctx, _dial_key(sc),                              # tutor
-                       until=lambda b, t=t: b.dialled(t) or not b.on(f"trunk/{t}/seize"))
-            return await _wait_for_right_number(ctx, t, sc.dial, deadline)
-        try:
-            trunk = await _unless_abandoned(ctx, caller, route())
-        except TimeoutError:                                    # Rev 56, Rev 84
-            return Outcome(False, Reason.MISDIALLED if ctx.reordered else Reason.NOT_CONNECTED)
+            return _not_routed(ctx)
 
         called = f"trunk/{trunk}"
         await ctx.hw.tone(trunk, "ringback")
@@ -829,11 +812,11 @@ async def station_to_outside(ctx: Ctx) -> Outcome:
         return Outcome(False, Reason.CUT_OFF)
     finally:
         if sc.from_station is not None:
-            await _quietly(ctx.hw.hook(sc.from_station, False))
+            await quietly(ctx.hw.hook(sc.from_station, False))
         if trunk is not None:
-            await _quietly(ctx.hw.tone(trunk, "off"))
-            await _quietly(ctx.hw.stop(f"trunk/{trunk}"))
-        await _quietly(ctx.hw.stop(caller))
+            await quietly(ctx.hw.tone(trunk, "off"))
+            await quietly(ctx.hw.stop(f"trunk/{trunk}"))
+        await quietly(ctx.hw.stop(caller))
 
 
 async def busy_scene(ctx: Ctx) -> Outcome:
@@ -842,35 +825,13 @@ async def busy_scene(ctx: Ctx) -> Outcome:
     caller = f"station/{sc.from_station}"
     trunk: int | None = None
     try:
-        await ctx.hw.hook(sc.from_station, True)
+        if (failed := await _open_call(ctx, caller)) is not None:
+            return failed
+        gone = _gone(caller)
         try:
-            await _answer(ctx, caller)
+            trunk = await _route_out(ctx, caller)
         except TimeoutError:
-            return Outcome(False, Reason.NO_ANSWER)
-
-        gone = lambda b: (not b.on(f"{caller}/op") and not b.get(f"{caller}/peer")
-                          and "operator pulled the answering cord")
-        try:
-            await _request(ctx, caller, gone)
-        except TimeoutError:
-            return Outcome(False, Reason.TIMEOUT)
-
-        deadline = time.time() + ctx.cfg.connect_timeout
-        await ctx.slots.set_stage(ctx.call, Stage.ROUTING, deadline)
-        _note_stale(ctx)
-        async def route() -> int:
-            await _tut(ctx, "trunk-front", until=_fresh(ctx))            # tutor
-            t = await _seized_trunk(ctx, deadline)
-            await ctx.slots.set(ctx.call, "trunk", f"trunk/{t}")
-            await ctx.slots.set_stage(ctx.call, Stage.DIALLING, deadline)
-            await _dial_tone(ctx, t)
-            await _tut(ctx, _dial_key(sc),                              # tutor
-                       until=lambda b, t=t: b.dialled(t) or not b.on(f"trunk/{t}/seize"))
-            return await _wait_for_right_number(ctx, t, sc.dial, deadline)
-        try:
-            trunk = await _unless_abandoned(ctx, caller, route())
-        except TimeoutError:                                    # Rev 56, Rev 84
-            return Outcome(False, Reason.MISDIALLED if ctx.reordered else Reason.NOT_CONNECTED)
+            return _not_routed(ctx)
 
         await ctx.hw.tone(trunk, "busy")
         await ctx.slots.set_stage(ctx.call, Stage.BUSY,
@@ -883,10 +844,7 @@ async def busy_scene(ctx: Ctx) -> Outcome:
             await _hold(ctx, BUSY_HOLD, gone)
             await ctx.hw.tone(trunk, "off")
             await _tut(ctx, "busy-heard", abort_if=gone)                # tutor
-            for line in ctx.scene.conversation:
-                await _operator_speaks(ctx, caller, line, gone)
-                await _lead_in(ctx, caller, line, gone)
-                await _play(ctx, caller, line, gone)
+            await _replies(ctx, caller, sc.conversation, gone)
         except TimeoutError:
             return Outcome(False, Reason.TIMEOUT)
         await _closing(ctx, caller, gone)
@@ -895,33 +853,19 @@ async def busy_scene(ctx: Ctx) -> Outcome:
         return Outcome(False, Reason.CUT_OFF)
     finally:
         if sc.from_station is not None:
-            await _quietly(ctx.hw.hook(sc.from_station, False))
+            await quietly(ctx.hw.hook(sc.from_station, False))
         if trunk is not None:
-            await _quietly(ctx.hw.tone(trunk, "off"))
-        await _quietly(ctx.hw.stop(caller))
+            await quietly(ctx.hw.tone(trunk, "off"))
+        await quietly(ctx.hw.stop(caller))
 
 
 async def outside_to_station(ctx: Ctx, trunk: int) -> Outcome:
-    """A call in from outside: the game rings a free trunk (§6.1 signalling)."""
+    """A call in from outside: the game rings a free trunk (§3.6)."""
     sc = ctx.scene
     caller, called = f"trunk/{trunk}", f"station/{sc.to_station}"
     try:
-        await ctx.slots.set(ctx.call, "trunk", caller)
-        await ctx.hw.short_ring(trunk)          # game_control.md §3.3, Rev 28
-        try:
-            await _answer(ctx, caller)
-        finally:
-            await _quietly(ctx.hw.ring_trunk(trunk, False))
-    except TimeoutError:
-        return Outcome(False, Reason.NO_ANSWER)
-
-    try:
-        gone = lambda b: (not b.on(f"{caller}/op") and not b.get(f"{caller}/peer")
-                          and "operator pulled the answering cord")
-        try:
-            await _request(ctx, caller, gone)
-        except TimeoutError:
-            return Outcome(False, Reason.TIMEOUT)
+        if (failed := await _open_call(ctx, caller, trunk)) is not None:
+            return failed
 
         deadline = time.time() + ctx.cfg.connect_timeout
         await ctx.slots.set_stage(ctx.call, Stage.ROUTING, deadline)
@@ -951,11 +895,11 @@ async def outside_to_station(ctx: Ctx, trunk: int) -> Outcome:
     except Abandoned:
         return Outcome(False, Reason.CUT_OFF)
     finally:
-        await _quietly(ctx.hw.ring_trunk(trunk, False))
+        await quietly(ctx.hw.ring_trunk(trunk, False))
         if sc.to_station is not None:
-            await _quietly(ctx.hw.hook(sc.to_station, False))
+            await quietly(ctx.hw.hook(sc.to_station, False))
         for c in (caller, called):
-            await _quietly(ctx.hw.stop(c))
+            await quietly(ctx.hw.stop(c))
 
 
 async def to_operator(ctx: Ctx, trunk: int | None = None) -> Outcome:
@@ -965,45 +909,26 @@ async def to_operator(ctx: Ctx, trunk: int | None = None) -> Outcome:
     caller's lines alone, each played after the operator has spoken and
     stopped — script.yml's "Order" note, and why every line waits on a listen.
 
-    From a room the station goes off-hook; from an outside line (Rev 24) the
-    game rings `trunk`, as for a call in to a room. With no conversation the
+    From a room the station goes off-hook; from an outside line the game
+    rings `trunk`, as for a call in to a room. With no conversation the
     caller hangs up once the request has played — the long-distance operator's
     time and charges, said once and not waited on.
     """
     sc = ctx.scene
     caller = _caller_circuit(sc, trunk)
     try:
-        if sc.from_station is not None:
-            await ctx.hw.hook(sc.from_station, True)
-        else:
-            await ctx.slots.set(ctx.call, "trunk", caller)
-            await ctx.hw.short_ring(trunk)      # game_control.md §3.3, Rev 28
-        try:
-            await _answer(ctx, caller)
-        except TimeoutError:
-            return Outcome(False, Reason.NO_ANSWER)
-        finally:
-            if trunk is not None:
-                await _quietly(ctx.hw.ring_trunk(trunk, False))
-
-        gone = lambda b: (not b.on(f"{caller}/op") and not b.get(f"{caller}/peer")
-                          and "operator pulled the answering cord")
-        try:
-            await _request(ctx, caller, gone)
-        except TimeoutError:
-            return Outcome(False, Reason.TIMEOUT)
+        if (failed := await _open_call(ctx, caller, trunk)) is not None:
+            return failed
+        gone = _gone(caller)
         await ctx.mark_connected()                         # §3.3: the request has played
 
         await ctx.slots.set_stage(ctx.call, Stage.OPERATOR,
                                   time.time() + ctx.cfg.speak_timeout)
-        if ctx.scene.conversation or sc.closing:
-            # tutor: this caller wants her, not a connection (§7, Rev 59).
+        if sc.conversation or sc.closing:
+            # tutor: this caller wants her, not a connection (§7).
             await _tut(ctx, "for-you", abort_if=gone)
         try:
-            for line in ctx.scene.conversation:
-                await _operator_speaks(ctx, caller, line, gone)
-                await _lead_in(ctx, caller, line, gone)
-                await _play(ctx, caller, line, gone)
+            await _replies(ctx, caller, sc.conversation, gone)
         except TimeoutError:
             return Outcome(False, Reason.TIMEOUT)
         await _closing(ctx, caller, gone)
@@ -1012,10 +937,10 @@ async def to_operator(ctx: Ctx, trunk: int | None = None) -> Outcome:
         return Outcome(False, Reason.CUT_OFF)
     finally:
         if sc.from_station is not None:
-            await _quietly(ctx.hw.hook(sc.from_station, False))
+            await quietly(ctx.hw.hook(sc.from_station, False))
         if trunk is not None:
-            await _quietly(ctx.hw.ring_trunk(trunk, False))
-        await _quietly(ctx.hw.stop(caller))
+            await quietly(ctx.hw.ring_trunk(trunk, False))
+        await quietly(ctx.hw.stop(caller))
 
 
 FLOWS = {

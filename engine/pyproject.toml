@@ -12,12 +12,18 @@ name = "sbgame"
 version = "0.1.0"
 description = "551 switchboard simulator game engine"
 requires-python = ">=3.10"
+# sbgame also imports `tts`, the script.yml loader, which is this repository's
+# tts/ package (sbgame-tts) rather than anything on PyPI, so it is not listed
+# here: install the two together, `pip install engine tts` (engine/README.md).
 dependencies = [
     "aiomqtt",       # the MQTT client; brings paho-mqtt with it
     "ruamel.yaml",  # script.yml, through the loader shared with tts/
     "streamdeck",   # the Stream Deck+, over hidapi (apt: libhidapi-libusb0)
     "pillow",       # its key and strip images
 ]
+
+[project.optional-dependencies]
+test = ["pytest"]
 
 [project.scripts]
 sbgame = "sbgame.main:main"
@@ -33,3 +39,11 @@ sbgame-netcheck = "sbgame.netcheck:main"
 
 [tool.setuptools]
 packages = ["sbgame"]
+
+[tool.pytest.ini_options]
+# The checkout's own sbgame and tts come first, ahead of any installed copy,
+# and the tests' shared harness beside them.
+pythonpath = [".", "..", "tests"]
+testpaths = ["tests"]
+# No .pytest_cache in the tree; nothing here uses --lf.
+addopts = "-p no:cacheprovider"

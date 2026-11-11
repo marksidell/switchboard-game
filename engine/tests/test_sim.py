@@ -1,83 +1,16 @@
-"""Run the scene code against a simulated controller, audio program and operator.
-
-No broker, no hardware. FakeLink stands in for Link: each command is echoed
-back into the Board as the real client would echo it, after a short delay.
+"""The building blocks in scenes.py, and the Board under them, against the
+simulated controller, audio program and operator of harness.py.
 """
 
 import asyncio
-import logging
-import sys
+
+import pytest
 
 from sbgame.board import Board, Offline
 from sbgame.link import Hw
-from sbgame.scenes import Line, Scene, dial_out, log_changes, st, station_to_station
+from sbgame.scenes import Line, Scene, dial_out, log_changes, say, st, station_to_station
 
-logging.basicConfig(level=logging.INFO, format="%(relativeCreated)6.0f %(name)-6s %(message)s",
-                    stream=sys.stdout)
-log = logging.getLogger("test")
-
-D = 0.02  # echo delay
-HOLD = 2 * D  # Board.HOLD at the tests' speed (game_control.md §4, Rev 45)
-
-
-class FakeLink:
-    def __init__(self, b: Board) -> None:
-        self.b = b
-        self.sent: list[tuple[str, str]] = []
-        self.file_len = D * 3
-
-    async def publish(self, key: str, payload: str = "") -> None:
-        self.sent.append((key, payload))
-        asyncio.get_running_loop().create_task(self._echo(key, payload))
-
-    async def _echo(self, key: str, p: str) -> None:
-        base = key.removesuffix("/set")
-        u = self.b.update
-        await asyncio.sleep(D)
-        if base.endswith("/play"):
-            if p == "stop":
-                await u(base, "")
-            elif p.startswith("nosuch"):
-                await u(base, "missing")
-            else:
-                await u(base, p)
-                await asyncio.sleep(self.file_len)
-                if self.b.get(base) == p:
-                    await u(base, "")
-        elif base.endswith("/listen"):
-            if p == "0":
-                await u(base, "")
-            else:
-                await u(base, "listening")
-                await asyncio.sleep(D)
-                await u(base, "speech")
-                await asyncio.sleep(D)
-                await u(base, "silence")
-        elif base.endswith("/tone"):
-            await u(base, "" if p == "off" else p)
-        elif base.endswith("/shortring"):   # one burst on the ring echo (control.md §8.4)
-            ring = base.removesuffix("/shortring") + "/ring"
-            await u(ring, p)
-            if p == "on":
-                await asyncio.sleep(D * 5)
-                if self.b.get(ring) == "on":
-                    await u(ring, "off")
-        elif base == "ctl/power_cut":       # a 1s cut, then "off" (control.md §5.4)
-            await u(base, p)
-            if p == "on":
-                await asyncio.sleep(D * 5)
-                if self.b.get(base) == "on":
-                    await u(base, "off")
-        else:  # hook, ring
-            await u(base, p)
-
-
-async def bring_up(b: Board) -> None:
-    await b.set_broker(True)
-    await b.update("ctl/status", "online")
-    await b.update("ctl/audio_status", "online")
-    await b.update("ctl/esp_heartbeat", "1")
-    assert b.control_up and b.audio_up
+from harness import D, FakeLink, HOLD, bring_up
 
 
 SC = Scene(
@@ -130,52 +63,43 @@ async def run_scene(**op_kw):
     return result, link, b
 
 
-async def main() -> None:
-    logging.getLogger("board").setLevel(logging.WARNING)
-    quiet = logging.getLogger("scene")
-
-    print("\n== 1. happy path")
+async def test_happy_path():
     r, link, b = await run_scene()
-    print("result:", r)
     assert r == "completed", r
     assert not b.on("station/12/hook") and not b.on("station/2/hook"), "cleanup hung up both"
 
-    quiet.setLevel(logging.WARNING)
-    print("\n== 2. operator pulls the cord mid-conversation")
+
+async def test_cord_pulled_mid_conversation():
     r, *_ = await run_scene(pull_after_lines=1)
-    print("result:", r)
     assert r.startswith("abandoned"), r
 
-    print("\n== 3. operator rings the wrong station")
+
+async def test_wrong_station_rung():
     r, *_ = await run_scene(ring=5)
-    print("result:", r)
     assert r == "wrong station 5", r
 
-    print("\n== 4. controller drops out while the scene waits for an answer")
+
+async def test_controller_drops_out_while_waiting():
     b = Board(hold=HOLD); link = FakeLink(b); hw = Hw(link)
     await bring_up(b)
     t = asyncio.create_task(station_to_station(b, hw, SC))
     await asyncio.sleep(0.1)
     await b.update("ctl/status", "offline")
-    try:
+    with pytest.raises(Offline):
         await t
-        raise AssertionError("expected Offline")
-    except Offline as e:
-        print("raised Offline:", e)
     assert ("station/12/hook/set", "off") in link.sent, "finally still hung up"
 
-    print("\n== 5. file shorter than one wakeup: name -> '' before the waiter runs")
+
+async def test_file_shorter_than_one_wakeup():
+    """name -> '' before the waiter runs."""
     b = Board(hold=HOLD); link = FakeLink(b); hw = Hw(link); link.file_len = 0
     await bring_up(b)
-    from sbgame.scenes import say
     await asyncio.wait_for(say(b, hw, st(3), "blip", 0.5), 1)
-    print("say() returned; play =", repr(b.get("station/3/play")))
-    try:
+    with pytest.raises(FileNotFoundError):
         await say(b, hw, st(3), "nosuch", 0.5)
-    except FileNotFoundError as e:
-        print("missing file raised FileNotFoundError:", e)
 
-    print("\n== 5b. a stop's late echo does not end the next play (2026-10-22)")
+
+async def test_late_stop_echo_does_not_end_next_play():
     b = Board(hold=HOLD); link = FakeLink(b); hw = Hw(link); link.file_len = D * 6
     await bring_up(b)
     await b.update("station/3/play", "before")
@@ -184,10 +108,12 @@ async def main() -> None:
     t0 = asyncio.get_running_loop().time()
     await say(b, hw, st(3), "after", D * 6)
     took = asyncio.get_running_loop().time() - t0
-    print(f"say() took {took:.3f}s for a {D * 6:.3f}s file")
-    assert took >= D * 6, "say() returned on the stop's echo"
+    assert took >= D * 6, f"say() returned on the stop's echo, after {took:.3f}s"
 
-    print("\n== 6. outgoing: operator seizes trunk 4 and dials 275-4101")
+
+async def test_dial_out_and_resync():
+    """Outgoing: she seizes trunk 4 and dials 275-4101; then a resync forgets
+    values the broker no longer holds."""
     b = Board(hold=HOLD); link = FakeLink(b); hw = Hw(link)
     await bring_up(b)
 
@@ -200,22 +126,15 @@ async def main() -> None:
             await asyncio.sleep(0.01)
             await b.update("trunk/4/digit", d)
 
-    asyncio.create_task(dialler("2754101"))
+    dialling = asyncio.create_task(dialler("2754101"))
     t = await dial_out(b, hw, "station/16", "2754101", busy=True)
+    await dialling
     await asyncio.sleep(0.05)
-    print("trunk", t, "dialled", b.dialled(t), "tone", b.get(f"trunk/{t}/tone"))
-    assert b.get("trunk/4/tone") == "busy"
+    assert t == 4 and b.get("trunk/4/tone") == "busy"
     await b.update("trunk/4/seize", "off")
     assert b.dialled(4) == "", "release clears the number"
 
-    print("\n== 7. resync forgets values the broker no longer holds")
     await b.update("station/9/peer", "station/1")
     await b.reset_for_resync()
     assert b.get("station/9/peer") == ""
     assert not b.control_up
-    print("after reset: control_up =", b.control_up, " station/9/peer =", repr(b.get("station/9/peer")))
-
-    print("\nall passed")
-
-
-asyncio.run(main())

@@ -11,1175 +11,1114 @@ game will actually run.
 """
 
 import asyncio
+import dataclasses as dc
 import re
-import logging
-import sys
-import tempfile
-from pathlib import Path
+import sqlite3
 
-from sbgame.board import Board
+import pytest
+
+import sbgame.game as game_mod
+from sbgame import sweep
+from sbgame.board import Change
 from sbgame.calls import Call
 from sbgame.config import Config
-from sbgame.game import Game
+from sbgame.deck import Deck
+from sbgame.flows import Outcome
 from sbgame.pacing import Pacing
-from sbgame.script_data import build, fit, fitted_stations, needs_trunk
-from sbgame.session import SessionLog
+from sbgame.script_data import Shape, build, fit, fitted_stations, needs_trunk
+from sbgame.simulate import Sim
 from tts.script import ScriptError, load
 
-from test_sim import FakeLink, D, HOLD
+from harness import D, HOLD, REPO, build_game
 
-logging.basicConfig(level=logging.WARNING, stream=sys.stdout)
-
-failures = 0
-
-
-def check(ok: bool, what: str) -> None:
-    global failures
-    print(f"    {what:<58} {'ok' if ok else 'FAIL'}")
-    if not ok:
-        failures += 1
+SCRIPT = REPO / "script.yml"
+WAV = REPO / "wav"
 
 
-class StateLink(FakeLink):
-    """FakeLink plus Link.state, recording what the page would see."""
-
-    def __init__(self, b: Board) -> None:
-        super().__init__(b)
-        self.state_v: dict[str, str] = {}
-        self.state_order: list[tuple[str, str]] = []
-
-    async def state(self, key: str, value: str) -> None:
-        self.state_v[key] = value
-        self.state_order.append((key, value))
+def rejected(path, what: str) -> None:
+    """load() refuses the script at path."""
+    try:
+        load(path)
+    except ScriptError:
+        return
+    pytest.fail(f"accepted {what}")
 
 
-async def build_game(tmp: Path, **cfg_kw):
-    b = Board(hold=HOLD)
-    link = StateLink(b)
-    cfg = Config(script="../script.yml", wav_dir="../wav",
-                 session_db=str(tmp / "s.db"), **cfg_kw)
-    gs = build(cfg.resolved("script"), cfg.resolved("wav_dir"))
-    sess = SessionLog(cfg.resolved("session_db"))
-    await sess.open()
-    g = Game(b, gs, cfg, sess)
-    await g.on_birth(link)          # as the link does on connect
-    await b.set_broker(True)
-    await b.update("ctl/status", "online")
-    await b.update("ctl/audio_status", "online")
-    await b.update("ctl/esp_heartbeat", "1")
-    return b, link, g, sess
+def install_chain(g, live: int | None = None):
+    """A three-call scenario, p0 then p1 and p2 together, made of to-operator
+    scenes from three rooms with no person in common, put in place of them.
+    Returns those scenes and the chain."""
+    ops = [sc for sc in g.gs.scenes.values()
+           if sc.shape == "to_operator" and sc.from_station is not None and not sc.after]
+    picked, rooms = [], set()
+    for sc in ops:
+        if sc.from_line not in rooms and not (set(g.gs.people[sc.id]) - {""}) & {
+                p for q in picked for p in g.gs.people[q.id]}:
+            picked.append(sc)
+            rooms.add(sc.from_line)
+        if len(picked) == 3:
+            break
+    chain = [dc.replace(picked[0], id="p0", after_handled=2)]
+    for i, sc in enumerate(picked[1:], 1):
+        chain.append(dc.replace(sc, id=f"p{i}", after=f"p{i-1}", concurrent=True,
+                                delay=D, delay_max=D * 3))
+    if live is not None:
+        chain[0] = dc.replace(chain[0], live=live)
+    for sc, orig in zip(chain, picked):
+        g.gs.scenes[sc.id] = sc
+        g.gs.people[sc.id] = g.gs.people[orig.id]
+    for orig in picked:                  # so the deck never holds their people
+        g.gs.scenes.pop(orig.id, None)
+    return ops, chain
 
 
-async def main() -> int:
-    with tempfile.TemporaryDirectory() as td:
-        tmp = Path(td)
+@pytest.fixture
+def fast_sweep(monkeypatch):
+    for k in ("BURST", "LATCH_HOLD", "CUT", "OFF_HOOK", "PAUSE", "TRUNK_PAUSE"):
+        monkeypatch.setattr(sweep, k, 0.01)
 
-        print("\n== birth publishes a stopped game and the whole board")
-        b, link, g, sess = await build_game(tmp)
-        check(link.state_v.get("game/run") == "off", "run is off at birth (§2)")
-        check(link.state_v.get("game/public_trunk") == "8", "the public line is published (Rev 105)")
-        check(link.state_v.get("game/call/1/scene") == "", "every slot is clear")
-        labels = [k for k in link.state_v if k.startswith("board/station/") and k.endswith("/label")]
-        check(len(labels) == 30, f"30 station jacks published, got {len(labels)}")
-        check(link.state_v.get("board/station/22/label") == "Lobby",
-              f"jack 22 is {link.state_v.get('board/station/22/label')!r}")
-        check(link.state_v.get("board/trunk/9/circuit") == "",
-              "trunk jack 9 carries nothing")
-        check(link.state_v.get("board/station/21/circuit") == "station/1",
-              f"jack 21 carries {link.state_v.get('board/station/21/circuit')!r}")
 
-        print("\n== jacks: a labelled jack with nothing cabled (§12.1)")
-        real = Path("../script.yml").read_text(encoding="utf-8")
-        # Jack 7 is taken out and put back first, labelled and uncabled.
-        spare = re.sub(r"\n    -   jack: 7\n(        \w+:.*\n)*", "\n", real, count=1)
-        spare = spare.replace("\njacks:\n", '\njacks:\n    -   jack: 7\n        label: "Garage"\n', 1)
-        (tmp / "spare.yml").write_text(spare, encoding="utf-8")
-        gs = build(tmp / "spare.yml", "../wav")
-        j7 = next(j for j in gs.jacks if j.kind == "station" and j.number == 7)
-        check(j7.label == "Garage" and j7.circuit == "",
-              f"jack 7 is labelled and uncabled: {j7.label!r} {j7.circuit!r}")
-        for what, text in (
-            ("a station on no jack",
-             real.replace("        station: room404\n", "", 1)),
-            ("a station on two jacks",
-             spare.replace('label: "Garage"\n', 'label: "Garage"\n        station: lobby\n', 1)),
-            ("a jack listed twice",
-             spare.replace("jack: 7\n", "jack: 21\n", 1)),
-            ("a jack with no label",
-             spare.replace('        label: "Garage"\n', "", 1)),
-            ("a jack with an empty guest:",
-             spare.replace('label: "Garage"\n', 'label: "Garage"\n        guest: ""\n', 1)),
-            ("a jack naming no station",
-             spare.replace('label: "Garage"\n', 'label: "Garage"\n        station: attic\n', 1)),
-            ("wait: in a call to the operator",
-             real.replace("                caller: Thank you. Room 404.\n",
-                          "                caller: Thank you. Room 404.\n"
-                          "                wait: true\n", 1)),
-            ("a line whose person: is not in the cast",
-             real.replace("                called: Valet service.\n",
-                          "                called: Valet service.\n"
-                          "                person: nobody\n", 1)),
-            ("ringback: on a station's line",
-             real.replace("                caller: Yes, fast.\n",
-                          "                caller: Yes, fast.\n"
-                          "                ringback: 5\n", 1)),
-            ("ringback: in a call between stations",
-             real.replace("                called: Valet service.\n",
-                          "                called: Valet service.\n"
-                          "                ringback: 5\n", 1)),
-            ("a pause: that is not a number of seconds",
-             real.replace("                called: Valet service.\n",
-                          "                called: Valet service.\n"
-                          "                pause: a while\n", 1)),
-            ("the old switchboard: key on a station",
-             real.replace("        number: 2\n", "        number: 2\n        switchboard: 22\n", 1)),
-            ("operator: where the game does not wait for her (§6.3)",
-             real.replace("                caller: Yes, fast.\n",
-                          "                caller: Yes, fast.\n"
-                          "                operator: busy\n", 1)),
-            ("operator: naming no line under operator_lines:",
-             real.replace("            operator: internal-greeting\n",
-                          "            operator: good-morning\n", 1)),
-            ("an inline operator: line taking an id the scene uses",
-             real.replace("                    id: 5\n                    text: Three cents, sir.\n",
-                          "                    id: 2\n                    text: Three cents, sir.\n", 1)),
-            ("closing: in a call the operator is off the line at the end of",
-             real.replace("    nbn-valet:\n        active: true\n",
-                          "    nbn-valet:\n        active: true\n        closing: busy\n", 1)),
-            ("operator_lines: with no hotel_operator in the cast",
-             real.replace("    hotel_operator:\n", "    hotel_operator_gone:\n", 1)),
-        ):
-            (tmp / "bad.yml").write_text(text, encoding="utf-8")
-            try:
-                load(tmp / "bad.yml")
-                check(False, f"rejects {what}")
-            except ScriptError as e:
-                check(True, f"rejects {what}")
-                print(f"        {e.failures[0]}")
+async def test_birth_publishes_a_stopped_game(tmp_path):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp)
+    assert link.state_v.get("game/run") == "off", "run is off at birth (§2)"
+    assert link.state_v.get("game/public_trunk") == "8", "the public line is published"
+    assert link.state_v.get("game/call/1/scene") == "", "every slot is clear"
+    labels = [k for k in link.state_v if k.startswith("board/station/") and k.endswith("/label")]
+    assert len(labels) == 30, f"30 station jacks published, got {len(labels)}"
+    assert link.state_v.get("board/station/22/label") == "Lobby", f"jack 22 is {link.state_v.get('board/station/22/label')!r}"
+    assert link.state_v.get("board/trunk/9/circuit") == "", "trunk jack 9 carries nothing"
+    assert link.state_v.get("board/station/21/circuit") == "station/1", f"jack 21 carries {link.state_v.get('board/station/21/circuit')!r}"
 
-        gs = build("../script.yml", "../wav")
-        check(all(u.by != "operator" for sc in gs.scenes.values()
-                  for u in (sc.request, *sc.conversation)),
-              "the operator's own lines are never played (§6.3)")
-        check(gs.script.by_name()[gs.script.scene_lines("dobbs-stamp")[1].operator].text
-              == "Three cents, sir.", "an inline operator: line is found by name")
-        check(gs.script.by_name()[gs.script.closings["nbn-trace"]].text.startswith("That call was from the lobby"),
-              "a closing: line is found by its scene")
 
-        print("\n== active: an inactive scene needs no wavs and is never dealt (§6.1)")
-        new = real.replace("\nscenes:\n", "\nscenes:\n"
-                           "    unrendered:\n"
-                           "        active: false\n"
-                           "        calling:\n"
-                           "            line: lobby\n"
-                           "            person: thornhill\n"
-                           "        request:\n"
-                           "            id: 1\n"
-                           "            text: Operator, is anyone there?\n", 1)
-        (tmp / "new.yml").write_text(new, encoding="utf-8")
-        gs = build(tmp / "new.yml", "../wav")
-        check("unrendered" in gs.script.scenes and "unrendered" not in gs.scenes,
-              "loaded, but left out of the game's scenes")
-        check("unrendered" not in gs.deck_scenes(), "and out of the deck")
-        check(any(u.scene == "unrendered" for u in gs.script.utterances),
-              "its utterances are still there for the TTS run")
-        off = real.replace("    nbn-kaplan:\n        active: true\n",
-                           "    nbn-kaplan:\n        active: false\n", 1)
-        (tmp / "off.yml").write_text(off, encoding="utf-8")
-        for what, text in (
-            ("a scene with no active:",
-             real.replace("    nbn-valet:\n        active: true\n", "    nbn-valet:\n", 1)),
-            ("active: that is not true/false",
-             real.replace("    nbn-valet:\n        active: true\n",
-                          "    nbn-valet:\n        active: yes please\n", 1)),
-            ("an active after: scene following an inactive one", off),
-            ("a scene named in two after:s",
-             real.replace("\nscenes:\n", "\nscenes:\n"
-                          "    twin:\n"
-                          "        active: false\n"
-                          "        after: nbn-kaplan\n"
-                          "        calling:\n"
-                          "            line: room403\n"
-                          "            person: thornhill\n"
-                          "        request:\n"
-                          "            id: 1\n"
-                          "            text: Operator, who was that?\n", 1)),
-            ("mode: that is not concurrent",
-             real.replace("    nbn-trace:\n        active: true\n",
-                          "    nbn-trace:\n        active: true\n        mode: soon\n", 1)),
-            ("mode: concurrent on a scene with no after:",
-             real.replace("    nbn-valet:\n        active: true\n",
-                          "    nbn-valet:\n        active: true\n        mode: concurrent\n", 1)),
-            ("live: on a scene that does not start a scenario",
-             real.replace("    nbn-valet:\n        active: true\n",
-                          "    nbn-valet:\n        active: true\n        live: 3\n", 1)),
-            ("live: of no calls",
-             real.replace("        after_handled: 10\n        live: 3\n",
-                          "        after_handled: 10\n        live: 0\n", 1)),
-            ("follows: on an after: scene",
-             real.replace("    nbn-trace:\n        active: true\n",
-                          "    nbn-trace:\n        active: true\n        follows: [pike-demo]\n", 1)),
-            ("follows: naming no scene",
-             real.replace("        follows: [nbn-kaplan]\n", "        follows: [nbn-nobody]\n", 1)),
-            ("follows: in a loop",
-             real.replace("    nbn-kaplan:\n        active: true\n",
-                          "    nbn-kaplan:\n        active: true\n        follows: [nbn-valet]\n", 1)),
-            ("follows: naming itself",
-             real.replace("        follows: [nbn-kaplan]\n", "        follows: [nbn-valet]\n", 1)),
-            ("a delay: range upside down",
-             real.replace("    nbn-trace:\n        active: true\n",
-                          "    nbn-trace:\n        active: true\n        delay: [5, 2]\n", 1)
-                 .replace("        delay: 2\n", "", 1)),
-            ("after_handled: on an after: scene",
-             real.replace("    nbn-trace:\n        active: true\n",
-                          "    nbn-trace:\n        active: true\n        after_handled: 3\n", 1)),
-            ("if_busy: on a call to the operator",
-             real.replace("    crane-wakeup:\n        active: true\n",
-                          "    crane-wakeup:\n        active: true\n"
-                          "        if_busy:\n            -   id: 9\n                caller: Oh.\n", 1)),
-            ("an if_busy: line said by the called party",
-             real.replace("    martha-squirrel:\n        active: true\n",
-                          "    martha-squirrel:\n        active: true\n"
-                          "        if_busy:\n            -   id: 9\n                called: Oh.\n", 1)),
-            ("a loop of after:s",
-             real.replace("    nbn-kaplan:\n        active: true\n",
-                          "    nbn-kaplan:\n        active: true\n        after: nbn-trace\n", 1)),
-        ):
-            (tmp / "bad.yml").write_text(text, encoding="utf-8")
-            try:
-                load(tmp / "bad.yml")
-                check(False, f"rejects {what}")
-            except ScriptError as e:
-                check(True, f"rejects {what}")
-                print(f"        {e.failures[0]}")
-        off2 = off.replace("    nbn-trace:\n        active: true\n",
-                           "    nbn-trace:\n        active: false\n", 1)
-        (tmp / "off2.yml").write_text(off2, encoding="utf-8")
-        gs = build(tmp / "off2.yml", "../wav")
-        check("nbn-kaplan" not in gs.scenes and not gs.followers("nbn-kaplan"),
-              "a scene and its after: both inactive: neither is played")
+async def test_jacks_and_script_checks(tmp_path):
+    tmp = tmp_path
+    real = SCRIPT.read_text(encoding="utf-8")
+    # Jack 7 is taken out and put back first, labelled and uncabled.
+    spare = re.sub(r"\n    -   jack: 7\n(        \w+:.*\n)*", "\n", real, count=1)
+    spare = spare.replace("\njacks:\n", '\njacks:\n    -   jack: 7\n        label: "Garage"\n', 1)
+    (tmp / "spare.yml").write_text(spare, encoding="utf-8")
+    gs = build(tmp / "spare.yml", WAV)
+    j7 = next(j for j in gs.jacks if j.kind == "station" and j.number == 7)
+    assert j7.label == "Garage" and j7.circuit == "", f"jack 7 is labelled and uncabled: {j7.label!r} {j7.circuit!r}"
+    for what, text in (
+        ("a station on no jack",
+         real.replace("        station: room404\n", "", 1)),
+        ("a station on two jacks",
+         spare.replace('label: "Garage"\n', 'label: "Garage"\n        station: lobby\n', 1)),
+        ("a jack listed twice",
+         spare.replace("jack: 7\n", "jack: 21\n", 1)),
+        ("a jack with no label",
+         spare.replace('        label: "Garage"\n', "", 1)),
+        ("a jack with an empty guest:",
+         spare.replace('label: "Garage"\n', 'label: "Garage"\n        guest: ""\n', 1)),
+        ("a jack naming no station",
+         spare.replace('label: "Garage"\n', 'label: "Garage"\n        station: attic\n', 1)),
+        ("wait: in a call to the operator",
+         real.replace("                caller: Thank you. Room 404.\n",
+                      "                caller: Thank you. Room 404.\n"
+                      "                wait: true\n", 1)),
+        ("a line whose person: is not in the cast",
+         real.replace("                called: Valet service.\n",
+                      "                called: Valet service.\n"
+                      "                person: nobody\n", 1)),
+        ("ringback: on a station's line",
+         real.replace("                caller: Yes, fast.\n",
+                      "                caller: Yes, fast.\n"
+                      "                ringback: 5\n", 1)),
+        ("ringback: in a call between stations",
+         real.replace("                called: Valet service.\n",
+                      "                called: Valet service.\n"
+                      "                ringback: 5\n", 1)),
+        ("a pause: that is not a number of seconds",
+         real.replace("                called: Valet service.\n",
+                      "                called: Valet service.\n"
+                      "                pause: a while\n", 1)),
+        ("the old switchboard: key on a station",
+         real.replace("        number: 2\n", "        number: 2\n        switchboard: 22\n", 1)),
+        ("operator: where the game does not wait for her (§6.3)",
+         real.replace("                caller: Yes, fast.\n",
+                      "                caller: Yes, fast.\n"
+                      "                operator: busy\n", 1)),
+        ("operator: naming no line under operator_lines:",
+         real.replace("            operator: internal-greeting\n",
+                      "            operator: good-morning\n", 1)),
+        ("an inline operator: line taking an id the scene uses",
+         real.replace("                    id: 5\n                    text: Three cents, sir.\n",
+                      "                    id: 2\n                    text: Three cents, sir.\n", 1)),
+        ("closing: in a call the operator is off the line at the end of",
+         real.replace("    nbn-valet:\n        active: true\n",
+                      "    nbn-valet:\n        active: true\n        closing: busy\n", 1)),
+        ("operator_lines: with no hotel_operator in the cast",
+         real.replace("    hotel_operator:\n", "    hotel_operator_gone:\n", 1)),
+    ):
+        (tmp / "bad.yml").write_text(text, encoding="utf-8")
+        rejected(tmp / "bad.yml", what)
 
-        chain = real.replace("\nscenes:\n", "\nscenes:\n"
-                             "    third:\n"
-                             "        active: false\n"
-                             "        after: nbn-trace\n"
-                             "        calling:\n"
-                             "            line: room403\n"
-                             "            person: thornhill\n"
-                             "        request:\n"
-                             "            id: 1\n"
-                             "            text: Operator, get me the police.\n", 1)
-        (tmp / "chain.yml").write_text(chain, encoding="utf-8")
-        try:
-            load(tmp / "chain.yml")
-            check(True, "accepts a chain of three after:s (Rev 19)")
-        except ScriptError as e:
-            check(False, f"accepts a chain of three after:s (Rev 19): {e.failures}")
+    gs = build(SCRIPT, WAV)
+    assert (all(u.by != "operator" for sc in gs.scenes.values()
+              for u in (sc.request, *sc.conversation))), "the operator's own lines are never played (§6.3)"
+    assert (gs.script.by_name()[gs.script.scene_lines("dobbs-stamp")[1].operator].text
+          == "Three cents, sir."), "an inline operator: line is found by name"
+    assert gs.script.by_name()[gs.script.closings["nbn-trace"]].text.startswith("That call was from the lobby"), "a closing: line is found by its scene"
 
-        busy = real.replace("    martha-squirrel:\n        active: true\n",
-                            "    martha-squirrel:\n        active: true\n"
-                            "        if_busy:\n            -   id: 9\n                caller: Busy? Grr.\n"
-                            "                operator: busy\n", 1)
-        (tmp / "busy.yml").write_text(busy, encoding="utf-8")
-        try:
-            sc = load(tmp / "busy.yml")
-            names = [u.name for u in sc.scene_lines("martha-squirrel")]
-            ib = sc.busy_lines("martha-squirrel")
-            check("martha-squirrel.9" not in names and [u.name for u in ib] == ["martha-squirrel.9"]
-                  and ib[0].after_operator and ib[0].operator == "operator.4",
-                  "if_busy: lines kept out of the conversation, waiting on her (§6.6)")
-        except ScriptError as e:
-            check(False, f"accepts if_busy: {e.failures}")
 
-        print("\n== page commands: clamps and refusals (§13.2)")
-        await g.on_command("gap", "700")
-        check(link.state_v.get("game/gap") == "600", f"gap clamped to 600, got {link.state_v.get('game/gap')}")
-        check("clamped" in link.state_v.get("game/error", ""), "and said so on game/error")
-        await g.on_command("gap", "10")
-        await g.on_command("floor", "99")
-        check(link.state_v.get("game/floor") == "10", "floor is held to gap")
-        await g.on_command("pace", "sideways")
-        check("not tutor, manual, auto or listen" in link.state_v.get("game/error", ""),
-              "a bad pace is refused, not clamped")
-        await g.on_command("run", "maybe")
-        check("not on or off" in link.state_v.get("game/error", ""), "a bad run is refused")
-        await g.on_command("next", "")
-        check("no game" in link.state_v.get("game/error", ""),
-              "next with no game running is refused")
-        check(link.state_v.get("game/jitter") == "30", "jitter published at birth, 30")
-        await g.on_command("jitter", "150")
-        check(link.state_v.get("game/jitter") == "100", "jitter clamped to 100")
-        await g.on_command("jitter", "30")
-        check(link.state_v.get("game/jitter") == "30", "jitter 30 applied and echoed")
-        await sess.close()
+async def test_active_and_after_checks(tmp_path):
+    tmp = tmp_path
+    real = SCRIPT.read_text(encoding="utf-8")
+    new = real.replace("\nscenes:\n", "\nscenes:\n"
+                       "    unrendered:\n"
+                       "        active: false\n"
+                       "        calling:\n"
+                       "            line: lobby\n"
+                       "            person: thornhill\n"
+                       "        request:\n"
+                       "            id: 1\n"
+                       "            text: Operator, is anyone there?\n", 1)
+    (tmp / "new.yml").write_text(new, encoding="utf-8")
+    gs = build(tmp / "new.yml", WAV)
+    assert "unrendered" in gs.script.scenes and "unrendered" not in gs.scenes, "loaded, but left out of the game's scenes"
+    assert "unrendered" not in gs.deck_scenes(), "and out of the deck"
+    assert any(u.scene == "unrendered" for u in gs.script.utterances), "its utterances are still there for the TTS run"
+    off = real.replace("    nbn-kaplan:\n        active: true\n",
+                       "    nbn-kaplan:\n        active: false\n", 1)
+    (tmp / "off.yml").write_text(off, encoding="utf-8")
+    for what, text in (
+        ("a scene with no active:",
+         real.replace("    nbn-valet:\n        active: true\n", "    nbn-valet:\n", 1)),
+        ("active: that is not true/false",
+         real.replace("    nbn-valet:\n        active: true\n",
+                      "    nbn-valet:\n        active: yes please\n", 1)),
+        ("an active after: scene following an inactive one", off),
+        ("a scene named in two after:s",
+         real.replace("\nscenes:\n", "\nscenes:\n"
+                      "    twin:\n"
+                      "        active: false\n"
+                      "        after: nbn-kaplan\n"
+                      "        calling:\n"
+                      "            line: room403\n"
+                      "            person: thornhill\n"
+                      "        request:\n"
+                      "            id: 1\n"
+                      "            text: Operator, who was that?\n", 1)),
+        ("mode: that is not concurrent",
+         real.replace("    nbn-trace:\n        active: true\n",
+                      "    nbn-trace:\n        active: true\n        mode: soon\n", 1)),
+        ("mode: concurrent on a scene with no after:",
+         real.replace("    nbn-valet:\n        active: true\n",
+                      "    nbn-valet:\n        active: true\n        mode: concurrent\n", 1)),
+        ("live: on a scene that does not start a scenario",
+         real.replace("    nbn-valet:\n        active: true\n",
+                      "    nbn-valet:\n        active: true\n        live: 3\n", 1)),
+        ("live: of no calls",
+         real.replace("        after_handled: 10\n        live: 3\n",
+                      "        after_handled: 10\n        live: 0\n", 1)),
+        ("follows: on an after: scene",
+         real.replace("    nbn-trace:\n        active: true\n",
+                      "    nbn-trace:\n        active: true\n        follows: [pike-demo]\n", 1)),
+        ("follows: naming no scene",
+         real.replace("        follows: [nbn-kaplan]\n", "        follows: [nbn-nobody]\n", 1)),
+        ("follows: in a loop",
+         real.replace("    nbn-kaplan:\n        active: true\n",
+                      "    nbn-kaplan:\n        active: true\n        follows: [nbn-valet]\n", 1)),
+        ("follows: naming itself",
+         real.replace("        follows: [nbn-kaplan]\n", "        follows: [nbn-valet]\n", 1)),
+        ("a delay: range upside down",
+         real.replace("    nbn-trace:\n        active: true\n",
+                      "    nbn-trace:\n        active: true\n        delay: [5, 2]\n", 1)
+             .replace("        delay: 2\n", "", 1)),
+        ("after_handled: on an after: scene",
+         real.replace("    nbn-trace:\n        active: true\n",
+                      "    nbn-trace:\n        active: true\n        after_handled: 3\n", 1)),
+        ("if_busy: on a call to the operator",
+         real.replace("    crane-wakeup:\n        active: true\n",
+                      "    crane-wakeup:\n        active: true\n"
+                      "        if_busy:\n            -   id: 9\n                caller: Oh.\n", 1)),
+        ("an if_busy: line said by the called party",
+         real.replace("    martha-squirrel:\n        active: true\n",
+                      "    martha-squirrel:\n        active: true\n"
+                      "        if_busy:\n            -   id: 9\n                called: Oh.\n", 1)),
+        ("a loop of after:s",
+         real.replace("    nbn-kaplan:\n        active: true\n",
+                      "    nbn-kaplan:\n        active: true\n        after: nbn-trace\n", 1)),
+    ):
+        (tmp / "bad.yml").write_text(text, encoding="utf-8")
+        rejected(tmp / "bad.yml", what)
+    off2 = off.replace("    nbn-trace:\n        active: true\n",
+                       "    nbn-trace:\n        active: false\n", 1)
+    (tmp / "off2.yml").write_text(off2, encoding="utf-8")
+    gs = build(tmp / "off2.yml", WAV)
+    assert "nbn-kaplan" not in gs.scenes and not gs.followers("nbn-kaplan"), "a scene and its after: both inactive: neither is played"
 
-        print("\n== jitter: the spread of the automatic wait (§5.4)")
-        p = Pacing(pace="auto", gap=20, ramp=0, floor=5, jitter=0)
-        p.seed(1)
-        check({p.wait() for _ in range(50)} == {20.0}, "jitter 0 is the fixed wait")
-        p.jitter = 50
-        ws = [p.wait() for _ in range(4000)]
-        check(min(ws) >= 10 and max(ws) <= 30, f"50% of 20 stays in 10-30: {min(ws):.1f}-{max(ws):.1f}")
-        mean = sum(ws) / len(ws)
-        check(abs(mean - 20) < 0.5, f"and its mean is still gap_now: {mean:.2f}")
-        p.jitter = 100
-        check(min(p.wait() for _ in range(4000)) >= 0, "100% never goes below zero")
-        p.gap, p.ramp, p.floor, p.jitter, p.connected = 30, 5, 8, 50, 10
-        ws = [p.wait() for _ in range(4000)]
-        check(min(ws) >= 4 and max(ws) <= 12 and min(ws) < 8,
-              f"the floor bounds the centre, not the draw: {min(ws):.1f}-{max(ws):.1f}")
-        a, b = Pacing(jitter=40), Pacing(jitter=40)
-        a.seed(7); b.seed(7)
-        check([a.wait() for _ in range(20)] == [b.wait() for _ in range(20)],
-              "the same seed draws the same waits (replay)")
-        a.pace = "auto"
-        at = a.schedule(1000.0)
-        check(at is not None and 12 <= at - 1000.0 <= 28, f"schedule() uses the draw: {at - 1000.0:.1f}s")
+    chain = real.replace("\nscenes:\n", "\nscenes:\n"
+                         "    third:\n"
+                         "        active: false\n"
+                         "        after: nbn-trace\n"
+                         "        calling:\n"
+                         "            line: room403\n"
+                         "            person: thornhill\n"
+                         "        request:\n"
+                         "            id: 1\n"
+                         "            text: Operator, get me the police.\n", 1)
+    (tmp / "chain.yml").write_text(chain, encoding="utf-8")
+    load(tmp / "chain.yml")              # a chain of three after:s is accepted
 
-        print("\n== the circuits fitted (§12.2, Rev 25)")
-        full = build("../script.yml", "../wav")
-        small, left = fit(full, stations=5, trunks=0)
-        check(all(all(n is None or n <= 5 for n in (s.from_station, s.to_station))
-                  for s in small.scenes.values()), "no scene keeps a station above 5")
-        check(not any(needs_trunk(s) for s in small.scenes.values()),
-              "no scene keeps a trunk when none is fitted")
-        check(all(not s.after or s.after in small.scenes for s in small.scenes.values()),
-              "no after: scene is left whose scene was left out")
-        check(len(small.scenes) + len(left) == len(full.scenes),
-              f"every scene is kept or named: {len(small.scenes)} + {len(left)}")
-        same, none = fit(full)
-        check(len(same.scenes) == len(full.scenes) and not none, "the defaults keep everything")
-        b, link, g, sess = await build_game(tmp, stations=5, trunks=2)
-        check(link.state_v.get("game/stations") == "5" and link.state_v.get("game/trunks") == "2",
-              "stations and trunks published at birth")
-        check(g._free_trunk() in (1, 2), "a trunk is picked from the fitted ones")
-        await b.update("trunk/1/seize", "on")
-        await b.update("trunk/1/seize", "off")         # a station hung up, cord left in
-        check(g._free_trunk() == 2, "the trunk just released is passed over (Rev 85)")
-        await b.update("trunk/2/seize", "on")
-        await b.update("trunk/2/seize", "off")
-        check(g._free_trunk() == 1, "and the one released longest ago is taken")
+    busy = real.replace("    martha-squirrel:\n        active: true\n",
+                        "    martha-squirrel:\n        active: true\n"
+                        "        if_busy:\n            -   id: 9\n                caller: Busy? Grr.\n"
+                        "                operator: busy\n", 1)
+    (tmp / "busy.yml").write_text(busy, encoding="utf-8")
+    sc = load(tmp / "busy.yml")
+    names = [u.name for u in sc.scene_lines("martha-squirrel")]
+    ib = sc.busy_lines("martha-squirrel")
+    assert ("martha-squirrel.9" not in names and [u.name for u in ib] == ["martha-squirrel.9"]
+            and ib[0].after_operator and ib[0].operator == "operator.4"), \
+        "if_busy: lines kept out of the conversation, waiting on her (§6.6)"
 
-        print("\n== trunks out of service (§12.2, Rev 36)")
-        oos = {"trunks": {"6": "jack 6's lamp does not latch", "8": "lamp out"}}
-        cfg = Config(out_of_service=oos)
-        cfg.check()
-        check(cfg.working_trunks() == [1, 2, 3, 4, 5, 7], f"working trunks: {cfg.working_trunks()}")
-        for bad_oos in ({"trunks": {"9": "x"}}, {"trunks": {"6": ""}}, {"stations": {"23": "x"}},
-                        {"stations": {"1": ""}}, {"rooms": {"1": "x"}}):
-            try:
-                Config(out_of_service=bad_oos).check()
-                check(False, f"refused {bad_oos}")
-            except ValueError:
-                check(True, f"refused {bad_oos}")
-        b2, _, g2, sess2 = await build_game(tmp / "oos" if (tmp / "oos").mkdir() is None else tmp,
-                                            out_of_service=oos)
-        for n in (1, 2, 3, 4, 5, 7):
-            await b2.update(f"trunk/{n}/seize", "on")
-        check(g2._free_trunk() is None, "with every working trunk busy, 6 and 8 are not offered")
-        await b2.update("trunk/7/seize", "off")
-        check(g2._free_trunk() == 7, "and a working one is offered when it comes free")
-        await sess2.close()
 
-        print("\n== station 24, the real telephone (§12.2, Rev 73)")
-        check(fitted_stations(22) == list(range(1, 23)) + [24], "fitted with board 3, at 22 stations")
-        check(fitted_stations(21) == list(range(1, 22)), "and not below it")
-        j18 = next(j for j in full.jacks if j.kind == "station" and j.number == 18)
-        check(j18.circuit == "station/24", f"cabled to jack 18: {j18.circuit!r}")
+async def test_page_commands_clamp_and_refuse(tmp_path):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp)
+    await g.on_command("gap", "700")
+    assert link.state_v.get("game/gap") == "600", f"gap clamped to 600, got {link.state_v.get('game/gap')}"
+    assert "clamped" in link.state_v.get("game/error", ""), "and said so on game/error"
+    await g.on_command("gap", "10")
+    await g.on_command("floor", "99")
+    assert link.state_v.get("game/floor") == "10", "floor is held to gap"
+    await g.on_command("pace", "sideways")
+    assert "not tutor, manual, auto or listen" in link.state_v.get("game/error", ""), "a bad pace is refused, not clamped"
+    await g.on_command("run", "maybe")
+    assert "not on or off" in link.state_v.get("game/error", ""), "a bad run is refused"
+    await g.on_command("next", "")
+    assert "no game" in link.state_v.get("game/error", ""), "next with no game running is refused"
+    assert link.state_v.get("game/jitter") == "30", "jitter published at birth, 30"
+    await g.on_command("jitter", "150")
+    assert link.state_v.get("game/jitter") == "100", "jitter clamped to 100"
+    await g.on_command("jitter", "30")
+    assert link.state_v.get("game/jitter") == "30", "jitter 30 applied and echoed"
+    await sess.close()
 
-        print("\n== stations out of service (§12.2, Rev 43)")
-        so = {"stations": {"1": "top row dead", "9": "top row dead"}}
-        cfg = Config(out_of_service=so)
-        cfg.check()
-        check(cfg.stations_out() == {1, 9}, f"stations out: {sorted(cfg.stations_out())}")
-        kept, left = fit(full, out=cfg.stations_out())
-        uses = lambda sc: {sc.from_station, sc.to_station} & {1, 9}
-        check(not any(uses(sc) for sc in kept.scenes.values()),
-              "no kept scene calls from or to station 1 or 9")
-        check(any("out of service" in w for w in left), "and each left out says why")
-        check(all(not (sc.after and sc.after not in kept.scenes) for sc in kept.scenes.values()),
-              "no kept after: scene follows one left out")
-        check(all(i in kept.scenes for grp in kept.lessons for i in grp),
-              "every tutor lesson left is a kept scene")
 
-        print("\n== back to tutor when stopped (§7, Rev 44)")
-        b3, link3, g3, sess3 = await build_game(tmp / "idle" if (tmp / "idle").mkdir() is None else tmp,
-                                                pace="manual", idle_tutor=0.2)
-        await asyncio.sleep(0.4)
-        check(link3.state_v.get("game/pace") == "tutor", "stopped at start-up: tutor after the wait")
-        await g3.on_command("pace", "auto")
-        await asyncio.sleep(0.1)
-        await g3.on_command("pace", "listen")               # starts the wait over
-        await asyncio.sleep(0.15)
-        check(link3.state_v.get("game/pace") == "listen", "a fresh choice starts the wait over")
-        await asyncio.sleep(0.2)
-        check(link3.state_v.get("game/pace") == "tutor", "and then it returns to tutor")
-        await g3.on_command("pace", "manual")
-        await g3.start()
-        await asyncio.sleep(0.4)
-        check(link3.state_v.get("game/pace") == "manual", "never while a game runs")
-        await g3.stop("stop")
-        await asyncio.sleep(0.4)
-        check(link3.state_v.get("game/pace") == "tutor", "and from the stop")
-        await sess3.close()
+def test_jitter():
+    p = Pacing(pace="auto", gap=20, ramp=0, floor=5, jitter=0)
+    p.seed(1)
+    assert {p.wait() for _ in range(50)} == {20.0}, "jitter 0 is the fixed wait"
+    p.jitter = 50
+    ws = [p.wait() for _ in range(4000)]
+    assert min(ws) >= 10 and max(ws) <= 30, f"50% of 20 stays in 10-30: {min(ws):.1f}-{max(ws):.1f}"
+    mean = sum(ws) / len(ws)
+    assert abs(mean - 20) < 0.5, f"and its mean is still gap_now: {mean:.2f}"
+    p.jitter = 100
+    assert min(p.wait() for _ in range(4000)) >= 0, "100% never goes below zero"
+    p.gap, p.ramp, p.floor, p.jitter, p.connected = 30, 5, 8, 50, 10
+    ws = [p.wait() for _ in range(4000)]
+    assert min(ws) >= 4 and max(ws) <= 12 and min(ws) < 8, f"the floor bounds the centre, not the draw: {min(ws):.1f}-{max(ws):.1f}"
+    a, b = Pacing(jitter=40), Pacing(jitter=40)
+    a.seed(7); b.seed(7)
+    assert [a.wait() for _ in range(20)] == [b.wait() for _ in range(20)], "the same seed draws the same waits (replay)"
+    a.pace = "auto"
+    at = a.schedule(1000.0)
+    assert at is not None and 12 <= at - 1000.0 <= 28, f"schedule() uses the draw: {at - 1000.0:.1f}s"
 
-        print("\n== diagnostics (§11.4, Rev 25)")
-        check(link.state_v.get("game/diag/station/3/tone") == "off"
-              and link.state_v.get("game/diag/tap/voice") == "off", "every test off at birth")
-        link.sent.clear()
-        await g.on_command("diag/station/3/hook", "on")
-        check(("station/3/hook/set", "on") in link.sent, "hook takes the station off-hook")
-        check(link.state_v.get("game/diag/station/3/hook") == "on", "and echoes on")
-        await g.on_command("diag/station/3/tone", "on")
-        check(("audio/test/3/set", "on") in link.sent, "tone is the test tone on output 3")
-        await g.on_command("diag/station/3/voice", "on")
+
+async def test_circuits_fitted(tmp_path):
+    tmp = tmp_path
+    full = build(SCRIPT, WAV)
+    small, left = fit(full, stations=5, trunks=0)
+    assert (all(all(n is None or n <= 5 for n in (s.from_station, s.to_station))
+              for s in small.scenes.values())), "no scene keeps a station above 5"
+    assert not any(needs_trunk(s) for s in small.scenes.values()), "no scene keeps a trunk when none is fitted"
+    assert all(not s.after or s.after in small.scenes for s in small.scenes.values()), "no after: scene is left whose scene was left out"
+    assert len(small.scenes) + len(left) == len(full.scenes), f"every scene is kept or named: {len(small.scenes)} + {len(left)}"
+    same, none = fit(full)
+    assert len(same.scenes) == len(full.scenes) and not none, "the defaults keep everything"
+    b, link, g, sess = await build_game(tmp, stations=5, trunks=2)
+    assert link.state_v.get("game/stations") == "5" and link.state_v.get("game/trunks") == "2", "stations and trunks published at birth"
+    assert g._free_trunk() in (1, 2), "a trunk is picked from the fitted ones"
+    await b.update("trunk/1/seize", "on")
+    await b.update("trunk/1/seize", "off")         # a station hung up, cord left in
+    assert g._free_trunk() == 2, "the trunk just released is passed over"
+    await b.update("trunk/2/seize", "on")
+    await b.update("trunk/2/seize", "off")
+    assert g._free_trunk() == 1, "and the one released longest ago is taken"
+
+
+async def test_trunks_out_of_service(tmp_path):
+    tmp = tmp_path
+    oos = {"trunks": {"6": "jack 6's lamp does not latch", "8": "lamp out"}}
+    cfg = Config(out_of_service=oos)
+    cfg.check()
+    assert cfg.working_trunks() == [1, 2, 3, 4, 5, 7], f"working trunks: {cfg.working_trunks()}"
+    for bad_oos in ({"trunks": {"9": "x"}}, {"trunks": {"6": ""}}, {"stations": {"23": "x"}},
+                    {"stations": {"1": ""}}, {"rooms": {"1": "x"}}):
+        with pytest.raises(ValueError):
+            Config(out_of_service=bad_oos).check()
+    b2, _, g2, sess2 = await build_game(tmp, out_of_service=oos)
+    for n in (1, 2, 3, 4, 5, 7):
+        await b2.update(f"trunk/{n}/seize", "on")
+    assert g2._free_trunk() is None, "with every working trunk busy, 6 and 8 are not offered"
+    await b2.update("trunk/7/seize", "off")
+    assert g2._free_trunk() == 7, "and a working one is offered when it comes free"
+    await sess2.close()
+
+
+def test_station_24_the_real_telephone():
+    full = build(SCRIPT, WAV)
+    assert fitted_stations(22) == list(range(1, 23)) + [24], "fitted with board 3, at 22 stations"
+    assert fitted_stations(21) == list(range(1, 22)), "and not below it"
+    j18 = next(j for j in full.jacks if j.kind == "station" and j.number == 18)
+    assert j18.circuit == "station/24", f"cabled to jack 18: {j18.circuit!r}"
+
+
+def test_stations_out_of_service():
+    full = build(SCRIPT, WAV)
+    so = {"stations": {"1": "top row dead", "9": "top row dead"}}
+    cfg = Config(out_of_service=so)
+    cfg.check()
+    assert cfg.stations_out() == {1, 9}, f"stations out: {sorted(cfg.stations_out())}"
+    kept, left = fit(full, out=cfg.stations_out())
+    uses = lambda sc: {sc.from_station, sc.to_station} & {1, 9}
+    assert not any(uses(sc) for sc in kept.scenes.values()), "no kept scene calls from or to station 1 or 9"
+    assert any("out of service" in w for w in left), "and each left out says why"
+    assert all(not (sc.after and sc.after not in kept.scenes) for sc in kept.scenes.values()), "no kept after: scene follows one left out"
+    assert all(i in kept.scenes for grp in kept.lessons for i in grp), "every tutor lesson left is a kept scene"
+
+
+async def test_back_to_tutor_when_stopped(tmp_path):
+    tmp = tmp_path
+    b3, link3, g3, sess3 = await build_game(tmp, pace="manual", idle_tutor=0.2)
+    await asyncio.sleep(0.4)
+    assert link3.state_v.get("game/pace") == "tutor", "stopped at start-up: tutor after the wait"
+    await g3.on_command("pace", "auto")
+    await asyncio.sleep(0.1)
+    await g3.on_command("pace", "listen")               # starts the wait over
+    await asyncio.sleep(0.15)
+    assert link3.state_v.get("game/pace") == "listen", "a fresh choice starts the wait over"
+    await asyncio.sleep(0.2)
+    assert link3.state_v.get("game/pace") == "tutor", "and then it returns to tutor"
+    await g3.on_command("pace", "manual")
+    await g3.start()
+    await asyncio.sleep(0.4)
+    assert link3.state_v.get("game/pace") == "manual", "never while a game runs"
+    await g3.stop("stop")
+    await asyncio.sleep(0.4)
+    assert link3.state_v.get("game/pace") == "tutor", "and from the stop"
+    await sess3.close()
+
+
+async def test_diagnostics(tmp_path):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp, stations=5, trunks=2)
+    assert (link.state_v.get("game/diag/station/3/tone") == "off"
+          and link.state_v.get("game/diag/tap/voice") == "off"), "every test off at birth"
+    link.sent.clear()
+    await g.on_command("diag/station/3/hook", "on")
+    assert ("station/3/hook/set", "on") in link.sent, "hook takes the station off-hook"
+    assert link.state_v.get("game/diag/station/3/hook") == "on", "and echoes on"
+    await g.on_command("diag/station/3/tone", "on")
+    assert ("audio/test/3/set", "on") in link.sent, "tone is the test tone on output 3"
+    await g.on_command("diag/station/3/voice", "on")
+    await asyncio.sleep(D)
+    assert (link.state_v.get("game/diag/station/3/tone") == "off"
+          and ("audio/test/3/set", "off") in link.sent), "voice ends tone (§11.4)"
+    assert any(k == "station/3/play/set" and v != "stop" for k, v in link.sent), "voice plays a file on the station"
+    await g.on_command("diag/trunk/2/tone", "on")
+    assert ("audio/test/26/set", "on") in link.sent, "a trunk's tone is on output 24 + n"
+    await g.on_command("diag/tap/voice", "on")
+    await asyncio.sleep(D)
+    assert any(k == "audio/tap/play/set" and v != "stop" for k, v in link.sent), "voice on the tap plays through audio/tap/play/set"
+    await g.on_command("diag/station/4/monitor", "on")
+    assert ("audio/monitor/source/set", "station/4") in link.sent, "monitor moves the loudspeaker"
+    i = link.sent.index(("audio/monitor/source/set", "station/4"))
+    assert link.sent[i - 1] == ("audio/monitor/peer/set", "auto"), "the peer boost to its measurement just before"
+    await g.on_command("diag/tap/monitor", "on")
+    assert link.state_v.get("game/diag/station/4/monitor") == "off", "one monitor test at a time"
+    link.sent.clear()
+    await g.on_command("diag/tap/monitor", "off")
+    assert ("audio/monitor/source/set", "tap") in link.sent, "ending it returns to the tap"
+    await g.on_command("diag/station/5/monitor", "on")
+    await g.monitor("station/1")                   # the game moves it: an answer
+    assert link.state_v.get("game/diag/station/5/monitor") == "off", "the game moving the loudspeaker ends a monitor test (§9.1)"
+    await g.on_command("diag/station/9/tone", "on")
+    assert "not a circuit fitted" in link.state_v.get("game/error", ""), "a station beyond the fitted is refused"
+    await g.on_command("diag/station/3/ring", "on")
+    assert "no 'ring' test" in link.state_v.get("game/error", ""), "ring is a trunk's test"
+    await g.on_command("diag/trunk/1/ring", "on")
+    assert ("trunk/1/ring/set", "on") in link.sent, "ring rings the trunk"
+    assert g._free_trunk() is None, "a trunk under test is not picked for a call: 1 rings, 2 has its tone"
+    await b.update("trunk/1/seize", "on")
+    await asyncio.sleep(0.6)
+    assert (link.state_v.get("game/diag/trunk/1/ring") == "off"
+          and ("trunk/1/ring/set", "off") in link.sent), "a seizure ends the ring test"
+    await b.update("trunk/1/seize", "off")
+    held = g._held()
+    assert any(h.lines for h in held), "a station under test is held out of dealing"
+    link.sent.clear()
+    await g.on_command("run", "off")                # Stop with no game running
+    assert not g.diag.on, "Stop ends every test"
+    assert ("station/3/hook/set", "off") in link.sent and ("audio/tap/play/set", "stop") in link.sent, "and puts the hardware back"
+
+
+async def test_board_sweeps(tmp_path, fast_sweep, monkeypatch):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp, stations=5, trunks=2)
+    assert link.state_v.get("game/sweep") == "", "no sweep at birth"
+    order = [st for st, _ in sweep.station_order(g.gs.jacks, g.cfg.stations)]
+    jacks = {int(j.circuit.split("/")[1]): j.number for j in g.gs.jacks
+             if j.kind == "station" and j.circuit}
+    rank = lambda j: ({r: i for i, r in enumerate((3, 2, 1))}[(j - 1) // 10 + 1], j)
+    assert (sorted(order) == list(range(1, g.cfg.stations + 1))
+          and [jacks[n] for n in order] == sorted((jacks[n] for n in order), key=rank)), "stations in jack order, top row first"
+    link.sent.clear()
+    await g.on_command("sweep", "trunks")
+    assert link.state_v.get("game/sweep") == "trunks", "trunks echoed"
+    await asyncio.sleep(0.5)
+    rung = [k for k, v in link.sent if k.endswith("/shortring/set")]
+    assert rung == [f"trunk/{n}/shortring/set" for n in range(1, g.cfg.trunks + 1)], f"each trunk fitted one short ring, in order: {rung}"
+    steps = [k for k, v in link.sent if k.endswith("/shortring/set") or k == "ctl/power_cut/set"]
+    assert (steps == [s for n in range(1, g.cfg.trunks + 1)
+                    for s in (f"trunk/{n}/shortring/set", "ctl/power_cut/set")]), "the switchboard reset after each ring"
+    assert all(v == "on" for k, v in link.sent if k == "ctl/power_cut/set"), "each a 1s cut, not a hold"
+    assert link.state_v.get("game/sweep") == "", "and the sweep ends by itself"
+    assert "test trunks: done" in link.state_v.get("game/log", ""), "on the log"
+    link.sent.clear()
+    await g.on_command("sweep", "stations")
+    await asyncio.sleep(0.8)
+    hooks = [(k, v) for k, v in link.sent if k.endswith("/hook/set")]
+    want = [x for n in order for x in ((f"station/{n}/hook/set", "on"), (f"station/{n}/hook/set", "off"))]
+    assert hooks == want, "each station off-hook and back, in jack order"
+    monkeypatch.setattr(sweep, "PAUSE", 0.2)
+    link.sent.clear()
+    await g.on_command("sweep", "stations")
+    await asyncio.sleep(0.05)
+    await g.on_command("sweep", "off")
+    hooks = [(k, v) for k, v in link.sent if k.endswith("/hook/set")]
+    assert (link.state_v.get("game/sweep") == "" and hooks[-1][1] == "off"
+          and len(hooks) == 2), "off stops it, the station put back on-hook"
+    await g.on_command("sweep", "bogus")
+    assert "not trunks, stations or off" in link.state_v.get("game/error", ""), "a bad payload is refused"
+    await g.start()
+    await g.on_command("sweep", "trunks")
+    assert ("not while a game runs" in link.state_v.get("game/error", "")
+          and link.state_v.get("game/sweep") == ""), "refused while a game runs"
+    await g.stop("stop")
+    await g.on_command("sweep", "trunks")
+    await asyncio.sleep(0.05)
+    await g.start()
+    assert link.state_v.get("game/sweep") == "" and g._sweep is None, "Start ends a sweep"
+    await g.stop("stop")
+    await g.on_command("sweep", "trunks")
+    await asyncio.sleep(0.05)
+    await g.on_command("run", "off")
+    assert link.state_v.get("game/sweep") == "" and g._sweep is None, "Stop ends a sweep"
+
+
+async def test_recording_and_playback(tmp_path):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp, stations=5, trunks=2)
+    assert b.audio_up, "the audio program is up for these"
+    link.sent.clear()
+    await g.on_command("record", "on")
+    await g.on_command("record", "off")
+    assert link.sent == [("audio/record/set", "on"), ("audio/record/set", "off")], "record passed on to the audio program"
+    await g.on_command("record", "maybe")
+    assert "not on or off" in link.state_v.get("game/error", ""), "a bad record payload is refused"
+    link.sent.clear()
+    await g.on_command("playback", "2026-10-18-14-32-05")
+    assert link.sent == [("audio/playback/set", "2026-10-18-14-32-05")], "playback passed on"
+    await b.update("audio/playback", "2026-10-18-14-32-05")
+    link.sent.clear()
+    await g.start()
+    assert ("audio/playback/set", "stop") in link.sent, "Start stops a playback"
+    await b.update("audio/playback", "")
+    link.sent.clear()
+    await g.on_command("playback", "2026-10-18-14-32-05")
+    assert link.sent == [] and "not while a game runs" in link.state_v.get("game/error", ""), "refused while a game runs"
+    await g.on_command("playback", "stop")
+    assert link.sent == [("audio/playback/set", "stop")], "but stop is not"
+    await g.on_command("record", "on")
+    assert ("audio/record/set", "on") in link.sent, "a recording starts with a game running"
+    await g.stop("stop")
+    await b.update("audio/record", "2026-10-18-14-32-05")
+    link.sent.clear()
+    await g.on_command("playback", "2026-10-18-09-16-06")
+    assert link.sent == [] and "not while recording" in link.state_v.get("game/error", ""), "no playback while recording"
+    await b.update("audio/record", "off")
+    await b.update("audio/playback", "2026-10-18-09-16-06")
+    await g.on_command("record", "on")
+    assert link.sent == [] and "not while a recording plays back" in link.state_v.get("game/error", ""), "no recording while one plays back"
+    await g.on_command("record", "off")
+    assert link.sent == [("audio/record/set", "off")], "but off is always passed on"
+    await b.update("audio/playback", "")
+
+
+async def test_chosen_next_scene(tmp_path):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp, stations=5, trunks=2)
+    scenes = link.state_v.get("game/scenes", "").split("\n")
+    assert scenes == g.gs.choosable() and scenes[0], "game/scenes lists the deck's scenes and each scenario's first"
+    await g.on_command("queue", "no-such-scene")
+    assert "not a scene" in link.state_v.get("game/error", ""), "an unknown scene is refused"
+    want = scenes[-1]
+    await g.on_command("queue", want)
+    assert link.state_v.get("game/queue") == want, "the choice is echoed"
+    await g.start()
+    await g.on_command("next", "")
+    await asyncio.sleep(D * 2)
+    dealt = [c.scene for c in g.slots]
+    assert dealt == [want], f"the next call is the chosen scene: {dealt}"
+    assert link.state_v.get("game/queue") == "", "and the choice is spent"
+    await g.on_command("queue", scenes[0])
+    await g.stop("stop")
+    assert link.state_v.get("game/queue") == "", "Stop forgets a choice"
+    await sess.close()
+
+
+async def test_start_one_manual_call_stop(tmp_path):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp, pace="manual")
+    await g.start()
+    assert link.state_v.get("game/run") == "on", "run is on"
+    assert link.state_v.get("game/started") == "0", "started is 0 before any call"
+    assert ("audio/monitor/source/set", "tap") in link.sent, "the loudspeaker went to the tap at start (§9.1)"
+    sched = asyncio.create_task(g.run_scheduler())
+
+    await g.on_command("next", "")
+    await asyncio.sleep(D * 2)
+    assert link.state_v.get("game/started") == "1", "started is 1"
+    occupied = [c for c in g.slots]
+    assert len(occupied) == 1, f"one slot occupied, got {len(occupied)}"
+    call = occupied[0]
+    assert link.state_v.get(f"game/call/{call.slot}/stage") == "signalling", "it is signalling, waiting for the operator"
+    assert link.state_v.get("game/next_at") == "", "nothing scheduled while a call waits to connect (§5.2)"
+
+    await g.stop("stop")
+    assert link.state_v.get("game/run") == "off", "stopped"
+    assert link.state_v.get("game/call/1/scene") == "", "slots cleared"
+    assert link.state_v.get("game/started") == "1", "the tallies stay after Stop (§2)"
+    assert link.sent.count(("audio/monitor/source/set", "tap")) >= 2, "and the loudspeaker went back to the tap"
+    sched.cancel()
+    await sess.close()
+
+
+async def test_deck_deals_every_scene_before_repeating(tmp_path):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp, pace="manual")
+    await g.start()
+    n = len(g.gs.deck_scenes())
+    dealt = []
+    for _ in range(n):
+        sc, why = g.deck.deal([])
+        if sc:
+            dealt.append(sc.id)
+    assert len(set(dealt)) == n, f"{n} distinct scenes dealt, got {len(set(dealt))}"
+    await g.stop("stop")
+    await sess.close()
+
+
+def test_follows_deals_a_story_in_order():
+    class _G:
+        gs = build(SCRIPT, WAV)
+    g = _G
+    gs = g.gs
+    stories = {i: sc.follows for i, sc in gs.scenes.items() if sc.follows}
+    assert len(stories) == 19, f"19 scenes carry follows:, got {len(stories)}"
+    def ahead(f: str) -> str:
+        # A named after: scene is dealt as the head of its chain.
+        while gs.scenes[f].after:
+            f = gs.scenes[f].after
+        return f
+    bad_order = []
+    for seed in range(40):
+        d = Deck(gs, seed=seed)
+        order = []
+        for _ in range(len(gs.deck_scenes())):
+            sc, why = d.deal([])
+            assert sc is not None, f"seed {seed}: a scene dealt ({why})"
+            order.append(sc.id)
+        at = {sid: k for k, sid in enumerate(order)}
+        for sid, fs in stories.items():
+            for f in fs:
+                if at[ahead(f)] > at[sid]:
+                    bad_order.append((seed, sid, f))
+    assert not bad_order, f"over 40 shuffles every story in order: {bad_order[:3]}"
+    d = Deck(gs, seed=1)
+    d._cards = ["beaumont-pemberton"]
+    assert d.deal([], {"pemb-towels"})[0] is None, "waits while the chain to pemb-canary is still running"
+    assert d.deal([], {"pemb-canary"})[0] is None, "and while pemb-canary is waiting or on"
+    assert d.deal([])[0].id == "beaumont-pemberton", "and is dealt once the chain has played or been dropped"
+    d._cards = ["nbn-valet", "lindqvist-times"]
+    sc, why = d.deal([], {"nbn-kaplan"})
+    assert sc is not None and sc.id == "lindqvist-times", "a call in progress holds it back too"
+
+
+async def test_after_dropped_when_parent_never_connected(tmp_path):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp, pace="manual")
+    await g.start()
+    parent = g.gs.scenes["nbn-kaplan"]
+    from sbgame.flows import Outcome
+    call = Call(slot=1, number=1, scene=parent.id, from_line=parent.from_line,
+             to_line=parent.to_line)
+    await g.slots.open(call)
+    call.connected = False
+    await g._finish_call(call, parent, Outcome(False, "no answer"))
+    log = link.state_v.get("game/log", "")
+    assert "dropped nbn-trace" in log, f"nbn-trace dropped; log head: {log.splitlines()[0]!r}"
+    assert g.tallies.fail == 1, "counted as a failure"
+    await g.stop("stop")
+    await sess.close()
+
+
+async def test_after_scheduled_when_parent_connected(tmp_path):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp, pace="manual")
+    await g.start()
+    parent = g.gs.scenes["nbn-kaplan"]
+    call = Call(slot=1, number=1, scene=parent.id, from_line=parent.from_line,
+             to_line=parent.to_line)
+    await g.slots.open(call)
+    call.connected = True
+    await g._finish_call(call, parent, Outcome(True))
+    await asyncio.sleep(D)      # the after: timer logs its own line from its task
+    assert "nbn-trace follows in 2s" in link.state_v.get("game/log", ""), "nbn-trace scheduled with its delay"
+    assert "nbn-trace" in g._pending_after, "and its lines are held meanwhile"
+    assert g.tallies.success == 1, "counted as a success"
+    await g.stop("stop")
+    assert not g._afters, "Stop dropped the waiting after: scene"
+    await sess.close()
+
+
+async def test_reorder_on_a_trunk_after_its_call(tmp_path, monkeypatch):
+    tmp = tmp_path
+    monkeypatch.setattr(game_mod, "REORDER_AFTER", D * 3)
+    b, link, g, sess = await build_game(tmp, pace="manual")
+    await g.start()
+    out = next(sc for sc in g.gs.scenes.values() if sc.to_station is None and sc.from_station
+               and not sc.busy and sc.dial and not sc.after)
+    await b.update("trunk/4/seize", "on")
+    call = Call(slot=1, number=1, scene=out.id, from_line=out.from_line, to_line=out.to_line)
+    call.trunk = "trunk/4"
+    await g.slots.open(call)
+    call.connected = True
+    link.sent.clear()
+    await g._finish_call(call, out, Outcome(True))
+    await asyncio.sleep(D)
+    assert ("trunk/4/tone/set", "reorder") not in link.sent, "not at once"
+    await asyncio.sleep(D * 4)
+    assert ("trunk/4/tone/set", "reorder") in link.sent, "reorder once the wait is up"
+    link.sent.clear()
+    await b.update("trunk/4/peer", "station/2")         # that cord now on a new caller
+    await asyncio.sleep(D * 2)
+    assert ("trunk/4/tone/set", "off") in link.sent, "quiet while patched to a line"
+    link.sent.clear()
+    await b.update("trunk/4/peer", "")
+    await asyncio.sleep(HOLD + D * 2)            # an empty peer is held first
+    assert ("trunk/4/tone/set", "reorder") in link.sent, "and back when patched to nobody"
+    await b.update("trunk/4/seize", "off")
+    await asyncio.sleep(D * 2)
+    assert ("trunk/4/tone/set", "off") in link.sent and 4 not in g._tails, "off when she takes the cord down"
+
+    await b.update("trunk/4/seize", "on")
+    call = Call(slot=1, number=2, scene=out.id, from_line=out.from_line, to_line=out.to_line)
+    call.trunk = "trunk/4"
+    await g.slots.open(call)
+    link.sent.clear()
+    await g._finish_call(call, out, Outcome(False, "cut off"))
+    await b.update("trunk/4/seize", "off")
+    await asyncio.sleep(D * 5)
+    assert ("trunk/4/tone/set", "reorder") not in link.sent, "none once the cord is out"
+    await b.update("trunk/4/seize", "on")
+    call = Call(slot=1, number=3, scene=out.id, from_line=out.from_line, to_line=out.to_line)
+    call.trunk = "trunk/4"
+    await g.slots.open(call)
+    await g._finish_call(call, out, Outcome(True))
+    await g.stop("stop")
+    assert not g._tails, "Stop ends it"
+    await b.update("trunk/4/seize", "off")
+    await sess.close()
+
+
+async def test_scenario_dealt_after_n_handled(tmp_path):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp, pace="manual")
+    ops, chain = install_chain(g)
+    assert "p0" not in g.gs.deck_scenes() and "p0" in g.gs.choosable(), "not in the deck, but in game/scenes"
+    assert g.gs.in_scenario("p2") and not g.gs.in_scenario(ops[-1].id), "its followers are part of it"
+    await g.start()
+    await g._start_call()
+    first = next(iter(g.slots)).scene
+    assert first != "p0", f"not dealt before 2 handled: {first}"
+    await g.stop("stop")            # that call may share a room or person with the chain
+    await g.start()
+    g.tallies.success = 2
+    await g._start_call()
+    assert any(c.scene == "p0" for c in g.slots), "dealt once 2 calls are handled"
+    await asyncio.sleep(D * 10)
+    on = {c.scene for c in g.slots}
+    assert {"p1", "p2"} <= on, f"followers on the board though p0 never connected: {sorted(on)}"
+    g.pacing.pace = "auto"
+    for c in g.slots:
+        c.connected = True
+    assert not g._idle(), "the automatic schedule waits while it is on the board"
+    g.pacing.pace = "manual"
+    await g._start_call()
+    assert sum(c.scene == "p0" for c in g.slots) == 1, "dealt once a game"
+    await g.stop("stop")
+    await g.start()
+    g.pacing.pace = "listen"
+    g.tallies.success = 5
+    await g._start_call()
+    assert not any(c.scene == "p0" for c in g.slots), "never dealt in listen"
+    await g.stop("stop")
+
+
+async def test_two_waiting_afters_needing_one_person(tmp_path):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp, pace="manual")
+    # 2026-11-03 on the switchboard: dobbs-callback and the panic's
+    # panic-dobbs both waited for Dobbs, each held by the other, until Stop.
+    g.pacing.pace = "manual"        # before Start: listen would deal a call at once
+    await g.start()
+    assert not any(True for _ in g.slots), "the board is empty"
+    cb = dc.replace(g.gs.scenes["dobbs-callback"], delay=D, delay_max=D)
+    pd = dc.replace(g.gs.scenes["panic-dobbs"], delay=D * 2, delay_max=D * 2)
+    assert g.gs.in_scenario(pd.id) and not g.gs.in_scenario(cb.id), "panic-dobbs is in the scenario, dobbs-callback is not"
+    g._schedule_after(cb)
+    g._schedule_after(pd)
+    await asyncio.sleep(D * 6)
+    on = {c.scene for c in g.slots}
+    assert ("panic-dobbs" in on and "dobbs-callback" not in on
+          and "dobbs-callback" in g._pending_after), f"the scenario's scene starts though due later; the other waits: {sorted(on)}"
+    assert "panic-dobbs goes before dobbs-callback" in link.state_v.get("game/log", ""), "the log says which went first"
+    await g.stop("stop")
+    assert not g._after_due, "Stop forgets when they fell due"
+
+    g.pacing.pace = "manual"
+    await g.start()
+    for sid in ("x1", "x2"):
+        g.gs.scenes[sid] = dc.replace(g.gs.scenes["dobbs-callback"], id=sid)
+        g.gs.people[sid] = g.gs.people["dobbs-callback"]
+    g._schedule_after(dc.replace(g.gs.scenes["x1"], delay=D * 2, delay_max=D * 2))
+    g._schedule_after(dc.replace(g.gs.scenes["x2"], delay=D, delay_max=D))
+    await asyncio.sleep(0.5 + D * 6)        # x2's first look finds x1 not yet due
+    on = {c.scene for c in g.slots}
+    assert "x2" in on and "x1" not in on and "x1" in g._pending_after, f"neither in a scenario: the one due first starts: {sorted(on)}"
+    await g.stop("stop")
+    for sid in ("x1", "x2"):
+        del g.gs.scenes[sid], g.gs.people[sid]
+    await sess.close()
+
+
+async def test_scenario_chosen_from_the_page(tmp_path):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp, pace="manual")
+    install_chain(g)
+    await g.start()
+    g.pacing.pace = "manual"
+    await g._start_call()                       # an ordinary call on the board
+    before = g.tallies.started
+    await g.on_command("queue", "p0")
+    await g._start_call(asked=True)
+    assert g.tallies.started == before and not any(c.scene == "p0" for c in g.slots), "waits for the board to clear, and nothing else is dealt"
+    assert link.state_v.get("game/error") == "waiting for the board to clear", "Next Call refused, saying why"
+    await g.stop("stop")
+    sched = asyncio.create_task(g.run_scheduler())
+    g.pacing.pace = "listen"
+    await g.on_command("queue", "p0")           # chosen before Start
+    await g.start()
+    assert any(c.scene == "p0" for c in g.slots), "a choice made before Start starts the game"
+    await g.stop("stop")
+    g.pacing.pace = "manual"
+    await g.start()
+    await g.on_command("queue", "p0")
+    await asyncio.sleep(0.6)
+    assert not any(True for _ in g.slots), "not started by itself on a clear board"
+    await g._start_call(asked=True)
+    assert any(c.scene == "p0" for c in g.slots), "Next Call starts it"
+    assert "p0" in g._scenarios_dealt, "and it is its once-a-game play"
+    await g.stop("stop")
+    sched.cancel()
+    await sess.close()
+
+
+async def test_full_board_concurrent_follower_waits(tmp_path):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp, pace="manual")
+    install_chain(g)
+    await g.start()
+    await g._start_call(scene=g.gs.scenes["p0"])
+    while g.slots.free_slot() is not None:
+        await g._start_call()
+    await asyncio.sleep(D * 10)
+    assert "p1" in g._pending_after and not any(c.scene == "p1" for c in g.slots), "p1 waits, not dropped"
+    p1 = g.gs.scenes["p1"]
+    mine = set(p1.needs) | set(g.gs.needs_people("p1"))
+    clash = [c for c in g.slots if c.scene != "p0"
+             and mine & (set(g.gs.scenes[c.scene].lines) | set(g.gs.people[c.scene]))]
+    for c in clash or [next(c for c in g.slots if c.scene != "p0")]:
+        g._flows[c.slot].cancel()
         await asyncio.sleep(D)
-        check(link.state_v.get("game/diag/station/3/tone") == "off"
-              and ("audio/test/3/set", "off") in link.sent, "voice ends tone (§11.4)")
-        check(any(k == "station/3/play/set" and v != "stop" for k, v in link.sent),
-              "voice plays a file on the station")
-        await g.on_command("diag/trunk/2/tone", "on")
-        check(("audio/test/26/set", "on") in link.sent, "a trunk's tone is on output 24 + n")
-        await g.on_command("diag/tap/voice", "on")
-        await asyncio.sleep(D)
-        check(any(k == "audio/tap/play/set" and v != "stop" for k, v in link.sent),
-              "voice on the tap plays through audio/tap/play/set")
-        await g.on_command("diag/station/4/monitor", "on")
-        check(("audio/monitor/source/set", "station/4") in link.sent, "monitor moves the loudspeaker")
-        i = link.sent.index(("audio/monitor/source/set", "station/4"))
-        check(link.sent[i - 1] == ("audio/monitor/peer/set", "auto"),
-              "the peer boost to its measurement just before (Rev 86)")
-        await g.on_command("diag/tap/monitor", "on")
-        check(link.state_v.get("game/diag/station/4/monitor") == "off", "one monitor test at a time")
-        link.sent.clear()
-        await g.on_command("diag/tap/monitor", "off")
-        check(("audio/monitor/source/set", "tap") in link.sent, "ending it returns to the tap")
-        await g.on_command("diag/station/5/monitor", "on")
-        await g._monitor("station/1")                   # the game moves it: an answer
-        check(link.state_v.get("game/diag/station/5/monitor") == "off",
-              "the game moving the loudspeaker ends a monitor test (§9.1)")
-        await g.on_command("diag/station/9/tone", "on")
-        check("not a circuit fitted" in link.state_v.get("game/error", ""),
-              "a station beyond the fitted is refused")
-        await g.on_command("diag/station/3/ring", "on")
-        check("no 'ring' test" in link.state_v.get("game/error", ""), "ring is a trunk's test")
-        await g.on_command("diag/trunk/1/ring", "on")
-        check(("trunk/1/ring/set", "on") in link.sent, "ring rings the trunk")
-        check(g._free_trunk() is None,
-              "a trunk under test is not picked for a call: 1 rings, 2 has its tone")
-        await b.update("trunk/1/seize", "on")
+        await g.slots.close(c)
+    await asyncio.sleep(1.0)
+    assert any(c.scene == "p1" for c in g.slots), "and starts when a slot frees"
+    await g.stop("stop")
+    await sess.close()
+
+
+async def test_live_follower_waits(tmp_path):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp, pace="manual")
+    assert g.gs.scenes["panic"].live == 3, "panic has live: 3"
+    ops, chain = install_chain(g, live=2)
+    assert g.gs.scenario_live("p2") == 2 and g.gs.scenario_live(ops[-1].id) is None, "its followers share the bound; other scenes have none"
+    await g.start()
+    await g._start_call(scene=g.gs.scenes["p0"])
+    await asyncio.sleep(D * 10)
+    on = {c.scene for c in g.slots}
+    assert on == {"p0", "p1"} and "p2" in g._pending_after, f"two unconnected, so p2 waits: {sorted(on)}"
+    next(c for c in g.slots if c.scene == "p1").connected = True
+    await asyncio.sleep(1.0)
+    assert any(c.scene == "p2" for c in g.slots), "and starts once one is connected"
+    await g.stop("stop")
+    await sess.close()
+
+
+async def test_listen_waits_for_the_board_to_empty(tmp_path):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp, pace="manual")
+    await g.start()
+    assert link.state_v.get("game/pause") == "3", "pause published, 3 from the configuration"
+    await g.on_command("pause", "90")
+    assert link.state_v.get("game/pause") == "60", "pause clamped to 60"
+    await g.on_command("pause", "4")
+    await g.on_command("jitter", "50")
+    await g.on_command("pace", "listen")
+    assert link.state_v.get("game/pace") == "listen", "pace listen accepted and echoed"
+    g.pacing.seed(3)
+    assert {g.pacing.wait() for _ in range(20)} == {4.0}, "listen waits pause, every time: no jitter, no ramp"
+    assert link.state_v.get("game/next_at") != "", "an empty board schedules at once"
+    lone = next(sc for sc in g.gs.scenes.values()
+                if not g.gs.followers(sc.id) and sc.id != "nbn-trace")
+    call = Call(slot=1, number=1, scene=lone.id, from_line=lone.from_line,
+             to_line=lone.to_line)
+    await g.slots.open(call)
+    g.pacing.waiting_to_connect()
+    await g._connected(call)
+    assert link.state_v.get("game/next_at") == "", "connecting does not schedule in listen: the conversation is still on"
+    await g.on_command("pace", "auto")
+    assert link.state_v.get("game/next_at") != "", "the same moment in auto schedules"
+    await g.on_command("pace", "listen")
+    assert link.state_v.get("game/next_at") == "", "and back in listen it is cleared"
+    await g._finish_call(call, lone, Outcome(True))
+    assert link.state_v.get("game/next_at") != "", "the call's end schedules the next"
+    parent = g.gs.scenes["nbn-kaplan"]
+    call = Call(slot=1, number=2, scene=parent.id, from_line=parent.from_line,
+             to_line=parent.to_line)
+    await g.slots.open(call)
+    call.connected = True
+    await g._finish_call(call, parent, Outcome(True))
+    assert link.state_v.get("game/next_at") == "", "a waiting after: scene holds the schedule in listen"
+    await g.stop("stop")
+    await sess.close()
+
+
+async def test_auto_keeps_the_start_its_connection_scheduled(tmp_path):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp, pace="manual")
+    await g.start()
+    await g.on_command("pace", "auto")
+    lone = next(sc for sc in g.gs.scenes.values()
+                if not g.gs.followers(sc.id) and sc.id != "nbn-trace")
+    call = Call(slot=1, number=1, scene=lone.id, from_line=lone.from_line,
+             to_line=lone.to_line)
+    await g.slots.open(call)
+    g.pacing.waiting_to_connect()
+    await g._connected(call)
+    at = link.state_v.get("game/next_at")
+    assert at != "", "connecting schedules the next"
+    g.pacing.next_at -= 5                       # five seconds of the gap gone
+    at = f"{g.pacing.next_at:.0f}"
+    await g._finish_call(call, lone, Outcome(True))
+    assert link.state_v.get("game/next_at") == at, f"and the call's end leaves it at {at}: {link.state_v.get('game/next_at')}"
+    await g.stop("stop")
+    await sess.close()
+
+
+async def test_switchboard_power_cut(tmp_path):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp, pace="manual")
+    cut = ("ctl/power_cut/set", "on")
+    await g.on_command("power_cut", "on")
+    assert link.sent.count(cut) == 1, "power_cut/set with no game: passed on"
+    await g.start()
+    await g.on_command("power_cut", "on")
+    assert link.sent.count(cut) == 2, "and while a game runs"
+    await g.stop("stop")
+    assert link.sent.count(cut) == 3, "Stop cuts the switchboard's power"
+    await g.on_command("power_cut", "bogus")
+    assert link.sent.count(cut) == 3 and "is not on" in link.state_v.get("game/error", ""), "a payload other than on, hold or off is refused"
+    # Off from the page until switched on again.
+    hold, off = ("ctl/power_cut/set", "hold"), ("ctl/power_cut/set", "off")
+    await g.on_command("power_cut", "hold")
+    assert link.sent.count(hold) == 1, "hold with no game: passed on"
+    await b.update("ctl/power_cut", "hold")
+    await g.on_command("power_cut", "off")
+    assert link.sent.count(off) == 1, "off: passed on"
+    await b.update("ctl/power_cut", "off")
+    await g.start()
+    assert link.sent.count(off) == 1, "Start with the switchboard powered sends nothing"
+    await g.on_command("power_cut", "hold")
+    assert link.sent.count(hold) == 1 and "not while a game runs" in link.state_v.get("game/error", ""), "hold refused while a game runs"
+    await g.on_command("power_cut", "off")
+    assert link.sent.count(off) == 2, "off allowed while a game runs"
+    await g.stop("stop")
+    await b.update("ctl/power_cut", "hold")
+    await g.start()
+    assert link.sent.count(off) == 3, "Start powers a switchboard switched off"
+    await b.update("ctl/power_cut", "off")
+    await g.start()
+    await b.update("ctl/status", "offline")
+    await g.stop("controller went offline")
+    assert link.sent.count(cut) == 4, "a stop with the controller offline does not try"
+    await g.on_command("power_cut", "on")
+    assert link.sent.count(cut) == 4 and "offline" in link.state_v.get("game/error", ""), "nor does the command"
+    await sess.close()
+
+
+async def test_losing_the_controller_stops_the_game(tmp_path):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp, pace="manual")
+    watcher = asyncio.create_task(g.watch_clients())
+    await asyncio.sleep(0)
+    await g.start()
+    await b.update("ctl/status", "offline")
+    await asyncio.sleep(D * 3)
+    assert link.state_v.get("game/run") == "off", "the game stopped"
+    assert "controller went offline" in link.state_v.get("game/log", ""), "and said why"
+    watcher.cancel()
+    await sess.close()
+
+
+async def test_no_activity_stops_a_running_game(tmp_path):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp, pace="manual", idle_stop=1.0)
+    watcher = asyncio.create_task(g.watch_clients())
+    sched = asyncio.create_task(g.run_scheduler())
+    await asyncio.sleep(0)
+    await g.start()
+    for _ in range(3):                           # a cord in and out, 0.6s apart
         await asyncio.sleep(0.6)
-        check(link.state_v.get("game/diag/trunk/1/ring") == "off"
-              and ("trunk/1/ring/set", "off") in link.sent, "a seizure ends the ring test")
-        await b.update("trunk/1/seize", "off")
-        held = g._held()
-        check(any(h.lines for h in held), "a station under test is held out of dealing")
-        link.sent.clear()
-        await g.on_command("run", "off")                # Stop with no game running
-        check(not g.diag.on, "Stop ends every test")
-        check(("station/3/hook/set", "off") in link.sent and ("audio/tap/play/set", "stop") in link.sent,
-              "and puts the hardware back")
-
-        print("\n== board sweeps (§11.5, Rev 50)")
-        from sbgame import sweep
-        sweep.BURST = sweep.LATCH_HOLD = sweep.CUT = sweep.OFF_HOOK = sweep.PAUSE = sweep.TRUNK_PAUSE = 0.01
-        check(link.state_v.get("game/sweep") == "", "no sweep at birth")
-        order = [st for st, _ in sweep.station_order(g.gs.jacks, g.cfg.stations)]
-        jacks = {int(j.circuit.split("/")[1]): j.number for j in g.gs.jacks
-                 if j.kind == "station" and j.circuit}
-        rank = lambda j: ({r: i for i, r in enumerate((3, 2, 1))}[(j - 1) // 10 + 1], j)
-        check(sorted(order) == list(range(1, g.cfg.stations + 1))
-              and [jacks[n] for n in order] == sorted((jacks[n] for n in order), key=rank),
-              "stations in jack order, top row first")
-        link.sent.clear()
-        await g.on_command("sweep", "trunks")
-        check(link.state_v.get("game/sweep") == "trunks", "trunks echoed")
-        await asyncio.sleep(0.5)
-        rung = [k for k, v in link.sent if k.endswith("/shortring/set")]
-        check(rung == [f"trunk/{n}/shortring/set" for n in range(1, g.cfg.trunks + 1)], f"each trunk fitted one short ring, in order: {rung}")
-        steps = [k for k, v in link.sent if k.endswith("/shortring/set") or k == "ctl/power_cut/set"]
-        check(steps == [s for n in range(1, g.cfg.trunks + 1)
-                        for s in (f"trunk/{n}/shortring/set", "ctl/power_cut/set")],
-              "the switchboard reset after each ring")
-        check(all(v == "on" for k, v in link.sent if k == "ctl/power_cut/set"), "each a 1s cut, not a hold")
-        check(link.state_v.get("game/sweep") == "", "and the sweep ends by itself")
-        check("test trunks: done" in link.state_v.get("game/log", ""), "on the log")
-        link.sent.clear()
-        await g.on_command("sweep", "stations")
-        await asyncio.sleep(0.8)
-        hooks = [(k, v) for k, v in link.sent if k.endswith("/hook/set")]
-        want = [x for n in order for x in ((f"station/{n}/hook/set", "on"), (f"station/{n}/hook/set", "off"))]
-        check(hooks == want, "each station off-hook and back, in jack order")
-        sweep.PAUSE = 0.2
-        link.sent.clear()
-        await g.on_command("sweep", "stations")
-        await asyncio.sleep(0.05)
-        await g.on_command("sweep", "off")
-        hooks = [(k, v) for k, v in link.sent if k.endswith("/hook/set")]
-        check(link.state_v.get("game/sweep") == "" and hooks[-1][1] == "off"
-              and len(hooks) == 2, "off stops it, the station put back on-hook")
-        await g.on_command("sweep", "bogus")
-        check("not trunks, stations or off" in link.state_v.get("game/error", ""), "a bad payload is refused")
-        await g.start()
-        await g.on_command("sweep", "trunks")
-        check("not while a game runs" in link.state_v.get("game/error", "")
-              and link.state_v.get("game/sweep") == "", "refused while a game runs")
-        await g.stop("stop")
-        await g.on_command("sweep", "trunks")
-        await asyncio.sleep(0.05)
-        await g.start()
-        check(link.state_v.get("game/sweep") == "" and g._sweep is None, "Start ends a sweep")
-        await g.stop("stop")
-        await g.on_command("sweep", "trunks")
-        await asyncio.sleep(0.05)
-        await g.on_command("run", "off")
-        check(link.state_v.get("game/sweep") == "" and g._sweep is None, "Stop ends a sweep")
-        sweep.BURST, sweep.CUT, sweep.OFF_HOOK, sweep.PAUSE, sweep.TRUNK_PAUSE = 1.0, 1.0, 1.0, 2.0, 1.0
-
-        print("\n== recording and playback (§11.6, Rev 61)")
-        check(b.audio_up, "the audio program is up for these")
-        link.sent.clear()
-        await g.on_command("record", "on")
-        await g.on_command("record", "off")
-        check(link.sent == [("audio/record/set", "on"), ("audio/record/set", "off")],
-              "record passed on to the audio program")
-        await g.on_command("record", "maybe")
-        check("not on or off" in link.state_v.get("game/error", ""), "a bad record payload is refused")
-        link.sent.clear()
-        await g.on_command("playback", "2026-10-18-14-32-05")
-        check(link.sent == [("audio/playback/set", "2026-10-18-14-32-05")], "playback passed on")
-        await b.update("audio/playback", "2026-10-18-14-32-05")
-        link.sent.clear()
-        await g.start()
-        check(("audio/playback/set", "stop") in link.sent, "Start stops a playback")
-        await b.update("audio/playback", "")
-        link.sent.clear()
-        await g.on_command("playback", "2026-10-18-14-32-05")
-        check(link.sent == [] and "not while a game runs" in link.state_v.get("game/error", ""),
-              "refused while a game runs")
-        await g.on_command("playback", "stop")
-        check(link.sent == [("audio/playback/set", "stop")], "but stop is not")
-        await g.on_command("record", "on")
-        check(("audio/record/set", "on") in link.sent, "a recording starts with a game running")
-        await g.stop("stop")
-        await b.update("audio/record", "2026-10-18-14-32-05")
-        link.sent.clear()
-        await g.on_command("playback", "2026-10-18-09-16-06")
-        check(link.sent == [] and "not while recording" in link.state_v.get("game/error", ""),
-              "no playback while recording")
-        await b.update("audio/record", "off")
-        await b.update("audio/playback", "2026-10-18-09-16-06")
-        await g.on_command("record", "on")
-        check(link.sent == [] and "not while a recording plays back" in link.state_v.get("game/error", ""),
-              "no recording while one plays back")
-        await g.on_command("record", "off")
-        check(link.sent == [("audio/record/set", "off")], "but off is always passed on")
-        await b.update("audio/playback", "")
-
-        print("\n== a chosen next scene (§6.4, Rev 25)")
-        scenes = link.state_v.get("game/scenes", "").split("\n")
-        check(scenes == g.gs.choosable() and scenes[0], "game/scenes lists the deck's scenes and each scenario's first")
-        await g.on_command("queue", "no-such-scene")
-        check("not a scene" in link.state_v.get("game/error", ""), "an unknown scene is refused")
-        want = scenes[-1]
-        await g.on_command("queue", want)
-        check(link.state_v.get("game/queue") == want, "the choice is echoed")
-        await g.start()
-        await g.on_command("next", "")
-        await asyncio.sleep(D * 2)
-        dealt = [c.scene for c in g.slots]
-        check(dealt == [want], f"the next call is the chosen scene: {dealt}")
-        check(link.state_v.get("game/queue") == "", "and the choice is spent")
-        await g.on_command("queue", scenes[0])
-        await g.stop("stop")
-        check(link.state_v.get("game/queue") == "", "Stop forgets a choice")
-        await sess.close()
-
-        print("\n== start, one manual call, stop")
-        b, link, g, sess = await build_game(tmp, pace="manual")
-        await g.start()
-        check(link.state_v.get("game/run") == "on", "run is on")
-        check(link.state_v.get("game/started") == "0", "started is 0 before any call")
-        check(("audio/monitor/source/set", "tap") in link.sent,
-              "the loudspeaker went to the tap at start (§9.1)")
-        sched = asyncio.create_task(g.run_scheduler())
-
-        await g.on_command("next", "")
-        await asyncio.sleep(D * 2)
-        check(link.state_v.get("game/started") == "1", "started is 1")
-        occupied = [c for c in g.slots]
-        check(len(occupied) == 1, f"one slot occupied, got {len(occupied)}")
-        call = occupied[0]
-        print(f"      dealt {call.scene}: {call.from_line} -> {call.to_line or 'operator'}")
-        check(link.state_v.get(f"game/call/{call.slot}/stage") == "signalling",
-              "it is signalling, waiting for the operator")
-        check(link.state_v.get("game/next_at") == "",
-              "nothing scheduled while a call waits to connect (§5.2)")
-
-        await g.stop("stop")
-        check(link.state_v.get("game/run") == "off", "stopped")
-        check(link.state_v.get("game/call/1/scene") == "", "slots cleared")
-        check(link.state_v.get("game/started") == "1", "the tallies stay after Stop (§2)")
-        check(link.sent.count(("audio/monitor/source/set", "tap")) >= 2,
-              "and the loudspeaker went back to the tap")
-        sched.cancel()
-        await sess.close()
-
-        print("\n== the deck deals every scene before repeating, across a game")
-        b, link, g, sess = await build_game(tmp, pace="manual")
-        await g.start()
-        n = len(g.gs.deck_scenes())
-        dealt = []
-        for _ in range(n):
-            sc, why = g.deck.deal([])
-            if sc:
-                dealt.append(sc.id)
-        check(len(set(dealt)) == n, f"{n} distinct scenes dealt, got {len(set(dealt))}")
-        await g.stop("stop")
-        await sess.close()
-
-        print("\n== follows: a story is dealt in order (§6.1, Rev 114)")
-        from sbgame.deck import Deck
-        gs = g.gs
-        stories = {i: sc.follows for i, sc in gs.scenes.items() if sc.follows}
-        check(len(stories) == 19, f"19 scenes carry follows:, got {len(stories)}")
-        def ahead(f: str) -> str:
-            # A named after: scene is dealt as the head of its chain.
-            while gs.scenes[f].after:
-                f = gs.scenes[f].after
-            return f
-        bad_order = []
-        for seed in range(40):
-            d = Deck(gs, seed=seed)
-            order = []
-            for _ in range(len(gs.deck_scenes())):
-                sc, why = d.deal([])
-                check(sc is not None, f"seed {seed}: a scene dealt ({why})") if sc is None else None
-                if sc is None:
-                    break
-                order.append(sc.id)
-            at = {sid: k for k, sid in enumerate(order)}
-            for sid, fs in stories.items():
-                for f in fs:
-                    if at[ahead(f)] > at[sid]:
-                        bad_order.append((seed, sid, f))
-        check(not bad_order, f"over 40 shuffles every story in order: {bad_order[:3]}")
-        d = Deck(gs, seed=1)
-        d._cards = ["beaumont-pemberton"]
-        check(d.deal([], {"pemb-towels"})[0] is None,
-              "waits while the chain to pemb-canary is still running")
-        check(d.deal([], {"pemb-canary"})[0] is None, "and while pemb-canary is waiting or on")
-        check(d.deal([])[0].id == "beaumont-pemberton",
-              "and is dealt once the chain has played or been dropped")
-        d._cards = ["nbn-valet", "lindqvist-times"]
-        sc, why = d.deal([], {"nbn-kaplan"})
-        check(sc is not None and sc.id == "lindqvist-times", "a call in progress holds it back too")
-
-        print("\n== an after: scene is dropped when its parent never connected (§6.1)")
-        b, link, g, sess = await build_game(tmp, pace="manual")
-        await g.start()
-        parent = g.gs.scenes["nbn-kaplan"]
-        from sbgame.calls import Call as C
-        from sbgame.flows import Outcome
-        call = C(slot=1, number=1, scene=parent.id, from_line=parent.from_line,
-                 to_line=parent.to_line)
-        await g.slots.open(call)
-        call.connected = False
-        await g._finish_call(call, parent, Outcome(False, "no answer"))
-        log = link.state_v.get("game/log", "")
-        check("dropped nbn-trace" in log, f"nbn-trace dropped; log head: {log.splitlines()[0]!r}")
-        check(g.tallies.fail == 1, "counted as a failure")
-        await g.stop("stop")
-        await sess.close()
-
-        print("\n== and scheduled when it did connect")
-        b, link, g, sess = await build_game(tmp, pace="manual")
-        await g.start()
-        call = C(slot=1, number=1, scene=parent.id, from_line=parent.from_line,
-                 to_line=parent.to_line)
-        await g.slots.open(call)
-        call.connected = True
-        await g._finish_call(call, parent, Outcome(True))
-        await asyncio.sleep(D)      # the after: timer logs its own line from its task
-        check("nbn-trace follows in 2s" in link.state_v.get("game/log", ""),
-              "nbn-trace scheduled with its delay")
-        check("nbn-trace" in g._pending_after, "and its lines are held meanwhile")
-        check(g.tallies.success == 1, "counted as a success")
-        await g.stop("stop")
-        check(not g._afters, "Stop dropped the waiting after: scene")
-        await sess.close()
-
-        print("\n== reorder on a trunk after its call, while the cord stays in (§3.4, Rev 110, 112)")
-        import sbgame.game as game_mod
-        was = game_mod.REORDER_AFTER
-        game_mod.REORDER_AFTER = D * 3
-        b, link, g, sess = await build_game(tmp, pace="manual")
-        await g.start()
-        out = next(sc for sc in g.gs.scenes.values() if sc.to_station is None and sc.from_station
-                   and not sc.busy and sc.dial and not sc.after)
-        await b.update("trunk/4/seize", "on")
-        call = C(slot=1, number=1, scene=out.id, from_line=out.from_line, to_line=out.to_line)
-        call.trunk = "trunk/4"
-        await g.slots.open(call)
-        call.connected = True
-        link.sent.clear()
-        await g._finish_call(call, out, Outcome(True))
-        await asyncio.sleep(D)
-        check(("trunk/4/tone/set", "reorder") not in link.sent, "not at once")
-        await asyncio.sleep(D * 4)
-        check(("trunk/4/tone/set", "reorder") in link.sent, "reorder once the wait is up")
-        link.sent.clear()
-        await b.update("trunk/4/peer", "station/2")         # that cord now on a new caller
-        await asyncio.sleep(D * 2)
-        check(("trunk/4/tone/set", "off") in link.sent, "quiet while patched to a line (Rev 112)")
-        link.sent.clear()
-        await b.update("trunk/4/peer", "")
-        await asyncio.sleep(HOLD + D * 2)            # an empty peer is held first
-        check(("trunk/4/tone/set", "reorder") in link.sent, "and back when patched to nobody")
-        await b.update("trunk/4/seize", "off")
-        await asyncio.sleep(D * 2)
-        check(("trunk/4/tone/set", "off") in link.sent and 4 not in g._tails,
-              "off when she takes the cord down")
-
-        await b.update("trunk/4/seize", "on")
-        call = C(slot=1, number=2, scene=out.id, from_line=out.from_line, to_line=out.to_line)
-        call.trunk = "trunk/4"
-        await g.slots.open(call)
-        link.sent.clear()
-        await g._finish_call(call, out, Outcome(False, "cut off"))
-        await b.update("trunk/4/seize", "off")
-        await asyncio.sleep(D * 5)
-        check(("trunk/4/tone/set", "reorder") not in link.sent, "none once the cord is out")
-        await b.update("trunk/4/seize", "on")
-        call = C(slot=1, number=3, scene=out.id, from_line=out.from_line, to_line=out.to_line)
-        call.trunk = "trunk/4"
-        await g.slots.open(call)
-        await g._finish_call(call, out, Outcome(True))
-        await g.stop("stop")
-        check(not g._tails, "Stop ends it")
-        await b.update("trunk/4/seize", "off")
-        game_mod.REORDER_AFTER = was
-        await sess.close()
-
-        print("\n== a scenario: dealt after n handled, followers start together (§6.5, Rev 39)")
-        import dataclasses as dc
-        b, link, g, sess = await build_game(tmp, pace="manual")
-        ops = [sc for sc in g.gs.scenes.values()
-               if sc.shape == "to_operator" and sc.from_station is not None and not sc.after]
-        picked, rooms = [], set()
-        for sc in ops:
-            if sc.from_line not in rooms and not (set(g.gs.people[sc.id]) - {""}) & {
-                    p for q in picked for p in g.gs.people[q.id]}:
-                picked.append(sc)
-                rooms.add(sc.from_line)
-            if len(picked) == 3:
-                break
-        chain = [dc.replace(picked[0], id="p0", after_handled=2)]
-        for i, sc in enumerate(picked[1:], 1):
-            chain.append(dc.replace(sc, id=f"p{i}", after=f"p{i-1}", concurrent=True,
-                                    delay=D, delay_max=D * 3))
-        for sc, orig in zip(chain, picked):
-            g.gs.scenes[sc.id] = sc
-            g.gs.people[sc.id] = g.gs.people[orig.id]
-        for orig in picked:                  # so the deck never holds their people
-            del g.gs.scenes[orig.id]
-        check("p0" not in g.gs.deck_scenes() and "p0" in g.gs.choosable(),
-              "not in the deck, but in game/scenes")
-        check(g.gs.in_scenario("p2") and not g.gs.in_scenario(ops[-1].id),
-              "its followers are part of it")
-        await g.start()
-        await g._start_call()
-        first = next(iter(g.slots)).scene
-        check(first != "p0", f"not dealt before 2 handled: {first}")
-        await g.stop("stop")            # that call may share a room or person with the chain
-        await g.start()
-        g.tallies.success = 2
-        await g._start_call()
-        check(any(c.scene == "p0" for c in g.slots), "dealt once 2 calls are handled")
-        await asyncio.sleep(D * 10)
-        on = {c.scene for c in g.slots}
-        check({"p1", "p2"} <= on, f"followers on the board though p0 never connected: {sorted(on)}")
-        g.pacing.pace = "auto"
-        for c in g.slots:
-            c.connected = True
-        check(not g._idle(), "the automatic schedule waits while it is on the board")
-        g.pacing.pace = "manual"
-        await g._start_call()
-        check(sum(c.scene == "p0" for c in g.slots) == 1, "dealt once a game")
-        await g.stop("stop")
-        await g.start()
-        g.pacing.pace = "listen"
-        g.tallies.success = 5
-        await g._start_call()
-        check(not any(c.scene == "p0" for c in g.slots), "never dealt in listen")
-        await g.stop("stop")
-
-        print("\n== two waiting after: scenes that need the same person (§6.1, Rev 107)")
-        # 2026-11-03 on the switchboard: dobbs-callback and the panic's
-        # panic-dobbs both waited for Dobbs, each held by the other, until Stop.
-        g.pacing.pace = "manual"        # before Start: listen would deal a call at once
-        await g.start()
-        check(not any(True for _ in g.slots), "the board is empty")
-        cb = dc.replace(g.gs.scenes["dobbs-callback"], delay=D, delay_max=D)
-        pd = dc.replace(g.gs.scenes["panic-dobbs"], delay=D * 2, delay_max=D * 2)
-        check(g.gs.in_scenario(pd.id) and not g.gs.in_scenario(cb.id),
-              "panic-dobbs is in the scenario, dobbs-callback is not")
-        g._schedule_after(cb)
-        g._schedule_after(pd)
-        await asyncio.sleep(D * 6)
-        on = {c.scene for c in g.slots}
-        check("panic-dobbs" in on and "dobbs-callback" not in on
-              and "dobbs-callback" in g._pending_after,
-              f"the scenario's scene starts though due later; the other waits: {sorted(on)}")
-        check("panic-dobbs goes before dobbs-callback" in link.state_v.get("game/log", ""),
-              "the log says which went first")
-        await g.stop("stop")
-        check(not g._after_due, "Stop forgets when they fell due")
-
-        g.pacing.pace = "manual"
-        await g.start()
-        for sid in ("x1", "x2"):
-            g.gs.scenes[sid] = dc.replace(g.gs.scenes["dobbs-callback"], id=sid)
-            g.gs.people[sid] = g.gs.people["dobbs-callback"]
-        g._schedule_after(dc.replace(g.gs.scenes["x1"], delay=D * 2, delay_max=D * 2))
-        g._schedule_after(dc.replace(g.gs.scenes["x2"], delay=D, delay_max=D))
-        await asyncio.sleep(0.5 + D * 6)        # x2's first look finds x1 not yet due
-        on = {c.scene for c in g.slots}
-        check("x2" in on and "x1" not in on and "x1" in g._pending_after,
-              f"neither in a scenario: the one due first starts: {sorted(on)}")
-        await g.stop("stop")
-        for sid in ("x1", "x2"):
-            del g.gs.scenes[sid], g.gs.people[sid]
-
-        print("\n== a scenario chosen from the page (§6.5, Rev 40)")
-        await g.start()
-        g.pacing.pace = "manual"
-        await g._start_call()                       # an ordinary call on the board
-        before = g.tallies.started
-        await g.on_command("queue", "p0")
-        await g._start_call(asked=True)
-        check(g.tallies.started == before and not any(c.scene == "p0" for c in g.slots),
-              "waits for the board to clear, and nothing else is dealt")
-        check(link.state_v.get("game/error") == "waiting for the board to clear",
-              "Next Call refused, saying why")
-        await g.stop("stop")
-        sched = asyncio.create_task(g.run_scheduler())
-        g.pacing.pace = "listen"
-        await g.on_command("queue", "p0")           # chosen before Start
-        await g.start()
-        check(any(c.scene == "p0" for c in g.slots), "a choice made before Start starts the game")
-        await g.stop("stop")
-        g.pacing.pace = "manual"
-        await g.start()
-        await g.on_command("queue", "p0")
-        await asyncio.sleep(0.6)
-        check(not any(True for _ in g.slots),
-              "not started by itself on a clear board (Rev 64)")
-        await g._start_call(asked=True)
-        check(any(c.scene == "p0" for c in g.slots), "Next Call starts it")
-        check("p0" in g._scenarios_dealt, "and it is its once-a-game play (Rev 49)")
-        await g.stop("stop")
-        sched.cancel()
-        await sess.close()
-
-        print("\n== a full board: a concurrent follower waits for a slot")
-        b, link, g, sess = await build_game(tmp, pace="manual")
-        for sc, orig in zip(chain, picked):
-            g.gs.scenes[sc.id] = sc
-            g.gs.people[sc.id] = g.gs.people[orig.id]
-        for orig in picked:
-            g.gs.scenes.pop(orig.id, None)
-        await g.start()
-        await g._start_call(scene=g.gs.scenes["p0"])
-        while g.slots.free_slot() is not None:
-            await g._start_call()
-        await asyncio.sleep(D * 10)
-        check("p1" in g._pending_after and not any(c.scene == "p1" for c in g.slots),
-              "p1 waits, not dropped")
-        p1 = g.gs.scenes["p1"]
-        mine = set(p1.needs) | set(g.gs.needs_people("p1"))
-        clash = [c for c in g.slots if c.scene != "p0"
-                 and mine & (set(g.gs.scenes[c.scene].lines) | set(g.gs.people[c.scene]))]
-        for c in clash or [next(c for c in g.slots if c.scene != "p0")]:
-            g._flows[c.slot].cancel()
-            await asyncio.sleep(D)
-            await g.slots.close(c)
-        await asyncio.sleep(1.0)
-        check(any(c.scene == "p1" for c in g.slots), "and starts when a slot frees")
-        await g.stop("stop")
-        await sess.close()
-
-        print("\n== live: a follower waits while that many wait on her (§6.5, Rev 113)")
-        b, link, g, sess = await build_game(tmp, pace="manual")
-        check(g.gs.scenes["panic"].live == 3, "panic has live: 3")
-        live_chain = [dc.replace(chain[0], live=2)] + chain[1:]
-        for sc, orig in zip(live_chain, picked):
-            g.gs.scenes[sc.id] = sc
-            g.gs.people[sc.id] = g.gs.people[orig.id]
-        for orig in picked:
-            g.gs.scenes.pop(orig.id, None)
-        check(g.gs.scenario_live("p2") == 2 and g.gs.scenario_live(ops[-1].id) is None,
-              "its followers share the bound; other scenes have none")
-        await g.start()
-        await g._start_call(scene=g.gs.scenes["p0"])
-        await asyncio.sleep(D * 10)
-        on = {c.scene for c in g.slots}
-        check(on == {"p0", "p1"} and "p2" in g._pending_after,
-              f"two unconnected, so p2 waits: {sorted(on)}")
-        next(c for c in g.slots if c.scene == "p1").connected = True
-        await asyncio.sleep(1.0)
-        check(any(c.scene == "p2" for c in g.slots), "and starts once one is connected")
-        await g.stop("stop")
-        await sess.close()
-
-        print("\n== listen: the schedule waits for the board to empty (§5.3, Rev 16)")
-        b, link, g, sess = await build_game(tmp, pace="manual")
-        await g.start()
-        check(link.state_v.get("game/pause") == "3", "pause published, 3 from the configuration")
-        await g.on_command("pause", "90")
-        check(link.state_v.get("game/pause") == "60", "pause clamped to 60")
-        await g.on_command("pause", "4")
-        await g.on_command("jitter", "50")
-        await g.on_command("pace", "listen")
-        check(link.state_v.get("game/pace") == "listen", "pace listen accepted and echoed")
-        g.pacing.seed(3)
-        check({g.pacing.wait() for _ in range(20)} == {4.0},
-              "listen waits pause, every time: no jitter, no ramp (Rev 17)")
-        check(link.state_v.get("game/next_at") != "", "an empty board schedules at once")
-        lone = next(sc for sc in g.gs.scenes.values()
-                    if not g.gs.followers(sc.id) and sc.id != "nbn-trace")
-        call = C(slot=1, number=1, scene=lone.id, from_line=lone.from_line,
-                 to_line=lone.to_line)
-        await g.slots.open(call)
-        g.pacing.waiting_to_connect()
-        await g._connected(call)
-        check(link.state_v.get("game/next_at") == "",
-              "connecting does not schedule in listen: the conversation is still on")
-        await g.on_command("pace", "auto")
-        check(link.state_v.get("game/next_at") != "", "the same moment in auto schedules")
-        await g.on_command("pace", "listen")
-        check(link.state_v.get("game/next_at") == "", "and back in listen it is cleared")
-        await g._finish_call(call, lone, Outcome(True))
-        check(link.state_v.get("game/next_at") != "", "the call's end schedules the next")
-        call = C(slot=1, number=2, scene=parent.id, from_line=parent.from_line,
-                 to_line=parent.to_line)
-        await g.slots.open(call)
-        call.connected = True
-        await g._finish_call(call, parent, Outcome(True))
-        check(link.state_v.get("game/next_at") == "",
-              "a waiting after: scene holds the schedule in listen")
-        await g.stop("stop")
-        await sess.close()
-
-        print("\n== auto: a call's end keeps the start its connection scheduled (§5.2)")
-        b, link, g, sess = await build_game(tmp, pace="manual")
-        await g.start()
-        await g.on_command("pace", "auto")
-        lone = next(sc for sc in g.gs.scenes.values()
-                    if not g.gs.followers(sc.id) and sc.id != "nbn-trace")
-        call = C(slot=1, number=1, scene=lone.id, from_line=lone.from_line,
-                 to_line=lone.to_line)
-        await g.slots.open(call)
-        g.pacing.waiting_to_connect()
-        await g._connected(call)
-        at = link.state_v.get("game/next_at")
-        check(at != "", "connecting schedules the next")
-        g.pacing.next_at -= 5                       # five seconds of the gap gone
-        at = f"{g.pacing.next_at:.0f}"
-        await g._finish_call(call, lone, Outcome(True))
-        check(link.state_v.get("game/next_at") == at,
-              f"and the call's end leaves it at {at}: {link.state_v.get('game/next_at')}")
-        await g.stop("stop")
-        await sess.close()
-
-        print("\n== the switchboard power cut (§2, §10, Rev 63; held, Rev 65)")
-        b, link, g, sess = await build_game(tmp, pace="manual")
-        cut = ("ctl/power_cut/set", "on")
-        await g.on_command("power_cut", "on")
-        check(link.sent.count(cut) == 1, "power_cut/set with no game: passed on")
-        await g.start()
-        await g.on_command("power_cut", "on")
-        check(link.sent.count(cut) == 2, "and while a game runs (Rev 66)")
-        await g.stop("stop")
-        check(link.sent.count(cut) == 3, "Stop cuts the switchboard's power")
-        await g.on_command("power_cut", "bogus")
-        check(link.sent.count(cut) == 3 and "is not on" in link.state_v.get("game/error", ""),
-              "a payload other than on, hold or off is refused")
-        # Rev 65: off from the page until switched on again.
-        hold, off = ("ctl/power_cut/set", "hold"), ("ctl/power_cut/set", "off")
-        await g.on_command("power_cut", "hold")
-        check(link.sent.count(hold) == 1, "hold with no game: passed on")
-        await b.update("ctl/power_cut", "hold")
-        await g.on_command("power_cut", "off")
-        check(link.sent.count(off) == 1, "off: passed on")
-        await b.update("ctl/power_cut", "off")
-        await g.start()
-        check(link.sent.count(off) == 1, "Start with the switchboard powered sends nothing")
-        await g.on_command("power_cut", "hold")
-        check(link.sent.count(hold) == 1 and "not while a game runs" in link.state_v.get("game/error", ""),
-              "hold refused while a game runs")
-        await g.on_command("power_cut", "off")
-        check(link.sent.count(off) == 2, "off allowed while a game runs")
-        await g.stop("stop")
-        await b.update("ctl/power_cut", "hold")
-        await g.start()
-        check(link.sent.count(off) == 3, "Start powers a switchboard switched off")
-        await b.update("ctl/power_cut", "off")
-        await g.start()
-        await b.update("ctl/status", "offline")
-        await g.stop("controller went offline")
-        check(link.sent.count(cut) == 4, "a stop with the controller offline does not try")
-        await g.on_command("power_cut", "on")
-        check(link.sent.count(cut) == 4 and "offline" in link.state_v.get("game/error", ""),
-              "nor does the command")
-        await sess.close()
-
-        print("\n== losing the controller stops the game (§2)")
-        b, link, g, sess = await build_game(tmp, pace="manual")
-        watcher = asyncio.create_task(g.watch_clients())
-        await asyncio.sleep(0)
-        await g.start()
-        await b.update("ctl/status", "offline")
-        await asyncio.sleep(D * 3)
-        check(link.state_v.get("game/run") == "off", "the game stopped")
-        check("controller went offline" in link.state_v.get("game/log", ""),
-              "and said why")
-        watcher.cancel()
-        await sess.close()
-
-        print("\n== no activity stops a running game (Rev 57)")
-        b, link, g, sess = await build_game(tmp, pace="manual", idle_stop=1.0)
-        watcher = asyncio.create_task(g.watch_clients())
-        sched = asyncio.create_task(g.run_scheduler())
-        await asyncio.sleep(0)
-        await g.start()
-        for _ in range(3):                           # a cord in and out, 0.6s apart
-            await asyncio.sleep(0.6)
-            await b.update("trunk/2/seize", "on" if _ % 2 == 0 else "off")
-        check(link.state_v.get("game/run") == "on", "the player's acts keep it running")
-        await asyncio.sleep(0.6)
-        await g.on_command("pace", "manual")         # a button counts too
-        await asyncio.sleep(0.6)
-        check(link.state_v.get("game/run") == "on", "and so does a button")
-        await b.update("station/3/hook", "on")       # the game's own doing: not activity
-        await asyncio.sleep(1.0)
-        check(link.state_v.get("game/run") == "off", "a second with nothing: stopped")
-        check("game stopped: no activity" in link.state_v.get("game/log", ""), "and said why")
-        await g.on_command("run", "on")
-        check(link.state_v.get("game/run") == "on", "Start resumes")
-        await g.stop("stop")
-        for t in (watcher, sched):
-            t.cancel()
-        await sess.close()
-
-        print("\n== the session record")
-        b, link, g, sess = await build_game(tmp, pace="manual")
-        await g.start()
-        await g.stop("stop")
-        await sess.close()
-        import sqlite3
-        db = sqlite3.connect(tmp / "s.db")
-        n_sessions = db.execute("SELECT count(*) FROM sessions").fetchone()[0]
-        seeded = db.execute("SELECT count(*) FROM sessions WHERE seed IS NOT NULL").fetchone()[0]
-        decks = db.execute("SELECT count(*) FROM decks").fetchone()[0]
-        check(n_sessions >= 1, f"{n_sessions} sessions recorded")
-        check(seeded == n_sessions, "every one has its seed, for the replay (§6.1)")
-        check(decks >= 1, f"{decks} deck orders recorded")
-        pause = db.execute("SELECT pause FROM sessions ORDER BY id DESC").fetchone()[0]
-        check(pause == 3.0, f"pause recorded with the pacing values (Rev 17): {pause}")
-        db.close()
-
-        print("\n== the wrong cord rung (§7.7, Rev 88)")
-        b, link, g, sess = await build_game(tmp)
-        from sbgame.board import Change
-        from sbgame.script_data import Shape
-        def scene_of(shape):
-            return next(s for s in g.gs.scenes.values() if s.shape == shape
-                        and (shape != Shape.STATION_TO_STATION or s.from_station is not None))
-        inn, out, s2s = (scene_of(Shape.OUTSIDE_TO_STATION), scene_of(Shape.STATION_TO_OUTSIDE),
-                         scene_of(Shape.STATION_TO_STATION))
-        g.running = True
-        c1 = Call(slot=1, number=1, scene=inn.id, from_line="x", to_line="y", trunk="trunk/3")
-        c2 = Call(slot=2, number=2, scene=out.id, from_line="x", to_line="y")
-        c3 = Call(slot=3, number=3, scene=s2s.id, from_line="x", to_line="y")
-        for c in (c1, c2, c3):
-            await g.slots.open(c)
-        def ended(key, was="ring_on_trunk"):
-            return g._wrong_ring(Change(key, was, "", 0.0))
-        check(g._wrong_ring(Change("trunk/3/fault", "", "ring_on_trunk", 0.0)) is None,
-              "nothing while the trunk is still being rung")
-        check(ended("trunk/3/fault") == (c1, "rang-trunk"), "the trunk a call came in on: rang-trunk")
-        check(ended("trunk/3/fault") is None, "once a call")
-        check(ended("trunk/5/fault") == (c2, "rang-outside"),
-              "another trunk, a call out with none yet: rang-outside")
-        check(ended(f"station/{s2s.from_station}/ring", "on") is None,
-              "the board's ring detector: not what is watched (Rev 89)")
-        r = ended(f"station/{s2s.from_station}/ringing", "on")
-        check(r == (c3, "rang-caller"), f"the calling room heard ringing: rang-caller, got {r}")
-        check(ended(f"station/{s2s.to_station}/ringing", "on") is None
-              if s2s.to_station is not None and s2s.to_station != s2s.from_station else True,
-              "the called room rung: nothing")
-        check(not any("rang-" in m for m in g.gs.tutor_missing),
-              "not rendered: no bar to tutor mode")
-
-        print("\n== a rear cord in a trunk (§6.7, Rev 93)")
-        import sbgame.game as game_mod
-        game_mod.REAR_HOLD = b.hold                  # 1s and 1s, as on the board
-        watcher = asyncio.create_task(g.watch_clients())   # the held op off comes through it
-        await asyncio.sleep(0)
-        async def trunk(n, **kv):
-            for k, v in kv.items():
-                await b.update(f"trunk/{n}/{k}", v)
-        wait = b.hold + game_mod.REAR_HOLD
-        await trunk(5, seize="off", op="on")          # op on unseized, gone in time
-        await asyncio.sleep(0.3 * b.hold)
-        await trunk(5, op="off")                      # held b.hold, then off
-        await asyncio.sleep(wait + b.hold)
-        check((c2.number, "rear-in-trunk") not in g._hinted, "op on unseized, not for long: nothing")
-        await trunk(4, op="on", seize="on")           # a front cord, the operator in
-        await asyncio.sleep(wait / 2)
-        await trunk(4, seize="off")                   # pulled: op outlasts it by the hold
-        await asyncio.sleep(0.3 * b.hold)             # the detector's lag
-        await trunk(4, op="off")
-        await asyncio.sleep(wait + b.hold)
-        check((c2.number, "rear-in-trunk") not in g._hinted, "a front cord pulled, operator in: nothing")
-        await trunk(3, seize="off", op="on")          # the trunk c1 came in on
-        await asyncio.sleep(wait / 2)
-        await trunk(3, op="on")                       # a repeat changes nothing
-        await asyncio.sleep(wait)
-        check((c1.number, "rear-in-trunk") in g._hinted, "the call's own trunk, held: rear-in-trunk")
-        check("wrong cord: rear-in-trunk" in link.state_v.get("game/log", ""), "and logged")
-        await trunk(6, seize="off", op="on")          # the call out, no trunk yet
-        await asyncio.sleep(wait * 1.2)
-        check((c2.number, "rear-in-trunk") in g._hinted, "a call out with no trunk: rear-in-trunk")
-        c1b = Call(slot=4, number=4, scene=inn.id, from_line="x", to_line="y", trunk="trunk/7",
-                   connected=True)
-        await g.slots.open(c1b)
-        await trunk(7, seize="off", op="on")          # its room hung up, the operator in
-        await asyncio.sleep(wait * 1.2)
-        check((c1b.number, "rear-in-trunk") not in g._hinted, "a connected call: nothing")
-        check(not any("rear-" in m for m in g.gs.tutor_missing),
-              "not rendered: no bar to tutor mode")
-        watcher.cancel()
-        g.running = False
-
-        print("\n== the simulator hands out each trunk once (no broker needed)")
-        from sbgame.config import Config as C
-        from sbgame.simulate import Sim
-        gs = build(C().resolved("script"), "../wav")
-        sim = Sim(C(), gs, operator=True, delay=0)
-        # Two overlapping calls used to pick the same trunk, because `seize`
-        # is not true until the echo returns. Chosen synchronously now.
-        picks = [sim._free_trunk_now() for _ in range(8)]
-        check(len(set(picks)) == 8 and None not in picks,
-              f"eight distinct trunks: {picks}")
-        check(sim._free_trunk_now() is None, "a ninth request gets nothing")
-        sim.taken.discard(3)
-        check(sim._free_trunk_now() == 3, "a released trunk comes back")
-
-    print("\n" + ("FAILURES" if failures else "the game passed"))
-    return 1 if failures else 0
+        await b.update("trunk/2/seize", "on" if _ % 2 == 0 else "off")
+    assert link.state_v.get("game/run") == "on", "the player's acts keep it running"
+    await asyncio.sleep(0.6)
+    await g.on_command("pace", "manual")         # a button counts too
+    await asyncio.sleep(0.6)
+    assert link.state_v.get("game/run") == "on", "and so does a button"
+    await b.update("station/3/hook", "on")       # the game's own doing: not activity
+    await asyncio.sleep(1.0)
+    assert link.state_v.get("game/run") == "off", "a second with nothing: stopped"
+    assert "game stopped: no activity" in link.state_v.get("game/log", ""), "and said why"
+    await g.on_command("run", "on")
+    assert link.state_v.get("game/run") == "on", "Start resumes"
+    await g.stop("stop")
+    for t in (watcher, sched):
+        t.cancel()
+    await sess.close()
 
 
-if __name__ == "__main__":
-    raise SystemExit(asyncio.run(main()))
+async def test_session_record(tmp_path):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp, pace="manual")
+    await g.start()
+    await g.stop("stop")
+    await sess.close()
+    db = sqlite3.connect(tmp / "s.db")
+    n_sessions = db.execute("SELECT count(*) FROM sessions").fetchone()[0]
+    seeded = db.execute("SELECT count(*) FROM sessions WHERE seed IS NOT NULL").fetchone()[0]
+    decks = db.execute("SELECT count(*) FROM decks").fetchone()[0]
+    assert n_sessions >= 1, f"{n_sessions} sessions recorded"
+    assert seeded == n_sessions, "every one has its seed, for the replay (§6.1)"
+    assert decks >= 1, f"{decks} deck orders recorded"
+    pause = db.execute("SELECT pause FROM sessions ORDER BY id DESC").fetchone()[0]
+    assert pause == 3.0, f"pause recorded with the pacing values: {pause}"
+    db.close()
+
+
+async def test_wrong_cord_and_rear_cord(tmp_path, monkeypatch):
+    tmp = tmp_path
+    b, link, g, sess = await build_game(tmp)
+    def scene_of(shape):
+        return next(s for s in g.gs.scenes.values() if s.shape == shape
+                    and (shape != Shape.STATION_TO_STATION or s.from_station is not None))
+    inn, out, s2s = (scene_of(Shape.OUTSIDE_TO_STATION), scene_of(Shape.STATION_TO_OUTSIDE),
+                     scene_of(Shape.STATION_TO_STATION))
+    g.running = True
+    c1 = Call(slot=1, number=1, scene=inn.id, from_line="x", to_line="y", trunk="trunk/3")
+    c2 = Call(slot=2, number=2, scene=out.id, from_line="x", to_line="y")
+    c3 = Call(slot=3, number=3, scene=s2s.id, from_line="x", to_line="y")
+    for c in (c1, c2, c3):
+        await g.slots.open(c)
+    def ended(key, was="ring_on_trunk"):
+        return g._wrong_ring(Change(key, was, "", 0.0))
+    assert g._wrong_ring(Change("trunk/3/fault", "", "ring_on_trunk", 0.0)) is None, "nothing while the trunk is still being rung"
+    assert ended("trunk/3/fault") == (c1, "rang-trunk"), "the trunk a call came in on: rang-trunk"
+    assert ended("trunk/3/fault") is None, "once a call"
+    assert ended("trunk/5/fault") == (c2, "rang-outside"), "another trunk, a call out with none yet: rang-outside"
+    assert ended(f"station/{s2s.from_station}/ring", "on") is None, "the board's ring detector: not what is watched"
+    r = ended(f"station/{s2s.from_station}/ringing", "on")
+    assert r == (c3, "rang-caller"), f"the calling room heard ringing: rang-caller, got {r}"
+    assert (ended(f"station/{s2s.to_station}/ringing", "on") is None
+          if s2s.to_station is not None and s2s.to_station != s2s.from_station else True), "the called room rung: nothing"
+    assert not any("rang-" in m for m in g.gs.tutor_missing), "not rendered: no bar to tutor mode"
+
+    monkeypatch.setattr(game_mod, "REAR_HOLD", b.hold)   # 1s and 1s, as on the board
+    watcher = asyncio.create_task(g.watch_clients())   # the held op off comes through it
+    await asyncio.sleep(0)
+    async def trunk(n, **kv):
+        for k, v in kv.items():
+            await b.update(f"trunk/{n}/{k}", v)
+    wait = b.hold + game_mod.REAR_HOLD
+    await trunk(5, seize="off", op="on")          # op on unseized, gone in time
+    await asyncio.sleep(0.3 * b.hold)
+    await trunk(5, op="off")                      # held b.hold, then off
+    await asyncio.sleep(wait + b.hold)
+    assert (c2.number, "rear-in-trunk") not in g._hinted, "op on unseized, not for long: nothing"
+    await trunk(4, op="on", seize="on")           # a front cord, the operator in
+    await asyncio.sleep(wait / 2)
+    await trunk(4, seize="off")                   # pulled: op outlasts it by the hold
+    await asyncio.sleep(0.3 * b.hold)             # the detector's lag
+    await trunk(4, op="off")
+    await asyncio.sleep(wait + b.hold)
+    assert (c2.number, "rear-in-trunk") not in g._hinted, "a front cord pulled, operator in: nothing"
+    await trunk(3, seize="off", op="on")          # the trunk c1 came in on
+    await asyncio.sleep(wait / 2)
+    await trunk(3, op="on")                       # a repeat changes nothing
+    await asyncio.sleep(wait)
+    assert (c1.number, "rear-in-trunk") in g._hinted, "the call's own trunk, held: rear-in-trunk"
+    assert "wrong cord: rear-in-trunk" in link.state_v.get("game/log", ""), "and logged"
+    await trunk(6, seize="off", op="on")          # the call out, no trunk yet
+    await asyncio.sleep(wait * 1.2)
+    assert (c2.number, "rear-in-trunk") in g._hinted, "a call out with no trunk: rear-in-trunk"
+    c1b = Call(slot=4, number=4, scene=inn.id, from_line="x", to_line="y", trunk="trunk/7",
+               connected=True)
+    await g.slots.open(c1b)
+    await trunk(7, seize="off", op="on")          # its room hung up, the operator in
+    await asyncio.sleep(wait * 1.2)
+    assert (c1b.number, "rear-in-trunk") not in g._hinted, "a connected call: nothing"
+    assert not any("rear-" in m for m in g.gs.tutor_missing), "not rendered: no bar to tutor mode"
+    watcher.cancel()
+    g.running = False
+    await sess.close()
+
+
+def test_simulator_hands_out_each_trunk_once():
+    gs = build(Config().resolved("script"), WAV)
+    sim = Sim(Config(), gs, operator=True, delay=0)
+    # Two overlapping calls used to pick the same trunk, because `seize`
+    # is not true until the echo returns. Chosen synchronously now.
+    picks = [sim._free_trunk_now() for _ in range(8)]
+    assert len(set(picks)) == 8 and None not in picks, f"eight distinct trunks: {picks}"
+    assert sim._free_trunk_now() is None, "a ninth request gets nothing"
+    sim.taken.discard(3)
+    assert sim._free_trunk_now() == 3, "a released trunk comes back"

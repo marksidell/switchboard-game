@@ -4,8 +4,8 @@ One row per game in `sessions`, one per call in `calls`, one per event in
 `events`, and the deck's seed and every shuffled order in `decks` so a game can
 be replayed (game_control.md §6.1).
 
-Every call here goes through `asyncio.to_thread`. sqlite3 blocks, and rule 4 of
-the handover is that nothing on the event loop may: a blocked loop stops the
+Every call here goes through `asyncio.to_thread`. sqlite3 blocks, and nothing
+on the event loop may: a blocked loop stops the
 heartbeat, and two missed beats make the controller release every relay. This
 is the reason the writes are queued in a task rather than awaited from a flow —
 a flow that waited on a disk write would hold up its own call for it.
@@ -30,8 +30,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     why       TEXT,               -- 'stop', 'client lost', or the client's name
     seed      INTEGER NOT NULL,
     pace      TEXT, gap REAL, ramp REAL, floor REAL,
-    jitter    REAL,               -- percent; added with game_control.md Rev 12
-    pause     REAL,               -- listen's wait; added with Rev 17
+    jitter    REAL,               -- percent; added later (open() adds it)
+    pause     REAL,               -- listen's wait; added later too
     started_n INTEGER DEFAULT 0,
     success   INTEGER DEFAULT 0,
     fail      INTEGER DEFAULT 0

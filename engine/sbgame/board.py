@@ -37,7 +37,7 @@ LIVE_AUDIO = "live/audio"
 
 CONTROL_BEAT_LIMIT = 2.5  # seconds: two missed 1 s beats, plus slack (mqtt.md §8.2)
 
-# What a switchboard power cut can disturb on a line (game_control.md §2, Rev 66).
+# What a switchboard power cut can disturb on a line (game_control.md §2).
 CUT_KEYS = re.compile(r"^(?:station|trunk)/\d+/(?:peer|op)$|^trunk/\d+/seize$")
 
 
@@ -62,11 +62,11 @@ Predicate = Callable[["Board"], Any]
 
 class Board:
     # A connection that goes away is believed only after HOLD seconds gone
-    # (game_control.md §4, Rev 45). Moving a cord pair's switch breaks both
+    # (game_control.md §4). Moving a cord pair's switch breaks both
     # lines for about 0.2s, as do dial pulses; the detector reports that as
     # `deaf` and then idle, and the call must ride through it.
     HOLD = 1.0
-    # The switchboard's power cut, ctl/power_cut "on" (§2, Rev 66), drops every
+    # The switchboard's power cut, ctl/power_cut "on" (§2), drops every
     # line on the board for its 1s. Lines are frozen from the cut until SETTLE
     # after the power is back, and then take their latest values, through the
     # HOLD above, so the calls on the board carry on. CUT_MAX ends a freeze
@@ -203,7 +203,7 @@ class Board:
         return True
 
     def _hold(self, key: str, payload: str) -> bool | None:
-        """A circuit's `peer` and `op` going away, held (§4, Rev 45).
+        """A circuit's `peer` and `op` going away, held (§4).
 
         `deaf` is a circuit not hearing its own pilot, which says nothing
         about what it is patched to: the last value stands. A `peer` going

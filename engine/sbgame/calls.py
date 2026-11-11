@@ -17,7 +17,7 @@ finer; it maps onto these.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 N_SLOTS = 8
 
@@ -39,7 +39,7 @@ class Reason:
     NOT_CONNECTED = "not connected"
     CUT_OFF = "cut off"
     TIMEOUT = "timeout"
-    MISDIALLED = "misdialled"     # too many digits or too few (Rev 56)
+    MISDIALLED = "misdialled"     # too many digits or too few
 
 
 @dataclass

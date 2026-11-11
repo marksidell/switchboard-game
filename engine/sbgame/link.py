@@ -115,24 +115,33 @@ class Link:
             async for msg in client.messages:
                 key = msg.topic.value.removeprefix(PREFIX)
                 payload = msg.payload.decode() if isinstance(msg.payload, bytes) else str(msg.payload or "")
+                try:
+                    await self._dispatch(key, payload)
+                except aiomqtt.MqttError:
+                    raise                   # the connection: reconnect
+                except Exception:
+                    # One bad message or command must not end the session:
+                    # outside the TaskGroup it would end run() as well.
+                    log.exception("handling %s=%r", key, payload)
 
-                if key.startswith("game/") and key.endswith("/set"):
-                    # A page command (mqtt.md §6.2). Keep the handler quick:
-                    # validate, publish the echo, start tasks. The dispatcher
-                    # waits for it.
-                    # The name is what lies between game/ and /set: "run", or
-                    # for a diagnostic "diag/station/3/tone" (mqtt.md §6.2).
-                    await self._on_command(key.removeprefix("game/").removesuffix("/set"), payload)
-                    continue
-                if key.endswith("/set") or key in _OWN or key.startswith(_OWN_PREFIXES):
-                    continue  # our own commands and state, echoed back by the wildcard
+    async def _dispatch(self, key: str, payload: str) -> None:
+        if key.startswith("game/") and key.endswith("/set"):
+            # A page command (mqtt.md §6.2). Keep the handler quick:
+            # validate, publish the echo, start tasks. The dispatcher
+            # waits for it.
+            # The name is what lies between game/ and /set: "run", or
+            # for a diagnostic "diag/station/3/tone" (mqtt.md §6.2).
+            await self._on_command(key.removeprefix("game/").removesuffix("/set"), payload)
+            return
+        if key.endswith("/set") or key in _OWN or key.startswith(_OWN_PREFIXES):
+            return  # our own commands and state, echoed back by the wildcard
 
-                was_up = self.board.control_up
-                await self.board.update(key, payload)
-                if self.board.control_up and not was_up:
-                    # status went online, or heartbeat came back (mqtt.md §8.3)
-                    log.info("controller up; sending sync")
-                    await self.publish("ctl/sync")
+        was_up = self.board.control_up
+        await self.board.update(key, payload)
+        if self.board.control_up and not was_up:
+            # status went online, or heartbeat came back (mqtt.md §8.3)
+            log.info("controller up; sending sync")
+            await self.publish("ctl/sync")
 
     async def _go_live(self) -> None:
         # Let the retained flood land before any wait can pass on it.
@@ -142,7 +151,7 @@ class Link:
 
     async def _heartbeat(self) -> None:
         while True:
-            # Host Unix time, to a tenth of a second (mqtt.md §7, Rev 10).
+            # Host Unix time, to a tenth of a second (mqtt.md §7).
             # The page takes the host's clock from it.
             await self.publish("ctl/game_heartbeat", f"{time.time():.1f}")
             await asyncio.sleep(1.0)
@@ -152,11 +161,6 @@ class Link:
             await asyncio.sleep(0.25)
             if await self.board.check_control_beat() == "lost":
                 log.warning("controller heartbeat lost")
-
-
-def read_password(path: str = "/etc/sbgame/mqtt-game.pass") -> str:
-    with open(path, encoding="utf-8") as f:
-        return f.read().strip()
 
 
 class Hw:
@@ -176,14 +180,14 @@ class Hw:
         await self._p(f"trunk/{trunk}/ring/set", "on" if on else "off")
 
     async def power_cut(self, how: str = "on") -> None:
-        """Cut the switchboard's 24V (control.md §5.4): "on" for 1s (Rev 31),
+        """Cut the switchboard's 24V (control.md §5.4): "on" for 1s,
         every relay and lamp on it dropping, a trunk's locked signal among
-        them; "hold" until "off" (Rev 32); "off" to power it again."""
+        them; "hold" until "off"; "off" to power it again."""
         await self._p("ctl/power_cut/set", how)
 
     async def short_ring(self, trunk: int) -> None:
-        """One 1s burst, then the trunk can see a seizure (control.md §8.4,
-        Rev 25): the switchboard's trunk signal latches on it."""
+        """One 1s burst, then the trunk can see a seizure (control.md §8.4):
+        the switchboard's trunk signal latches on it."""
         await self._p(f"trunk/{trunk}/shortring/set", "on")
 
     async def play(self, circuit: str, name: str) -> None:
