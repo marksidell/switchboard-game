@@ -11,10 +11,10 @@ telephone band is how the audience hears these, and a voice that is lovely at
 full bandwidth can disappear at 3.4kHz. --raw is there for comparison, not for
 choosing.
 
-Audio path, from docs/audio-io.md: the Digiface USB, card id USB24306452, with 34
-playback channels of S32_LE at 48kHz, and the headphone jack is the last pair,
-zero-based indices 32 and 33. So each clip is placed into a 34-channel frame
-with silence everywhere else and handed to aplay.
+Audio path, from docs/audio-io.md: the Digiface USB, found by name
+(tts/playback.py), with 34 playback channels of S32_LE at 48kHz, and the
+headphone jack is the last pair, zero-based indices 32 and 33. So each clip is
+placed into a 34-channel frame with silence everywhere else and handed to aplay.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tts.prompt import sample_text, voice_prompt          # noqa: E402
 from tts.script import DEFAULT_SCRIPT, ScriptError, load  # noqa: E402
-from tts.playback import DEVICE, MAX_CIRCUIT, PHONES, play  # noqa: E402
+from tts.playback import MAX_CIRCUIT, PHONES, digiface, out_channels, play  # noqa: E402
 
 
 PREVIEW = Path("tts/voices/preview")
@@ -71,7 +71,7 @@ def main() -> int:
     p.add_argument("--raw", action="store_true",
                    help=f"play {CANDIDATES} at full bandwidth instead of the previews")
     p.add_argument("--choices", type=Path, default=CHOICES)
-    p.add_argument("--device", default=DEVICE)
+    p.add_argument("--device", help="ALSA playback device (default: the Digiface, found by name)")
     # docs/audio-io.md: the bench tools disagree on this deliberately, and
     # tone_out takes one-based numbers. Match tone_out, and print both, so the
     # pin in use is never in doubt.
@@ -85,12 +85,10 @@ def main() -> int:
                    help="include people already chosen, rather than resuming")
     args = p.parse_args()
 
-    if args.channel is None:
-        out_channels = PHONES
-    elif 1 <= args.channel <= MAX_CIRCUIT:
-        out_channels = (args.channel - 1,)
-    else:
-        print(f"--channel {args.channel} is outside 1..{MAX_CIRCUIT}", file=sys.stderr)
+    try:
+        channels = out_channels(args.channel)
+    except ValueError as e:
+        print(e, file=sys.stderr)
         return 1
 
     src = CANDIDATES if args.raw else args.src
@@ -111,10 +109,11 @@ def main() -> int:
         return 1
     queue = [w for w in wanted if args.all or args.only or w not in choices]
 
+    device = digiface(args.device)
     where = ("the headphone jack, channels 33/34 (0-based indices 32/33)"
-             if out_channels == PHONES else
-             f"channel {out_channels[0] + 1} (0-based index {out_channels[0]})")
-    print(f"playing {src}/ through {args.device}, {where}")
+             if channels == PHONES else
+             f"channel {channels[0] + 1} (0-based index {channels[0]})")
+    print(f"playing {src}/ through {device}, {where}")
     if not args.raw:
         print("these are the band-limited previews — 300-3400Hz, as the audience hears them")
     if len(queue) < len(wanted):
@@ -149,7 +148,7 @@ def main() -> int:
         def play_all() -> None:
             for k in available:
                 print(f"  [{k}] …", end="", flush=True)
-                play(src / f"{person}.{k}.wav", args.device, args.gain, out_channels)
+                play(src / f"{person}.{k}.wav", device, args.gain, channels)
                 print(" done")
 
         play_all()
@@ -169,7 +168,7 @@ def main() -> int:
             if answer.startswith("p") and answer[1:].isdigit() and int(answer[1:]) in available:
                 k = int(answer[1:])
                 print(f"  [{k}] …", end="", flush=True)
-                play(src / f"{person}.{k}.wav", args.device, args.gain, out_channels)
+                play(src / f"{person}.{k}.wav", device, args.gain, channels)
                 print(" done")
                 continue
             if answer == "s":

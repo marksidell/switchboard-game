@@ -23,7 +23,7 @@ by default — circuit 1. pause: is silence; ringback: and the ring of an
 outside line are the 420Hz ringback of audio.md §8.2, and busy tone is its
 busy, both at the same −20dBFS peak.
 
-Audio path as tts/audition: the Digiface USB is ALSA card 1, 34 playback
+Audio path as tts/audition (tts/playback.py): the Digiface, 34 playback
 channels of S32_LE at 48kHz, docs/audio-io.md. The device must be free, so
 stop sbaudio first.
 """
@@ -32,7 +32,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import subprocess
 import sys
 from pathlib import Path
 from typing import Iterator
@@ -44,17 +43,13 @@ if sys.prefix == sys.base_prefix and _venv.exists():
 
 import numpy as np
 import soundfile as sf
-import soxr
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tts.playback import CHANNELS, RATE, digiface, send                      # noqa: E402
+from tts.playback import read_mono as wav_audio                              # noqa: E402
 from tts.script import DEFAULT_SCRIPT, Script, ScriptError, Utterance, load  # noqa: E402
 
-# By card id, not number: the numbers follow USB enumeration order and moved
-# on portland (the Digiface was card 1, then card 2). audio.md Rev 2.
-DEVICE = "hw:USB24306452"
-CHANNELS = 34
-RATE = 48000
 WAV = Path(__file__).resolve().parent.parent / "wav"
 
 # audio.md §8.2: carrier × (1 + m·sin(2π f_mod t)), m = 1, −20dBFS peak.
@@ -77,34 +72,10 @@ class Player:
     def __init__(self, device: str, channel: int, gain_db: float) -> None:
         self.device = device
         self.channel = channel
-        self.gain = 10.0 ** (gain_db / 20.0)
+        self.gain_db = gain_db
 
     def out(self, audio: np.ndarray) -> None:
-        audio = np.clip(audio * self.gain, -1.0, 1.0)
-        frame = np.zeros((len(audio), CHANNELS), dtype=np.int32)
-        frame[:, self.channel] = (audio * (2 ** 31 - 1)).astype(np.int32)
-        try:
-            subprocess.run(
-                ["aplay", "-D", self.device, "-t", "raw", "-f", "S32_LE",
-                 "-r", str(RATE), "-c", str(CHANNELS), "-q", "-"],
-                input=frame.tobytes(), check=True)
-        except FileNotFoundError:
-            sys.exit("aplay not found: install alsa-utils")
-        except subprocess.CalledProcessError as e:
-            if e.returncode < 0:          # killed by the Ctrl-C that stops the scene
-                raise KeyboardInterrupt from None
-            sys.exit(f"aplay failed ({e.returncode}). Is {self.device} free — sbaudio "
-                     f"stopped — and is the Digiface connected?")
-
-
-def wav_audio(path: Path) -> np.ndarray:
-    audio, rate = sf.read(str(path), always_2d=False, dtype="float64")
-    audio = np.asarray(audio)
-    if audio.ndim > 1:
-        audio = audio.mean(axis=1)
-    if rate != RATE:
-        audio = soxr.resample(audio, rate, RATE, quality="VHQ")
-    return audio
+        send(audio, self.device, self.gain_db, (self.channel,))
 
 
 def tone_audio(kind: str, seconds: float) -> np.ndarray:
@@ -332,7 +303,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--script", default=DEFAULT_SCRIPT)
     ap.add_argument("--wav", type=Path, default=WAV, help=f"directory of wavs (default {WAV})")
-    ap.add_argument("--device", default=DEVICE)
+    ap.add_argument("--device", help="ALSA playback device (default: the Digiface, found by name)")
     ap.add_argument("--channel", type=int, default=0, metavar="N",
                     help=f"zero-based, as the driver indexes it, 0..{CHANNELS - 1} "
                          f"(default 0, circuit 1; 32/33 are the headphone jack)")
@@ -389,8 +360,8 @@ def main() -> int:
         print(f"{args.start}: not an active scene", file=sys.stderr)
         return 1
 
-    p = Player(args.device, args.channel, args.gain)
-    print(f"{len(order)} active scenes, through {args.device} channel index {args.channel}")
+    p = Player(digiface(args.device), args.channel, args.gain)
+    print(f"{len(order)} active scenes, through {p.device} channel index {args.channel}")
 
     nxt = order.index(args.start) if args.start else 0
     last: str | None = None

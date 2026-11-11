@@ -48,7 +48,7 @@ import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tts.playback import DEVICE, out_channels, play                     # noqa: E402
+from tts.playback import digiface, out_channels, play                    # noqa: E402
 from tts.process import process_file                                    # noqa: E402
 from tts.recorded import (RECORDED, load_takes, note_take,              # noqa: E402
                           performers, save_takes, status)
@@ -131,13 +131,13 @@ def read_any(src: Path, dest: Path) -> str:
         data, rate = sf.read(str(src), always_2d=False)
         sf.write(str(dest), data, rate, subtype="PCM_24")
         return ""
-    except Exception:
-        pass
+    except sf.SoundFileError as e:
+        unread = str(e)
     if shutil.which("ffmpeg") is None:
-        return f"{src.suffix} needs ffmpeg to convert (sudo apt install ffmpeg)"
+        return f"{unread}; {src.suffix} needs ffmpeg to convert (sudo apt install ffmpeg)"
     r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(src), str(dest)],
                        capture_output=True, text=True)
-    return "" if r.returncode == 0 else f"ffmpeg: {r.stderr.strip()[:120]}"
+    return "" if r.returncode == 0 else f"{unread}; ffmpeg: {r.stderr.strip()[:120]}"
 
 
 def import_takes(script: Script, src_dir: Path) -> int:
@@ -238,6 +238,7 @@ def record(script: Script, only: set[str], redo: bool, args) -> int:
         print("nothing to record — every recorded line has a current take")
         return 0
     chans = out_channels(args.channel)
+    args.device = digiface(args.device)
     rec = Recorder(args.capture, args.rate, args.format, args.device, args.input)
     takes = load_takes()
     RECORDED.mkdir(parents=True, exist_ok=True)
@@ -325,7 +326,7 @@ def main(argv: list[str] | None = None) -> int:
                    help="play each take as recorded, not as the audience will hear it")
     p.add_argument("--rate", type=int, default=48000)
     p.add_argument("--format", default="S16_LE", help="arecord sample format (S16_LE)")
-    p.add_argument("--device", default=DEVICE, help="playback device, the Digiface")
+    p.add_argument("--device", help="the Digiface's ALSA device (default: found by name)")
     p.add_argument("--channel", type=int, metavar="N",
                    help="play back on one-based output N (default: the --input channel's "
                         "own output, or the headphone jack without --input)")
