@@ -1,6 +1,6 @@
 # `sbaudio` — the audio program
 
-C++17, one binary. Specified by `docs/audio.md`, which is the authority for
+C++17: the program `sbaudio`, its tests and two offline tools. Specified by `docs/audio.md`, which is the authority for
 everything here; `docs/mqtt.md` owns the wire, `docs/station_circuit.md` §8 owns the
 pilot comb, the detector and the monitor filter, and `docs/pilot-map.md` owns the
 slot ↔ bin table. This file is how to build and run it, not what it does.
@@ -31,26 +31,39 @@ ctest --test-dir audio/build --output-on-failure
 ```
 
 `sbaudio_test` needs no hardware and no broker. It checks the pilot map against
-`docs/pilot-map.md`, the monitor low-pass against station §8.8's 70 dB at 6000 Hz and
+`docs/pilot-map.md`, the monitor low-pass against `station_circuit.md` §8.8's 70 dB at 6000 Hz and
 the content check's high-pass against the telephone band it has to ignore —
 which `audio.md` §10.1 asks for by name, because the lowest pilot sits exactly there —
 and the detector against a synthetic block built with the same wavetable expression the
-engine renders pilots with.
+engine renders pilots with. It drives the real engine, period by period, with no audio
+device.
+
+Two tools build beside it and need no hardware either:
+
+- `monitor_check [--dir wav] [MATCH]` plays every prompt through the loudspeaker's chain
+  with the service's settings and lists any the line-disturbance gate shuts on
+  (`audio.md` §10.5). Run it from the repository's top, where `wav/` is.
+- `aec_check` runs the echo canceller over a `--record-line` recording (`audio.md` §9.4).
+
+`sbaudio --version` gives the commit it was built from, `-dirty` if `audio/` had
+uncommitted changes; so does the first line of its log.
 
 ## Run
 
 ```
-./audio/build/sbaudio --card USB24306452 --broker localhost:1883 \
+./audio/build/sbaudio --broker localhost:1883 \
     --mqtt-user sbgame-audio --mqtt-pass-file /etc/sbgame/mqtt-audio.pass --wav-dir wav
 ```
 
-`--help` lists every option; they are `audio.md` §14's list exactly. `--card` is
-required and has no default: it is the id in the second column of `/proc/asound/cards`,
-which `snd-usb-audio` derives from the device's serial number — `USB24306452` for the
-Digiface on portland. Prefer `--mqtt-pass-file` to `--mqtt-pass`: a password in
-`ExecStart` is in every `ps` listing on the host. The password file is the host's, not
-this program's: `/etc/sbgame/mqtt-audio.pass`, 640 `root:sidell`, made with the others
-by the steps in `host/README.md`, and user `sbgame-audio` is its broker entry.
+`--help` lists every option; they are `audio.md` §14's list exactly. Without `--card`
+the program opens the one card whose name in `/proc/asound/cards` contains "Digiface",
+and refuses to start if there is none or more than one. `--card <id>` names it: the id
+in the second column of `/proc/asound/cards`, which `snd-usb-audio` derives from the
+device's serial number, so `USB` and eight digits. Prefer `--mqtt-pass-file` to
+`--mqtt-pass`: a password in `ExecStart` is in every `ps` listing on the host. The
+password file is the host's, not this program's: `/etc/sbgame/mqtt-audio.pass`, 640,
+owned by root with the service user's group, made with the others by the steps in
+`host/README.md`, and user `sbgame-audio` is its broker entry.
 
 The channel map is `audio.md` §2 and `docs/pilot-map.md`: stations on document channels
 1–22 and 24, the operator tap on 23, and trunks on 25–32. The audience monitor is on the
@@ -84,7 +97,7 @@ runs the copy in `/usr/local/bin`, not the build directory.
 
 The unit is `host/etc/systemd/system/sbaudio.service`, so `make -C host diff` reports
 it when the installed copy drifts. The unit's `ExecStart` is where bench settings live (`audio.md` §14): the program's
-defaults are the figures station §8 gives, and what the bench says goes in the unit
+defaults are the figures `station_circuit.md` §8 gives, and what the bench says goes in the unit
 file, not into the source. `LimitRTPRIO` and `LimitMEMLOCK` are there so `SCHED_FIFO`
 and `mlockall` succeed; without them the program logs and continues, at the cost of
 xruns.
@@ -95,9 +108,8 @@ would default to `~/.cache`, which the unit's `ProtectHome=read-only` makes unwr
 and every start would pay the slow plan. The log says which happened: `plan from
 wisdom`, `wisdom saved`, or `could not save wisdom`.
 
-The wav directory does not exist yet — no content is authored. Create
-`/home/sidell/s/sbgame/wav` before the first `play/set`, or every one of them will publish
-`missing`.
+The prompts are installed by `./release` into the directory the unit's `--wav-dir`
+names. A `play/set` for a file not there publishes `missing`.
 
 ## Commissioning
 
@@ -142,11 +154,20 @@ src/ipc.h          what crosses between the threads
 src/dsp.*          sine table, biquads, the elliptic design, the limiter
 src/alsa.*         the duplex stream, linked, and the sample conversion
 src/wav.*          loading and validating a prompt
-src/engine.*       the audio thread: mixer, tones, files, speech detector, monitor
+src/engine.*       the audio thread: one period, the mixer, files, speech detector
+src/monitor.*      the loudspeaker's chain: filters, gate, peer boost, ramp, limiter
+src/tones.h, .cpp  the trunk tones
+src/cityring.h     the ringback waveform, measured from a recording
+src/ringdet.*      ring heard on a circuit
 src/vad.*          the speech detector's decisions: floor, window, speech/silence/timeout
-src/detector.*     the analysis thread: FFT and station 8.7
+src/aec.*          the echo canceller under a circuit's own file
+src/rec.*          recording the loudspeaker, and playing a recording back
+src/detector.*     the analysis thread: FFT and station_circuit.md §8.7
 src/net.*          the MQTT thread: commands in, state out, the failsafes
 src/main.cpp       startup order (audio.md 13.1) and shutdown
-test/              the checks that need no hardware
-systemd/           the unit file
+version.cmake      the commit stamp --version prints
+test/              the checks that need no hardware, the probe they drive the
+                   engine through, and monitor_check and aec_check
 ```
+
+The unit file is `host/etc/systemd/system/sbaudio.service`.
