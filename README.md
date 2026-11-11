@@ -5,7 +5,7 @@ switchboard, unmodified, wired to modern hardware that plays sixty
 characters who are calling a 1950s hotel.
 A lamp lights, a caller waits, and the game listens for "Number, please."*
 
-Watch this [YouTube video](https://youtu.be/5uK2ORB7zGE) to
+Watch this [YouTube video](https://youtu.be/OEJ2QEtEweM) to
 see the game in action.
 
 On tours at the Connections Museum in Seattle, guests really enjoy
