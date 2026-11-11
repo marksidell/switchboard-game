@@ -4,10 +4,8 @@
 // tracing a signal by hand - through a cord pair, a transformer, a circuit
 // board - while metering or listening somewhere downstream.
 //
-// The channel number is 1-BASED here, matching the "in ch" / "out ch" columns
-// the loopback test prints. Note that pilot_loopback_test's -p and -c options
-// are 0-based instead; the resolved index is printed at startup so there is
-// never any doubt which pin is being driven.
+// Channel numbers are 1-based, as in docs/audio.md: channel n is ALSA frame
+// index n-1.
 //
 // Phase is carried in a double accumulator rather than a precomputed loop
 // buffer, so any frequency plays seamlessly - no click at the wrap and no
@@ -15,12 +13,12 @@
 //
 // Build:  g++ -O2 -Wall -Wextra -o tone_out tone_out.cpp -lasound
 //
-// Examples:
+// Examples (hw:1 stands for the card number or id in /proc/asound/cards):
 //     ./tone_out -D hw:1 -c 7                 1 kHz on channel 7, until ^C
 //     ./tone_out -D hw:1 -c 8 -f 400 -a -20   400 Hz at -20 dBFS
 //     ./tone_out -D hw:1 -c 7 -d 30           stop after 30 seconds
 //
-#include <alsa/asoundlib.h>
+#include "bench_alsa.h"
 
 #include <algorithm>
 #include <cmath>
@@ -49,7 +47,7 @@ struct Opts {
     double              cyc_secs = 0.0;    // 0 = all channels together
 };
 
-// Split "7,8" or "6562.5,6656.25" into its parts. Returns false on anything
+// Split "6562.5,6656.25" into its parts. Returns false on anything
 // that is not a comma-separated list of numbers.
 static bool split_list(const char* arg, std::vector<double>& out)
 {
@@ -98,147 +96,6 @@ static void usage(const char* p) {
 static volatile sig_atomic_t g_stop = 0;
 static void on_signal(int) { g_stop = 1; }
 
-// ---------------------------------------------------------------- sample I/O
-
-static size_t fmt_bytes(snd_pcm_format_t f) {
-    int w = snd_pcm_format_physical_width(f);
-    return (w > 0) ? (size_t)(w / 8) : 0;
-}
-
-static void put_sample(uint8_t* p, snd_pcm_format_t f, double v) {
-    if (v >  1.0) v =  1.0;
-    if (v < -1.0) v = -1.0;
-    switch (f) {
-    case SND_PCM_FORMAT_S32_LE: {
-        // 2^31 - 256, so the value stays clean if the device truncates to 24 bits
-        int32_t s = (int32_t)llrint(v * 2147483392.0);
-        std::memcpy(p, &s, 4);
-        break;
-    }
-    case SND_PCM_FORMAT_S24_3LE: {
-        int32_t s = (int32_t)lrint(v * 8388607.0);
-        p[0] = (uint8_t)( s        & 0xff);
-        p[1] = (uint8_t)((s >>  8) & 0xff);
-        p[2] = (uint8_t)((s >> 16) & 0xff);
-        break;
-    }
-    case SND_PCM_FORMAT_S16_LE: {
-        int16_t s = (int16_t)lrint(v * 32767.0);
-        std::memcpy(p, &s, 2);
-        break;
-    }
-    default:
-        break;
-    }
-}
-
-// ---------------------------------------------------------------- ALSA setup
-
-struct Stream {
-    snd_pcm_t*        pcm    = 0;
-    snd_pcm_format_t  fmt    = SND_PCM_FORMAT_UNKNOWN;
-    unsigned          chan   = 0;
-    snd_pcm_uframes_t period = 0;
-    snd_pcm_uframes_t buffer = 0;
-    size_t            fbytes = 0;
-};
-
-static int cfg_fail(Stream& st, int err) {
-    if (st.pcm) { snd_pcm_close(st.pcm); st.pcm = 0; }
-    return err;
-}
-
-static int configure(Stream& st, const Opts& o) {
-    int err = snd_pcm_open(&st.pcm, o.dev.c_str(), SND_PCM_STREAM_PLAYBACK, 0);
-    if (err < 0) {
-        std::fprintf(stderr, "open %s: %s\n", o.dev.c_str(), snd_strerror(err));
-        return err;
-    }
-
-    snd_pcm_hw_params_t* hw;
-    snd_pcm_hw_params_alloca(&hw);
-    snd_pcm_hw_params_any(st.pcm, hw);
-
-    if ((err = snd_pcm_hw_params_set_rate_resample(st.pcm, hw, 0)) < 0) {
-        std::fprintf(stderr, "disable resample: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-    if ((err = snd_pcm_hw_params_set_access(st.pcm, hw, SND_PCM_ACCESS_RW_INTERLEAVED)) < 0) {
-        std::fprintf(stderr, "set access: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-
-    static const snd_pcm_format_t cands[] = {
-        SND_PCM_FORMAT_S32_LE, SND_PCM_FORMAT_S24_3LE, SND_PCM_FORMAT_S16_LE
-    };
-    for (size_t i = 0; i < sizeof(cands) / sizeof(cands[0]); ++i) {
-        if (snd_pcm_hw_params_test_format(st.pcm, hw, cands[i]) == 0) { st.fmt = cands[i]; break; }
-    }
-    if (st.fmt == SND_PCM_FORMAT_UNKNOWN) {
-        std::fprintf(stderr, "no supported sample format on %s\n", o.dev.c_str());
-        return cfg_fail(st, -EINVAL);
-    }
-    if ((err = snd_pcm_hw_params_set_format(st.pcm, hw, st.fmt)) < 0) {
-        std::fprintf(stderr, "set format: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-
-    unsigned rate = o.rate;
-    if ((err = snd_pcm_hw_params_set_rate(st.pcm, hw, rate, 0)) < 0) {
-        std::fprintf(stderr, "set rate %u: %s\n", rate, snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-
-    unsigned cmin = 0, cmax = 0;
-    snd_pcm_hw_params_get_channels_min(hw, &cmin);
-    snd_pcm_hw_params_get_channels_max(hw, &cmax);
-    unsigned want;
-    if (o.force_ch > 0)    want = (unsigned)o.force_ch;
-    else if (cmin == cmax) want = cmin;                          // fixed-width device
-    else {
-        int hi = 1;
-        for (size_t i = 0; i < o.chan1.size(); ++i) hi = std::max(hi, o.chan1[i]);
-        want = std::max(cmin, (unsigned)hi);
-    }
-    if ((err = snd_pcm_hw_params_set_channels_near(st.pcm, hw, &want)) < 0) {
-        std::fprintf(stderr, "set channels: %s (device allows %u..%u)\n",
-                     snd_strerror(err), cmin, cmax);
-        return cfg_fail(st, err);
-    }
-    st.chan = want;
-
-    snd_pcm_uframes_t period = 1024;
-    int dir0 = 0;
-    if ((err = snd_pcm_hw_params_set_period_size_near(st.pcm, hw, &period, &dir0)) < 0) {
-        std::fprintf(stderr, "set period: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-    snd_pcm_uframes_t bufsz = period * 4;
-    if ((err = snd_pcm_hw_params_set_buffer_size_near(st.pcm, hw, &bufsz)) < 0) {
-        std::fprintf(stderr, "set buffer: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-    if ((err = snd_pcm_hw_params(st.pcm, hw)) < 0) {
-        std::fprintf(stderr, "hw_params: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-    snd_pcm_hw_params_get_period_size(hw, &st.period, 0);
-    snd_pcm_hw_params_get_buffer_size(hw, &st.buffer);
-    st.fbytes = fmt_bytes(st.fmt) * st.chan;
-
-    snd_pcm_sw_params_t* sw;
-    snd_pcm_sw_params_alloca(&sw);
-    snd_pcm_sw_params_current(st.pcm, sw);
-    // Start once the ring is full; the write loop below keeps it that way.
-    snd_pcm_sw_params_set_start_threshold(st.pcm, sw, st.buffer);
-    snd_pcm_sw_params_set_avail_min(st.pcm, sw, st.period);
-    if ((err = snd_pcm_sw_params(st.pcm, sw)) < 0) {
-        std::fprintf(stderr, "sw_params: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-    return 0;
-}
-
 // ---------------------------------------------------------------- main
 
 int main(int argc, char** argv)
@@ -249,10 +106,7 @@ int main(int argc, char** argv)
         const char* nx = (i + 1 < argc) ? argv[i + 1] : 0;
         if      (a == "-D" && nx) { o.dev      = nx;       ++i; }
         else if (a == "-c" && nx) {
-            std::vector<double> v;
-            if (!split_list(nx, v)) { std::fprintf(stderr, "bad channel list: %s\n", nx); return 1; }
-            o.chan1.clear();
-            for (size_t j = 0; j < v.size(); ++j) o.chan1.push_back((int)v[j]);
+            if (!split_ints(nx, o.chan1)) { std::fprintf(stderr, "bad channel list: %s\n", nx); return 1; }
             ++i;
         }
         else if (a == "-f" && nx) {
@@ -312,7 +166,7 @@ int main(int argc, char** argv)
     }
 
     for (size_t i = 0; i < NC; ++i) {
-        if (o.chan1[i] < 1) { std::fprintf(stderr, "channel is 1-based\n"); return 1; }
+        if (!channel_ok("output", o.chan1[i], 0)) return 1;
         if (!sweeping) {
             if (o.hz[i] <= 0.0) { std::fprintf(stderr, "frequency must be positive\n"); return 1; }
             if (o.hz[i] >= o.rate / 2.0) {
@@ -327,20 +181,17 @@ int main(int argc, char** argv)
         }
     }
 
+    const unsigned need = (unsigned)*std::max_element(o.chan1.begin(), o.chan1.end());
     Stream st;
-    if (configure(st, o) < 0) return 1;
+    if (configure(st, o.dev.c_str(), SND_PCM_STREAM_PLAYBACK, o.rate,
+                  o.force_ch, need, 1024, true) < 0) return 1;
 
-    std::vector<int>    idx0(NC);          // 0-based offsets into the frame
+    std::vector<int>    idx0(NC);          // frame index, channel - 1
     std::vector<double> amp (NC);
     std::vector<double> step(NC);          // cycles advanced per sample
     for (size_t i = 0; i < NC; ++i) {
+        if (!channel_ok("output", o.chan1[i], st.chan)) return 1;
         idx0[i] = o.chan1[i] - 1;
-        if (idx0[i] >= (int)st.chan) {
-            std::fprintf(stderr, "channel %d out of range (device has %u)\n",
-                         o.chan1[i], st.chan);
-            snd_pcm_close(st.pcm);
-            return 1;
-        }
         amp [i] = std::pow(10.0, o.amp_dbfs[i] / 20.0);
         step[i] = o.hz[i] / (double)o.rate;
     }
@@ -352,11 +203,11 @@ int main(int argc, char** argv)
     for (size_t i = 0; i < NC; ++i) {
         if (sweeping)
             std::printf("sweep    %.1f - %.1f Hz over %.2f s, repeating, at %6.1f dBFS"
-                        " on channel %d (0-based index %d)\n",
-                        o.sw_lo, o.sw_hi, o.sw_secs, o.amp_dbfs[i], o.chan1[i], idx0[i]);
+                        " on channel %d\n",
+                        o.sw_lo, o.sw_hi, o.sw_secs, o.amp_dbfs[i], o.chan1[i]);
         else
-            std::printf("tone     %9.2f Hz at %6.1f dBFS on channel %d (0-based index %d)\n",
-                        o.hz[i], o.amp_dbfs[i], o.chan1[i], idx0[i]);
+            std::printf("tone     %9.2f Hz at %6.1f dBFS on channel %d\n",
+                        o.hz[i], o.amp_dbfs[i], o.chan1[i]);
     }
     if (o.dur_s > 0.0) std::printf("running  %.1f s\n", o.dur_s);
     else               std::printf("running  until interrupted (^C)\n");
@@ -411,7 +262,7 @@ int main(int argc, char** argv)
         snd_pcm_uframes_t n = st.period;
         if (total != 0 && written + (long)n > total) n = (snd_pcm_uframes_t)(total - written);
 
-        // Silence everything, then write the one channel we drive. Rewriting
+        // Silence everything, then write the channels driven. Rewriting
         // the whole period each time keeps stale frames from being replayed.
         std::memset(buf.data(), 0, (size_t)n * st.fbytes);
         std::fill(mix.begin(), mix.begin() + (size_t)n * st.chan, 0.0);
@@ -460,7 +311,6 @@ int main(int argc, char** argv)
             ++xruns;
             if (snd_pcm_recover(st.pcm, (int)w, 1) < 0) {
                 std::fprintf(stderr, "\nplayback: %s\n", snd_strerror((int)w));
-                snd_pcm_close(st.pcm);
                 return 1;
             }
             continue;
@@ -480,6 +330,5 @@ int main(int argc, char** argv)
                 g_stop ? " (interrupted)" : "");
 
     if (!g_stop) snd_pcm_drain(st.pcm); else snd_pcm_drop(st.pcm);
-    snd_pcm_close(st.pcm);
     return 0;
 }

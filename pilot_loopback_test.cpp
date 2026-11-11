@@ -4,14 +4,12 @@
 //
 // Plays one pilot tone on each of 8 consecutive output channels while
 // simultaneously capturing 8 consecutive input channels, then runs a 4096-point
-// FFT on each captured channel and reports which pilot slot was heard.
+// FFT on each captured channel and reports which pilot slot was heard. Slot n
+// plays on output channel p+n-1 and is expected back on input channel c+n-1,
+// where p and c are the first channels given by -p and -c (both 1-based).
 //
-// Pilot plan (matches the switchboard detection scheme):
-//     fs        = 48000 Hz
-//     N         = 4096
-//     bin width = 11.71875 Hz
-//     slot n    -> bin 512 + 8*(n-1)   ->  6000.00 + 93.75*(n-1) Hz
-//
+// The comb is audio/src/channels.h's, which is docs/pilot-map.md in code:
+// slot n is bin 512 + 8(n-1), 6000.00 + 93.75(n-1) Hz, at 48 kHz and N = 4096.
 // Every pilot completes an integer number of cycles in N samples, so the
 // generator buffer is exactly one FFT frame long and repeats seamlessly.
 //
@@ -22,12 +20,15 @@
 // leakage puts about -67 dBFS into the neighbouring pilot bin, which is
 // indistinguishable from real crosstalk; Hann puts -103 dBFS there.
 //
-// Build:  g++ -O2 -Wall -o pilot_loopback_test pilot_loopback_test.cpp -lasound
+// Build, from the repo root:
+//     g++ -O2 -Wall -Wextra -o pilot_loopback_test pilot_loopback_test.cpp -lasound
 //
-// Typical use (optical loopback, ADAT port 1 = channels 1-8):
-//     ./pilot_loopback_test -D hw:Digiface
+// Typical use (optical loopback, ADAT port 1 = channels 1-8; the card id is
+// the one /proc/asound/cards lists):
+//     ./pilot_loopback_test -D hw:<card-id>
 //
-#include <alsa/asoundlib.h>
+#include "bench_alsa.h"
+#include "audio/src/channels.h"
 
 #include <algorithm>
 #include <cmath>
@@ -41,16 +42,14 @@
 
 // ---------------------------------------------------------------- constants
 
-static const unsigned SAMPLE_RATE     = 48000;
-static const int      FFT_N           = 4096;
-static const double   BIN_HZ          = (double)SAMPLE_RATE / (double)FFT_N;  // 11.71875
-static const int      PILOT_BIN_BASE  = 512;   // 6000.00 Hz
-static const int      PILOT_BIN_STEP  = 8;     //   93.75 Hz
+using chan::SAMPLE_RATE;
+using chan::FFT_N;
+using chan::BIN_HZ;
+using chan::pilot_bin;
+using chan::pilot_hz;
+
 static const int      NCH             = 8;     // channels under test
 static const double   HANN_ENBW       = 1.5;   // equivalent noise bandwidth, bins
-
-static inline int    pilot_bin(int n1) { return PILOT_BIN_BASE + PILOT_BIN_STEP * (n1 - 1); }
-static inline double pilot_hz (int n1) { return pilot_bin(n1) * BIN_HZ; }
 
 // The peak search is confined to the neighbourhood of the pilot comb. Over the
 // whole spectrum a mains harmonic can outrank the pilot on a channel with heavy
@@ -58,11 +57,10 @@ static inline double pilot_hz (int n1) { return pilot_bin(n1) * BIN_HZ; }
 // onto a 60 Hz line without anything marking the row as bogus.
 static const int PILOT_SEARCH_MARGIN = 16;
 static inline int pilot_search_lo() {
-    return std::max(1, PILOT_BIN_BASE - PILOT_SEARCH_MARGIN);
+    return std::max(1, pilot_bin(1) - PILOT_SEARCH_MARGIN);
 }
 static inline int pilot_search_hi() {
-    return std::min(FFT_N / 2 - 1,
-                    PILOT_BIN_BASE + PILOT_BIN_STEP * (NCH - 1) + PILOT_SEARCH_MARGIN);
+    return std::min(FFT_N / 2 - 1, pilot_bin(NCH) + PILOT_SEARCH_MARGIN);
 }
 
 // ---------------------------------------------------------------- options
@@ -73,8 +71,8 @@ struct Opts {
     double      amp_dbfs  = -12.0;
     double      settle_s  = 1.0;
     int         nblocks   = 8;       // FFT frames to average
-    int         pfirst    = 0;       // 0-based first playback channel
-    int         cfirst    = 0;       // 0-based first capture channel
+    int         pfirst    = 1;       // first playback channel, 1-based
+    int         cfirst    = 1;       // first capture channel, 1-based
     int         pchan     = 0;       // 0 = query device
     int         cchan     = 0;
     double      min_dbfs  = -40.0;   // pass threshold for the wanted pilot
@@ -94,8 +92,8 @@ static void usage(const char* p) {
 "  -a <dBFS>    tone amplitude per channel, default -12\n"
 "  -s <sec>     settle time before analysis, default 1.0\n"
 "  -n <count>   FFT frames to average, default 8\n"
-"  -p <idx>     0-based first playback channel, default 0\n"
-"  -c <idx>     0-based first capture channel, default 0\n"
+"  -p <ch>      first playback channel, 1-based, default 1 (slot n on p+n-1)\n"
+"  -c <ch>      first capture channel, 1-based, default 1\n"
 "  -X <n>       force playback channel count on the device\n"
 "  -Y <n>       force capture channel count on the device\n"
 "  -t <dBFS>    minimum level to call a pilot present, default -40\n"
@@ -131,175 +129,6 @@ static void fft_inplace(std::vector<std::complex<double> >& a) {
             }
         }
     }
-}
-
-// ---------------------------------------------------------------- sample I/O
-
-static size_t fmt_bytes(snd_pcm_format_t f) {
-    int w = snd_pcm_format_physical_width(f);
-    return (w > 0) ? (size_t)(w / 8) : 0;
-}
-
-static void put_sample(uint8_t* p, snd_pcm_format_t f, double v) {
-    if (v >  1.0) v =  1.0;
-    if (v < -1.0) v = -1.0;
-    switch (f) {
-    case SND_PCM_FORMAT_S32_LE: {
-        // Encode 1.0 as 2^31 - 256 so the value survives the device truncating
-        // to 24 bits. get_sample() divides by 2^31, because that is what full
-        // scale means coming back in; the 1.0e-6 dB difference between the two
-        // constants is deliberate, not an oversight.
-        int32_t s = (int32_t)llrint(v * 2147483392.0);
-        std::memcpy(p, &s, 4);
-        break;
-    }
-    case SND_PCM_FORMAT_S24_3LE: {
-        int32_t s = (int32_t)lrint(v * 8388607.0);
-        p[0] = (uint8_t)( s        & 0xff);
-        p[1] = (uint8_t)((s >>  8) & 0xff);
-        p[2] = (uint8_t)((s >> 16) & 0xff);
-        break;
-    }
-    case SND_PCM_FORMAT_S16_LE: {
-        int16_t s = (int16_t)lrint(v * 32767.0);
-        std::memcpy(p, &s, 2);
-        break;
-    }
-    default:
-        break;
-    }
-}
-
-static double get_sample(const uint8_t* p, snd_pcm_format_t f) {
-    switch (f) {
-    case SND_PCM_FORMAT_S32_LE: {
-        int32_t s; std::memcpy(&s, p, 4);
-        return (double)s / 2147483648.0;
-    }
-    case SND_PCM_FORMAT_S24_3LE: {
-        int32_t s = (int32_t)((uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16));
-        if (s & 0x800000) s |= (int32_t)0xff000000;
-        return (double)s / 8388608.0;
-    }
-    case SND_PCM_FORMAT_S16_LE: {
-        int16_t s; std::memcpy(&s, p, 2);
-        return (double)s / 32768.0;
-    }
-    default:
-        return 0.0;
-    }
-}
-
-// ---------------------------------------------------------------- ALSA setup
-
-struct Stream {
-    snd_pcm_t*           pcm    = 0;
-    snd_pcm_format_t     fmt    = SND_PCM_FORMAT_UNKNOWN;
-    unsigned             chan   = 0;
-    snd_pcm_uframes_t    period = 0;
-    snd_pcm_uframes_t    buffer = 0;
-    size_t               fbytes = 0;   // bytes per frame
-};
-
-// configure() has already opened the device by the time most of its checks
-// run, so every failure after that point has to hand the handle back.
-static int cfg_fail(Stream& st, int err)
-{
-    if (st.pcm) { snd_pcm_close(st.pcm); st.pcm = 0; }
-    return err;
-}
-
-static int configure(Stream& st, const char* dev, snd_pcm_stream_t dir,
-                     int forced_chan, snd_pcm_uframes_t want_period)
-{
-    int err = snd_pcm_open(&st.pcm, dev, dir, 0);
-    if (err < 0) {
-        std::fprintf(stderr, "open %s (%s): %s\n", dev,
-                     dir == SND_PCM_STREAM_PLAYBACK ? "playback" : "capture",
-                     snd_strerror(err));
-        return err;
-    }
-
-    snd_pcm_hw_params_t* hw;
-    snd_pcm_hw_params_alloca(&hw);
-    snd_pcm_hw_params_any(st.pcm, hw);
-
-    if ((err = snd_pcm_hw_params_set_rate_resample(st.pcm, hw, 0)) < 0) {
-        std::fprintf(stderr, "disable resample: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-    if ((err = snd_pcm_hw_params_set_access(st.pcm, hw, SND_PCM_ACCESS_RW_INTERLEAVED)) < 0) {
-        std::fprintf(stderr, "set access: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-
-    static const snd_pcm_format_t cands[] = {
-        SND_PCM_FORMAT_S32_LE, SND_PCM_FORMAT_S24_3LE, SND_PCM_FORMAT_S16_LE
-    };
-    st.fmt = SND_PCM_FORMAT_UNKNOWN;
-    for (size_t i = 0; i < sizeof(cands) / sizeof(cands[0]); ++i) {
-        if (snd_pcm_hw_params_test_format(st.pcm, hw, cands[i]) == 0) { st.fmt = cands[i]; break; }
-    }
-    if (st.fmt == SND_PCM_FORMAT_UNKNOWN) {
-        std::fprintf(stderr, "no supported sample format on %s\n", dev);
-        return cfg_fail(st, -EINVAL);
-    }
-    if ((err = snd_pcm_hw_params_set_format(st.pcm, hw, st.fmt)) < 0) {
-        std::fprintf(stderr, "set format: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-
-    unsigned rate = SAMPLE_RATE;
-    if ((err = snd_pcm_hw_params_set_rate(st.pcm, hw, rate, 0)) < 0) {
-        std::fprintf(stderr, "set rate %u: %s (is the clock locked to 48k?)\n",
-                     rate, snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-
-    unsigned cmin = 0, cmax = 0;
-    snd_pcm_hw_params_get_channels_min(hw, &cmin);
-    snd_pcm_hw_params_get_channels_max(hw, &cmax);
-    unsigned want;
-    if (forced_chan > 0)      want = (unsigned)forced_chan;
-    else if (cmin == cmax)    want = cmin;              // fixed-width device (typical RME)
-    else                      want = std::max(cmin, (unsigned)NCH);
-    if ((err = snd_pcm_hw_params_set_channels_near(st.pcm, hw, &want)) < 0) {
-        std::fprintf(stderr, "set channels: %s (device allows %u..%u)\n",
-                     snd_strerror(err), cmin, cmax);
-        return cfg_fail(st, err);
-    }
-    st.chan = want;
-
-    snd_pcm_uframes_t period = want_period;
-    int dir0 = 0;
-    if ((err = snd_pcm_hw_params_set_period_size_near(st.pcm, hw, &period, &dir0)) < 0) {
-        std::fprintf(stderr, "set period: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-    snd_pcm_uframes_t bufsz = period * 4;
-    if ((err = snd_pcm_hw_params_set_buffer_size_near(st.pcm, hw, &bufsz)) < 0) {
-        std::fprintf(stderr, "set buffer: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-    if ((err = snd_pcm_hw_params(st.pcm, hw)) < 0) {
-        std::fprintf(stderr, "hw_params: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-    snd_pcm_hw_params_get_period_size(hw, &st.period, 0);
-    snd_pcm_hw_params_get_buffer_size(hw, &st.buffer);
-    st.fbytes = fmt_bytes(st.fmt) * st.chan;
-
-    snd_pcm_sw_params_t* sw;
-    snd_pcm_sw_params_alloca(&sw);
-    snd_pcm_sw_params_current(st.pcm, sw);
-    // Never auto-start; we start both directions explicitly.
-    snd_pcm_sw_params_set_start_threshold(st.pcm, sw, st.buffer * 2);
-    snd_pcm_sw_params_set_avail_min(st.pcm, sw, st.period);
-    if ((err = snd_pcm_sw_params(st.pcm, sw)) < 0) {
-        std::fprintf(stderr, "sw_params: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-    return 0;
 }
 
 // ---------------------------------------------------------------- capture loop
@@ -353,12 +182,15 @@ int main(int argc, char** argv)
     }
     if (o.cdev.empty()) o.cdev = o.pdev;
     if (o.nblocks < 1) o.nblocks = 1;
+    if (!channel_ok("first playback", o.pfirst, 0)) return 1;
+    if (!channel_ok("first capture",  o.cfirst, 0)) return 1;
 
-    std::printf("Pilot tone table  (fs=%u  N=%d  bin=%.5f Hz)\n",
+    std::printf("Pilot tone table  (fs=%d  N=%d  bin=%.5f Hz)\n",
                 SAMPLE_RATE, FFT_N, BIN_HZ);
-    std::printf("  ch    bin        Hz     cycles/frame\n");
+    std::printf("  slot  out ch   bin        Hz     cycles/frame\n");
     for (int n = 1; n <= NCH; ++n)
-        std::printf("  %2d   %4d  %9.2f   %6d\n", n, pilot_bin(n), pilot_hz(n), pilot_bin(n));
+        std::printf("  %2d     %2d    %4d  %9.2f   %6d\n",
+                    n, o.pfirst + n - 1, pilot_bin(n), pilot_hz(n), pilot_bin(n));
     std::printf("\n");
     if (o.table_only) return 0;
 
@@ -398,8 +230,12 @@ if (o.selftest) {
 
     // ---- open both directions
     Stream play, cap;
-    if (configure(play, o.pdev.c_str(), SND_PCM_STREAM_PLAYBACK, o.pchan, 1024) < 0) return 1;
-    if (configure(cap,  o.cdev.c_str(), SND_PCM_STREAM_CAPTURE,  o.cchan, 1024) < 0) return 1;
+    const unsigned plast = (unsigned)(o.pfirst + NCH - 1);
+    const unsigned clast = (unsigned)(o.cfirst + NCH - 1);
+    if (configure(play, o.pdev.c_str(), SND_PCM_STREAM_PLAYBACK, SAMPLE_RATE,
+                  o.pchan, plast, 1024, false) < 0) return 1;
+    if (configure(cap,  o.cdev.c_str(), SND_PCM_STREAM_CAPTURE,  SAMPLE_RATE,
+                  o.cchan, clast, 1024, false) < 0) return 1;
 
     std::printf("playback %-14s %u ch  %s  period %lu  buffer %lu\n",
                 o.pdev.c_str(), play.chan, snd_pcm_format_name(play.fmt),
@@ -426,14 +262,14 @@ if (o.selftest) {
             o.pdev.c_str(), o.cdev.c_str());
     }
 
-    if (o.pfirst < 0 || o.pfirst + NCH > (int)play.chan) {
-        std::fprintf(stderr, "playback channels %d..%d out of range (device has %u)\n",
-                     o.pfirst, o.pfirst + NCH - 1, play.chan);
+    if (plast > play.chan) {
+        std::fprintf(stderr, "playback channels %d-%u out of range: the device has 1-%u\n",
+                     o.pfirst, plast, play.chan);
         return 1;
     }
-    if (o.cfirst < 0 || o.cfirst + NCH > (int)cap.chan) {
-        std::fprintf(stderr, "capture channels %d..%d out of range (device has %u)\n",
-                     o.cfirst, o.cfirst + NCH - 1, cap.chan);
+    if (clast > cap.chan) {
+        std::fprintf(stderr, "capture channels %d-%u out of range: the device has 1-%u\n",
+                     o.cfirst, clast, cap.chan);
         return 1;
     }
 
@@ -445,7 +281,7 @@ if (o.selftest) {
         for (int n = 1; n <= NCH; ++n) {
             const double cycles = (double)pilot_bin(n);          // integer cycles per frame
             const double v = amp * std::sin(2.0 * M_PI * cycles * (double)i / (double)FFT_N);
-            uint8_t* p = &tone[(size_t)i * play.fbytes + (size_t)(o.pfirst + n - 1) * psamp];
+            uint8_t* p = &tone[(size_t)i * play.fbytes + (size_t)(o.pfirst - 1 + n - 1) * psamp];
             put_sample(p, play.fmt, v);
         }
     }
@@ -503,7 +339,7 @@ if (o.selftest) {
                 const uint8_t* base = &cbuf[(size_t)f * cap.fbytes];
                 const size_t   cs   = fmt_bytes(cap.fmt);
                 for (int n = 0; n < NCH; ++n)
-                    rec[n].push_back(get_sample(base + (size_t)(o.cfirst + n) * cs, cap.fmt));
+                    rec[n].push_back(get_sample(base + (size_t)(o.cfirst - 1 + n) * cs, cap.fmt));
             }
             ++done;
         }
@@ -527,8 +363,6 @@ if (o.selftest) {
 
     snd_pcm_drop(play.pcm);
     snd_pcm_drop(cap.pcm);
-    snd_pcm_close(play.pcm);
-    snd_pcm_close(cap.pcm);
 }
 
     // ---- analyse: average the power spectra of nblocks Hann-windowed frames
@@ -609,7 +443,7 @@ if (o.selftest) {
             if (list.empty()) { list = "none"; lev = "-"; }
             heard[n]   = strongest;
             det_bin[n] = strongest ? pilot_bin(strongest) : 0;
-            std::printf("   %2d   | %-10s | %s\n", n + 1, list.c_str(), lev.c_str());
+            std::printf("   %2d   | %-10s | %s\n", o.cfirst + n, list.c_str(), lev.c_str());
         }
         std::printf("\n  A channel bridged to another by a cord pair should list both\n"
                     "  slots. Levels are read at the pilot bins directly, so every\n"
@@ -655,7 +489,7 @@ if (o.selftest) {
         else               std::snprintf(slotstr, sizeof slotstr, "--");
 
         std::printf("   %2d   |   %4d   %10.2f   %10.2f |     %-4s    |  %s\n",
-                    n + 1, kmax, kmax * BIN_HZ, peak_db, slotstr, ok ? "PASS" : "FAIL");
+                    o.cfirst + n, kmax, kmax * BIN_HZ, peak_db, slotstr, ok ? "PASS" : "FAIL");
     }
 
     }
@@ -665,7 +499,7 @@ if (o.selftest) {
     for (int s = 1; s <= NCH; ++s) std::printf("   slot%d", s);
     std::printf("\n");
     for (int n = 0; n < NCH; ++n) {
-        std::printf("  in %2d ", n + 1);
+        std::printf("  in %2d ", o.cfirst + n);
         for (int s = 1; s <= NCH; ++s) {
             double m = magw[n][pilot_bin(s)];
             double db = 20.0 * std::log10(m > 1e-12 ? m : 1e-12);
@@ -773,10 +607,10 @@ if (o.selftest) {
             // no tone found: the level shown is whatever sits at the expected
             // bin, and a harmonic ratio taken on noise means nothing.
             std::printf("   %2d   |  %-3s |   %8.2f  |     --    |  %7.1f  |  %8.1f\n",
-                        n + 1, sl, fund_db, hum_db, noi_db);
+                        o.cfirst + n, sl, fund_db, hum_db, noi_db);
         } else {
             std::printf("   %2d   |  %-3s |   %8.2f  |  %7.1f  |  %7.1f  |  %8.1f\n",
-                        n + 1, sl, fund_db, thd_db, hum_db, noi_db);
+                        o.cfirst + n, sl, fund_db, thd_db, hum_db, noi_db);
         }
     }
 
@@ -798,9 +632,9 @@ if (o.selftest) {
         if (heard[n] == n + 1) continue;
         if (heard[n] == 0)
             std::printf("  input %d: no pilot above %.1f dBFS (open, dead or muted)\n",
-                        n + 1, o.min_dbfs);
+                        o.cfirst + n, o.min_dbfs);
         else
-            std::printf("  input %d heard slot %d\n", n + 1, heard[n]);
+            std::printf("  input %d heard slot %d\n", o.cfirst + n, heard[n]);
     }
     return 2;
 }

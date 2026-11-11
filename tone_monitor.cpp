@@ -12,12 +12,16 @@
 // frequency, not at a bin centre, so the estimate is exact for the tone
 // regardless of how the block length divides the period.
 //
+// Channel numbers are 1-based, as in docs/audio.md: channel n is ALSA frame
+// index n-1.
+//
 // Build:  g++ -O2 -Wall -Wextra -o tone_monitor tone_monitor.cpp -lasound
 //
-// Example (drive the trunk, watch the station):
+// Example (drive the trunk, watch the station; hw:1 stands for the card
+// number or id in /proc/asound/cards):
 //     ./tone_monitor -D hw:1 -p 8 -c 7,8 -f 1000
 //
-#include <alsa/asoundlib.h>
+#include "bench_alsa.h"
 
 #include <algorithm>
 #include <cmath>
@@ -54,7 +58,7 @@ static void usage(const char* p) {
 "Usage: %s [options]\n"
 "  -D <dev>     ALSA device for both directions (default hw:0)\n"
 "  -p <n>       output channel to drive, 1-based (default 1)\n"
-"  -c <list>    input channels to watch, 1-based, comma separated\n"
+"  -c <list>    input channels to watch, 1-based, comma separated (default 1)\n"
 "  -f <Hz>      drive frequency, default 1000\n"
 "  -a <dBFS>    drive amplitude, default -12\n"
 "  -i <sec>     seconds per printed line, default 1.0\n"
@@ -66,170 +70,10 @@ static void usage(const char* p) {
 "  -h           this help\n", p);
 }
 
-static bool split_ints(const char* arg, std::vector<int>& out) {
-    out.clear();
-    const char* p = arg;
-    while (*p) {
-        char* end = 0;
-        long v = std::strtol(p, &end, 10);
-        if (end == p) return false;
-        out.push_back((int)v);
-        p = end;
-        if (*p == ',') ++p;
-        else if (*p)   return false;
-    }
-    return !out.empty();
-}
-
 // ---------------------------------------------------------------- interrupt
 
 static volatile sig_atomic_t g_stop = 0;
 static void on_signal(int) { g_stop = 1; }
-
-// ---------------------------------------------------------------- sample I/O
-
-static size_t fmt_bytes(snd_pcm_format_t f) {
-    int w = snd_pcm_format_physical_width(f);
-    return (w > 0) ? (size_t)(w / 8) : 0;
-}
-
-static void put_sample(uint8_t* p, snd_pcm_format_t f, double v) {
-    if (v >  1.0) v =  1.0;
-    if (v < -1.0) v = -1.0;
-    switch (f) {
-    case SND_PCM_FORMAT_S32_LE: {
-        int32_t s = (int32_t)llrint(v * 2147483392.0);
-        std::memcpy(p, &s, 4);
-        break;
-    }
-    case SND_PCM_FORMAT_S24_3LE: {
-        int32_t s = (int32_t)lrint(v * 8388607.0);
-        p[0] = (uint8_t)(s & 0xff); p[1] = (uint8_t)((s >> 8) & 0xff);
-        p[2] = (uint8_t)((s >> 16) & 0xff);
-        break;
-    }
-    case SND_PCM_FORMAT_S16_LE: {
-        int16_t s = (int16_t)lrint(v * 32767.0);
-        std::memcpy(p, &s, 2);
-        break;
-    }
-    default: break;
-    }
-}
-
-static double get_sample(const uint8_t* p, snd_pcm_format_t f) {
-    switch (f) {
-    case SND_PCM_FORMAT_S32_LE: { int32_t s; std::memcpy(&s, p, 4); return (double)s / 2147483648.0; }
-    case SND_PCM_FORMAT_S24_3LE: {
-        int32_t s = (int32_t)((uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16));
-        if (s & 0x800000) s |= (int32_t)0xff000000;
-        return (double)s / 8388608.0;
-    }
-    case SND_PCM_FORMAT_S16_LE: { int16_t s; std::memcpy(&s, p, 2); return (double)s / 32768.0; }
-    default: return 0.0;
-    }
-}
-
-// ---------------------------------------------------------------- ALSA setup
-
-struct Stream {
-    snd_pcm_t*        pcm    = 0;
-    snd_pcm_format_t  fmt    = SND_PCM_FORMAT_UNKNOWN;
-    unsigned          chan   = 0;
-    snd_pcm_uframes_t period = 0;
-    snd_pcm_uframes_t buffer = 0;
-    size_t            fbytes = 0;
-};
-
-static int cfg_fail(Stream& st, int err) {
-    if (st.pcm) { snd_pcm_close(st.pcm); st.pcm = 0; }
-    return err;
-}
-
-static int configure(Stream& st, const char* dev, snd_pcm_stream_t dir,
-                     unsigned rate, int forced_chan, int need_chan)
-{
-    int err = snd_pcm_open(&st.pcm, dev, dir, 0);
-    if (err < 0) {
-        std::fprintf(stderr, "open %s (%s): %s\n", dev,
-                     dir == SND_PCM_STREAM_PLAYBACK ? "playback" : "capture",
-                     snd_strerror(err));
-        return err;
-    }
-    snd_pcm_hw_params_t* hw;
-    snd_pcm_hw_params_alloca(&hw);
-    snd_pcm_hw_params_any(st.pcm, hw);
-
-    if ((err = snd_pcm_hw_params_set_rate_resample(st.pcm, hw, 0)) < 0) {
-        std::fprintf(stderr, "disable resample: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-    if ((err = snd_pcm_hw_params_set_access(st.pcm, hw, SND_PCM_ACCESS_RW_INTERLEAVED)) < 0) {
-        std::fprintf(stderr, "set access: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-    static const snd_pcm_format_t cands[] = {
-        SND_PCM_FORMAT_S32_LE, SND_PCM_FORMAT_S24_3LE, SND_PCM_FORMAT_S16_LE
-    };
-    for (size_t i = 0; i < sizeof(cands) / sizeof(cands[0]); ++i)
-        if (snd_pcm_hw_params_test_format(st.pcm, hw, cands[i]) == 0) { st.fmt = cands[i]; break; }
-    if (st.fmt == SND_PCM_FORMAT_UNKNOWN) {
-        std::fprintf(stderr, "no supported sample format on %s\n", dev);
-        return cfg_fail(st, -EINVAL);
-    }
-    if ((err = snd_pcm_hw_params_set_format(st.pcm, hw, st.fmt)) < 0) {
-        std::fprintf(stderr, "set format: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-    unsigned r = rate;
-    if ((err = snd_pcm_hw_params_set_rate(st.pcm, hw, r, 0)) < 0) {
-        std::fprintf(stderr, "set rate %u: %s\n", r, snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-    unsigned cmin = 0, cmax = 0;
-    snd_pcm_hw_params_get_channels_min(hw, &cmin);
-    snd_pcm_hw_params_get_channels_max(hw, &cmax);
-    unsigned want;
-    if (forced_chan > 0)   want = (unsigned)forced_chan;
-    else if (cmin == cmax) want = cmin;
-    else                   want = std::max(cmin, (unsigned)need_chan);
-    if ((err = snd_pcm_hw_params_set_channels_near(st.pcm, hw, &want)) < 0) {
-        std::fprintf(stderr, "set channels: %s (device allows %u..%u)\n",
-                     snd_strerror(err), cmin, cmax);
-        return cfg_fail(st, err);
-    }
-    st.chan = want;
-
-    snd_pcm_uframes_t period = 1024;
-    int dir0 = 0;
-    if ((err = snd_pcm_hw_params_set_period_size_near(st.pcm, hw, &period, &dir0)) < 0) {
-        std::fprintf(stderr, "set period: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-    snd_pcm_uframes_t bufsz = period * 4;
-    if ((err = snd_pcm_hw_params_set_buffer_size_near(st.pcm, hw, &bufsz)) < 0) {
-        std::fprintf(stderr, "set buffer: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-    if ((err = snd_pcm_hw_params(st.pcm, hw)) < 0) {
-        std::fprintf(stderr, "hw_params: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-    snd_pcm_hw_params_get_period_size(hw, &st.period, 0);
-    snd_pcm_hw_params_get_buffer_size(hw, &st.buffer);
-    st.fbytes = fmt_bytes(st.fmt) * st.chan;
-
-    snd_pcm_sw_params_t* sw;
-    snd_pcm_sw_params_alloca(&sw);
-    snd_pcm_sw_params_current(st.pcm, sw);
-    snd_pcm_sw_params_set_start_threshold(st.pcm, sw, st.buffer * 2);   // start explicitly
-    snd_pcm_sw_params_set_avail_min(st.pcm, sw, st.period);
-    if ((err = snd_pcm_sw_params(st.pcm, sw)) < 0) {
-        std::fprintf(stderr, "sw_params: %s\n", snd_strerror(err));
-        return cfg_fail(st, err);
-    }
-    return 0;
-}
 
 // ---------------------------------------------------------------- main
 
@@ -256,7 +100,7 @@ int main(int argc, char** argv)
         else { usage(argv[0]); return 1; }
     }
     if (o.cchan1.empty()) o.cchan1.push_back(1);
-    if (o.pchan1 < 1)     { std::fprintf(stderr, "channels are 1-based\n"); return 1; }
+    if (!channel_ok("drive", o.pchan1, 0)) return 1;
     if (o.hz <= 0.0 || o.hz >= o.rate / 2.0) {
         std::fprintf(stderr, "frequency must be between 0 and %u Hz\n", o.rate / 2);
         return 1;
@@ -264,29 +108,23 @@ int main(int argc, char** argv)
     if (o.amp_dbfs > 0.0) { std::fprintf(stderr, "amplitude above 0 dBFS would clip\n"); return 1; }
     if (o.interval < 0.2) { std::fprintf(stderr, "interval must be at least 0.2 s\n"); return 1; }
     for (size_t i = 0; i < o.cchan1.size(); ++i)
-        if (o.cchan1[i] < 1) { std::fprintf(stderr, "channels are 1-based\n"); return 1; }
+        if (!channel_ok("watch", o.cchan1[i], 0)) return 1;
 
-    int cneed = 1;
-    for (size_t i = 0; i < o.cchan1.size(); ++i) cneed = std::max(cneed, o.cchan1[i]);
+    const unsigned cneed = (unsigned)*std::max_element(o.cchan1.begin(), o.cchan1.end());
 
     Stream play, cap;
-    if (configure(play, o.dev.c_str(), SND_PCM_STREAM_PLAYBACK, o.rate, o.force_p, o.pchan1) < 0) return 1;
-    if (configure(cap,  o.dev.c_str(), SND_PCM_STREAM_CAPTURE,  o.rate, o.force_c, cneed)     < 0) return 1;
+    if (configure(play, o.dev.c_str(), SND_PCM_STREAM_PLAYBACK, o.rate,
+                  o.force_p, (unsigned)o.pchan1, 1024, false) < 0) return 1;
+    if (configure(cap,  o.dev.c_str(), SND_PCM_STREAM_CAPTURE,  o.rate,
+                  o.force_c, cneed, 1024, false) < 0) return 1;
 
+    if (!channel_ok("drive", o.pchan1, play.chan)) return 1;
     const int pidx = o.pchan1 - 1;
-    if (pidx >= (int)play.chan) {
-        std::fprintf(stderr, "drive channel %d out of range (device has %u)\n", o.pchan1, play.chan);
-        return 1;
-    }
     const size_t NM = o.cchan1.size();
     std::vector<int> cidx(NM);
     for (size_t i = 0; i < NM; ++i) {
+        if (!channel_ok("watch", o.cchan1[i], cap.chan)) return 1;
         cidx[i] = o.cchan1[i] - 1;
-        if (cidx[i] >= (int)cap.chan) {
-            std::fprintf(stderr, "watch channel %d out of range (device has %u)\n",
-                         o.cchan1[i], cap.chan);
-            return 1;
-        }
     }
 
     const double amp   = std::pow(10.0, o.amp_dbfs / 20.0);
@@ -416,6 +254,5 @@ int main(int argc, char** argv)
     std::printf("\n  stopped after %.1f s, %d xrun(s)%s\n",
                 (double)written / (double)o.rate, xruns, g_stop ? " (interrupted)" : "");
     snd_pcm_drop(play.pcm); snd_pcm_drop(cap.pcm);
-    snd_pcm_close(play.pcm); snd_pcm_close(cap.pcm);
     return 0;
 }

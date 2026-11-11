@@ -4,7 +4,7 @@ Status: **authoritative.** This file is the one place the mapping
 lives; nothing else in the repo may recompute it inline. The arithmetic is station
 §8.2 and the assignment is station §8.3; the channel plan is `audio.md` §2. This file
 is the transcription, for people to read: `audio/src/channels.h` computes the same
-arithmetic, and `pilot_loopback_test`, a bench tool, has its own copy.
+arithmetic, and the bench tool `pilot_loopback_test` takes it from there.
 
 ## The arithmetic
 
