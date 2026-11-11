@@ -3,9 +3,9 @@
  *
  * control.md 9 and mqtt.md. This module owns the connection, the subscriptions
  * and the publishing primitives. It does not own policy: the failsafe table of
- * control.md 10 lives in the main loop, which is the only place that can see all
- * of the conditions at once. So this module reports facts - connected, just
- * connected, sync asked for, game heartbeat alive - and the loop decides.
+ * control.md 10 is sb_failsafe, the only place that sees all of the conditions
+ * at once. So this module reports facts - connected, just connected, sync
+ * asked for, game heartbeat alive - and the caller decides.
  *
  * Library: MQTT 2.5.3 (Joel Gaehwiler, 256dpi/arduino-mqtt). Chosen over
  * PubSubClient because that cannot publish at QoS 1, which mqtt.md 2 requires
@@ -29,7 +29,7 @@ void netInit();                       // ETH.begin() and client setup
 void netService(uint32_t now_ms);
 
 /* Called once when the connection is found gone, before any attempt to
- * reconnect (control.md 10, Rev 40). */
+ * reconnect (control.md 10). */
 void netOnLost(void (*fn)());
 
 bool netConnected();
@@ -59,8 +59,21 @@ void netHeartbeat(uint32_t now_ms);
 /* Retained, QoS 1, for state (mqtt.md 2). */
 void netPublishState(const CircuitMap& c, const char* leaf, const char* payload);
 
+/* Publish `leaf` "on" or "off" if `value` differs from `cache`, the value last
+ * published (-1 never, 0 off, 1 on). mqtt.md 2: the ESP32 publishes debounced
+ * state changes only, never the raw pulse train - a ringing station is a 40Hz
+ * train at the detector and one message on the bus. */
+void netPublishBoolIfChanged(const CircuitMap& c, const char* leaf,
+                             bool value, int8_t& cache);
+
 /* Unretained, QoS 0, for the one event topic - trunk/<n>/digit (mqtt.md 7). */
 void netPublishEvent(const CircuitMap& c, const char* leaf, const char* payload);
+
+/* Republish every circuit's state topics, spread one circuit per poll tick
+ * (control.md 9.2): the request (re)starts the walk from row 0, and the step,
+ * called once per poll tick, publishes one row. */
+void netRequestRepublish();
+void netRepublishStep();
 
 void netPublishCtl(const char* leaf, const char* payload, bool retained, int qos);
 

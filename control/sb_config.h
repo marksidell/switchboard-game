@@ -4,21 +4,22 @@
  * Every number the firmware's behaviour depends on lives here or in sb_table.cpp,
  * so a reader checking the firmware against control.md does not have to search for
  * the value that implements a given threshold. Each constant carries the section
- * of control.md or mqtt.md it comes from.
+ * of control.md or mqtt.md it comes from. The waveform arithmetic, which
+ * ring_generator.md owns, is in sb_ring.h.
  * ========================================================================== */
 
 #pragma once
 
 #include <Arduino.h>
 
-/* ---- Which firmware this is (control.md 9.1, Rev 18) ---------------------
+/* ---- Which firmware this is (control.md 9.1) -----------------------------
  * The revision of control.md this source implements: raise it with that
  * document whenever a revision has a firmware consequence. The commit and the
  * build time come from sb_version.h, which control/compile writes before it
  * compiles; a build without it says "unknown". Published on ctl/firmware. */
 static constexpr unsigned FIRMWARE_SPEC_REV = 40;
 
-/* Milliseconds from `since` to `now`, never wrapping (control.md 6.3, Rev 21).
+/* Milliseconds from `since` to `now`, never wrapping (control.md 6.3).
  * The loop reads millis() once a pass, and a command handled in that pass
  * stamps its times with a later reading; plain `now - since` then wrapped to
  * four billion and every timeout fired at once - a ring stopped as it started,
@@ -48,25 +49,25 @@ static constexpr uint8_t STATIONS_PER_BOARD = 8;
 
 /* Twenty-two stations, 1-22, and station 24. The last two positions on the last
  * station board - 0x22, strips 7 and 8, bits 6 and 7 - are the operator tap,
- * which has no relay or ring detector fitted and no row (station Rev 3.40,
- * control.md 6.1), and station 24, a real telephone (control.md 7.4, Rev 33).
+ * which has no relay or ring detector fitted and no row (control.md 6.1), and
+ * station 24, a real telephone (control.md 7.4).
  * Station 24 is a row after station 22, so the station rows are 0-22. */
 static constexpr uint8_t N_STATIONS     = 22;              // 1-22, numbered as their rows
 static constexpr uint8_t PHONE_STATION  = 24;              // the real telephone
 static constexpr uint8_t N_STATION_ROWS = N_STATIONS + 1;  // and its row, the 23rd
 static constexpr uint8_t N_TRUNKS       = 8;
 
-/* ---- Pins (control.md 3; generator 3.1/3.2 is the authority) ---------------
- * PIN_PWM_A/B, PIN_SD and PIN_ENBL are declared in control.ino, which owns the
- * waveform. The I2C pins, /RESET and the power cut are here because their
- * drivers are separate translation units.
+/* ---- Pins (control.md 3; ring_generator.md §3.1/3.2 is the authority) -------
+ * PIN_PWM_A/B, PIN_SD and PIN_ENBL are in sb_ring.h, with the waveform. The
+ * I2C pins, /RESET and the power cut are here because their drivers are
+ * separate translation units.
  * ------------------------------------------------------------------------- */
 static constexpr int PIN_EXP_RESET = 5;     // expander /RESET, active LOW, idles HIGH.
                                             // Strapping pin - must be high at boot.
 static constexpr int PIN_I2C_SDA = 13;      // Wire.begin(13, 16) - argument order
 static constexpr int PIN_I2C_SCL = 16;
 static constexpr uint32_t I2C_CLOCK_HZ = 100000;
-static constexpr int PIN_POWER_CUT = 15;    // switchboard power cut, 5.4 (Rev 31): active
+static constexpr int PIN_POWER_CUT = 15;    // switchboard power cut, 5.4: active
                                             // HIGH, idles LOW. J1 pin 4. Strapping pin -
                                             // an input until setup() claims it.
 
@@ -85,16 +86,16 @@ static constexpr uint32_t PHONE_RING_RUN_MS           = 50;    // 7.4: pulses th
 static constexpr uint32_t PHONE_RING_GAP_MS           = 50;    //   with no gap longer than this
 static constexpr uint8_t  PHONE_RING_PULSES           = 4;     //   and at least this many pulses
 static constexpr uint32_t RING_RELEASE_QUIET_MS       = 100;   // no transition
-// control.md 7.3 (Rev 17): a station dialling, for the board test. The nominal
+// control.md 7.3: a station dialling, for the board test. The nominal
 // Bell figures, 10pps at 61% break, and a dial's return between digits.
 static constexpr uint32_t DIAL_BREAK_MS               = 61;
 static constexpr uint32_t DIAL_MAKE_MS                = 39;
 static constexpr uint32_t DIAL_INTERDIGIT_MS          = 700;
 static constexpr uint8_t  DIAL_MAX_DIGITS             = 16;
-// control.md 6.4 (Rev 19): one present expander's configuration read back
+// control.md 6.4: one present expander's configuration read back
 // this often, in turn.
 static constexpr uint32_t CONFIG_CHECK_MS             = 1000;
-// control.md 6.2 (Rev 20): the longest one I2C transaction may block. The
+// control.md 6.2: the longest one I2C transaction may block. The
 // core's default is 50ms, which a probe of an absent board would take every
 // time; a real transaction at 100kHz is under 1ms.
 static constexpr uint16_t I2C_TIMEOUT_MS              = 5;
@@ -110,6 +111,12 @@ static constexpr uint32_t PULSE_BREAK_MAX_MS   = 100;   // open, above this is n
 static constexpr uint32_t DIGIT_END_MAKE_MS    = 200;   // closed, after >= 1 pulse
 static constexpr uint32_t RELEASE_OPEN_MS      = 250;   // open, trunk released
 static constexpr uint32_t RING_BREAK_GAP_MS    =  60;   // successive breaks this close = ring
+/* A ring pattern is declared on two consecutive break-to-break gaps of 60ms or
+ * less, not one: a single interval measured at 5ms granularity sits only one
+ * sample clear of a 15 pps dial, 67ms. Two cost 50ms of latency on a fault
+ * report and cannot be produced by any dial in the 8.2 table. */
+static constexpr uint8_t  RING_SHORT_GAPS_TO_DECLARE = 2;
+static constexpr uint32_t RING_PATTERN_TIMEOUT_MS = 150; // no break for three ring periods: stopped
 static constexpr uint8_t  MAX_DIAL_PULSES      =  10;   // ten pulses is "0"; eleven is a fault
 
 /* ---- Trunk ring cadence and guards (control.md 8.4, 8.5) ------------------ */
@@ -117,14 +124,14 @@ static constexpr uint32_t CADENCE_ON_MS        =  2000;
 static constexpr uint32_t CADENCE_OFF_MS       =  4000;
 static constexpr uint32_t RING_HARD_TIMEOUT_MS = 30000;  // 8.5, independent of the host
 static constexpr uint32_t SHORT_RING_MS        =  1000;  // 8.4, shortring/set: one burst
-
-/* ---- Switchboard power cut (control.md 5.4, Rev 31) ----------------------- */
-static constexpr uint32_t POWER_CUT_MS         =  1000;  // the 551's relays drop well inside it
 static constexpr uint8_t  MAX_TRUNKS_RINGING   =     4;  // 8.5 starting value, pending
-                                                         // the trunk 7.6 measurements.
+                                                         // trunk_circuit.md §7.6 measurements.
                                                          // Leaves headroom for one
                                                          // station ring the firmware
                                                          // cannot see coming.
+
+/* ---- Switchboard power cut (control.md 5.4) ------------------------------ */
+static constexpr uint32_t POWER_CUT_MS         =  1000;  // the 551's relays drop well inside it
 
 /* ---- MQTT (mqtt.md 4, 8; control.md 9) ------------------------------------ */
 static constexpr const char* TOPIC_PREFIX = "sbgame/";
@@ -135,12 +142,23 @@ static constexpr uint32_t    GAME_HEARTBEAT_TIMEOUT_MS = 2000;  // two missed be
 static constexpr uint32_t    STATE_REPUBLISH_MS = 30000; // 9.2 slow timer
 static constexpr uint32_t    MQTT_RECONNECT_MIN_MS = 500;
 static constexpr uint32_t    MQTT_RECONNECT_MAX_MS = 8000;
+static constexpr uint32_t    MQTT_BOOT_WAIT_MS = 6000;   // 4.2 step 7: bounded, then loop() retries
+
+/* ---- Ring waveform start, stop and enable (control.md 4.2, 4.3) ----------- */
+static constexpr uint32_t ENBL_DEBOUNCE_MS     =   20;   // GPIO4 level must hold this long
+static constexpr uint32_t RING_FIRST_TICK_US   = 5000;   // start refused without a step tick
+static constexpr uint32_t RING_STOP_WAIT_US    = 5000;   // bound on waiting out a step in flight
 
 /* ---- Expander /RESET (control.md 6.2) ------------------------------------- */
 static constexpr uint32_t EXP_RESET_HOLD_MS   = 2;   // "at least 1ms", chosen safe;
                                                      // the datasheet figure is an
                                                      // open item in control.md 11.
 static constexpr uint32_t EXP_RESET_SETTLE_MS = 5;
+
+/* A single NAK can be noise on a daisy-chained bus with 2.2k pull-ups and six
+ * feet of 6P6C cord. Three consecutive failures on the same device is a fault;
+ * one is a glitch to log and retry (control.md 6.2, 10). */
+static constexpr uint8_t BUS_FAULT_THRESHOLD = 3;
 
 /* How often a bus fault is retried (control.md 10). An absent expander is
  * polled by nobody, so nothing on the bus can report it back: the retry is

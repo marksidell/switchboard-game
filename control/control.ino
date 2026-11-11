@@ -8,78 +8,31 @@
  * The firmware has three jobs: ring waveform generation, I2C master to the
  * station and trunk MCP23017 expanders, and MQTT client to the host - and with
  * them the relay failsafes of control.md 10 and dial pulse detection on the
- * trunks. This file keeps the waveform, setup() and loop(); the rest is in the
- * sb_*.{h,cpp} files beside it. The channel table in sb_table.cpp is the
- * spine - 23 stations and 8 trunks are rows, not code.
+ * trunks. This file is setup() and loop(); the rest is in the sb_*.{h,cpp}
+ * files beside it. The channel table in sb_table.cpp is the spine - 23
+ * stations and 8 trunks are rows, not code.
  *
- * References. "control.md N" and "mqtt.md N" are those documents. A bare
- * "Section N" or "section N" in this file is ring_generator.md (generator
- * Rev 60), which owns the bridge, the 74HCT04 and the waveform arithmetic and
- * which control.md 3 and 5 defer to. "Rev NN" beside a generator fact is the
- * generator revision that settled it.
+ *   sb_ring       the waveform: LEDC, duty tables, step timer, GPIO4 enable
+ *   sb_expander   the MCP23017 driver
+ *   sb_station    station ring detection, off-hook relay, dialling
+ *   sb_trunk      trunk seizure, dial pulses, ring cadence
+ *   sb_net        Ethernet, MQTT, the spread republish
+ *   sb_power      the switchboard power cut
+ *   sb_failsafe   the failsafe table and I2C recovery
+ *   sb_ota        network firmware update
+ *   sb_diag       loop timing and the console banner
  *
- * Requires ESP32 Arduino core 3.x. The 2.x LEDC path was removed once the
- * hardware had only ever run on 3.x - see the note above pwmBegin().
+ * References. "control.md N" and "mqtt.md N" are those documents, and a bare
+ * section number is control.md. ring_generator.md owns the bridge, the 74HCT04
+ * and the waveform arithmetic, which control.md 3 and 5 defer to.
  *
- * File is control.ino in a folder named control/ - the Arduino build requires
- * the sketch folder and the .ino to carry the same name. Named, like audio/,
- * for the domain it owns - the system's control I/O - rather than for one of
- * its three jobs or for the part it runs on. Was esp32.ino, and ring.ino and
- * ring_generator_pwm.ino before that, while it was only the ring generator.
- *
- * The board DOES restart by itself after an upload - no reset press needed.
- * Verified 2026-09-04: flashed with arduino-cli, which ends with "Hard
- * resetting via RTS pin", while the serial port was left closed throughout and
- * a scope watched the 20 Hz sync on GPIO15 (J1 pin 4). The sync appeared on
- * its own. A note here previously claimed the opposite; it was wrong.
- *
- * What misled it: the banner is printed inside setup(), and is gone before a
- * serial monitor reattaches - and reattaching resets the board anyway, because
- * opening the port toggles DTR/RTS. A console that shows nothing after an
- * upload therefore looks exactly like a board that never started. So the
- * banner is available on demand: press Enter and printBanner() repeats
- * it, configuration and live state together, including the tick counter that
- * says whether the step timer is really dispatching.
- *
- * THE WAVEFORM
- *   Generates the 20.000 Hz sine on a 40 kHz carrier that drives the two
- *   IR2104 half-bridges through the 74HCT04, and sequences SD around it. The
- *   generator runs while GPIO4 is held LOW, whatever the I2C scan found
- *   (control.md Rev 11 removed the arming gate); it free-runs, and ring cadence
- *   is done by the trunk board's relays (control.md 8.4), not here.
- *
- * POLARITY (section 5.1/5.2)
- *   IN2 = GPIO32,  IN1 = GPIO33,  SD = GPIO14.  All non-inverting.
- *
- *   Doc Rev 44 replaced the 74HCT02 with a 74HCT04 hex inverter and routed
- *   each signal through two gates. The pins are now ACTIVE HIGH and duty is
- *   written directly - no complement - and the park value is 0. LEDC's own
- *   power-on state is therefore the safe one: both pins low is IN1 = IN2 =
- *   low, Q3 and Q4 on, primary shorted to ground.
- *
- *   That is worth dwelling on, because the opposite arrangement was the most
- *   persistent trap in this design. Under the 74HCT02 the pins were active
- *   LOW, so 0 duty meant IN1 high with IN2 low - Q1 and Q4, the full rail
- *   across the 0.63 ohm primary as DC. Sections 6.1 and 6.2 specified 0 duty
- *   from Rev 5 to Rev 29 for exactly that reason. The polarity inversion
- *   removes the trap rather than defending against it.
- *
- *   R_PWMA_PD and R_PWMB_PD are PULL-DOWNS as of Rev 44, not pull-ups, and
- *   still not optional: GPIO32 and GPIO33 have no internal pull at reset, so
- *   without them both inverter inputs float through the bootloader window.
- *
- *   The 74HCT04 is not a shoot-through interlock and neither was the part it
- *   replaced. Shoot-through within a leg is prevented inside the IR2104,
- *   which derives HO and LO from one IN pin with 520ns typical deadtime
- *   (400 min, 650 max). The gate is 3.3V-to-5V level translation, needed
- *   because the ESP32's guaranteed VOH of 0.8 x VDD = 2.64V sits below the
- *   IR2104's 3.0V VIH minimum.
+ * The board restarts by itself after an upload. The banner printed in setup()
+ * is gone before a serial monitor reattaches, and reattaching resets the board
+ * anyway, so press Enter for it: configuration and live state together.
  * ============================================================================= */
 
 #include <Arduino.h>
-#include <math.h>
 #include <Wire.h>
-#include "esp_timer.h"
 #include "driver/gpio.h"
 
 #include "sb_config.h"
@@ -89,552 +42,20 @@
 #include "sb_trunk.h"
 #include "sb_net.h"
 #include "sb_power.h"
-#include "secrets.h"
+#include "sb_ring.h"
+#include "sb_failsafe.h"
+#include "sb_ota.h"
+#include "sb_diag.h"
 
-#ifdef OTA_PASSWORD_SHA256
-#include <ArduinoOTA.h>           // control.md 2.1; off without a password
-#endif
-
-/* ---- Section 12.2: waveform constants ------------------------------------ */
-
-static constexpr uint32_t CARRIER_FREQ_HZ         = 40000;  // 25 us period
-static constexpr uint32_t CARRIER_CYCLES_PER_STEP = 8;      // 200 us step
-static constexpr uint32_t SINE_STEPS              = 250;    // 50 ms = 20.000 Hz
-static constexpr uint8_t  LEDC_RESOLUTION_BITS    = 10;     // 1024 duty levels
-
-static_assert(CARRIER_FREQ_HZ == 20UL * CARRIER_CYCLES_PER_STEP * SINE_STEPS,
-              "Section 12.2 constraint violated: 20 = f_carrier / (cycles x steps)");
-
-static constexpr uint32_t STEP_PERIOD_US =
-    (1000000UL * CARRIER_CYCLES_PER_STEP) / CARRIER_FREQ_HZ;   // 200
-
-// 2^bits is the LEDC "always high" duty. Through the 74HCT04's two gates a
-// pin HIGH is IN HIGH, the high side of that leg on (control.md 3).
-static constexpr uint32_t DUTY_MAX = 1UL << LEDC_RESOLUTION_BITS;  // 1024
-
-/* ---- Section 9.4: output amplitude trim ----------------------------------
- * 0.90 is a working value, not a placeholder, and must not be raised towards
- * 1.00 to make anything look cleaner. Sections 8.3 and 9.4: at 1.00 the low side
- * stops turning on at the sine peak, so C_BOOT gets no refill and VB-VS
- * collapses to about 2.6 V; at 0.90 it holds 11.98 V. Rev 48 keeps 0.90 for a
- * second reason as well - it puts the Antek at 87% of rated flux at 20 Hz. A
- * trim above about 0.95 means changing the transformer tap, not the duty.
- *
- * An earlier version of this comment said to leave it at 1.00 until a no-load
- * secondary measurement existed. Rev 47 supersedes that.
- * ------------------------------------------------------------------------- */
-static constexpr float G_AMPLITUDE = 0.90f;
-
-/* ---- Section 3.2: pin assignments ---------------------------------------- */
-
-static constexpr int PIN_PWM_A     = 32;  // LEDC CH0 -> gates 2+5 -> IN2 (U5, right leg)
-static constexpr int PIN_PWM_B     = 33;  // LEDC CH1 -> gates 1+6 -> IN1 (U4, left leg)
-static constexpr int PIN_SD        = 14;  // -> gates 3+4 -> SD. HIGH = enabled
-static constexpr int PIN_ENBL      =  4;  // master enable, active LOW, pull-up
-// GPIO15, the waveform sync on J1 pin 4 through control.md Rev 30, is the
-                                          // switchboard power cut from Rev 31: PIN_POWER_CUT,
-                                          // sb_config.h, driven by sb_power.cpp.
-
-static constexpr uint8_t LEDC_CH_A = 0;   // passed to ledcAttachChannel()
-static constexpr uint8_t LEDC_CH_B = 1;
-
-static constexpr uint32_t ENBL_DEBOUNCE_MS = 20;
-
-/* ---- LEDC setup ----------------------------------------------------------
- * Core 3.x only. The 2.x path (ledcSetup + ledcAttachPin, duty addressed by
- * channel rather than by pin) was carried until the board had run, and is now
- * removed - it was untested code, and untested code that touches the bridge
- * drive is worse than no code. The #error below makes a downgrade a build
- * failure rather than a silent fallback.
- *
- * In 3.x the attach and the first duty write are separate calls, so between
- * them both PWM pins sit at duty 0. Under the 74HCT04 that is the park state
- * itself - both pins LOW, IN1 = IN2 = LOW, both low sides, the primary shorted
- * to ground - so the window is harmless by construction, and SD is driven LOW
- * by setup() before it opens in any case. parkOutputs() is still called
- * immediately after; it writes the same zeros.
- *
- * History, so an older board is legible (generator 12.3): under the 74HCT02
- * the pins were active LOW, so this same window was IN1 high with IN2 low -
- * Q1 and Q4, the full rail across the primary as DC - and the 2.x path set
- * duty to full scale before attaching the pin to avoid ever presenting a LOW.
- * ------------------------------------------------------------------------- */
-
-#if ESP_ARDUINO_VERSION_MAJOR < 3
-#error "Requires ESP32 Arduino core 3.x - the 2.x LEDC path was removed."
-#endif
-
-static inline void pwmWrite(int pin, uint32_t duty) {
-  ledcWrite(pin, duty);
-}
-
-static bool pwmBegin() {
-  if (!ledcAttachChannel(PIN_PWM_A, CARRIER_FREQ_HZ, LEDC_RESOLUTION_BITS, LEDC_CH_A)) return false;
-  if (!ledcAttachChannel(PIN_PWM_B, CARRIER_FREQ_HZ, LEDC_RESOLUTION_BITS, LEDC_CH_B)) return false;
-  return true;
-}
-
-/* ---- Duty tables ---------------------------------------------------------
- * Precomputed register values in the direct form of control.md 3: the 74HCT04
- * routes every signal through two of its gates - 2+5 for PWM A, 1+6 for PWM B,
- * 3+4 for SD - so each path is non-inverting end to end, duty is written as
- * is, and the parked leg is 0. One leg modulates at duty d while the other is
- * parked at 0, its low side on, tied to ground. The differential across T1 is
- * then +/-24V peak and 48 Vpp at G_AMPLITUDE = 1.0 - the figure section 9.1
- * works from. At the 0.90 actually in use it is +/-21.6V peak, 43 Vpp. Rev 48
- * targets 70-80V RMS out of the Antek's 230V winding; the exact ratio waits on
- * measurement.
- *
- * The first firmware complemented these tables, because the board then still
- * carried the 74HCT02, whose single gate per PWM path inverts. control.md Rev 7
- * moves them to this form. Do not run this build on a board that still has
- * the 74HCT02: through one inverting gate every leg is inverted - the parked
- * leg sits on its high side instead of its low - and the output is not the
- * waveform section 12.2 specifies. This form was flashed on the 74HCT02 board
- * once, briefly, on 2026-09-04, and both legs appeared to switch on the same
- * half-cycle.
- *
- * Phase is sampled at the centre of each step rather than the edge. It costs
- * nothing and avoids a step of exactly zero duty at each zero crossing.
- * ------------------------------------------------------------------------- */
-
-static uint16_t duty_a[SINE_STEPS];
-static uint16_t duty_b[SINE_STEPS];
-
-static void buildDutyTables(float g) {
-  if (g < 0.0f) g = 0.0f;
-  if (g > 1.0f) g = 1.0f;
-
-  for (uint32_t k = 0; k < SINE_STEPS; ++k) {
-    const float s = sinf(2.0f * (float)M_PI * ((float)k + 0.5f) / (float)SINE_STEPS);
-    long d = lroundf(g * fabsf(s) * (float)DUTY_MAX);
-    if (d < 0)                    d = 0;
-    if (d > (long)DUTY_MAX)       d = (long)DUTY_MAX;
-
-    if (s >= 0.0f) {                                   // right leg switches
-      duty_a[k] = (uint16_t)d;
-      duty_b[k] = 0;                                   // left leg tied to GND
-    } else {                                           // left leg switches
-      duty_a[k] = 0;                                   // right leg tied to GND
-      duty_b[k] = (uint16_t)d;
-    }
-  }
-}
-
-/* ---- Step timer ----------------------------------------------------------
- * Section 12.2 asks for the LEDC end-of-period interrupt on CH0 rather than a
- * separate timer, to avoid fractional-period jitter. This uses a periodic
- * esp_timer at 200 us instead. The reason it is equivalent here: LEDC latches
- * a new duty at the next carrier period boundary, so a duty written at an
- * arbitrary instant still takes effect on a period edge. The only residual
- * error is which period it lands on - occasionally 7 or 9 carrier cycles
- * rather than 8, which is at most 25 us on a 50 ms waveform and does not
- * accumulate, since the timer free-runs at its own rate.
- *
- * Dispatch is ESP_TIMER_TASK, so the callback runs in task context and
- * ledcWrite() is legal in it. It is not an ISR; do not mark it IRAM_ATTR.
- * ------------------------------------------------------------------------- */
-
-static esp_timer_handle_t step_timer  = nullptr;
-static volatile uint32_t  step_index  = 0;
-static volatile uint32_t  tick_count  = 0;
-static bool               running     = false;
-
-static void stepCallback(void*) {
-  const uint32_t k = step_index;
-  pwmWrite(PIN_PWM_A, duty_a[k]);
-  pwmWrite(PIN_PWM_B, duty_b[k]);
-
-  step_index = (k + 1 == SINE_STEPS) ? 0 : (k + 1);
-  tick_count = tick_count + 1;   // not tick_count++ : C++20 deprecates ++ on volatile
-}
-
-static void parkOutputs() {
-  pwmWrite(PIN_PWM_A, 0);          // both pins LOW, both IR2104 IN pins LOW:
-  pwmWrite(PIN_PWM_B, 0);          // both low sides, primary at ground (control.md 3)
-}
-
-/* ---- The scan result (control.md 4.2 step 5) -------------------------------
- * Set by the boot scan and by every I2C recovery, and published on ctl/i2c.
- * It does not gate the generator. Ring reaches a circuit only through a trunk
- * board ring relay, which is normally open and held released by R_pd whenever
- * its expander is absent or unconfigured, so a missing expander cannot leave
- * ring applied to anything (control.md Rev 11). */
-static bool expanders_all_present = false;
-
-/* I2C recovery bookkeeping. `i2c_retries` is 0 when the bus is believed good,
- * which makes the first attempt after a fault immediate - a connector wiggle
- * that trips the error threshold and then settles is back within 5ms - and
- * every attempt after that once a second. */
-static uint32_t last_i2c_retry_ms = 0;
-static uint32_t last_i2c_reset_ms = 0;
-static uint16_t i2c_retries       = 0;
-
-/* Which configured expanders answered at the last report on ctl/i2c, one bit
- * each. The report goes out whenever this changes, not only when "all present"
- * flips: a trunk board found while the station boards are still out changes
- * which are missing, and the retained message has to say so (mqtt.md 4: ctl/i2c
- * is republished after any rescan that changes it). */
-static uint8_t  scan_reported    = 0;
-static uint32_t last_config_check_ms = 0;   // 6.4, Rev 19
-
-/* Where a long loop pass goes: the worst of each section since the banner last
- * printed. Diagnostic only; the banner shows them beside the loop timing. */
-enum { T_NET, T_VERIFY, T_INPUTS, T_STATION, T_TRUNK, T_FLUSH, T_BEAT, T_FAILSAFE,
-       T_REPUB, T_OTA, T_ENABLE, T_SCAN, T_SERIAL, T_N };
-static const char* const T_NAMES[T_N] = { "net", "verify", "inputs", "station", "trunk",
-                                          "flush", "beat", "failsafe", "republish", "ota",
-                                          "enable", "scan", "serial" };
-static uint32_t t_max_us[T_N];
-/* control.md 9.1, Rev 27: each section's time since the last poll tick, so a
- * long gap between ticks can be put down to what ran in it. */
-static uint32_t t_cur_us[T_N];
-#define TIMED(k, stmt) do { const uint32_t _t0 = micros(); stmt; \
-                            const uint32_t _d = micros() - _t0; \
-                            t_cur_us[k] += _d; \
-                            if (_d > t_max_us[k]) t_max_us[k] = _d; } while (0)
-
-/* Gaps between poll ticks of LONG_GAP_MS or more, kept for the banner rather
- * than printed as they happen: a line on the serial port blocks for longer than
- * the gaps being looked for. */
-static constexpr uint32_t LONG_GAP_MS = 20;
-static constexpr uint32_t BANNER_MIN_MS = 2000;   // Rev 29: at most one banner per 2s
-static constexpr uint8_t  LONG_GAPS   = 16;
-struct LongGap {
-  uint32_t at_ms;        // millis() at the tick that ended it
-  uint16_t gap_ms;
-  uint16_t passes;       // loop() passes between the two ticks
-  uint8_t  top;          // the section that took longest in it
-  uint32_t top_us;
-  uint32_t untimed_us;   // the gap less every timed section: other tasks, delay()
-};
-static LongGap long_gaps[LONG_GAPS];
-static uint8_t  long_gap_count   = 0;     // kept, at most LONG_GAPS
-static uint32_t long_gap_dropped = 0;     // seen after the buffer filled
-static uint16_t passes_since_tick = 0;
-
-static void noteGap(uint32_t now, uint32_t gap_ms) {
-  if (gap_ms >= LONG_GAP_MS) {
-    uint32_t sum = 0;
-    uint8_t  top = 0;
-    for (uint8_t k = 0; k < T_N; ++k) {
-      sum += t_cur_us[k];
-      if (t_cur_us[k] > t_cur_us[top]) top = k;
-    }
-    if (long_gap_count < LONG_GAPS) {
-      LongGap& g = long_gaps[long_gap_count++];
-      g.at_ms      = now;
-      g.gap_ms     = (uint16_t)(gap_ms > 65535 ? 65535 : gap_ms);
-      g.passes     = passes_since_tick;
-      g.top        = top;
-      g.top_us     = t_cur_us[top];
-      g.untimed_us = gap_ms * 1000 > sum ? gap_ms * 1000 - sum : 0;
-    } else {
-      long_gap_dropped++;
-    }
-  }
-  for (uint8_t k = 0; k < T_N; ++k) t_cur_us[k] = 0;
-  passes_since_tick = 0;
-}
-
-static uint8_t presentMask() {
-  uint8_t m = 0;
-  for (uint8_t i = 0; i < N_EXPANDERS; ++i)
-    if (expanderConfigured(i) && exp_state[i].present) m |= (uint8_t)(1u << i);
-  return m;
-}
-
-/* ---- Section 6.1 / 6.2: start and stop ----------------------------------- */
-
-/* ---- Start phase ---------------------------------------------------------
- * The waveform starts at the positive voltage peak, not at a zero crossing.
- *
- * Flux is the integral of applied volts. Starting at a zero crossing from zero
- * flux drives the first half-cycle from 0 to 2*Phi_pk - twice the steady-state
- * excursion. Starting at the peak begins the integral where steady-state flux
- * is zero, so the first half-cycle runs 0 to -Phi_pk and matches every one that
- * follows. T1 is specified as an Antek AS-0522 toroid driven from its 44V
- * winding, which takes 44 * 20/50 = 17.6 V RMS at 20 Hz before rated flux -
- * fitted since 2026-09-16, and this start verified on it 2026-09-25 (control.md
- * 5.3). The bridge applies
- * 15.3 V RMS at g_amplitude 0.90, so steady state sits at 87% of rated and a
- * zero-crossing start would put the first half-cycle at about 175%. The core
- * saturates, magnetizing current spikes for up to 25 ms, and F1 sees it - Rev 48
- * section 7.2 reasons that ten times a slow-blow's rating opens it in
- * milliseconds. The generator free-runs from power-up, so this happened once per
- * power-up, which is once too often. Soft-start modules for large mains toroids
- * switch at the mains peak for exactly this reason.
- *
- * Rev 48 section 12.6 is the requirement. Do not "fix" this back to zero.
- *
- * Two consequences, both expected and neither a fault:
- *
- * Bootstrap. SD is low until after the first tick, so neither C_BOOT is charged
- * when the bridge is enabled. The active leg sits at ~90% duty, whose low-side
- * window is ~2.5 us of each 25 us carrier period; C_BOOT charges through those
- * windows and the IR2104 UVLO holds HO off until it has. Expect the first few
- * carrier cycles to show no high-side drive on the active leg. The parked leg's
- * low side is on continuously, so the primary is simply held at zero for a few
- * tens of microseconds. See the G_AMPLITUDE note: at 1.00 that refill window
- * does not exist, which is why the trim must not be raised to tidy the start.
- *
- * Remanent flux. stopWaveform() still drops SD at whatever phase it has
- * reached, so a restart carries whatever remanence the toroid kept. The peak
- * start removes the drive's own contribution to the first-half-cycle excursion,
- * not that. Acceptable while the generator runs continuously; not solved here.
- * ------------------------------------------------------------------------- */
-static constexpr uint32_t START_STEP = SINE_STEPS / 4;   // 62 of 250. Exact:
-                                                         // phase is sampled at
-                                                         // k+0.5, so 62.5/250 is
-                                                         // a quarter cycle and
-                                                         // sin is precisely +1.
-
-static bool startWaveform() {
-  if (running) return true;
-
-  step_index = START_STEP;
-  tick_count = 0;
-  pwmWrite(PIN_PWM_A, duty_a[START_STEP]);
-  pwmWrite(PIN_PWM_B, duty_b[START_STEP]);
-
-  if (esp_timer_start_periodic(step_timer, STEP_PERIOD_US) != ESP_OK) {
-    Serial.println("ARM REFUSED: step timer would not start");
-    parkOutputs();
-    return false;
-  }
-
-  // Wait for the first tick so the waveform phase is established before SD.
-  const uint32_t t0 = micros();
-  while (tick_count == 0) {
-    if (micros() - t0 > 5000) {
-      Serial.println("ARM REFUSED: no step tick within 5 ms");
-      esp_timer_stop(step_timer);
-      parkOutputs();
-      return false;
-    }
-  }
-
-  digitalWrite(PIN_SD, HIGH);          // IR2104s enabled - last, not first
-  running = true;
-  Serial.println("RUN");
-  return true;
-}
-
-static void stopWaveform() {
-  digitalWrite(PIN_SD, LOW);           // SD first: bridge off immediately
-  if (step_timer) esp_timer_stop(step_timer);
-  parkOutputs();                       // then the redundant off state
-  running = false;
-  Serial.println("IDLE");
-}
-
-/* ---- Enable input, debounced --------------------------------------------- */
-
-static bool     enbl_stable   = false;   // true = asserted = pin LOW = run
-static bool     enbl_last_raw = false;
-static uint32_t enbl_changed_ms = 0;
-
-static void serviceEnable() {
-  const bool raw = (digitalRead(PIN_ENBL) == LOW);
-  const uint32_t now = millis();
-
-  if (raw != enbl_last_raw) {
-    enbl_last_raw   = raw;
-    enbl_changed_ms = now;
-    return;
-  }
-  if (raw == enbl_stable) return;
-  if (now - enbl_changed_ms < ENBL_DEBOUNCE_MS) return;
-
-  enbl_stable = raw;
-  if (enbl_stable) startWaveform();
-  else             stopWaveform();
-}
-
-/* Network update state (control.md 2.1), here because the banner reports it;
- * the code that uses it is beside the failsafes, further down. */
-static bool ota_started = false;          // listener started, or OTA is off
-#ifdef OTA_PASSWORD_SHA256
-static bool ota_in_progress = false;      // past the start callback
-#endif
-
-/* ---- setup / loop -------------------------------------------------------- */
-
-/* Configuration and live state, on demand. Called once from setup() and again
- * whenever Enter arrives on the console, so the question "what is this
- * board actually running" has an answer at any moment rather than only in the
- * first half second after a reset - which is exactly when nothing is attached
- * to read it. peak is recomputed here rather than cached; it is 250 iterations
- * and this is not a hot path. */
-/* ---- The spread state republish (control.md 9.2) --------------------------
- * A full republish is 93 retained QoS 1 messages, and with this client each
- * QoS 1 publish blocks until its PUBACK arrives. Sent as one burst it would
- * hold the 200Hz loop for 100-300ms - longer than a ringing station's 100ms
- * quiet rule (7.1) and longer than a dial pulse (8.2) - so a ringing station
- * would flicker off/on every 30s and a digit under way would be spoiled or
- * split. Instead every full republish walks the channel table one circuit per
- * poll tick: each tick pays for three round trips, and all 31 circuits
- * are refreshed in 31 ticks, about 155ms.
- *
- * requestRepublish() (re)starts the walk from row 0; republishStep() does one
- * row and is called once per poll tick. A request that arrives mid-walk
- * restarts it, so every circuit is published after the latest request. While
- * the connection is down the walk pauses; the reconnect restarts it anyway.
- * ------------------------------------------------------------------------- */
-static int16_t republish_row = -1;       // next circuits[] row; -1 = idle
-
-static void requestRepublish() { republish_row = 0; }
-
-static void republishStep() {
-  if (republish_row < 0 || !netConnected()) return;
-  const uint8_t r = (uint8_t)republish_row;
-  if (r < N_STATION_ROWS) stationPublishOne(r);
-  else                    trunkPublishOne((uint8_t)(r - N_STATION_ROWS));
-  republish_row = (r + 1 < N_CIRCUITS) ? (int16_t)(r + 1) : -1;
-}
-
-/* ---- Loop timing (control.md 12.7 code consequence (a)) --------------------
- * The 200Hz poll is only as good as the loop that runs it. Anything that holds
- * loop() - a burst of QoS 1 publishes each waiting for its PUBACK, a blocking
- * reconnect - stretches the gap between poll ticks, and every threshold in
- * control.md 7 and 8 is measured in those ticks. Two figures, both maxima since
- * the banner last printed them:
- *
- *   loop_max_us     the longest single pass through loop(), start to end
- *   poll_gap_max_ms the longest interval between consecutive poll ticks;
- *                   5 when nothing is holding the loop
- *
- * The second is the one that matters to the debounce: a ringing station's
- * 100ms quiet rule (7.1) fires on a gap of 100ms, and a dial break or make
- * interval (8.2) has the gap added to it. Printed and zeroed by printBanner(),
- * so pressing a key, waiting, and pressing it again measures the interval
- * between the two presses. */
-static uint32_t loop_max_us      = 0;
-static uint32_t poll_gap_max_ms  = 0;
-static uint32_t timing_since_ms  = 0;
-
-static void printBanner() {
-  uint32_t peak = 0;
-  for (uint32_t k = 0; k < SINE_STEPS; ++k) {
-    const uint32_t da = duty_a[k];              // direct form, control.md 3
-    const uint32_t db = duty_b[k];
-    if (da > peak) peak = da;
-    if (db > peak) peak = db;
-  }
-
-  Serial.println();
-  Serial.println("551 ring generator - PWM only");
-  Serial.printf("  carrier      %lu Hz, %u bits\n",
-                (unsigned long)CARRIER_FREQ_HZ, LEDC_RESOLUTION_BITS);
-  Serial.printf("  step         %lu us, %lu steps, %.3f Hz output\n",
-                (unsigned long)STEP_PERIOD_US, (unsigned long)SINE_STEPS,
-                1000000.0 / (double)(STEP_PERIOD_US * SINE_STEPS));
-  Serial.printf("  g_amplitude  %.4f, peak duty %lu / %lu\n",
-                (double)G_AMPLITUDE, (unsigned long)peak, (unsigned long)DUTY_MAX);
-  Serial.printf("  start step   %lu of %lu, phase %.1f deg (positive peak)\n",
-                (unsigned long)START_STEP, (unsigned long)SINE_STEPS,
-                360.0 * ((double)START_STEP + 0.5) / (double)SINE_STEPS);
-  Serial.println("  GPIO4 LOW to run (J1 pins 1-2)");
-  Serial.printf ("  power cut on GPIO%d (J1 pin 4), %lums, now %s\n", PIN_POWER_CUT,
-                 (unsigned long)POWER_CUT_MS, digitalRead(PIN_POWER_CUT) ? "cutting" : "idle");
-  // tick_count advancing at 5000/s is the only visibility into whether the
-  // esp_timer is really dispatching: a stalled timer with the bridge armed
-  // looks exactly like a working one until a scope goes on GPIO32. enbl is the
-  // raw pin, before debounce, so a jumper can be checked against what
-  // serviceEnable() decided.
-  Serial.printf("  state        %s, enbl=%d, ticks=%lu\n",
-                running ? "RUN" : "IDLE",
-                (digitalRead(PIN_ENBL) == LOW) ? 1 : 0,
-                (unsigned long)tick_count);
-
-  /* ---- the rest of the controller ------------------------------------
-   * The heartbeat line is
-   * the one thing the MQTT side cannot tell you about itself: a game program
-   * that has died leaves `online` on the broker and retained state that looks
-   * current. */
-  Serial.print("  expanders   ");
-  for (uint8_t i = 0; i < N_EXPANDERS; ++i) {
-    if (!expanderConfigured(i)) continue;
-    Serial.printf(" 0x%02X:%s", expanders[i].addr,
-                  exp_state[i].present ? "ok" : "MISSING");
-  }
-  Serial.printf("   (%u station board(s) fitted)\n",
-                (unsigned)STATION_BOARDS_FITTED);
-  /* Only when there is something to say. Silence here means the bus is whole,
-   * which is what it says the rest of the time the board is working. */
-  if (expanderBusFault())
-    Serial.printf("  i2c recovery probing every %lu ms%s, %u attempts so far\n",
-                  (unsigned long)I2C_RETRY_MS,
-                  expanderAnyPresent() ? ""
-                                       : " and /RESET on the slow knock (nothing answers)",
-                  (unsigned)i2c_retries);
-  Serial.printf("  firmware     control.md Rev %u, %s, built %s\n",
-                FIRMWARE_SPEC_REV, FIRMWARE_COMMIT, FIRMWARE_BUILT);
-  Serial.printf("  mqtt         %s, broker %s:%u\n",
-                netConnected() ? "connected" : "down",
-                MQTT_BROKER_HOST, (unsigned)MQTT_PORT);
-#ifdef OTA_PASSWORD_SHA256
-  Serial.printf("  ota          %s\n",
-                ota_started ? "listening, " MQTT_CLIENT_ID ".local:3232"
-                            : "waiting for an address");
-#else
-  Serial.println("  ota          OFF - no OTA_PASSWORD_SHA256 in secrets.h");
-#endif
-  Serial.printf("  game beat    %s\n",
-                netGameAlive(millis()) ? "alive" : "MISSING - relays held released");
-  Serial.printf("  trunks       %u ringing, %u queued (cap %u)\n",
-                (unsigned)trunkRingingCount(), (unsigned)trunkQueuedCount(),
-                (unsigned)MAX_TRUNKS_RINGING);
-
-  /* Maxima since the last banner, then zeroed, so two keypresses a minute
-   * apart bracket at least one 30s republish. */
-  const uint32_t now = millis();
-  Serial.printf("  loop timing  longest pass %lu us, longest poll gap %lu ms "
-                "(nominal %lu), over the last %lu s\n",
-                (unsigned long)loop_max_us, (unsigned long)poll_gap_max_ms,
-                (unsigned long)POLL_PERIOD_MS,
-                (unsigned long)((now - timing_since_ms) / 1000));
-  Serial.print("  worst (us)  ");
-  for (int k = 0; k < T_N; ++k) {
-    Serial.printf(" %s %lu", T_NAMES[k], (unsigned long)t_max_us[k]);
-    t_max_us[k] = 0;
-  }
-  Serial.println();
-  /* Rev 27: every gap of LONG_GAP_MS or more since the last banner, with what
-   * ran in it. The banner's own printing shows as the first, under "serial". */
-  Serial.printf("  long gaps    %u of %lu ms or more", (unsigned)long_gap_count,
-                (unsigned long)LONG_GAP_MS);
-  if (long_gap_dropped) Serial.printf(", and %lu more not kept", (unsigned long)long_gap_dropped);
-  Serial.println();
-  for (uint8_t i = 0; i < long_gap_count; ++i) {
-    const LongGap& g = long_gaps[i];
-    Serial.printf("    %lus before: %u ms over %u pass(es), %s %lu us, untimed %lu us\n",
-                  (unsigned long)((now - g.at_ms) / 1000), (unsigned)g.gap_ms,
-                  (unsigned)g.passes, T_NAMES[g.top], (unsigned long)g.top_us,
-                  (unsigned long)g.untimed_us);
-  }
-  long_gap_count   = 0;
-  long_gap_dropped = 0;
-  loop_max_us     = 0;
-  poll_gap_max_ms = 0;
-  timing_since_ms = now;
-}
+static uint32_t last_poll_ms         = 0;
+static uint32_t last_republish_ms    = 0;
+static uint32_t last_config_check_ms = 0;   // 6.4
 
 void setup() {
-  // SD low before anything else touches the PWM pins. R_SD_PD (at GPIO14)
-  // already holds it low through boot; this makes it driven rather than merely
-  // pulled. SD LOW = shutdown. (R_SD_PD2 is not fitted - generator 6, Rev 68.)
-  pinMode(PIN_SD, OUTPUT);
-  digitalWrite(PIN_SD, LOW);
+  ringPinsSafe();                      // SD and both PWM pins LOW, first
 
-  // Hold the PWM pins LOW - the park state (control.md 3) - until the LEDC
-  // peripheral takes them. R_PWMA_PD and R_PWMB_PD already pull them there
-  // through boot; this makes it driven rather than merely pulled.
-  pinMode(PIN_PWM_A, OUTPUT); digitalWrite(PIN_PWM_A, LOW);
-  pinMode(PIN_PWM_B, OUTPUT); digitalWrite(PIN_PWM_B, LOW);
-
-  // Expander /RESET idles HIGH (section 4.7). The 1 ms assert and the scan
-  // belong with the I2C code; this only stops the line floating.
+  // Expander /RESET idles HIGH (ring_generator.md §4.7). The 1 ms assert and
+  // the scan belong with the I2C code; this only stops the line floating.
   pinMode(PIN_EXP_RESET, OUTPUT);
   digitalWrite(PIN_EXP_RESET, HIGH);
 
@@ -645,10 +66,9 @@ void setup() {
   pinMode(PIN_ENBL, INPUT_PULLUP);     // grounding GPIO4 enables the generator
 
   Serial.begin(115200);
-  /* control.md 9.1, Rev 29: with the USB cable unplugged the USB-serial chip
-   * is unpowered and the receive line floats; noise on it read as keypresses
-   * and printed the banner over and over, ~100ms a time, which stretched the
-   * dial pulses. Hold it idle. */
+  /* control.md 9.1: with the USB cable unplugged the USB-serial chip is
+   * unpowered and the receive line floats; noise on it would read as Enter and
+   * print the banner over and over. Hold it idle. */
   gpio_pullup_en(GPIO_NUM_3);
   delay(200);
   Serial.println("Starting");
@@ -662,34 +82,24 @@ void setup() {
 
   /* ---- 4.2 steps 5 and 6: I2C, scan, configure ----------------------- */
   Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL, I2C_CLOCK_HZ);
-  Wire.setTimeOut(I2C_TIMEOUT_MS);             // 6.2, Rev 20: an absent board must not stall the loop
+  Wire.setTimeOut(I2C_TIMEOUT_MS);             // 6.2: an absent board must not stall the loop
   stationInit();
   trunkInit();
-  expanders_all_present = expanderScanAndConfigure();
-  scan_reported = presentMask();
-
-  /* The boot scan counts as the first recovery attempt, so a board that is
-   * absent from power-up is not rescanned again 5ms later in the first loop
-   * pass - the console would print the same block twice. The retry that
-   * matters is a second from now, and every second after that. */
-  if (!expanders_all_present) {
-    i2c_retries = 1;
-    last_i2c_retry_ms = last_i2c_reset_ms = millis();   // step 4 was the /RESET
-  }
+  failsafeBootScan();
 
   /* ---- 4.2 step 7: MQTT birth, subscribe, publish all state ----------
    * Given a bounded wait rather than blocked on: the generator must run
    * whenever GPIO4 is low (8.5), so a broker that is down must not keep the
    * ring bus dark. If the connection does not come up here, netService() in
    * loop() keeps trying and the birth sequence runs on the connect edge. */
-  const uint32_t mqtt_wait_until = millis() + 6000;
+  const uint32_t mqtt_wait_until = millis() + MQTT_BOOT_WAIT_MS;
   while (!netConnected() && millis() < mqtt_wait_until) {
     netService(millis());
     delay(10);
   }
   if (netConnected()) {
-    requestRepublish();                // spread over the first 31 poll ticks
-    netPublishI2cScan(expanders_all_present);
+    netRequestRepublish();             // spread over the first 31 poll ticks
+    netPublishI2cScan(failsafeAllPresent());
     powerCutPublish();
     (void)netTakeJustConnected();      // the birth sequence has just been run
   } else {
@@ -697,207 +107,14 @@ void setup() {
   }
 
   /* ---- 4.2 step 8: LEDC, both channels at duty 0 ---------------------
-   * Duty 0 with SD low is the hardware's own park state - the peripheral comes
-   * up that way - so this is not arming anything. Step 9 is nothing to do, and
-   * steps 10 and 11 are startWaveform(), which the enable input reaches through serviceEnable(). */
-  buildDutyTables(G_AMPLITUDE);
-
-  if (!pwmBegin()) {
-    Serial.println("FATAL: LEDC would not configure at 40 kHz / 10 bits");
-    while (true) delay(1000);
-  }
-  parkOutputs();
-
-  esp_timer_create_args_t args = {};
-  args.callback        = &stepCallback;
-  args.arg             = nullptr;
-  args.dispatch_method = ESP_TIMER_TASK;
-  args.name            = "ring_step";
-  if (esp_timer_create(&args, &step_timer) != ESP_OK) {
-    Serial.println("FATAL: could not create step timer");
-    while (true) delay(1000);
-  }
+   * Duty 0 with SD low is the hardware's own park state, so this is not
+   * arming anything. Step 9 is nothing to do, and steps 10 and 11 are the
+   * waveform start, which GPIO4 reaches through ringServiceEnable(). */
+  ringBegin();
 
   printBanner();
 
-  // Adopt the switch position already present at power-on rather than waiting
-  // for an edge, so a board that boots with the switch closed comes up running.
-  enbl_last_raw   = (digitalRead(PIN_ENBL) == LOW);
-  enbl_stable     = false;
-  enbl_changed_ms = millis();
-}
-
-/* The console is silent unless something happens: RUN and IDLE are announced
- * by startWaveform()/stopWaveform() as they occur, and anything else is had by
- * asking. Press Enter and printBanner() reports the configuration and
- * the live state together. A once-a-second heartbeat lived here while the
- * board was first being brought up; it had served its purpose and only made
- * captured logs harder to read. */
-/* ---- The failsafe table (control.md 10) ------------------------------------
- * Every relay is released on any of these, independently and without reference
- * to the host. They are gathered here rather than pushed into the modules that
- * own the relays because this is the only place that sees all of the conditions
- * at once, and because a failsafe split across three files is a failsafe nobody
- * can audit.
- *
- * Two rows of that table are elsewhere, each for a reason:
- *   Power-on / reset          the hardware's doing, before any of this runs (4.1)
- *   Trunk ringing for 30s     per-trunk, in trunkPoll(), beside the cadence it
- *                             interrupts
- * ------------------------------------------------------------------------- */
-
-static bool     game_was_up       = false;
-static uint32_t last_poll_ms      = 0;
-static uint32_t last_republish_ms = 0;
-
-
-static void releaseAllRelays(const char* why) {
-  Serial.printf("FAILSAFE: releasing all relays - %s\n", why);
-  stationReleaseAll();
-  trunkReleaseAll();
-  expanderReleaseAllRelays();     // unconditional, not the dirty-flag path:
-                                  // this runs when things are already wrong
-  powerCutRelease(why);           // 5.4, Rev 31: powered is its safe state
-
-  /* Echo it if there is anyone to echo to. On the MQTT-loss path there is not,
-   * and the retained values stay stale until the reconnect republishes them -
-   * which is what ctl/status going to `offline` is for. On the game-heartbeat
-   * path the broker is healthy, and a host that recovers must not read a
-   * retained hook=on for a relay this just dropped. */
-  if (netConnected()) requestRepublish();
-}
-
-/* ---- Network firmware update (control.md 2.1) -----------------------------
- * ArduinoOTA's handle() runs a whole update inside itself, so for those seconds
- * nothing below it runs: no poll, no publish, no failsafe. The start callback
- * therefore puts the board where a reset would, before the first byte reaches
- * flash - the waveform stopped and every relay released. The broker notices
- * the lapsed keepalive and publishes the will; the retained state it leaves
- * behind is covered by ctl/status going to `offline`, as on any other loss.
- *
- * A wrong password raises the error callback too, before anything has been
- * stopped. That must change nothing, so the restart is only for errors once an
- * update has actually begun: by then the calls are gone anyway, and a restart
- * is the one state that is known. The old image is still in its partition until
- * the new one verifies, so it is what the board restarts into. */
-static void otaBegin() {
-#ifdef OTA_PASSWORD_SHA256
-  ArduinoOTA.setHostname(MQTT_CLIENT_ID);
-  ArduinoOTA.setPasswordHash(OTA_PASSWORD_SHA256);
-  ArduinoOTA.setRebootOnSuccess(true);
-  ArduinoOTA.onStart([]() {
-    ota_in_progress = true;
-    stopWaveform();
-    releaseAllRelays("network firmware update starting");
-    Serial.println("OTA: receiving");
-  });
-  ArduinoOTA.onEnd([]() { Serial.println("OTA: complete, restarting"); });
-  ArduinoOTA.onError([](ota_error_t e) {
-    Serial.printf("OTA: error %u%s\n", (unsigned)e,
-                  ota_in_progress ? ", restarting" : " - nothing changed");
-    if (ota_in_progress) {
-      delay(100);                    // let the line reach the console
-      ESP.restart();
-    }
-  });
-  ArduinoOTA.begin();
-  Serial.printf("OTA: listening as %s.local:3232\n", MQTT_CLIENT_ID);
-#endif
-  ota_started = true;
-}
-
-static void serviceOta() {
-  if (!ota_started) {
-    if (netHasAddress()) otaBegin();
-    return;
-  }
-#ifdef OTA_PASSWORD_SHA256
-  ArduinoOTA.handle();
-#endif
-}
-
-static void serviceFailsafes(uint32_t now) {
-  const bool game_up = netGameAlive(now);
-
-  /* Edge-triggered. A command arriving while the game heartbeat is missing is
-   * still acted on (9.4) - the heartbeat's return is the recovery signal and
-   * the command is evidence of it - so holding the relays down continuously
-   * would fight the specified behaviour. */
-  if (game_was_up && !game_up) releaseAllRelays("game heartbeat missed twice");
-  if (!game_was_up && game_up) Serial.println("game heartbeat returned");
-  game_was_up = game_up;
-
-  /* ---- I2C recovery (control.md 10) --------------------------------------
-   * A station or trunk board that is unplugged, or whose cable is disturbed,
-   * shows up as consecutive errors on its expander; the third marks it absent
-   * and raises the fault. From that moment nothing polls it, so nothing on the
-   * bus can report on it again - the retry has to be timed from here, and the
-   * fault deliberately stays set until a scan finds every configured expander.
-   *
-   * Two different faults wear the same flag, and they want opposite treatment,
-   * because /RESET is one line to every chip on the bus:
-   *
-   *   the bus is wedged - nothing answers. /RESET is the remedy, and there are
-   *   no working relays for it to disturb. This is the control.md 10 recovery.
-   *
-   *   a board is out - its expander is absent and the others answer fine.
-   *   /RESET would drop the relays of every board that is working, and would
-   *   not help the one that is unplugged: it is not on the bus to be reset.
-   *   Probing the absent address and configuring it if it answers is all a
-   *   returning board needs, and it disturbs nothing.
-   *
-   * So the fault edge takes the specified recovery once, and the retries after
-   * it take whichever of the two the bus is actually showing. A board plugged
-   * back in is in service about a second later, with calls on the other boards
-   * still up. */
-  if (expanderBusFault() &&
-      (i2c_retries == 0 || now - last_i2c_retry_ms >= I2C_RETRY_MS)) {
-    const bool first = (i2c_retries == 0);
-    last_i2c_retry_ms = now;
-    if (i2c_retries < 0xFFFF) i2c_retries++;
-
-    /* Nothing answering at all is the bus, not a board - but /RESET is still
-     * expensive and still not something a second attempt is going to fix, so
-     * it gets a slower knock and the cheap probe runs in between. */
-    const bool wedged = !expanderAnyPresent();
-
-    bool ok;
-    if (first || (wedged && now - last_i2c_reset_ms >= I2C_RESET_RETRY_MS)) {
-      last_i2c_reset_ms = now;
-      /* 6.2: inhibit ring before /RESET. A reset mid-cadence would release the
-       * ring relay at an arbitrary point in the 20Hz waveform rather than at a
-       * cadence boundary. Verbose on the fault edge, quiet on the repeats. */
-      trunkInhibitRing();
-      expanderFlushRelays();
-
-      ok = expanderRecover(!first);
-
-      /* The reset dropped every relay in hardware, so the firmware's own idea
-       * of them has to come back to zero as well or the echoed state would be
-       * a lie. Only on this path: the probe below drops nothing. */
-      stationReleaseAll();
-      trunkReleaseAll();
-      powerCutRelease("I2C bus fault");   // 10: every release ends a cut
-    } else {
-      ok = expanderRescanAbsent();
-    }
-
-    if (ok && !first)
-      Serial.printf("I2C: every configured expander present again, after %u retries\n",
-                    (unsigned)i2c_retries);
-    const uint8_t mask = presentMask();
-    const bool changed = first || (ok != expanders_all_present) || mask != scan_reported;
-    scan_reported = mask;
-    expanders_all_present = ok;
-    if (ok) i2c_retries = 0;
-
-    /* Only when the answer changed. A board left out for ten minutes must not
-     * put six hundred republishes of every state topic through the broker. */
-    if (changed && netConnected()) {
-      requestRepublish();
-      netPublishI2cScan(ok);
-    }
-  }
+  ringAdoptEnable();
 }
 
 void loop() {
@@ -915,21 +132,19 @@ void loop() {
   if (netConnected() &&
       (reconnected || sync_asked || (now - last_republish_ms >= STATE_REPUBLISH_MS))) {
     last_republish_ms = now;
-    requestRepublish();              // spread, one circuit per poll tick (9.2)
-    if (reconnected) TIMED(T_SCAN, netPublishI2cScan(expanders_all_present));
+    netRequestRepublish();           // spread, one circuit per poll tick (9.2)
+    if (reconnected) TIMED(T_I2C_PUB, netPublishI2cScan(failsafeAllPresent()));
     if (reconnected) powerCutPublish();
   }
 
   /* ---- the 200Hz sample stream (6.3) --------------------------------
    * Everything in 7 and 8 runs from here. Nothing samples independently. */
   if (now - last_poll_ms >= POLL_PERIOD_MS) {
-    const uint32_t gap = now - last_poll_ms;
-    if (last_poll_ms != 0 && gap > poll_gap_max_ms) poll_gap_max_ms = gap;
-    if (last_poll_ms != 0) noteGap(now, gap);
+    if (last_poll_ms != 0) diagPollGap(now, now - last_poll_ms);
     last_poll_ms = now;
 
-    /* 6.4 (Rev 19): one expander's configuration a second, before the poll, so
-     * a chip that has reset is set right before its inputs are read. */
+    /* 6.4: one expander's configuration a second, before the poll, so a chip
+     * that has reset is set right before its inputs are read. */
     if (now - last_config_check_ms >= CONFIG_CHECK_MS) {
       last_config_check_ms = now;
       TIMED(T_VERIFY, expanderVerifyNext());
@@ -938,8 +153,8 @@ void loop() {
     TIMED(T_INPUTS, expanderPollInputs());
     /* The samples are timed from when they were read, not from the top of
      * the pass: netService() above can hold the pass for a few hundred ms
-     * waiting on the broker, and a change stamped with `now` then looked that
-     * much older than it was (6.3, Rev 37). */
+     * waiting on the broker, and a change stamped with `now` would look that
+     * much older than it was (6.3). */
     const uint32_t sampled = millis();
     TIMED(T_STATION, stationPoll(sampled));
     TIMED(T_TRUNK, trunkPoll(sampled));
@@ -950,34 +165,19 @@ void loop() {
      * and not merely that the network stack is alive. */
     TIMED(T_BEAT, netHeartbeat(now));
 
-    TIMED(T_FAILSAFE, serviceFailsafes(now));
+    TIMED(T_FAILSAFE, failsafeService(now));
 
-    TIMED(T_REPUB, republishStep()); // at most one circuit's state per tick
+    TIMED(T_REPUB, netRepublishStep()); // at most one circuit's state per tick
   }
 
-  TIMED(T_ENABLE, serviceEnable());
+  TIMED(T_ENABLE, ringServiceEnable());
 
   powerCutService(now);
 
-  TIMED(T_OTA, serviceOta());
+  TIMED(T_OTA, otaService());
 
-  const uint32_t pass_us = micros() - pass_start_us;
-  if (pass_us > loop_max_us) loop_max_us = pass_us;
-  passes_since_tick++;
-
-  /* Rev 29: the banner for Enter only, at most every BANNER_MIN_MS: anything
-   * else on the line is discarded, so a floating or noisy receive line cannot
-   * hold the loop. */
-  static uint32_t last_banner_ms = 0;
-  bool enter = false;
-  while (Serial.available()) {
-    const int ch = Serial.read();
-    if (ch == '\r' || ch == '\n') enter = true;
-  }
-  if (enter && (last_banner_ms == 0 || now - last_banner_ms >= BANNER_MIN_MS)) {
-    last_banner_ms = now;
-    TIMED(T_SERIAL, printBanner());
-  }
+  diagEndPass(pass_start_us);
+  diagServiceConsole(now);
 
   /* 1ms, so the idle task runs and mqtt.loop() is still called five times per
    * 5ms poll. The poll interval is compared against millis() rather than being

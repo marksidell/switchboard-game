@@ -48,11 +48,10 @@ const CircuitMap circuits[N_CIRCUITS] = {
   { Kind::Station,  20,   2,   3 },
   { Kind::Station,  21,   2,   4 },
   { Kind::Station,  22,   2,   5 },
-  /* 0x22 bit 6 is the operator tap strip and has no row (station Rev 3.40,
-   * control.md 6.1): no relay or ring detector is fitted, so nothing polls it,
-   * nothing publishes it and no command can reach it, and the shadow leaves
-   * it 0 for the life of the run. Bit 7 fed the audience loudspeaker until
-   * control.md Rev 33 made it station 24, the real telephone (7.4). */
+  /* 0x22 bit 6 is the operator tap strip and has no row (control.md 6.1): no
+   * relay or ring detector is fitted, so nothing polls it, nothing publishes
+   * it and no command can reach it, and the shadow leaves it 0 for the life of
+   * the run. Bit 7 is station 24, the real telephone (7.4). */
   { Kind::Station,  24,   2,   7 },
   { Kind::Trunk,     1,   3,   0 },
   { Kind::Trunk,     2,   3,   1 },
@@ -87,6 +86,22 @@ int stationRow(uint8_t n) {
 const CircuitMap* trunkCircuit(uint8_t n) {
   if (n < 1 || n > N_TRUNKS) return nullptr;
   return &circuits[N_STATION_ROWS + n - 1];         // trunks occupy rows 23..30
+}
+
+const CircuitMap* commandCircuit(const char* cmd, Kind kind, uint8_t n) {
+  const bool station = kind == Kind::Station;
+  const char* name = station ? "station" : "trunk";
+  const CircuitMap* c = station ? stationCircuit(n) : trunkCircuit(n);
+  if (!c) {
+    Serial.printf("%s: %s %u out of range\n", cmd, name, (unsigned)n);
+    return nullptr;
+  }
+  if (!circuitLive(*c)) {
+    Serial.printf("%s: %s %u dropped - expander 0x%02X absent\n",
+                  cmd, name, (unsigned)n, expanders[c->exp].addr);
+    return nullptr;
+  }
+  return c;
 }
 
 bool circuitLive(const CircuitMap& c) {

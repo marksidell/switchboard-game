@@ -23,11 +23,6 @@ static constexpr uint8_t REG_INTFA  = 0x0E;
 static constexpr uint8_t REG_GPIOA  = 0x12;
 static constexpr uint8_t REG_OLATB  = 0x15;
 
-/* A single NAK can be noise on a daisy-chained bus with 2.2k pull-ups and six
- * feet of 6P6C cord. Three consecutive failures on the same device is a fault;
- * one is a glitch to log and retry. control.md 6.2 and 10 both give the three. */
-static constexpr uint8_t BUS_FAULT_THRESHOLD = 3;
-
 static uint8_t consecutive_errors[N_EXPANDERS];
 static bool    bus_fault = false;
 
@@ -122,7 +117,7 @@ void expanderResetPulse() {
  * zero so every relay is released by command as well as by default. There is no
  * INT line and none is wanted (6.3); interrupt-on-change is enabled only on
  * station 24's input, for its flag, INTFA, which latches a change the 5ms poll
- * would miss (7.4, Rev 34). Every other bit's is disabled explicitly. */
+ * would miss (7.4). Every other bit's is disabled explicitly. */
 static bool configureOne(uint8_t idx) {
   const uint8_t a = expanders[idx].addr;
   bool ok = true;
@@ -191,6 +186,7 @@ bool expanderPollInputs() {
       uint8_t r[5];
       got = regReadN(expanders[i].addr, REG_INTFA, r, 5);
       if (got) { exp_state[i].changed = (uint8_t)(r[0] & latchMask(i)); v = r[4]; }
+      else     exp_state[i].changed = 0;   // not last poll's change again
     } else {
       got = regRead(expanders[i].addr, REG_GPIOA, v);
     }
@@ -251,7 +247,7 @@ void expanderReleaseAllRelays() {
 
 bool expanderBusFault() { return bus_fault; }
 
-/* control.md 6.4 (Rev 19). The next present expander, in turn: read back its
+/* control.md 6.4. The next present expander, in turn: read back its
  * directions and Port A polarity, and if a reset has put them back to the
  * power-on defaults, configure it again and mark its relays to be rewritten
  * from the shadow, which still holds what was commanded. */
@@ -270,11 +266,14 @@ int8_t expanderVerifyNext() {
     noteResult(i, got);
     if (!got || (iodira == 0xFF && iodirb == 0x00 && ipola == 0xFF)) return -1;
 
-    Serial.printf("I2C: %s at 0x%02X lost its configuration (IODIRA %02X IODIRB %02X "
-                  "IPOLA %02X) - reset? configured again, relays restored\n",
-                  expanders[i].label, a, iodira, iodirb, ipola);
     const uint8_t keep = exp_state[i].relay_shadow;
-    configureOne(i);                         // writes OLATB 0 on the way
+    const bool configured = configureOne(i); // writes OLATB 0 on the way
+    noteResult(i, configured);
+    Serial.printf("I2C: %s at 0x%02X lost its configuration (IODIRA %02X IODIRB %02X "
+                  "IPOLA %02X) - reset? %s\n",
+                  expanders[i].label, a, iodira, iodirb, ipola,
+                  configured ? "configured again, relays restored"
+                             : "would not configure again");
     exp_state[i].relay_shadow = keep;
     exp_state[i].relay_dirty  = true;        // expanderFlushRelays() puts them back
     return (int8_t)i;
@@ -288,7 +287,7 @@ bool expanderAnyPresent() {
   return false;
 }
 
-/* control.md 6.2 (Rev 20): one absent expander per call, in turn. A probe of an
+/* control.md 6.2: one absent expander per call, in turn. A probe of an
  * address nobody answers is the slowest transaction there is, and probing every
  * missing board at once held the 200Hz loop for over 100ms each second - long
  * enough to swallow dial pulses and ring transitions on the boards that are
