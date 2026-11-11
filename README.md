@@ -153,7 +153,8 @@ central office, which can ring and connect calls to the station.
 Because the switchboard was intact, one of my design
 goals was not to modify it in any way and to build the game hardware
 to stand in for the telephones and outside trunks that would connect to
-it.
+it. The game must infer what the player is doing solely from
+the switchboard's external connections.
 
 The figure below is a block diagram of the game hardware.
 
@@ -451,7 +452,7 @@ The figure below is a block diagram of the game software.
 
 ### MQTT and Mosquitto
 
-I have used MQTT for many home automation projects, and early on decided
+I have used [MQTT](https://mqtt.org/) for many home automation projects, and early on decided
 the protocol would be a great way to tie all of the software elements
 together. This was a fortuitous decision because it allowed me to more easily add
 functions over time. For example, when I thought of using the Stream Deck
@@ -471,17 +472,17 @@ and starts working on a fix.
 ### Who's on First
 
 When I began designing the game, I needed to solve a problem:
-how would the game know which trunk and station channels are connected to
-each other by cord pairs and which channels the operator
+how would the game know which trunk and station circuits are connected to
+each other by cord pairs and which circuits the operator
 is keyed to. Without this knowledge the game wouldn't be able to
 monitor and progress through play.
 
 The solution I came up with is to have pilot tones constantly play on all
 channels, including on a tap on the operator headset, and to run an
-FFT on every channel. When a cord connects two lines, each one hears
-the other's tone and reports which line it's patched
-to. The operator tap plays a 9 kHz pilot tone. When other channels
-hear the tone, they know the operator is keyed in.
+FFT on every channel. When a cord connects two circuits, each one hears
+the other's tone and reports which circuit it's patched
+to. When other channels
+hear the tone from the operator tap, the game knows the operator is keyed to those circuits.
 The tap also feeds the operator's voice to the audience loudspeaker when no call is in play.
 
 The pilot tone scheme made the game possible
