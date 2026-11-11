@@ -26,7 +26,8 @@ static bool     just_connected  = false;
 static bool     sync_requested  = false;
 static uint32_t last_game_beat  = 0;
 static bool     game_beat_seen  = false;
-static uint32_t next_attempt_ms = 0;
+static uint32_t last_attempt_ms = 0;
+static uint32_t retry_wait_ms   = 0;      // from last_attempt_ms; 0 = try now
 static uint32_t backoff_ms      = MQTT_RECONNECT_MIN_MS;
 static uint32_t last_hb_ms      = 0;
 static bool     eth_up_logged   = false;
@@ -160,6 +161,29 @@ static bool parseOnOff(const char* topic, const char* p, bool& on) {
   return false;
 }
 
+/* "station/<n>/<leaf>" or "trunk/<n>/<leaf>", the topic with TOPIC_PREFIX
+ * removed: the command it names and the circuit number. False for anything
+ * else. n is left wide, so the caller range-checks it before it is narrowed. */
+static bool parseCircuitTopic(const char* rest, uint8_t& kind, unsigned long& n) {
+  bool station;
+  if      (strncmp(rest, "station/", 8) == 0) { station = true;  rest += 8; }
+  else if (strncmp(rest, "trunk/", 6) == 0)   { station = false; rest += 6; }
+  else return false;
+
+  if (!isdigit((unsigned char)*rest)) return false;
+  char* end;
+  n = strtoul(rest, &end, 10);
+  if (*end != '/') return false;
+  const char* leaf = end + 1;
+
+  if (station && strcmp(leaf, "hook/set") == 0)       kind = CMD_HOOK;
+  else if (station && strcmp(leaf, "dial/set") == 0)  kind = CMD_DIAL;
+  else if (!station && strcmp(leaf, "ring/set") == 0) kind = CMD_RING;
+  else if (!station && strcmp(leaf, "shortring/set") == 0) kind = CMD_SHORTRING;
+  else return false;
+  return true;
+}
+
 /* mqtt.md 6 is the whole of the inbound surface: four per-circuit commands -
  * hook/set and dial/set (control.md 7.3, Rev 17) on a station, ring/set and
  * shortring/set (control.md 8.4, Rev 25) on a trunk - and three ctl topics, power_cut/set
@@ -169,20 +193,47 @@ static void onMessage(String& topic, String& payload) {
   const char* t = topic.c_str();
   const char* p = payload.c_str();
 
-  unsigned n = 0;
-  char     leaf[24];
-  bool     on = false;
+  const size_t prefix_len = strlen(TOPIC_PREFIX);
+  if (strncmp(t, TOPIC_PREFIX, prefix_len) != 0) {
+    Serial.printf("mqtt: unexpected topic %s\n", t);
+    return;
+  }
+  const char* rest = t + prefix_len;
 
-  if (sscanf(t, "sbgame/station/%u/%23s", &n, leaf) == 2 &&
-      strcmp(leaf, "hook/set") == 0) {
+  if (strcmp(rest, "ctl/game_heartbeat") == 0) {
+    last_game_beat = millis();
+    game_beat_seen = true;
+    return;
+  }
+  if (strcmp(rest, "ctl/sync") == 0) {
+    sync_requested = true;
+    return;
+  }
+  if (strcmp(rest, "ctl/power_cut/set") == 0) {
+    /* "on", "off", or "hold" (control.md 5.4, Rev 32): n carries which. */
+    bool on = false;
     Command* c;
-    if (parseOnOff(t, p, on) && (c = cmdPush(t))) {
-      c->kind = CMD_HOOK; c->n = (uint8_t)n; c->on = on;
+    const bool hold = strcmp(p, "hold") == 0;
+    if ((hold || parseOnOff(t, p, on)) && (c = cmdPush(t))) {
+      c->kind = CMD_POWER_CUT;
+      c->n = hold ? POWER_HOLD : on ? POWER_PULSE : POWER_OFF;
     }
     return;
   }
-  if (sscanf(t, "sbgame/station/%u/%23s", &n, leaf) == 2 &&
-      strcmp(leaf, "dial/set") == 0) {
+
+  uint8_t       kind;
+  unsigned long n;
+  if (!parseCircuitTopic(rest, kind, n)) {
+    Serial.printf("mqtt: unexpected topic %s\n", t);
+    return;
+  }
+  /* Checked before Command::n narrows it, or station/280 would be station 24. */
+  if (n > 255) {
+    Serial.printf("mqtt: %s - circuit %lu out of range, dropped\n", t, n);
+    return;
+  }
+
+  if (kind == CMD_DIAL) {
     /* control.md 7.3, Rev 17. Too long to copy is too long to dial: an
      * over-long payload is replaced by one stationDial() refuses, with its log. */
     if (Command* c = cmdPush(t)) {
@@ -192,42 +243,12 @@ static void onMessage(String& topic, String& payload) {
     }
     return;
   }
-  if (sscanf(t, "sbgame/trunk/%u/%23s", &n, leaf) == 2 &&
-      strcmp(leaf, "ring/set") == 0) {
-    Command* c;
-    if (parseOnOff(t, p, on) && (c = cmdPush(t))) {
-      c->kind = CMD_RING; c->n = (uint8_t)n; c->on = on;
-    }
-    return;
+
+  bool on = false;
+  Command* c;
+  if (parseOnOff(t, p, on) && (c = cmdPush(t))) {
+    c->kind = kind; c->n = (uint8_t)n; c->on = on;
   }
-  if (sscanf(t, "sbgame/trunk/%u/%23s", &n, leaf) == 2 &&
-      strcmp(leaf, "shortring/set") == 0) {
-    Command* c;
-    if (parseOnOff(t, p, on) && (c = cmdPush(t))) {
-      c->kind = CMD_SHORTRING; c->n = (uint8_t)n; c->on = on;
-    }
-    return;
-  }
-  if (strcmp(t, "sbgame/ctl/game_heartbeat") == 0) {
-    last_game_beat = millis();
-    game_beat_seen = true;
-    return;
-  }
-  if (strcmp(t, "sbgame/ctl/sync") == 0) {
-    sync_requested = true;
-    return;
-  }
-  if (strcmp(t, "sbgame/ctl/power_cut/set") == 0) {
-    /* "on", "off", or "hold" (control.md 5.4, Rev 32): n carries which. */
-    Command* c;
-    const bool hold = strcmp(p, "hold") == 0;
-    if ((hold || parseOnOff(t, p, on)) && (c = cmdPush(t))) {
-      c->kind = CMD_POWER_CUT;
-      c->n = hold ? POWER_HOLD : on ? POWER_PULSE : POWER_OFF;
-    }
-    return;
-  }
-  Serial.printf("mqtt: unexpected topic %s\n", t);
 }
 
 /* ---- connection --------------------------------------------------------- */
@@ -284,6 +305,7 @@ static void onConnected() {
   ctlTopic("power_cut/set",  topic, sizeof topic); mqtt.subscribe(topic, 1);
 
   backoff_ms     = MQTT_RECONNECT_MIN_MS;
+  retry_wait_ms  = 0;
   just_connected = true;
   Serial.printf("mqtt: connected to %s as %s\n", MQTT_BROKER_HOST, MQTT_CLIENT_ID);
 }
@@ -315,7 +337,7 @@ void netService(uint32_t now_ms) {
     eth_up_logged = true;
   }
 
-  if (now_ms < next_attempt_ms) return;
+  if (elapsedMs(now_ms, last_attempt_ms) < retry_wait_ms) return;   // wrap-safe
 
   if (mqtt.connect(MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD)) {
     onConnected();
@@ -324,10 +346,11 @@ void netService(uint32_t now_ms) {
 
   /* Backoff, doubling to a ceiling. Reconnecting hard in a tight loop against a
    * broker that is down achieves nothing and floods the log. */
-  next_attempt_ms = now_ms + backoff_ms;
+  last_attempt_ms = now_ms;
+  retry_wait_ms   = backoff_ms;
   backoff_ms = (backoff_ms * 2 > MQTT_RECONNECT_MAX_MS) ? MQTT_RECONNECT_MAX_MS
                                                         : backoff_ms * 2;
-  Serial.printf("mqtt: connect failed, retry in %lums\n", (unsigned long)backoff_ms);
+  Serial.printf("mqtt: connect failed, retry in %lums\n", (unsigned long)retry_wait_ms);
 }
 
 bool netConnected() { return mqtt.connected(); }

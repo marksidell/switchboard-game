@@ -254,6 +254,21 @@ static void parkOutputs() {
   pwmWrite(PIN_PWM_B, 0);          // both low sides, primary at ground (control.md 3)
 }
 
+/* esp_timer_stop() stops further dispatches but does not wait for one already
+ * running on the timer task, which can be on the other core and still write a
+ * duty after the caller's park. The callback ends by advancing tick_count, so wait
+ * until a whole step period passes with no tick, bounded, before parking. SD is
+ * already low by then, so this guards the redundant off state, not the bridge. */
+static void stopStepTimer() {
+  esp_timer_stop(step_timer);
+  const uint32_t t0 = micros();
+  uint32_t seen;
+  do {
+    seen = tick_count;
+    delayMicroseconds(STEP_PERIOD_US);
+  } while (tick_count != seen && micros() - t0 < 5000);
+}
+
 /* ---- The scan result (control.md 4.2 step 5) -------------------------------
  * Set by the boot scan and by every I2C recovery, and published on ctl/i2c.
  * It does not gate the generator. Ring reaches a circuit only through a trunk
@@ -408,7 +423,7 @@ static bool startWaveform() {
   while (tick_count == 0) {
     if (micros() - t0 > 5000) {
       Serial.println("ARM REFUSED: no step tick within 5 ms");
-      esp_timer_stop(step_timer);
+      stopStepTimer();
       parkOutputs();
       return false;
     }
@@ -422,7 +437,7 @@ static bool startWaveform() {
 
 static void stopWaveform() {
   digitalWrite(PIN_SD, LOW);           // SD first: bridge off immediately
-  if (step_timer) esp_timer_stop(step_timer);
+  if (step_timer) stopStepTimer();     // and any step in flight finished
   parkOutputs();                       // then the redundant off state
   running = false;
   Serial.println("IDLE");

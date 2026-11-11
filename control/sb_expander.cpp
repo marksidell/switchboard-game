@@ -191,6 +191,7 @@ bool expanderPollInputs() {
       uint8_t r[5];
       got = regReadN(expanders[i].addr, REG_INTFA, r, 5);
       if (got) { exp_state[i].changed = (uint8_t)(r[0] & latchMask(i)); v = r[4]; }
+      else     exp_state[i].changed = 0;   // not last poll's change again
     } else {
       got = regRead(expanders[i].addr, REG_GPIOA, v);
     }
@@ -270,11 +271,14 @@ int8_t expanderVerifyNext() {
     noteResult(i, got);
     if (!got || (iodira == 0xFF && iodirb == 0x00 && ipola == 0xFF)) return -1;
 
-    Serial.printf("I2C: %s at 0x%02X lost its configuration (IODIRA %02X IODIRB %02X "
-                  "IPOLA %02X) - reset? configured again, relays restored\n",
-                  expanders[i].label, a, iodira, iodirb, ipola);
     const uint8_t keep = exp_state[i].relay_shadow;
-    configureOne(i);                         // writes OLATB 0 on the way
+    const bool configured = configureOne(i); // writes OLATB 0 on the way
+    noteResult(i, configured);
+    Serial.printf("I2C: %s at 0x%02X lost its configuration (IODIRA %02X IODIRB %02X "
+                  "IPOLA %02X) - reset? %s\n",
+                  expanders[i].label, a, iodira, iodirb, ipola,
+                  configured ? "configured again, relays restored"
+                             : "would not configure again");
     exp_state[i].relay_shadow = keep;
     exp_state[i].relay_dirty  = true;        // expanderFlushRelays() puts them back
     return (int8_t)i;
