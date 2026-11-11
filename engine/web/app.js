@@ -15,7 +15,7 @@
 const PREFIX = 'sbgame/';
 const STALE_MS = 2500;              // §11.2: 2.5 s without a heartbeat
 const N_STATION_JACKS = 30, N_TRUNK_JACKS = 10;
-const PHONE_STATION = 24;           // the real telephone (game_control.md Rev 73)
+const PHONE_STATION = 24;           // the real telephone (game_control.md §8.1)
 
 // ---- state: retained topic values, and nothing else ------------------------
 
@@ -29,13 +29,13 @@ let panelOpen = null;               // "station/7" while its panel is up
 let nextEnabledAt = 0;              // Next Call re-enables after 3 s regardless
 let playSince = 0;                  // our clock when audio/playback last changed
 // A circuit's `peer` going `deaf` or `ambiguous` is a fault only once it has
-// stayed so for a second (§11.1, Rev 52): a relay or the cord switch breaks the
+// stayed so for a second (§11.1): a relay or the cord switch breaks the
 // line for about 0.2s, and the detector reports `deaf` for that long.
 const PEER_FAULT_MS = 1000;
 const peerFaultSince = Object.create(null);   // circuit -> our clock, ms
 const peerBefore = Object.create(null);       // circuit -> the last other peer
 
-// Whether this iPad shows the controls (§11.1, Rev 13). A preference of this
+// Whether this iPad shows the controls (§11.1). A preference of this
 // device alone, so it lives in the browser and not on the bus. Shown unless
 // hidden here: storage can come back empty, and an iPad that has lost its
 // setting should be able to run the game.
@@ -67,7 +67,7 @@ function connect() {
     brokerUp = true;
     // Retained topics give the whole state at once; there is nothing to request.
     // Drop what we held first: a topic cleared while we were away, such as a
-    // peer back from deaf, is not sent again (Rev 77).
+    // peer back from deaf, is not sent again.
     for (const k in S) delete S[k];
     for (const k in peerFaultSince) delete peerFaultSince[k];
     for (const k in peerBefore) delete peerBefore[k];
@@ -104,7 +104,7 @@ function connect() {
       }
     }
 
-    // When a playback began, by our clock, for its time (§11.6, Rev 61).
+    // When a playback began, by our clock, for its time (§11.6).
     if (key === 'audio/playback' && text !== get(key)) playSince = Date.now();
 
     if (text === '') delete S[key]; else S[key] = text;
@@ -140,7 +140,7 @@ const espStale = () =>
   !brokerUp || get('ctl/status') !== 'online' ||
   (lastEspBeat && Date.now() - lastEspBeat > STALE_MS);
 const audioStale = () => !brokerUp || get('ctl/audio_status') !== 'online';
-// The public address (§11.1, Rev 68): looked up every 5 min, so stale once
+// The public address (§11.1): looked up every 5 min, so stale once
 // the last lookup is over 11 min old — the service is down — or failed.
 const IP_STALE_S = 660;
 const ipStale = () => {
@@ -148,7 +148,7 @@ const ipStale = () => {
   return !brokerUp || at === null || hostNow() - at > IP_STALE_S ||
     get('host/public_ip/error') !== '';
 };
-// The public trunk (§7.1, Rev 72): the trunk 8 ATA's registration, looked at
+// The public trunk (§11.1): the trunk 8 ATA's registration, looked at
 // every 10s, so stale — the service is down — after 30s.
 const TRUNK_STALE_S = 30;
 const trunkStale = () => {
@@ -178,11 +178,11 @@ function labelOf(circuit) {
 }
 
 /** One state per tile, most urgent first (§11.1's table). A labelled jack with
- *  nothing cabled to it is drawn as a working jack at rest (Rev 11). */
+ *  nothing cabled to it is drawn as a working jack at rest. */
 function tileState(kind, circuit, label) {
   if (!circuit) return label ? 'idle' : 'none';
   // Station 24 is a real telephone: its own hook is `lifted`, and its `hook`
-  // is the relay that puts the line on channel 24 (Rev 73).
+  // is the relay that puts the line on channel 24.
   const offHook = kind === 'station' &&
     on(circuit === `station/${PHONE_STATION}` ? `${circuit}/lifted` : `${circuit}/hook`);
   let peer = get(`${circuit}/peer`);
@@ -190,8 +190,8 @@ function tileState(kind, circuit, label) {
     peer = peerBefore[circuit];        // held, as the game holds it (§4)
   if (peer === 'ambiguous' || peer === 'deaf' || get(`${circuit}/play`) === 'missing'
       || get(`${circuit}/fault`) === 'ring_on_trunk') return 'fault';
-  // The public line's `ringing` is its ATA, which the controller cannot see
-  // (Rev 104). On another trunk it could only be a cord: `fault` says that.
+  // The public line's `ringing` is its ATA, which the controller cannot see.
+  // On another trunk it could only be a cord: `fault` says that.
   if (on(`${circuit}/ring`)
       || (circuit === `trunk/${get('game/public_trunk')}` && on(`${circuit}/ringing`))) return 'ringing';
   if (offHook && !on(`${circuit}/op`) && !peer)
@@ -206,7 +206,7 @@ function renderBoard() {
   const el = document.getElementById('board');
   if (!el.dataset.built) {
     let html = '';
-    // The 551's rows run 21-30, 11-20, 1-10 from the top (Rev 37).
+    // The 551's rows run 21-30, 11-20, 1-10 from the top.
     for (let row = 2; row >= 0; row--) {
       html += '<div class="row">';
       for (let n = row * 10 + 1; n <= row * 10 + 10; n++)
@@ -320,10 +320,10 @@ function fitsAt(tile, start) {
 // A rotation or a resize changes the tile width, so the board is refitted.
 window.addEventListener('resize', fitBoard);
 
-// ---- diagnostics (§11.4, Rev 25) ----------------------------------------------
+// ---- diagnostics (§11.4) ----------------------------------------------
 
 /** A circuit within game/stations and game/trunks (§12.2). Station 24, the
- *  real telephone, is fitted with board 3, when game/stations is 22 (Rev 73). */
+ *  real telephone, is fitted with board 3, when game/stations is 22. */
 function fitted(circuit) {
   const [kind, n] = circuit.split('/');
   const most = num(kind === 'station' ? 'game/stations' : 'game/trunks');
@@ -346,11 +346,11 @@ document.getElementById('panel-body').addEventListener('click', (e) => {
 document.getElementById('tools').addEventListener('click', (e) => {
   const b = e.target.closest('[data-diag]');
   if (b) toggleDiag(b.dataset.diag);
-  // The board sweeps (§11.5; on the deck's keys 5 and 6 until Rev 61).
+  // The board sweeps (§11.5).
   const w = e.target.closest('[data-sweep]');
   if (w && get('game/run') !== 'on')
     send('sweep', get('game/sweep') === w.dataset.sweep ? 'off' : w.dataset.sweep);
-  // Recording and playback (§11.6, Rev 61).
+  // Recording and playback (§11.6).
   const id = e.target.closest('button') && e.target.closest('button').id;
   // Each button stops what it started, and neither starts while the other
   // runs: a playback would be recorded, and recording one is not the point.
@@ -368,7 +368,7 @@ document.getElementById('tools').addEventListener('click', (e) => {
     if (playing()) send('playback', 'stop');
     else if (!recording() && get('game/run') !== 'on') showRecordings();
   }
-  // The switchboard's power (§11.7, Rev 65): a toggle, held off until tapped
+  // The switchboard's power (§11.7): a toggle, held off until tapped
   // again; not switched off while a game runs.
   if (id === 'power-btn' && !espStale()) {
     if (get('ctl/power_cut') !== 'off') send('power_cut', 'off');
@@ -424,7 +424,7 @@ document.getElementById('rec-list').addEventListener('click', (e) => {
   send('playback', b.dataset.rec);
   document.getElementById('recordings').hidden = true;
 });
-// A long press, as on Next Call, shows the lamp key instead (Rev 53).
+// A long press, as on Next Call, shows the lamp key instead.
 let toolsTimer = null, toolsLong = false;
 const toolsBtn = document.getElementById('tools-btn');
 toolsBtn.addEventListener('pointerdown', () => {
@@ -505,7 +505,7 @@ function tickIndicators() {
 }
 setInterval(tickIndicators, 100);
 
-// ---- help on a long press (§11.1, Rev 54) ---------------------------------------
+// ---- help on a long press (§11.1) ---------------------------------------
 //
 // The pacing buttons and the steppers. A tap still does what it did; holding
 // about half a second explains instead, and the click that ends the hold is
@@ -567,7 +567,7 @@ document.addEventListener('contextmenu', (e) => {
   if (e.target.closest('[data-help]')) e.preventDefault();
 });
 
-// ---- a chosen next scene (§6.4, Rev 25) ---------------------------------------
+// ---- a chosen next scene (§6.4) ---------------------------------------
 
 function showScenes() {
   const list = document.getElementById('scene-list');
@@ -600,7 +600,7 @@ function showPanel(kind, n) {
   const p = document.getElementById('panel');
   const rows = [['jack', `${kind} ${n}`], ['circuit', circuit || '—'],
                 ['label', jackLabel(kind, n) || '—']];
-  // Diagnostics (§11.4, Rev 25): commands only on a circuit that is fitted,
+  // Diagnostics (§11.4): commands only on a circuit that is fitted,
   // and only with the controls shown. The row's third element is its test.
   const cmds = circuit && showControls && fitted(circuit);
   const own = kind === 'station' ? 'hook' : 'ring';
@@ -649,7 +649,7 @@ document.addEventListener('click', (e) => {
   if (!e.target.closest('#help')) document.getElementById('help').hidden = true;
   if (!e.target.closest('.tile') && !e.target.closest('#panel')) closePanel();
 });
-// Escape, for the desktop browser Mark is using to look at this. There is no
+// Escape, for a desktop browser. There is no
 // keyboard on the iPad, so it costs nothing there.
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
@@ -693,7 +693,7 @@ function renderHealth() {
     ['controller', get('ctl/status') || '—', espStale()],
     ['esp beat', age(lastEspBeat), espStale()],
     ['i2c', get('ctl/i2c') || '—', espStale()],
-    // §11.1, Rev 27: "control.md Rev 18, 4118077, built 2026-10-01 21:14Z",
+    // §11.1: "control.md Rev 18, 4118077, built 2026-10-01 21:14Z",
     // shown as two rows to fit the column.
     ['firmware', fw[0] || '—', espStale()],
     ['built', fw[1] || '—', espStale()],
@@ -703,7 +703,7 @@ function renderHealth() {
     ['source', src === 'tap' ? 'tap' : (src ? labelOf(src) : '—'), audioStale()],
     ['game', get('ctl/game_status') || '—', gameStale()],
     ['game beat', age(lastGameBeat), gameStale()],
-    // §11.1, Rev 68: tap either row to look again now.
+    // §11.1: tap either row to look again now.
     ['public IP', ipShown(), ipStale(), 'ip'],
     ['checked', ipChecked(), ipStale(), 'ip'],
     ['public trunk', trunkShown(),
@@ -715,7 +715,7 @@ function renderHealth() {
                             `<b>${esc(v)}</b></div>`).join('');
 }
 
-// Rev 71: "offline" when the service found no internet, "error" for any other
+// "offline" when the service found no internet, "error" for any other
 // failure or a service that has stopped looking, the address otherwise.
 function ipShown() {
   const err = get('host/public_ip/error');
@@ -761,7 +761,7 @@ function renderTop() {
   for (const p of ['tutor', 'manual', 'auto', 'listen']) {
     const b = document.getElementById('pace-' + p);
     b.classList.toggle('sel', pace === p);
-    b.classList.toggle('dis', disabled);   // not `disabled`: its help (Rev 54) still opens
+    b.classList.toggle('dis', disabled);   // not `disabled`: its help still opens
   }
 
   const next = document.getElementById('next');
@@ -773,7 +773,7 @@ function renderTop() {
   next.innerHTML = 'Next Call' + (queued ? `<small>${esc(queued)}</small>` : '');
 
   document.getElementById('steppers').style.display = auto ? '' : 'none';
-  // Listen has one value of its own, pause, in place of auto's four (Rev 17).
+  // Listen has one value of its own, pause, in place of auto's four.
   for (const el of document.querySelectorAll('#steppers .auto-only'))
     el.style.display = pace === 'listen' ? 'none' : '';
   for (const el of document.querySelectorAll('#steppers .listen-only'))
@@ -886,7 +886,7 @@ document.getElementById('next').onclick = () => {
   setTimeout(render, 3100);
   render();
 };
-for (const p of ['tutor', 'manual', 'auto', 'listen'])          // tutor §7, Rev 32
+for (const p of ['tutor', 'manual', 'auto', 'listen'])          // tutor §7
   document.getElementById('pace-' + p).onclick = () => { if (!gameStale()) send('pace', p); };
 document.getElementById('steppers').addEventListener('click', (e) => {
   const spec = e.target.dataset.step;

@@ -7,14 +7,14 @@
  *   - to make the page installable, so it opens from the Home Screen without
  *     Safari's bars (game_control.md §11.3);
  *   - to open instantly from cache rather than four requests deep, which
- *     matters when the iPad has been asleep and Mark wants the board *now*;
+ *     matters when the iPad has been asleep and the board is wanted *now*;
  *   - to survive nginx restarting, a certificate reload, or the host being
  *     mid-reboot while the iPad is already awake.
  *
  * Strategy: stale-while-revalidate for the shell. Serve the cached copy at
  * once and fetch a fresh one in the background, so a deploy is picked up on
- * the next load rather than needing the cache version bumped by hand. Bump
- * VERSION anyway when a file changes, which drops the old cache outright.
+ * the next load. Each install also stamps a new VERSION (below), which drops
+ * the old cache outright.
  *
  * What it must not touch: the MQTT socket. WebSockets do not go through
  * fetch, so /mqtt never reaches this worker — but anything that is not a

@@ -14,7 +14,7 @@
   --idle: #2b3038;  --busy: #4a5568;  --operator: #3b6ea5;
   --connected: #2f855a;  --calling: #b7791f;  --ringing: #c05621;
   --fault: #9b2c2c;  --ok: #38a169;  --danger: #c53030;
-  --command: #7c5cff;             /* a row or button that acts (Rev 25) */
+  --command: #7c5cff;             /* a row or button that acts */
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent;
@@ -69,7 +69,7 @@ button.seg.sel { background: var(--operator); }
 
 .stepper { display: flex; align-items: center; gap: 4px; }
 
-/* The controls can be hidden on this iPad (§11.1, Rev 13): the Stream Deck
+/* The controls can be hidden on this iPad (§11.1): the Stream Deck
    carries them. The values stay; the buttons go, and one line of text says
    what the Start, Stop and pacing buttons would have shown. */
 button.toggle { min-height: 32px; padding: 0 10px; font-size: 13px; font-weight: 400;
@@ -280,7 +280,7 @@ h2 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
 button.dis { opacity: 0.35; }
 #next small { display: block; font-size: 11px; font-weight: 400; color: var(--dim); }
 
-/* Diagnostics (game_control.md 11.4, Rev 25). The command colour marks what can
+/* Diagnostics (game_control.md 11.4). The command colour marks what can
    be tapped, and fills while that test is on. */
 #panel-body > div.cmd { cursor: pointer; border-left: 3px solid var(--command);
                         padding-left: 6px; margin-left: -9px; border-radius: 3px; }
@@ -298,7 +298,7 @@ button.cmd.on { background: var(--command); color: #fff; }
 .sheet h3 { margin: 0 0 8px; font-size: 14px; }
 .sheet h4 { margin: 8px 0 6px; font-size: 12px; color: var(--dim); text-transform: uppercase; }
 .cmd-row { display: flex; gap: 8px; flex-wrap: wrap; }
-/* Recording and playback (game_control.md 11.6, Rev 61). The indicator beside
+/* Recording and playback (game_control.md 11.6). The indicator beside
    Tools in the top bar, shown only while one runs, is itself the stop: a red dot that flashes with the count while recording, a
    play triangle while playing back, each with its time. */
 button.ind { display: inline-flex; align-items: center; gap: 6px; padding: 0 6px;
