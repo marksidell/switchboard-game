@@ -202,7 +202,7 @@ async def leaves_and_comes_back(h: Harness) -> None:
     await answers(h, c)
     await request_heard(h, c)
     await h.b.update(f"{c}/op", "off")
-    await asyncio.sleep(D * 4)
+    await asyncio.sleep(HOLD + D * 4)     # "off" takes effect HOLD late (§4, Rev 45)
     await h.b.update(f"{c}/op", "on")
     await request_heard(h, c)
     await h.b.update(f"station/{want}/ring", "on")
