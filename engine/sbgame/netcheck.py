@@ -1,5 +1,5 @@
 """sbgame-netcheck: the host's public address and the public trunk, for the
-page's health column (mqtt.md §6.3). `sbgame-publicip` until mqtt.md Rev 41.
+page's health column (mqtt.md §6.3).
 
 A service of its own, not part of the game program: finding the address means
 asking a server outside the house, and the game makes no network calls during
@@ -37,6 +37,7 @@ from pathlib import Path
 import aiomqtt
 
 from . import ata
+from .config import SITE_CONFIG, Config
 
 log = logging.getLogger("netcheck")
 
@@ -166,7 +167,7 @@ async def run(args: argparse.Namespace) -> int:
 
             asked.set()                 # look at once on connecting
             looker.last = 0.0
-            await asyncio.gather(listen(), looking(), trunk())
+            await asyncio.gather(listen(), looking(), *([trunk()] if args.ata_host else []))
 
     async def forever() -> None:
         delay = 1.0
@@ -195,7 +196,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--port", type=int, default=1883)
     p.add_argument("--user", default=USERNAME)
     p.add_argument("--password-file", default=PASSWORD_FILE)
-    p.add_argument("--ata-host", default=ata.HOST, help="the trunk 8 ATA")
+    p.add_argument("-c", "--config", type=Path, default=Path(SITE_CONFIG),
+                   help=f"TOML configuration, for ata_host ({SITE_CONFIG} if it exists)")
+    p.add_argument("--ata-host", help="the trunk 8 ATA, in place of the configuration's")
     p.add_argument("--ata-cred", default=ata.CRED_FILE,
                    help="its username, then its password, one per line")
     p.add_argument("--ata-known-hosts", default=ata.KNOWN_HOSTS,
@@ -205,6 +208,15 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s",
                         datefmt="%H:%M:%S", stream=sys.stdout)
+    if args.ata_host is None:
+        try:
+            cfg = Config.load(args.config if args.config.exists() else None)
+        except (OSError, ValueError) as e:
+            print(f"configuration: {e}", file=sys.stderr)
+            return 2
+        args.ata_host = cfg.ata_host
+    if not args.ata_host:
+        log.info("no ata_host configured: the public trunk is not looked at")
     if args.once:
         rc = 0
         try:
@@ -212,6 +224,8 @@ def main(argv: list[str] | None = None) -> int:
         except (OSError, ValueError) as e:
             print(f"public ip     lookup failed: {why(e)}")
             rc = 1
+        if not args.ata_host:
+            return rc
         state = ata.Ata(args.ata_host, args.ata_cred, args.ata_known_hosts).state()
         print(f"public trunk  {state}")
         return rc if state != ata.ERROR else 1

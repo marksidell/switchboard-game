@@ -34,7 +34,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
-import random
 import sys
 import time
 import wave
@@ -42,12 +41,11 @@ from pathlib import Path
 
 import aiomqtt
 
-from .config import Config
+from .config import REPO, SITE_CONFIG, Config
 from .script_data import build, fitted_stations
 
 log = logging.getLogger("sim")
 PREFIX = "sbgame/"
-SITE_CONFIG = "/etc/sbgame/game.toml"
 
 N_STATIONS, N_TRUNKS = 22, 8
 
@@ -145,18 +143,18 @@ class Sim:
         """One `/set`, echoed as the real client would echo it."""
         leaf = base.rsplit("/", 1)[-1]
 
-        if leaf == "shortring":                  # control.md §8.4, Rev 25: one burst
+        if leaf == "shortring":                  # control.md §8.4: one burst
             ring = base.rsplit("/", 1)[0] + "/ring"
             await self.pub(ring, payload)
             if payload == "on":
                 asyncio.create_task(self._end_burst(ring))
             return
 
-        if base == "ctl/power_cut":              # control.md §5.4, Rev 31: one 1s cut
+        if base == "ctl/power_cut":              # control.md §5.4: one 1s cut
             if payload == "on" and self.get(base) in ("on", "hold"):
                 return                           # ignored during a cut
             if payload == "hold" and self.get(base) == "hold":
-                return                           # Rev 32: until "off"
+                return                           # until "off"
             await self.pub(base, payload)
             if payload == "on":
                 asyncio.create_task(self._end_burst(base))
@@ -336,7 +334,7 @@ class Sim:
         return False
 
     async def _end_burst(self, ring: str) -> None:
-        await asyncio.sleep(1.0)            # control.md Rev 30: the burst is 1s
+        await asyncio.sleep(1.0)            # control.md §8.4: the burst is 1s
         if self.get(ring) == "on":
             await self.pub(ring, "off")
 
@@ -446,7 +444,7 @@ def main(argv: list[str] | None = None) -> int:
     # list gives both the same rights (mqtt.md 9).
     p.add_argument("--user", default="sbgame-audio")
     p.add_argument("--pass-file", default="/etc/sbgame/mqtt-audio.pass")
-    p.add_argument("--secrets", default="~/s/sbgame/control/secrets.h",
+    p.add_argument("--secrets", default=str(REPO / "control" / "secrets.h"),
                    help="the firmware's credentials, for the controller identity")
     p.add_argument("-v", "--verbose", action="store_true")
     args = p.parse_args(argv)

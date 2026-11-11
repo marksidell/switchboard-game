@@ -4,7 +4,7 @@ The Grandstream HT80x V2 that feeds trunk 8 (trunk_circuit.md §4.5) is the
 public trunk: outside callers reach the switchboard through its FXS port 1
 only while that port is registered with the SIP provider.
 
-It is asked over SSH, not through its web interface (mqtt.md Rev 42). The web
+It is asked over SSH, not through its web interface. The web
 interface keeps one session for the whole device, whatever the account, so a
 look every 10s logged anyone out of its pages; an SSH session does not. Its
 command shell takes no remote command, so `status` and `exit` go in on stdin,
@@ -35,7 +35,6 @@ from pathlib import Path
 
 log = logging.getLogger("ata")
 
-HOST = "switchboard.sidell.org"
 CRED_FILE = "/etc/sbgame/ata.cred"
 KNOWN_HOSTS = "/etc/sbgame/ata-known_hosts"
 CONNECT_TIMEOUT = 5             # seconds, to reach the ATA
@@ -91,7 +90,7 @@ def askpass_program() -> str:
 class Ata:
     """One SSH session per look."""
 
-    def __init__(self, host: str = HOST, cred_file: str = CRED_FILE,
+    def __init__(self, host: str, cred_file: str = CRED_FILE,
                  known_hosts: str = KNOWN_HOSTS) -> None:
         self.host = host
         self.cred_file = cred_file

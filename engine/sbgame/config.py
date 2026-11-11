@@ -7,8 +7,8 @@ what a restart returns to; while the program runs the page owns them, and a
 change from the page is not written back here.
 
 **Timeouts and limits** the page never sees (§4). They are play-testing
-values: Mark will move them once he has run games, and moving them must not
-mean editing code, which is why they are here and not constants in scenes.py.
+values, expected to move as games are played, and moving them must not mean
+editing code, which is why they are here and not constants in the flows.
 
 Read from a TOML file if one is given, else these defaults. Anything the file
 does not mention keeps its default, so a file naming one timeout is a valid
@@ -20,6 +20,11 @@ from __future__ import annotations
 import tomllib
 from dataclasses import dataclass, field, fields
 from pathlib import Path
+
+# The top of the checkout this module is in (engine/sbgame/config.py). An
+# installed copy has none, and its configuration names the script instead.
+REPO = Path(__file__).resolve().parents[2]
+SITE_CONFIG = "/etc/sbgame/game.toml"     # the host's, for the tools that share it
 
 
 @dataclass
@@ -33,7 +38,7 @@ class Config:
     password_file: str = "/etc/sbgame/mqtt-game.pass"
 
     # ---- the script ----------------------------------------------------
-    script: str = "~/s/sbgame/script.yml"
+    script: str = str(REPO / "script.yml")
     wav_dir: str = "wav"
 
     # ---- pacing, the starting values (game_control.md §5.4) ------------
@@ -42,16 +47,16 @@ class Config:
     gap: float = 20.0
     ramp: float = 1.0
     floor: float = 8.0
-    jitter: float = 30.0           # percent (Rev 12); 0 is the fixed wait
-    pause: float = 3.0             # listen's wait after the board empties (Rev 17)
-    # Back to tutor after this long stopped in another pacing (Rev 44), so
+    jitter: float = 30.0           # percent; 0 is the fixed wait
+    pause: float = 3.0             # listen's wait after the board empties
+    # Back to tutor after this long stopped in another pacing, so
     # the next visitor finds the game as a newcomer should; 0 never does.
     idle_tutor: float = 300.0
-    # A running game stops after this long with nothing from the player (Rev 57):
+    # A running game stops after this long with nothing from the player:
     # no cord, switch, dial or ringing key on the board, no key or button
     # pressed. Start resumes it as a new game. 0 never stops it.
     idle_stop: float = 600.0
-    # The loudspeaker plays ringback while a station reports ring (Rev 51).
+    # The loudspeaker plays ringback while a station reports ring.
     ring_cue: bool = True
 
     # ---- timeouts (§4), all play-testing values ------------------------
@@ -66,31 +71,40 @@ class Config:
     # always the one that fires first (mqtt.md §8.2).
     audio_margin: float = 3.0
 
-    # ---- the circuits fitted (game_control.md §12.2, Rev 25) ------------
-    # The first `stations` of 1-22, with station 24 when it is 22 (Rev 73),
+    # ---- the circuits fitted (game_control.md §12.2) ------------
+    # The first `stations` of 1-22, with station 24 when it is 22,
     # and the first `trunks` of 1-8. The command line's --stations and
     # --trunks override these.
     stations: int = 22
     trunks: int = 8
-    # Out of service (Rev 36): fitted, but not to be rung in on, each with why.
+    # Out of service: fitted, but not to be rung in on, each with why.
     # game.toml's [out_of_service.trunks], trunk number -> reason, e.g.
     #   6 = "switchboard jack 6's lamp does not latch"
-    # and [out_of_service.stations] (Rev 43), station number -> reason: no
+    # and [out_of_service.stations], station number -> reason: no
     # scene calling from or to one is played.
     out_of_service: dict = field(default_factory=dict)
-    # The public line (§8, Rev 74): the trunk the Grandstream ATA feeds
+    # The public line (§8): the trunk the Grandstream ATA feeds
     # (trunk_circuit.md 4.5). No scene takes, rings or dials on it; outside
     # free calls come in on it. 0 for none.
     public_trunk: int = 8
 
+    # ---- the public line's ATA (mqtt.md §6.3) ------------------------------
+    # The host name of the ATA that feeds the public trunk, which
+    # sbgame-netcheck asks for its registration; "" for none.
+    ata_host: str = ""
+
     def stations_out(self) -> frozenset[int]:
-        """The fitted stations no scene may use (§12.2, Rev 43)."""
+        """The fitted stations no scene may use (§12.2)."""
         return frozenset(int(k) for k in (self.out_of_service.get("stations") or {}))
+
+    def fitted_trunks(self) -> range:
+        """Every trunk fitted (§12.2), in service or not."""
+        return range(1, self.trunks + 1)
 
     def working_trunks(self) -> list[int]:
         """The fitted trunks a call may ring in on (§12.2)."""
         out = {int(k) for k in (self.out_of_service.get("trunks") or {})}
-        return [n for n in range(1, self.trunks + 1) if n not in out and n != self.public_trunk]
+        return [n for n in self.fitted_trunks() if n not in out and n != self.public_trunk]
 
     # ---- the session log -----------------------------------------------
     session_db: str = "~/.local/state/sbgame/sessions.db"
@@ -140,6 +154,8 @@ class Config:
         for name in ("answer_timeout", "connect_timeout", "speak_timeout", "max_speech"):
             if getattr(self, name) <= 0:
                 bad.append(f"{name} must be positive")
+        if not isinstance(self.ata_host, str):
+            bad.append(f"ata_host {self.ata_host!r} is not a host name")
         if not isinstance(self.ring_cue, bool):
             bad.append(f"ring_cue {self.ring_cue!r} is not true or false")
         if not (isinstance(self.stations, int) and 0 <= self.stations <= 22):
