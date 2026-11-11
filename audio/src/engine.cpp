@@ -498,8 +498,9 @@ void Engine::drain_commands()
                 if (prog_[s].kind != Prog::Kind::None) stop_source(s, "");
                 if (vad_[s].lis.active()) cancel_listen(s, "");
             }
-            // The tutor's voice on the monitor (audio.md 10.4, Rev 11) is the
-            // game's, so it goes with the game's other files.
+            // A file on the tap or the monitor is the game's too.
+            if (prog_[chan::TAP_CH].kind != Prog::Kind::None)
+                stop_source(chan::TAP_CH, "");
             if (prog_[chan::MONITOR_PROG].kind != Prog::Kind::None)
                 stop_source(chan::MONITOR_PROG, "");
             // The monitor keeps running, but its source returns to the tap

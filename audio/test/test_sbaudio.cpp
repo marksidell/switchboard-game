@@ -806,6 +806,74 @@ static void test_tap_play()
     check(echoed, "and posts the tap's play echo");
 }
 
+// test_stop_game()
+//   audio.md 13.2: a lost game stops every file - on a circuit, the tap and
+//   the monitor - and every trunk tone and listen, and clears their topics.
+static void test_stop_game()
+{
+    std::printf("stop game (audio.md 13.2)\n");
+    auto sh = std::make_unique<Shared>();
+    AlsaStream st;                          // never opened
+    Engine eng(*sh, st);
+    check(eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
+    eng.render_for_test();
+    // An untouched engine's third period, for the pilots' phase.
+    auto sh0 = std::make_unique<Shared>();
+    Engine ref(*sh0, st);
+    ref.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH);
+    for (int k = 0; k < 3; ++k) ref.render_for_test();
+    const std::vector<int32_t> idle = ref.playback();
+
+    const int trunk = chan::trunk_slot(2);
+    for (int slot : { 5, (int)chan::TAP_CH, (int)chan::MONITOR_PROG }) {
+        Command c;
+        c.verb = Verb::Play;
+        c.idx  = (int16_t)slot;
+        c.buf  = new AudioBuffer;
+        c.buf->samples.assign(48000, 0.25f);
+        std::snprintf(c.name, sizeof c.name, "long");
+        check(sh->cmdq.push(c), "a play command queues");
+    }
+    Command t;
+    t.verb = Verb::Tone; t.idx = (int16_t)trunk; t.arg = (float)(int)ToneKind::Ringback;
+    sh->cmdq.push(t);
+    Command l;
+    l.verb = Verb::Listen; l.idx = 3; l.arg = 10.0f;
+    sh->cmdq.push(l);
+    eng.drain_for_test();
+    eng.render_for_test();
+    Result r;
+    while (sh->res_audio.pop(r)) {}
+
+    Command s;
+    s.verb = Verb::StopGame;
+    sh->cmdq.push(s);
+    eng.drain_for_test();
+
+    bool play5 = false, tap = false, mon = false, tone = false, listen = false;
+    int freed = 0;
+    while (sh->res_audio.pop(r)) {
+        if (r.topic == Topic::FreeBuf) { delete r.buf; ++freed; continue; }
+        if (r.value[0] != '\0') continue;
+        if (r.topic == Topic::Play && r.idx == 5)                  play5 = true;
+        if (r.topic == Topic::Play && r.idx == chan::TAP_CH)       tap = true;
+        if (r.topic == Topic::Play && r.idx == chan::MONITOR_PROG) mon = true;
+        if (r.topic == Topic::Tone && r.idx == trunk)              tone = true;
+        if (r.topic == Topic::Listen && r.idx == 3)                listen = true;
+    }
+    check(play5 && tap && mon, "a circuit's, the tap's and the monitor's play clear");
+    check(tone && listen, "a trunk's tone and a station's listen clear");
+    check(freed == 3, "all three buffers are handed back");
+
+    eng.render_for_test();
+    const std::vector<int32_t>& out = eng.playback();
+    bool same = out.size() == idle.size();
+    for (int ch : { 5, (int)chan::TAP_CH, trunk })
+        for (size_t f = 0; same && f < out.size() / chan::N_PLAY_CH; ++f)
+            if (out[f * chan::N_PLAY_CH + ch - 1] != idle[f * chan::N_PLAY_CH + ch - 1]) same = false;
+    check(same, "station 5, the tap and the trunk carry only their fixed source again");
+}
+
 // tone_out()
 //   One trunk's tone, alone: `periods` renders with the tone on, less the same
 //   renders with it off, so the pilot cancels. Samples of that channel, -1..1.
@@ -1475,6 +1543,7 @@ int main()
     test_monitor_source();
     test_output_check();
     test_tap_play();
+    test_stop_game();
     test_monitor_play();
     test_trunk_tones();
     test_recording();
