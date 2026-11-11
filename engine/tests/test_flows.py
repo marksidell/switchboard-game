@@ -15,6 +15,7 @@ import dataclasses
 import logging
 import sys
 
+import sbgame.dialling as dialling
 import sbgame.flows as flows
 from sbgame.board import Board
 from sbgame.calls import Call, Reason, Slots, Stage
@@ -402,7 +403,7 @@ async def never_dials(h: Harness) -> None:
 
 async def main() -> int:
     # §3.5, Rev 56, at the tests' speed: digits come D/2 apart.
-    flows.DIAL_SETTLE, flows.DIAL_PAUSE = D, D * 6
+    dialling.DIAL_SETTLE, dialling.DIAL_PAUSE = D, D * 6
     # Rev 60, the same.
     flows.NUDGE_AFTER, flows.PATCH_WAIT, flows.ANSWER_AFTER, flows.DIAL_FIRST = \
         D * 4, D * 6, D, D * 10

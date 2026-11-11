@@ -67,7 +67,7 @@ async def say(b: Board, hw: Hw, circuit: str, name: str, length: float,
         # just before cannot either.
         r = await b.wait_until(over, length + MARGIN, abort_if=abort_if)
     except BaseException:
-        await _quietly(hw.stop(circuit))
+        await quietly(hw.stop(circuit))
         raise
     if r == "missing":
         raise FileNotFoundError(name)
@@ -84,7 +84,7 @@ async def hear(b: Board, hw: Hw, circuit: str, start_within: float,
             lambda b: b.get(key) in ("silence", "timeout") and b.get(key),
             start_within + MAX_SPEECH + MARGIN, abort_if=abort_if, needs=(LIVE_AUDIO,))
     except BaseException:
-        await _quietly(hw.listen(circuit, 0))
+        await quietly(hw.listen(circuit, 0))
         raise
 
 
@@ -103,7 +103,7 @@ def ringing_station(b: Board) -> int | None:
     return None
 
 
-async def _quietly(coro) -> None:
+async def quietly(coro) -> None:
     try:
         await coro
     except Exception:
@@ -180,9 +180,9 @@ async def station_to_station(b: Board, hw: Hw, sc: Scene) -> str:
     finally:
         # Runs on normal exit, error, and cancellation (game reset).
         for n in (caller_n, called_n):
-            await _quietly(hw.hook(n, False))
+            await quietly(hw.hook(n, False))
         for c in (sc.caller, sc.called):
-            await _quietly(hw.stop(c))
+            await quietly(hw.stop(c))
 
 
 async def dial_out(b: Board, hw: Hw, caller: str, number: str, busy: bool) -> int:
@@ -211,7 +211,7 @@ async def dial_out(b: Board, hw: Hw, caller: str, number: str, busy: bool) -> in
         await hw.tone(t, "busy" if busy else "ringback")
         return t
     except BaseException:
-        await _quietly(hw.tone(t, "off"))
+        await quietly(hw.tone(t, "off"))
         raise
 
 

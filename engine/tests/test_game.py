@@ -455,7 +455,7 @@ async def main() -> int:
         await g.on_command("diag/tap/monitor", "off")
         check(("audio/monitor/source/set", "tap") in link.sent, "ending it returns to the tap")
         await g.on_command("diag/station/5/monitor", "on")
-        await g._monitor("station/1")                   # the game moves it: an answer
+        await g.monitor("station/1")                   # the game moves it: an answer
         check(link.state_v.get("game/diag/station/5/monitor") == "off",
               "the game moving the loudspeaker ends a monitor test (§9.1)")
         await g.on_command("diag/station/9/tone", "on")

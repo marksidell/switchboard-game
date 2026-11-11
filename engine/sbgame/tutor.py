@@ -1,4 +1,4 @@
-"""Tutor mode (game_control.md §7, Rev 29).
+"""Tutor mode (game_control.md §7).
 
 A senior operator's voice on the loudspeaker talks a new player through each
 call. The flows call `Tutor.say()` at each step, and wait for her to finish:
@@ -10,12 +10,13 @@ still repeating from the step before.
 Her lines are files on the monitor (`audio/monitor/play/set`, audio.md §10.4),
 named tutor.<key> as script.yml's tutor: renders them.
 
-A prompt given with `until` stops mid-word once the condition comes true
-(Rev 58): the player has done it, and does not need to hear the rest. It is
-said again after REPEAT seconds while the condition stays false, at most REPEATS times, in the background, so a player
-who has not found the jack hears it again without the call waiting on her.
+A prompt given with `until` stops mid-word once the condition comes true: the
+player has done it, and does not need to hear the rest. It is said again after
+REPEAT seconds while the condition stays false, at most REPEATS times, in the
+background, so a player who has not found the jack hears it again without the
+call waiting on her.
 
-Once she has said a prompt in full twice (Rev 55), it is said short where
+Once she has said a prompt in full twice, it is said short where
 tutor: brief: gives a short form, and More Help says it in full.
 """
 
@@ -27,7 +28,7 @@ from typing import Awaitable, Callable
 
 from .board import Abandoned, Board
 from .link import Hw
-from .scenes import _quietly, say
+from .scenes import quietly, say
 from .script_data import Speech
 from tts.script import TUTOR_KEYS
 
@@ -37,10 +38,9 @@ MONITOR = "audio/monitor"      # its play/set and play (audio.md §10.4)
 REPEAT = 20.0                  # s without progress before a prompt is said again
 REPEATS = 2                    # times a prompt is said again, at most
 NO_LIMIT = 3600.0              # s, for the timeouts tutor mode lifts (§7)
-# Her introduction, in order: each part but the last waits for More Help
-# (§7, Rev 31).
+# Her introduction, in order: each part but the last waits for More Help (§7.3).
 INTRO = ("intro-jacks", "intro-cords", "intro-switches")
-FULL_TIMES = 2                 # times a prompt is said in full before its short form (Rev 55)
+FULL_TIMES = 2                 # times a prompt is said in full before its short form
 BRIEF = "brief-"               # a short form's key: brief-<key> (tts/script.py)
 
 
@@ -53,13 +53,13 @@ def prompt_of(key: str) -> str:
 
 
 class Tutor:
-    """Her voice, and the one line she can be asked to repeat (Rev 34).
+    """Her voice, and the one line she can be asked to repeat.
 
     `repeat_key` is the line she last finished while the game waits on the
     player — a prompt with `until`, or one said with `hold` — until the
     player acts, or she says anything else. The game program publishes it
     through `on_repeat`, for the deck's Repeat Help key, and `repeat()` says
-    it again. A prompt before a listen (Rev 35) is repeatable too, but she
+    it again. A prompt before a listen is repeatable too, but she
     does not say it herself: `repeat()` only asks, and the flow stops the
     listen, says it, and listens again, so the loudspeaker is never heard as
     the operator. While the operator is speaking it is refused.
@@ -75,20 +75,17 @@ class Tutor:
         self._again: asyncio.Task | None = None
         self._on_repeat = on_repeat
         self.repeat_key = ""
-        # Rev 55: how often she has said each prompt in full this game, which
+        # How often she has said each prompt in full this game, which
         # decides whether it is said short; and the full line More Help would
         # say for the short one in repeat_key, published through `on_more`.
         self.said: dict[str, int] = {}
         self._on_more = on_more
         self.more_key = ""
         self._until: Callable[[Board], object] | None = None
-        # A prompt before a listen (Rev 35): set while it is repeatable, and
+        # A prompt before a listen: set while it is repeatable, and
         # what says the operator has started, when it is refused.
         self.asked: asyncio.Event | None = None
         self._speaking: Callable[[], bool] = lambda: False
-
-    def has(self, key: str) -> bool:
-        return key in self.lines
 
     def say_key(self, sp: Speech, request: bool) -> str:
         """What she prompts before the operator speaks ahead of `sp` (§6.3)."""
@@ -97,7 +94,7 @@ class Tutor:
         return "greet" if request else "respond"
 
     async def _line(self, sp: Speech, until=None, abort_if=None) -> bool:
-        """Say one line; True if `until` came true and cut it short (Rev 58).
+        """Say one line; True if `until` came true and cut it short.
         The flow's own `abort_if` still raises."""
         if until is None:
             await say(self.b, self.hw, MONITOR, sp.name, sp.seconds, abort_if=abort_if)
@@ -146,8 +143,8 @@ class Tutor:
         With `until`, nothing is said if it is already true, and the line is
         said again in the background while it stays false. With `until` or
         `hold`, the line can be repeated on request until the player acts or
-        she says another (Rev 34). With `listening`, a prompt a listen
-        follows: repeatable on request through the flow (Rev 35), refused
+        she says another. With `listening`, a prompt a listen
+        follows: repeatable on request through the flow, refused
         while `listening()` says the operator has started speaking.
         """
         await self.hush()
@@ -181,8 +178,8 @@ class Tutor:
             self._again = asyncio.create_task(self._repeat(sp, until),
                                               name=f"tutor-{key}")
 
-    def repeat(self) -> bool:
-        """Repeat Help (Rev 34): the line again, now, unless there is none.
+    async def repeat(self) -> bool:
+        """Repeat Help: the line again, now, unless there is none.
 
         Runs in the background, as her own repeats do, so the next step's
         line stops it as it would stop them. The automatic repeats start
@@ -197,14 +194,13 @@ class Tutor:
                 return False
             self.asked.set()
             return True
-        if self._again is not None and not self._again.done():
-            self._again.cancel()
+        await self.hush()               # her own repeat, if under way
         self._again = asyncio.create_task(self._replay(sp, self._until),
                                           name=f"tutor-repeat-{key}")
         return True
 
     async def more(self) -> bool:
-        """More Help on a short line (Rev 55): the full line, now, and it is
+        """More Help on a short line: the full line, now, and it is
         the one repeated from then on. False when no short line is waiting."""
         sp = self.lines.get(self.more_key)
         if not self.active or sp is None or self.asked is not None:
@@ -237,13 +233,13 @@ class Tutor:
                     pass
                 if not self.active:
                     return
-                # Rev 60: after the last repeat, how to hear it again.
+                # After the last repeat, how to hear it again.
                 last = self.lines.get("stuck") if i == REPEATS else sp
                 if last is None:
                     break
                 if await self._line(last, until):
                     break
-            # Repeatable until the player does the thing (Rev 34).
+            # Repeatable until the player does the thing.
             await self.b.wait_until(until, None)
             await self._set_repeat("")
         except asyncio.CancelledError:
@@ -271,4 +267,4 @@ class Tutor:
         self.asked = None
         await self.hush()
         await self._set_repeat("")
-        await _quietly(self.hw.stop(MONITOR))
+        await quietly(self.hw.stop(MONITOR))

@@ -178,7 +178,7 @@ async def repeating_operator(h: Harness) -> None:
     await answers(h, c)
     await heard_tutor(h, "greet")
     await h.b.wait_until(lambda b: b.get(f"{c}/listen") == "listening", 5)
-    h.asked_ok = h.ctx.tutor.repeat()
+    h.asked_ok = await h.ctx.tutor.repeat()
     await request_heard(h, c)
     await h.b.update(f"station/{want}/ring", "on")
     await h.b.wait_until(lambda b: b.on(f"station/{want}/hook"), 5)
@@ -331,7 +331,7 @@ async def main() -> int:
     check("greet" in h.repeats, "the Say prompt is offered for repeating")
     t = Tutor(h.b, h.hw, lines())
     t.repeat_key, t.asked, t._speaking = "greet", asyncio.Event(), lambda: True
-    check(not t.repeat() and not t.asked.is_set(), "refused once she has started speaking")
+    check(not await t.repeat() and not t.asked.is_set(), "refused once she has started speaking")
 
     print("\n== a prompt short once said twice, More Help in full (Rev 55)")
     h = tutored(scene(Shape.STATION_TO_STATION))

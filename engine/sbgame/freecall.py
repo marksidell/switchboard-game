@@ -1,4 +1,4 @@
-"""Free calls, Lenny mode (game_control.md §8, Rev 74).
+"""Free calls, Lenny mode (game_control.md §8).
 
 A real person lifts the telephone on station 24, or calls the public line
 (trunk 8, the Grandstream ATA) from outside. The operator answers and puts
@@ -23,7 +23,8 @@ from typing import TYPE_CHECKING
 
 from .board import LIVE_AUDIO, LIVE_CONTROL, Abandoned, Board, Offline
 from .deck import Holding
-from .scenes import MARGIN, MAX_SPEECH, _quietly, hear, say
+from .dialling import dial_tone, read_number
+from .scenes import MARGIN, MAX_SPEECH, quietly, hear, say
 from .script_data import PHONE_STATION, FreeLines, fitted_stations
 
 if TYPE_CHECKING:
@@ -32,20 +33,19 @@ if TYPE_CHECKING:
 log = logging.getLogger("free")
 
 PHONE = f"station/{PHONE_STATION}"
-LISTEN = 3.0          # s after a line for the caller to start talking before "Hello?" (Rev 78)
+LISTEN = 3.0          # s after a line for the caller to start talking before "Hello?"
 LISTEN_AGAIN = 7.0    # s after a "Hello?" before the next one
-TURN_END = 0.4        # s more of silence before it is the answerer's turn (Rev 76)
-PATCH_WAIT = 8.0      # s for the cord to join a room that answered (§3.5, Rev 60)
-DIAL_DELAY = 1.0      # s from seizure to dial tone (§3.5, Rev 46)
-DIAL_FIRST = 15.0     # s for the first digit
-DIAL_PAUSE = 10.0     # s with no new digit, short of a number: fast busy (Rev 80)
-DIAL_SETTLE = 3.0     # s after the last digit a number needs, before it rings (Rev 80)
+TURN_END = 0.4        # s more of silence before it is the answerer's turn
+PATCH_WAIT = 8.0      # s for the cord to join a room that answered (§3.5)
+# s for the first digit, else she is taken to have given up on the trunk.
+# Half a game call's flows.DIAL_FIRST, and with no reorder.
+DIAL_FIRST = 15.0
 NUMBER = 7            # digits in a number; "0" alone is the operator
 RINGBACK_KNOWN = 2.0  # s of ringback before an establishment answers
-ROOM_ANSWER = 4.0     # s from her ringing a room to its answering (Rev 81)
+ROOM_ANSWER = 4.0     # s from her ringing a room to its answering
 RINGBACK_LENNY = 4.0  # and before the real Lenny does
 RETRY = 2.0           # s before a free call that ended on a fault starts again
-FREE_PEER_DB = 6      # the loudspeaker's peer boost, dB: the caller is live (Rev 86)
+FREE_PEER_DB = 6      # the loudspeaker's peer boost, dB: the caller is live
 
 
 class Gone(Exception):
@@ -87,7 +87,7 @@ class FreeCall:
                 return
             self.answered = True
             await self.fc.say(f"free call: {self.name} answered")
-            await self.fc.game._monitor(self.caller, str(FREE_PEER_DB))  # §9.1: at the answer
+            await self.fc.game.monitor(self.caller, str(FREE_PEER_DB))  # §9.1: at the answer
             while not self.gone(self.b):
                 target = await self._route()
                 if target is None:
@@ -103,7 +103,7 @@ class FreeCall:
                     self.callee = self.who = self.line = ""
         finally:
             if self.caller == PHONE:
-                await _quietly(self.hw.hook(PHONE_STATION, False))
+                await quietly(self.hw.hook(PHONE_STATION, False))
             if self.answered:
                 await self.fc.say(f"free call: {self.name} hung up")
 
@@ -131,7 +131,7 @@ class FreeCall:
         c = f"station/{n}"
         self.callee = c
         self.who, lines = self.fc.game.gs.answerer(self.fc.game.gs.free_station.get(n, ""))
-        self.line = next(iter(self.fc.game._station_lines.get(n, ())), "")
+        self.line = next(iter(self.fc.game.station_lines.get(n, ())), "")
         try:
             # Someone has to get to the telephone.
             try:
@@ -147,12 +147,12 @@ class FreeCall:
                               f"{self.who or 'nobody'} answers")
             await self._talk(c, lines, self._abort(c))
         finally:
-            await _quietly(self.hw.stop(c))
-            await _quietly(self.hw.hook(n, False))
+            await quietly(self.hw.stop(c))
+            await quietly(self.hw.hook(n, False))
 
     async def _patched(self, c: str) -> bool:
         """The room off-hook waits for the cord; "Hello?" at PATCH_WAIT, and
-        it hangs up at twice that (§3.5, Rev 60)."""
+        it hangs up at twice that (§3.5)."""
         joined = lambda b: self.gone(b) or b.get(f"{c}/peer") == self.caller
         hello = self.fc.game.gs.reaction("hello", self.who)
         for step in ("hello", "hang up"):
@@ -175,9 +175,7 @@ class FreeCall:
         self.callee = t
         up = lambda b: b.on(f"{t}/seize")
         try:
-            await asyncio.sleep(DIAL_DELAY)
-            if not self.b.dialled(k):
-                await self.hw.tone(k, "dial")
+            await dial_tone(self.b, self.hw, k)
             try:
                 got = await self.b.wait_until(
                     lambda b: self.gone(b) and "gone" or (not up(b) and "released") or b.dialled(k),
@@ -192,7 +190,7 @@ class FreeCall:
             if digits is None:
                 return
             if digits in ("short", "long"):
-                # Fast busy, as a game call's misdial gets (§3.5, Rev 56), until
+                # Fast busy, as a game call's misdial gets (§3.5), until
                 # she releases the trunk or the caller goes.
                 got = self.b.dialled(k)
                 await self.fc.say(f"free call: {self.name} dialled {got}: too "
@@ -212,29 +210,16 @@ class FreeCall:
             abort = self._abort(t)
             await self._talk(t, lines, lambda b: abort(b) or (not up(b) and f"{t} released"))
         finally:
-            await _quietly(self.hw.tone(k, "off"))
-            await _quietly(self.hw.stop(t))
+            await quietly(self.hw.tone(k, "off"))
+            await quietly(self.hw.stop(t))
 
     async def _number(self, k: int) -> str | None:
-        """The number once dialled (Rev 80): seven digits, or "0" for the
-        operator, with DIAL_SETTLE and no digit more. "long" for a digit more,
-        "short" for DIAL_PAUSE with no digit short of a number; None if she
-        released the trunk or the caller went."""
-        while True:
-            have = self.b.dialled(k)
-            if len(have) > NUMBER:
-                return "long"
-            whole = len(have) == NUMBER or have == "0"
-            try:
-                got = await self.b.wait_until(
-                    lambda b: (self.gone(b) and "gone")
-                              or (not b.on(f"trunk/{k}/seize") and "released")
-                              or len(b.dialled(k)) > len(have),
-                    DIAL_SETTLE if whole else DIAL_PAUSE)
-            except TimeoutError:
-                return have if whole else "short"
-            if got in ("gone", "released"):
-                return None
+        """The number once dialled: seven digits, or "0" for the operator.
+        "long" or "short" as read_number() has it; None if she released the
+        trunk or the caller went."""
+        got = await read_number(self.b, k, lambda d: len(d) == NUMBER or d == "0", NUMBER,
+                                stop=lambda b: self.gone(b) and "gone")
+        return None if got in ("gone", "released") else got
 
     # ---- talking, Lenny-style ---------------------------------------------
 
@@ -261,7 +246,7 @@ class FreeCall:
                 k += 1
 
     async def _line(self, c: str, sp, wait: float, abort) -> bool:
-        """Say a line, listening from its start (Rev 79): the audio program's
+        """Say a line, listening from its start: the audio program's
         echo canceller hears a caller who talks over it (audio.md 9.4). True
         once the caller has spoken, during the line or within `wait` after
         it, and then stopped for TURN_END; False if they said nothing."""
@@ -274,7 +259,7 @@ class FreeCall:
                 lambda b: b.get(key) in ("silence", "timeout") and b.get(key),
                 wait + MAX_SPEECH + MARGIN, abort_if=abort, needs=(LIVE_AUDIO,))
         except BaseException:
-            await _quietly(self.hw.listen(c, 0))
+            await quietly(self.hw.listen(c, 0))
             raise
         spoke = self.b.saw(key, "speech")
         while spoke:
@@ -308,7 +293,7 @@ class FreeCalls:
     async def say(self, text: str) -> None:
         log.info("%s", text)
         if self.game.log is not None:
-            await self.game._say(text)
+            await self.game.say(text)
 
     # ---- what the game asks -------------------------------------------------
 
@@ -335,7 +320,7 @@ class FreeCalls:
         for fc in self.calls.values():
             lines = {fc.line} if fc.line else set()
             if fc.caller == PHONE:
-                lines |= set(self.game._station_lines.get(PHONE_STATION, ()))
+                lines |= set(self.game.station_lines.get(PHONE_STATION, ()))
             out.append(Holding(frozenset(lines), frozenset({fc.who} if fc.who else ())))
         return out
 
@@ -343,8 +328,8 @@ class FreeCalls:
         """A room rung that is a free call's to take: fitted, not station 24,
         not in a game call or another free call, and not the room a routing
         game call wants."""
-        busy = self.game._circuits_in_calls(free=False) | self.circuits()
-        wanted = self.game._wanted_stations()
+        busy = self.game.circuits_in_calls(free=False) | self.circuits()
+        wanted = self.game.wanted_stations()
         for n in fitted_stations(self.game.cfg.stations):
             if n == PHONE_STATION or n in wanted:
                 continue
@@ -356,8 +341,8 @@ class FreeCalls:
     def claimable_trunk(self, b: Board, caller: str) -> str:
         """A trunk seized for this caller: not the public line, not in a game
         call, and patched to the caller by the operator's cord."""
-        busy = self.game._circuits_in_calls(free=False) | self.circuits()
-        for k in range(1, 9):
+        busy = self.game.circuits_in_calls(free=False) | self.circuits()
+        for k in self.game.cfg.fitted_trunks():
             t = f"trunk/{k}"
             if k == self.game.cfg.public_trunk or t in busy:
                 continue

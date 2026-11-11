@@ -8,6 +8,7 @@ import asyncio
 import logging
 import sys
 
+import sbgame.dialling as dialling
 import sbgame.freecall as fcm
 from sbgame.board import Board
 from sbgame.config import Config
@@ -25,10 +26,10 @@ fcm.LISTEN = D * 10
 fcm.LISTEN_AGAIN = D * 15
 fcm.TURN_END = D * 3
 fcm.PATCH_WAIT = D * 10
-fcm.DIAL_DELAY = D
+dialling.DIAL_DELAY = D
 fcm.DIAL_FIRST = D * 20
-fcm.DIAL_PAUSE = D * 8
-fcm.DIAL_SETTLE = D * 5
+dialling.DIAL_PAUSE = D * 8
+dialling.DIAL_SETTLE = D * 5
 fcm.RINGBACK_KNOWN = D
 fcm.RINGBACK_LENNY = D * 2
 fcm.RETRY = D * 5
@@ -105,25 +106,25 @@ class StubGame:
         self.hw = Hw(self.link)
         self.gs = GS()
         self.cfg = Config()
-        self._station_lines = {21: frozenset({"room403"}), 24: frozenset({"phone"})}
+        self.station_lines = {21: frozenset({"room403"}), 24: frozenset({"phone"})}
         self.log = object()
         self.said: list[str] = []
-        self.monitor: list[str] = []
+        self.monitored: list[str] = []
         self.wanted: set[int] = set()
         self.in_calls: set[str] = set()
         self.free = FreeCalls(self)
 
-    async def _say(self, text: str) -> None:
+    async def say(self, text: str) -> None:
         self.said.append(text)
 
-    async def _monitor(self, src: str, peer: str = "auto") -> None:
-        self.monitor.append(src)
+    async def monitor(self, src: str, peer: str = "auto") -> None:
+        self.monitored.append(src)
         self.peer = peer
 
-    def _circuits_in_calls(self, free: bool = True) -> set[str]:
+    def circuits_in_calls(self, free: bool = True) -> set[str]:
         return set(self.in_calls) | (self.free.circuits() if free else set())
 
-    def _wanted_stations(self) -> set[int]:
+    def wanted_stations(self) -> set[int]:
         return set(self.wanted)
 
     async def live(self) -> None:
@@ -157,7 +158,7 @@ async def phone_to_room() -> None:
     await until(b, lambda b: b.on("station/24/hook"))
     check(True, "lifted: station 24's relay closes")
     await b.update("station/24/op", "on")
-    await until(b, lambda b: g.monitor == ["station/24"])
+    await until(b, lambda b: g.monitored == ["station/24"])
     check("free call: phone answered" in g.said, "answered: logged, and the loudspeaker moves to it")
     check(g.peer == "6", "with the peer boost fixed at 6dB (Rev 86)")
     check(g.free.routing(), "routing until she puts it through")
@@ -314,7 +315,7 @@ async def public_line_short() -> None:
     for d in "283":
         await b.update("trunk/3/digit", d)
         await asyncio.sleep(D / 2)
-    await asyncio.sleep(fcm.DIAL_PAUSE / 2)
+    await asyncio.sleep(dialling.DIAL_PAUSE / 2)
     check(b.get("trunk/3/tone") != "reorder", "a pause shorter than DIAL_PAUSE: still dialling")
     await until(b, lambda b: b.get("trunk/3/tone") == "reorder")
     check(not g.played("trunk/3"), "then fast busy, and nobody answers")
