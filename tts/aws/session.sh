@@ -6,6 +6,8 @@
 # it, upload, run one thing, copy back and tear down. Everything up to "run one
 # thing" is identical and is here.
 
+: "${VPC_ID:?not set: put it in tts/aws/local.env (see local.env.example and IAM-SETUP.md)}"
+
 SSH_OPTS="-o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=$HOME/.ssh/known_hosts_sbgame -o ConnectTimeout=10"
 SSH="ssh -i $KEY_FILE $SSH_OPTS"
 
@@ -51,10 +53,10 @@ open_ssh_today() {
         --cidr "$ip/32" >/dev/null 2>&1 && echo "  added $ip/32" || echo "  $ip/32 already present"
 }
 
-# 4.4 layer 1: the instance terminates itself this long after boot, whatever
-# else has failed. Four hours since 2026-09-29: two, the original figure, was
-# less than the full script's render needs, and the finished lines are copied
-# back only at the end, so a run cut short by it loses everything it made.
+# tts_task.md 4.4 layer 1: the instance terminates itself this long after boot,
+# whatever else has failed. Two hours is less than the full script's render
+# needs, and the finished lines are copied back only at the end, so a run cut
+# short by it loses everything it made.
 SELF_TERMINATE_MIN=240
 
 # launch_tagged <name> — one GPU instance, every zone tried, g6 then g5.

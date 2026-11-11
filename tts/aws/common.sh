@@ -10,19 +10,17 @@ KEY_NAME=sbgame-tts
 KEY_FILE=${KEY_FILE:-$HOME/.ssh/sbgame-tts.pem}
 SG_NAME=sbgame-tts-default
 
-# Mark created a default VPC in us-east-1 on 2026-09-22 so this work stays out
-# of his own `sidell` VPC. Its subnets set MapPublicIpOnLaunch, but the launch
-# asks for the address explicitly anyway rather than depending on a subnet
-# attribute that is not ours and can be changed.
-VPC_ID=${VPC_ID:-vpc-0b3420dc81332d21d}
-SUBNET_ID=${SUBNET_ID:-subnet-0b5bd7185fea0efb5}   # us-east-1a; both GPU types offered
-ASSOCIATE_PUBLIC_IP=1
+# VPC_ID, the VPC the instances launch into (session.sh requires it): from the
+# environment, or from local.env beside this file (not committed; see
+# local.env.example). The launch tries each of its subnets and asks for a public
+# address explicitly rather than depending on a subnet attribute.
+_here=$(dirname "${BASH_SOURCE[0]}")
+if [ -f "$_here/local.env" ]; then . "$_here/local.env"; fi
 
 # The DLAMI's own root volume is 40GB and most of it is already spent on CUDA,
-# the frameworks and the container images. Installing qwen-tts and caching 4.3GB
-# of model weights on top of that fills it: pip died with
-# "[Errno 28] No space left on device". gp3 is about $0.08/GB-month, so the
-# extra 60GB costs well under a cent for a session and removes the question.
+# the frameworks and the container images; qwen-tts and 4.3GB of model weights
+# on top of that fill it. gp3 is about $0.08/GB-month, so the extra 60GB costs
+# well under a cent for a session.
 ROOT_GB=${ROOT_GB:-100}
 
 # Every state except terminated: a stopped instance still holds its volume, and

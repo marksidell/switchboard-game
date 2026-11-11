@@ -12,9 +12,7 @@ cd "$(dirname "$0")"
 # Only one session at a time. teardown terminates every instance tagged
 # project=sbgame-tts rather than just this run's, which is right — a session
 # that died badly must not leave a GPU behind — but it means two overlapping
-# runs kill each other's instance. That happened: a previous run's trap fired
-# seconds after a new run had launched, and the new instance went to
-# shutting-down before sshd was up.
+# runs kill each other's instance.
 exec 9>"${TMPDIR:-/tmp}/sbgame-tts.lock"
 flock -n 9 || die "another sbgame-tts session is running (or its teardown has not finished). \
 Wait for it, or check tts/aws/status."
@@ -47,7 +45,7 @@ echo "=== planning (6.3) ==="
 cd "$REPO"
 "$PY" -m tts.manifest --script "$SCRIPT_YML" --write-jobs "$JOBS" ${ONLY:+--only "$ONLY"} $PUBLIC
 cd "$(dirname "$0")"
-count=$("$PY" -c "import json,sys; print(len(json.load(open('$JOBS'))))")
+count=$("$PY" -c 'import json,sys; print(len(json.load(open(sys.argv[1]))))' "$JOBS")
 [ "$count" = 0 ] && { echo "nothing to generate — every line is up to date"; exit 0; }
 [ "$DRY" = 1 ] && { echo "--dry: $count line(s) would be generated; not launching"; exit 0; }
 
