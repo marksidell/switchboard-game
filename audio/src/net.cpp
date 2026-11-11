@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <memory>
 
 #include "util.h"
 #include "wav.h"
@@ -70,6 +71,24 @@ static bool topic_for(Topic t, int idx, char* out, size_t n)
     case Topic::FreeBuf: return false;
     }
     return false;
+}
+
+// verb_name()                                                           [any]
+//   A Command's verb for the log.
+static const char* verb_name(Verb v)
+{
+    switch (v) {
+    case Verb::Play:        return "play";
+    case Verb::Tone:        return "tone";
+    case Verb::Listen:      return "listen";
+    case Verb::Monitor:     return "monitor";
+    case Verb::MonitorSrc:  return "monitor source";
+    case Verb::MonitorPeer: return "monitor peer";
+    case Verb::Test:        return "test";
+    case Verb::StopGame:    return "stop game";
+    case Verb::Quit:        return "quit";
+    }
+    return "?";
 }
 
 // ~Net()                                                             [startup]
@@ -205,12 +224,11 @@ void Net::on_disconnect(int rc)
 //   Pushes a Command to the audio thread. If the queue is full - 255
 //   commands unprocessed, which would mean the audio thread has stopped -
 //   logs it and frees any file buffer the command carried.
-void Net::send(const Command& c)
+bool Net::send(const Command& c)
 {
-    if (!sh_.cmdq.push(c)) {
-        log_line("command queue full - dropped %s for %d", "command", c.idx);
-        delete c.buf;
-    }
+    if (sh_.cmdq.push(c)) return true;
+    log_line("command queue full - dropped %s for %d", verb_name(c.verb), c.idx);
+    return false;
 }
 
 // handle_play()                                                         [mqtt]
@@ -229,7 +247,7 @@ void Net::handle_play(int slot, const char* circuit, const char* payload)
         return;
     }
 
-    AudioBuffer* buf = nullptr;
+    std::unique_ptr<AudioBuffer> buf;
     double hf_db = 0.0;
     const LoadResult r = load_wav(sh_.opt.wav_dir, payload, sh_.opt.max_file, buf, hf_db);
     if (r != LoadResult::Ok) {
@@ -249,9 +267,10 @@ void Net::handle_play(int slot, const char* circuit, const char* payload)
         log_line("content: %s has %.1f dBFS above 5.5 kHz; audio.md 5.3 wants it "
                  "below -60 or the detector may read ambiguous", payload, hf_db);
 
-    c.buf = buf;
+    // The audio thread owns the buffer once the command is queued.
+    c.buf = buf.get();
     std::snprintf(c.name, sizeof c.name, "%s", payload);
-    send(c);
+    if (send(c)) buf.release();
 }
 
 // handle_tone()                                                         [mqtt]
@@ -668,7 +687,7 @@ void Net::drain_results(bool publishing)
     Result r;
     for (Spsc<Result, 512>* q : { &sh_.res_audio, &sh_.res_ana }) {
         while (q->pop(r)) {
-            if (r.topic == Topic::FreeBuf) { delete r.buf; continue; }
+            if (r.topic == Topic::FreeBuf) { std::unique_ptr<AudioBuffer> done(r.buf); continue; }
             // While disconnected the state is discarded rather than queued: the
             // game sources were stopped when the connection dropped, so the
             // empty play and tone published on reconnect are true (mqtt.md 8.4).

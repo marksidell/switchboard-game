@@ -16,10 +16,9 @@
 // default. Levels are in dBFS (util.h) unless marked otherwise.
 struct Options {
     // ALSA
-    // Required, no default (audio.md 4, 14, Rev 2): the ALSA card id from
-    // /proc/asound/cards, which snd-usb-audio builds from the device's serial
-    // number - this unit's is USB24306452 - so no document can predict it.
-    // The id in use lives in the systemd unit.
+    // The card id from /proc/asound/cards (audio.md 4). snd-usb-audio builds
+    // it from the unit's serial number, so it cannot be a default; without
+    // --card, parse_options() takes the one card named Digiface.
     std::string card;                   // id, index, or a full "hw:x" string
     unsigned    period  = 256;          // frames (5.3ms)
     unsigned    periods = 3;            // periods per buffer
@@ -101,15 +100,25 @@ struct Options {
     bool        no_rt = false;          // skip SCHED_FIFO/mlockall (bench)
 
     // device()                                                    [any]
-    //   The ALSA device string to open, built from `card`: "USB24306452"
-    //   becomes "hw:USB24306452", "1" becomes "hw:1", and anything already
+    //   The ALSA device string to open, built from `card`: "USB12345678"
+    //   becomes "hw:USB12345678", "1" becomes "hw:1", and anything already
     //   containing a colon is used as given.
     std::string device() const;
 };
 
+// sbaudio_version()                                                     [any]
+//   The commit the program was built from, "-dirty" if audio/ had changes.
+const char* sbaudio_version();
+
+// find_card()                                                           [any]
+//   The id of the one card in `cards`, the text of /proc/asound/cards, whose
+//   name contains `name`, ignoring case. "" if none does or several do, with
+//   `why` saying which.
+std::string find_card(const std::string& cards, const char* name, std::string& why);
+
 // parse_options()                                                    [startup]
 //   Walks argv, filling `o` from its defaults. Reads the password file if one
-//   was given, then checks --card was given and range-checks the values that
+//   was given, finds the card if --card was not given, and range-checks the values that
 //   would otherwise fail obscurely later (period size, modulation depth,
 //   filter edges).
 //   Returns false, having printed why to stderr, if the arguments are

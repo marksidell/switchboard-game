@@ -652,6 +652,37 @@ static void test_monitor_ch()
     check(!opts(o, { "--monitor-ch", "35" }), "35 refused: there is no such channel");
 }
 
+// test_options()
+//   audio.md 14: a number with anything after it is refused rather than read
+//   as far as it goes; and without --card, the one Digiface is found.
+static void test_options()
+{
+    std::printf("numbers and the card (audio.md 4, 14)\n");
+    Options o;
+    check(opts(o, { "--pilot-db", "-38.5" }) && o.pilot_db == -38.5, "-38.5 accepted");
+    check(!opts(o, { "--pilot-db", "-4O" }), "\"-4O\" refused, not read as -4");
+    check(!opts(o, { "--monitor-gate", "x" }), "\"x\" refused, not read as 0");
+    check(!opts(o, { "--period", "256k" }), "a period with junk after it refused");
+    check(!opts(o, { "--period", "8" }), "a period out of range refused");
+    check(opts(o, { "--broker", "host:1884" }) && o.port == 1884 && o.broker == "host",
+          "the broker's port");
+    check(!opts(o, { "--broker", "host:18x3" }), "a port with junk in it refused");
+    check(!opts(o, { "--monitor-lp", "3600", "5600", "7O" }), "--monitor-lp checks all three");
+
+    const char* two =
+        " 0 [PCH            ]: HDA-Intel - HDA Intel PCH\n"
+        "                      HDA Intel PCH at 0xf7f10000 irq 31\n"
+        " 1 [USB12345678    ]: USB-Audio - Digiface USB (12345678)\n"
+        "                      RME Digiface USB (12345678) at usb-0000:00:14.0-2, high speed\n";
+    std::string why;
+    check(find_card(two, "Digiface", why) == "USB12345678", "the Digiface's id found");
+    check(find_card(" 0 [PCH            ]: HDA-Intel - HDA Intel PCH\n", "Digiface", why).empty()
+          && !why.empty(), "none found, and why");
+    const std::string twice = std::string(two) +
+        " 2 [USB87654321    ]: USB-Audio - Digiface USB (87654321)\n";
+    check(find_card(twice, "Digiface", why).empty(), "two Digifaces: neither guessed");
+}
+
 // ---------------------------------------------------------------- render
 
 // render_once()
@@ -1539,6 +1570,7 @@ int main()
     test_listener();
     test_hf_meter();
     test_monitor_ch();
+    test_options();
     test_render_map();
     test_monitor_source();
     test_output_check();

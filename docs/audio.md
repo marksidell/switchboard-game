@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 36. The changes in each revision are in §17.*
+*Rev 37. The changes in each revision are in §17.*
 
 # 1. Overview
 
@@ -74,7 +74,7 @@ Three threads. The one other thing that runs concurrently is `lame`, a child pro
 
 It is SCHED_FIFO, memory locked, with no allocation, no file I/O, no locks and no MQTT, and it communicates only through the hand-overs below. Everything it plays is either generated arithmetically or read from a buffer that was filled before the command reached it.
 
-**The exception: recovering from an xrun.** `AlsaStream::recover()` runs on the audio thread. It writes a log line to stderr, which takes stdio's lock, and its `start()` allocates a period of silence and prefills the stream with it. An xrun means the deadline has already been missed and the stream has stopped, so nothing is left to protect at that moment. No other path in the audio thread does any of this.
+**The exception: recovering from an xrun.** `AlsaStream::recover()` runs on the audio thread. It writes a log line to stderr, which takes stdio's lock, and its `start()` prefills the stream with a period of silence allocated at startup. An xrun means the deadline has already been missed and the stream has stopped, so nothing is left to protect at that moment. No other path in the audio thread does any of this.
 
 **Analysis thread.** Receives 4096-sample blocks per capture channel from the audio thread at the 2048-sample hop (§6), runs the FFT and the pilot detector, and hands results to the MQTT thread. It also runs the pilot detector's logging (§11.2). Normal priority. It is separate from the audio thread so that thirty-two 4096-point FFTs every 43ms — a fraction of a millisecond of work, but bursty — never sit inside a period deadline.
 
@@ -105,7 +105,7 @@ Buffer lifetime for files: the MQTT thread allocates, the audio thread plays, an
 
 # 4. The ALSA Stream
 
-- Device: the Digiface USB by its ALSA card id, `hw:<id>` and not `plughw:`, so that the driver's native S32_LE and 34-channel layout are used and no format conversion or resampling is inserted. The id is the second column of `/proc/asound/cards` (also `aplay -l`), and for the Digiface it is an alphanumeric string the driver derives from the device, not the name "Digiface". It is a command-line option (§14) with no default: the id is stable for one unit but is not something this document can predict, and a card index would depend on USB enumeration order. The installation's is in §14.
+- Device: the Digiface USB by its ALSA card id, `hw:<id>` and not `plughw:`, so that the driver's native S32_LE and 34-channel layout are used and no format conversion or resampling is inserted. The id is the second column of `/proc/asound/cards` (also `aplay -l`), and for the Digiface it is an alphanumeric string the driver derives from the device, not the name "Digiface". It is a command-line option (§14). The id is stable for one unit but is not something this document can predict, and a card index would depend on USB enumeration order; so without `--card` the program takes the one card in `/proc/asound/cards` whose name contains "Digiface", and refuses to start if there is none or more than one. The installation names its card (§14).
 - Rate 48000, format S32_LE, playback channels 34, capture channels as reported.
 - Period 256 frames (5.3ms), buffer 3 periods. Small because the monitor path is an acoustic loop with the room in it (station §8.8) and every period of latency is in that loop. A class-compliant USB device may not sustain 256 without xruns; period and buffer count are options and the bench sets them.
 - Playback and capture handles linked (`snd_pcm_link`) and started together, so the two directions share one start and one xrun. The pilot detector does not depend on the relative alignment of playback and capture — each pilot's phase at the far end is arbitrary and the pilot detector measures magnitude only — but the speech detector's own-playback exclusion (§9.3) does depend on them running, and linking is how that is guaranteed.
@@ -535,7 +535,7 @@ C++17. Libraries: libasound (ALSA), libmosquitto, FFTW3 (single precision), libs
 Command-line options, each with the default given here, and no configuration file — there are few enough that a systemd unit's `ExecStart` line holds them, and one place is better than two:
 
 ```text
---card ID              ALSA card id from /proc/asound/cards (required, no default)
+--card ID              ALSA card id from /proc/asound/cards (the one Digiface)
 --period N             frames per period (256)
 --periods N            periods per buffer (3)
 --no-realtime          no SCHED_FIFO, no mlockall
@@ -598,7 +598,7 @@ Every level that station §8 gives as a figure is an option here and defaults to
 
 | **Option** | **Installation** | **Default** | **Why** |
 | --- | --- | --- | --- |
-| `--card` | `USB24306452` | none, required | This Digiface's id (§4) |
+| `--card` | this unit's id | the one Digiface | Named, so a second Digiface plugged in cannot stop the start (§4) |
 | `--monitor` | 0 | off | On at startup, at unity; the amplifier is matched to it (§10.2) |
 | `--monitor-ch` | 33 | 33,34 | The amplifier takes the jack's tip (§10.1) |
 | `--monitor-limit` | −18 | −3 | Just above speech, so a switch's click is held to it (§10.1, §17.16). −30 held the Digiface output too quiet |
@@ -637,6 +637,14 @@ In order, with the switchboard connected:
 - **Listening on the tap channel.** Not offered — the rough specification says station or trunk — but the tap always carries the operator's voice, and "has the operator said anything" may turn out to be a question the game wants to ask. One more accepted topic if so.
 
 # 17. Revision History
+
+## 17.37 Changes in Rev 37
+
+— `--card` may be left out: the program then takes the one card whose name in `/proc/asound/cards` contains "Digiface", and refuses to start if there is none or more than one (§4, §14). The installation still names its card. The unit's id is no longer written here.
+
+— The xrun recovery no longer allocates: the period of silence `start()` prefills with is allocated when the stream is opened (§3). It still logs.
+
+— Code consequence: `find_card()` in `options.cpp`; `AlsaStream::open()` sizes the silence. `--version` prints the commit the program was built from, not a revision of this document.
 
 ## 17.36 Changes in Rev 36
 

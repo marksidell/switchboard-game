@@ -36,6 +36,8 @@ public:
     // ~Net()                                                         [startup]
     //   Destroys the libmosquitto client.
     ~Net();
+    Net(const Net&) = delete;
+    Net& operator=(const Net&) = delete;
 
     // prepare()                                                      [startup]
     //   Creates the client, sets credentials, callbacks and the last will.
@@ -78,7 +80,7 @@ private:
     void publish_recordings();
     void publish_playback();
 
-    void send(const Command& c);
+    bool send(const Command& c);
     void publish(const char* topic, const char* value, bool retain = true);
     void publish_result(const Result& r);
     void publish_initial();

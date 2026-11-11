@@ -21,6 +21,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <vector>
 
 #include "options.h"
 
@@ -31,7 +32,10 @@ class AlsaStream {
 public:
     // ~AlsaStream()                                                  [startup]
     //   Closes both handles if still open (RAII).
+    AlsaStream() = default;
     ~AlsaStream() { close(); }
+    AlsaStream(const AlsaStream&) = delete;
+    AlsaStream& operator=(const AlsaStream&) = delete;
 
     // open()                                                         [startup]
     //   Opens and configures both directions on o.device(), links them, and
@@ -79,6 +83,7 @@ private:
     snd_pcm_uframes_t period_ = 0;
     snd_pcm_uframes_t buffer_ = 0;
     unsigned          prefill_ = 0;        // periods of silence written by start()
+    std::vector<int32_t> zero_;            // one period of it, sized by open()
 };
 
 // Conversion at the period boundary, audio.md 4: integers to float once on

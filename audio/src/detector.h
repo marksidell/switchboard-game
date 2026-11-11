@@ -35,6 +35,8 @@ public:
     // ~Detector()                                                    [startup]
     //   Frees the FFTW plan and buffers.
     ~Detector();
+    Detector(const Detector&) = delete;
+    Detector& operator=(const Detector&) = delete;
 
     // prepare()                                                      [startup]
     //   Allocates the FFT buffers and plans the transform (reusing saved FFTW

@@ -25,6 +25,14 @@ pkg_check_modules(FFTW3F   REQUIRED IMPORTED_TARGET fftw3f)
 pkg_check_modules(SNDFILE  REQUIRED IMPORTED_TARGET sndfile)
 pkg_check_modules(MOSQ     REQUIRED IMPORTED_TARGET libmosquitto)
 
+# The commit stamp --version prints and the log starts with, refreshed on every
+# build (version.cmake).
+add_custom_target(sbaudio_version
+  COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_CURRENT_SOURCE_DIR}
+          -DOUT=${CMAKE_CURRENT_BINARY_DIR}/sbaudio_version.h
+          -P ${CMAKE_CURRENT_SOURCE_DIR}/version.cmake
+  BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/sbaudio_version.h)
+
 # Everything but main.cpp and net.cpp, so the test can link the same objects
 # the program runs rather than a second copy of them.
 add_library(sbaudio_core STATIC
@@ -41,6 +49,8 @@ add_library(sbaudio_core STATIC
 )
 target_link_libraries(sbaudio_core PUBLIC
   PkgConfig::ALSA PkgConfig::FFTW3F PkgConfig::SNDFILE Threads::Threads)
+target_include_directories(sbaudio_core PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+add_dependencies(sbaudio_core sbaudio_version)
 
 add_executable(sbaudio src/main.cpp src/net.cpp)
 target_link_libraries(sbaudio PRIVATE sbaudio_core PkgConfig::MOSQ)

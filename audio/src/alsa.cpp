@@ -2,8 +2,6 @@
 
 #include "alsa.h"
 
-#include <vector>
-
 #include "channels.h"
 #include "util.h"
 
@@ -118,6 +116,8 @@ bool AlsaStream::open(const Options& o)
     buffer_  = pbuf;
     prefill_ = (unsigned)(buffer_ / period_);
     if (prefill_ > 1) prefill_ -= 1; else prefill_ = 1;
+    // Here, not in start(): recover() runs start() on the audio thread.
+    zero_.assign((size_t)period_ * nplay_, 0);
 
     // audio.md 4: linked, so the two directions share one start and one xrun.
     // The detector does not depend on their relative alignment - each pilot's
@@ -168,9 +168,8 @@ bool AlsaStream::start()
     // Prefill with silence so the DACs never see a hole, leaving one period
     // free: the stream is not running yet, so filling the buffer completely
     // would make the next write block forever waiting for space.
-    std::vector<int32_t> zero((size_t)period_ * nplay_, 0);
     for (unsigned k = 0; k < prefill_; ++k) {
-        const snd_pcm_sframes_t w = snd_pcm_writei(play_, zero.data(), period_);
+        const snd_pcm_sframes_t w = snd_pcm_writei(play_, zero_.data(), period_);
         if (w < 0) { log_line("alsa: prefill: %s", snd_strerror((int)w)); return false; }
     }
     if ((err = snd_pcm_start(play_)) < 0) {

@@ -5,28 +5,67 @@
 #include "channels.h"
 
 #include <cctype>
+#include <cerrno>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <iterator>
+
+#include "sbaudio_version.h"
 
 // Options::device()                                                     [any]
 //   Turns the --card value into an ALSA device string. See options.h.
 std::string Options::device() const
 {
-    // The card by name is what audio.md 4 asks for - hw: and not plughw:,
-    // so the driver's native S32_LE and 34-channel layout are used and nothing
-    // inserts a conversion. A card index or a complete device string is
-    // accepted too, because a bench session often has the index to hand and
-    // USB enumeration order is why this is an option at all.
-    //
-    // The name is the ALSA card id, which is not "Digiface": snd-usb-audio
-    // builds it from the device's serial number, so this unit is USB24306452
-    // (/proc/asound/cards, 2026-09-18). It is stable across replugs and
-    // reboots, unlike the index. Another Digiface would have another id, which
-    // is why --card has no default (audio.md 4).
+    // hw: and not plughw: (audio.md 4), so nothing inserts a conversion. An
+    // index or a complete device string is accepted too, for the bench.
     if (card.find(':') != std::string::npos) return card;
     return "hw:" + card;
+}
+
+// sbaudio_version()                                                     [any]
+const char* sbaudio_version() { return SBAUDIO_COMMIT; }
+
+// find_card()                                                           [any]
+//   See options.h. /proc/asound/cards gives each card a line
+//   " 1 [USB12345678    ]: USB-Audio - Digiface USB (12345678)" and a second
+//   line of long name; the name is looked for in both, ignoring case.
+std::string find_card(const std::string& cards, const char* name, std::string& why)
+{
+    auto lower = [](std::string t) {
+        for (char& c : t) c = (char)std::tolower((unsigned char)c);
+        return t;
+    };
+    const std::string want = lower(name);
+    std::vector<std::string> ids, descs;
+    size_t at = 0;
+    while (at < cards.size()) {
+        size_t nl = cards.find('\n', at);
+        if (nl == std::string::npos) nl = cards.size();
+        const std::string line = cards.substr(at, nl - at);
+        at = nl + 1;
+        const size_t lb = line.find('['), rb = line.find("]:");
+        const size_t first = line.find_first_not_of(' ');
+        if (first != std::string::npos && std::isdigit((unsigned char)line[first]) &&
+            lb != std::string::npos && rb != std::string::npos && lb < rb) {
+            std::string id = line.substr(lb + 1, rb - lb - 1);
+            while (!id.empty() && id.back() == ' ') id.pop_back();
+            ids.push_back(id);
+            descs.push_back(lower(line.substr(rb + 2)));
+        } else if (!descs.empty()) {
+            descs.back() += " " + lower(line);
+        }
+    }
+    std::string found;
+    int n = 0;
+    for (size_t i = 0; i < ids.size(); ++i)
+        if (descs[i].find(want) != std::string::npos) { found = ids[i]; ++n; }
+    if (n == 1) return found;
+    why = n ? "more than one card is a " + std::string(name)
+            : "no card is a " + std::string(name);
+    return "";
 }
 
 // usage()                                                            [startup]
@@ -36,7 +75,7 @@ static void usage(const char* p)
     std::fprintf(stderr,
 "Usage: %s [options]\n"
 "\n"
-"  --card ID              ALSA card id from /proc/asound/cards (required)\n"
+"  --card ID              ALSA card id from /proc/asound/cards (the one Digiface)\n"
 "  --period N             frames per period (256)\n"
 "  --periods N            periods per buffer (3)\n"
 "  --broker HOST[:PORT]   MQTT broker (localhost:1883)\n"
@@ -89,10 +128,6 @@ static void usage(const char* p)
 "  --version, --help\n", p);
 }
 
-// want()                                                             [startup]
-//   Checks that the option at argv[i] is followed by at least n more
-//   arguments. Prints "--x needs n arguments" and returns false if not, so the
-//   caller never reads past the end of argv.
 // parse_record_line()                                                [startup]
 //   "21" or "20,25,26" -> the slots, in the order given: circuits only, no
 //   repeats, at most 8 (audio.md 10.6, Rev 25).
@@ -163,11 +198,65 @@ static bool parse_monitor_ch(const char* s, std::vector<int>& out)
     return true;
 }
 
+
+// want()                                                             [startup]
+//   Checks that the option at argv[i] is followed by at least n more
+//   arguments, so the caller never reads past the end of argv.
 static bool want(int argc, int i, int n, const char* what)
 {
     if (i + n < argc) return true;
     std::fprintf(stderr, "%s needs %d argument%s\n", what, n, n == 1 ? "" : "s");
     return false;
+}
+
+// num()                                                              [startup]
+//   The whole of `s` as a number, or false having said why: "-4O" and "x"
+//   are refused rather than read as -4 and 0. The integer forms also check
+//   a range.
+static bool num(const std::string& opt, const char* s, double& out)
+{
+    char* end = nullptr;
+    errno = 0;
+    const double v = std::strtod(s, &end);
+    if (end == s || *end != '\0' || errno == ERANGE || !std::isfinite(v)) {
+        std::fprintf(stderr, "%s: \"%s\" is not a number\n", opt.c_str(), s);
+        return false;
+    }
+    out = v;
+    return true;
+}
+
+static bool num(const std::string& opt, const char* s, long& out, long lo, long hi)
+{
+    char* end = nullptr;
+    errno = 0;
+    const long v = std::strtol(s, &end, 10);
+    if (end == s || *end != '\0' || errno == ERANGE) {
+        std::fprintf(stderr, "%s: \"%s\" is not a whole number\n", opt.c_str(), s);
+        return false;
+    }
+    if (v < lo || v > hi) {
+        std::fprintf(stderr, "%s: %ld is outside %ld to %ld\n", opt.c_str(), v, lo, hi);
+        return false;
+    }
+    out = v;
+    return true;
+}
+
+static bool num(const std::string& opt, const char* s, unsigned& out, long lo, long hi)
+{
+    long v = 0;
+    if (!num(opt, s, v, lo, hi)) return false;
+    out = (unsigned)v;
+    return true;
+}
+
+static bool num(const std::string& opt, const char* s, int& out, long lo, long hi)
+{
+    long v = 0;
+    if (!num(opt, s, v, lo, hi)) return false;
+    out = (int)v;
+    return true;
 }
 
 // parse_options()                                                    [startup]
@@ -183,7 +272,7 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         const char* nx = (i + 1 < argc) ? argv[i + 1] : nullptr;
 
         if (a == "--help" || a == "-h")     { usage(argv[0]); exit_now = true; return true; }
-        if (a == "--version")               { std::printf("sbaudio 34 (audio.md Rev 34)\n");
+        if (a == "--version")               { std::printf("sbaudio %s\n", sbaudio_version());
                                               exit_now = true; return true; }
 
         if (a == "--no-realtime")           { o.no_rt = true; continue; }
@@ -192,12 +281,13 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         if (!want(argc, i, 1, a.c_str())) return false;
 
         if      (a == "--card")           { o.card = nx; ++i; }
-        else if (a == "--period")         { o.period = (unsigned)atoi(nx); ++i; }
-        else if (a == "--periods")        { o.periods = (unsigned)atoi(nx); ++i; }
+        else if (a == "--period")         { if (!num(a, nx, o.period, 16, 8192)) return false; ++i; }
+        else if (a == "--periods")        { if (!num(a, nx, o.periods, 2, 32)) return false; ++i; }
         else if (a == "--broker")         { std::string b = nx; ++i;
                                             const size_t c = b.rfind(':');
                                             if (c != std::string::npos) {
-                                                o.port = atoi(b.substr(c + 1).c_str());
+                                                if (!num(a, b.substr(c + 1).c_str(), o.port, 1, 65535))
+                                                    return false;
                                                 b = b.substr(0, c);
                                             }
                                             o.broker = b; }
@@ -206,20 +296,20 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         else if (a == "--mqtt-pass-file") { o.pass_file = nx; ++i; }
         else if (a == "--client-id")      { o.client_id = nx; ++i; }
         else if (a == "--wav-dir")        { o.wav_dir = nx; ++i; }
-        else if (a == "--max-file")       { o.max_file = atof(nx); ++i; }
+        else if (a == "--max-file")       { if (!num(a, nx, o.max_file)) return false; ++i; }
         else if (a == "--record-dir")     { o.record_dir = nx; ++i; }
-        else if (a == "--record-max")     { o.record_max = atof(nx); ++i; }
+        else if (a == "--record-max")     { if (!num(a, nx, o.record_max)) return false; ++i; }
         else if (a == "--record-line")    { if (!parse_record_line(nx, o.record_line)) return false;
                                             ++i; }
-        else if (a == "--pilot-db")       { o.pilot_db = atof(nx); ++i; }
-        else if (a == "--op-db")          { o.op_db = atof(nx); ++i; }
-        else if (a == "--tone-db")        { o.tone_db = atof(nx); ++i; }
-        else if (a == "--tone-mod")       { o.tone_mod = atof(nx); ++i; }
-        else if (a == "--test-db")        { o.test_db = atof(nx); ++i; }
-        else if (a == "--margin-db")      { o.margin_db = atof(nx); ++i; }
-        else if (a == "--peer-window-db") { o.peer_window_db = atof(nx); ++i; }
-        else if (a == "--op-window-db")   { o.op_window_db = atof(nx); ++i; }
-        else if (a == "--monitor")        { o.monitor_on = true; o.monitor_db = atof(nx); ++i; }
+        else if (a == "--pilot-db")       { if (!num(a, nx, o.pilot_db)) return false; ++i; }
+        else if (a == "--op-db")          { if (!num(a, nx, o.op_db)) return false; ++i; }
+        else if (a == "--tone-db")        { if (!num(a, nx, o.tone_db)) return false; ++i; }
+        else if (a == "--tone-mod")       { if (!num(a, nx, o.tone_mod)) return false; ++i; }
+        else if (a == "--test-db")        { if (!num(a, nx, o.test_db)) return false; ++i; }
+        else if (a == "--margin-db")      { if (!num(a, nx, o.margin_db)) return false; ++i; }
+        else if (a == "--peer-window-db") { if (!num(a, nx, o.peer_window_db)) return false; ++i; }
+        else if (a == "--op-window-db")   { if (!num(a, nx, o.op_window_db)) return false; ++i; }
+        else if (a == "--monitor")        { o.monitor_on = true; if (!num(a, nx, o.monitor_db)) return false; ++i; }
         else if (a == "--monitor-ch")     { if (!parse_monitor_ch(nx, o.monitor_ch)) return false;
                                             ++i; }
         else if (a == "--monitor-src")    { o.monitor_src = chan::monitor_source_channel(nx); ++i;
@@ -230,29 +320,31 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
                                                              chan::N_TRUNKS);
                                                 return false;
                                             } }
-        else if (a == "--monitor-tap-trim"){ o.monitor_tap_trim_db = atof(nx); ++i; }
-        else if (a == "--monitor-file-trim"){ o.monitor_file_trim_db = atof(nx); ++i; }
-        else if (a == "--monitor-limit")  { o.monitor_limit_db = atof(nx); ++i; }
-        else if (a == "--monitor-gate")   { o.monitor_gate_db = atof(nx); ++i; }
-        else if (a == "--monitor-gate-hold"){ o.monitor_gate_hold = atof(nx); ++i; }
-        else if (a == "--monitor-peer-max")  { o.monitor_peer_max_db = atof(nx); ++i; }
-        else if (a == "--monitor-peer-start"){ o.monitor_peer_start_db = atof(nx); ++i; }
+        else if (a == "--monitor-tap-trim"){ if (!num(a, nx, o.monitor_tap_trim_db)) return false; ++i; }
+        else if (a == "--monitor-file-trim"){ if (!num(a, nx, o.monitor_file_trim_db)) return false; ++i; }
+        else if (a == "--monitor-limit")  { if (!num(a, nx, o.monitor_limit_db)) return false; ++i; }
+        else if (a == "--monitor-gate")   { if (!num(a, nx, o.monitor_gate_db)) return false; ++i; }
+        else if (a == "--monitor-gate-hold"){ if (!num(a, nx, o.monitor_gate_hold)) return false; ++i; }
+        else if (a == "--monitor-peer-max")  { if (!num(a, nx, o.monitor_peer_max_db)) return false; ++i; }
+        else if (a == "--monitor-peer-start"){ if (!num(a, nx, o.monitor_peer_start_db)) return false; ++i; }
         else if (a == "--monitor-lp")     { if (!want(argc, i, 3, "--monitor-lp")) return false;
-                                            o.lp_pass = atof(argv[i + 1]);
-                                            o.lp_stop = atof(argv[i + 2]);
-                                            o.lp_att  = atof(argv[i + 3]); i += 3; }
-        else if (a == "--vad-margin")     { o.vad_margin = atof(nx); ++i; }
-        else if (a == "--vad-floor")      { o.vad_floor = atof(nx); ++i; }
-        else if (a == "--vad-hangover")   { o.vad_hangover = atof(nx); ++i; }
-        else if (a == "--vad-max-speech") { o.vad_max_speech = atof(nx); ++i; }
+                                            if (!num(a, argv[i + 1], o.lp_pass) ||
+                                                !num(a, argv[i + 2], o.lp_stop) ||
+                                                !num(a, argv[i + 3], o.lp_att)) return false;
+                                            i += 3; }
+        else if (a == "--vad-margin")     { if (!num(a, nx, o.vad_margin)) return false; ++i; }
+        else if (a == "--vad-floor")      { if (!num(a, nx, o.vad_floor)) return false; ++i; }
+        else if (a == "--vad-hangover")   { if (!num(a, nx, o.vad_hangover)) return false; ++i; }
+        else if (a == "--vad-max-speech") { if (!num(a, nx, o.vad_max_speech)) return false; ++i; }
         else if (a == "--aec")            { const std::string v = nx; ++i;
                                             if (v == "on") o.aec = true;
                                             else if (v == "off") o.aec = false;
                                             else { std::fprintf(stderr, "--aec: on or off\n"); return false; } }
-        else if (a == "--aec-delay")      { o.aec_delay = atof(nx); ++i; }
+        else if (a == "--aec-delay")      { if (!num(a, nx, o.aec_delay)) return false; ++i; }
         else if (a == "--dump")           { if (!want(argc, i, 2, "--dump")) return false;
                                             o.dump_circuit  = argv[i + 1];
-                                            o.dump_seconds  = atof(argv[i + 2]); i += 2; }
+                                            if (!num(a, argv[i + 2], o.dump_seconds)) return false;
+                                            i += 2; }
         else if (a == "--window")         { const std::string w = nx; ++i;
                                             if (w == "hann")      o.hann = true;
                                             else if (w == "rect") o.hann = false;
@@ -271,12 +363,16 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
     }
 
     if (o.card.empty()) {
-        std::fprintf(stderr, "--card is required: the card id from /proc/asound/cards "
-                             "(the Digiface here is USB24306452)\n");
-        return false;
+        std::ifstream f("/proc/asound/cards");
+        const std::string cards((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        std::string why;
+        o.card = find_card(cards, "Digiface", why);
+        if (o.card.empty()) {
+            std::fprintf(stderr, "no --card, and %s; give the card id from "
+                                 "/proc/asound/cards\n", why.c_str());
+            return false;
+        }
     }
-    if (o.period < 16 || o.period > 8192) { std::fprintf(stderr, "--period out of range\n"); return false; }
-    if (o.periods < 2 || o.periods > 32)  { std::fprintf(stderr, "--periods out of range\n"); return false; }
     if (o.tone_mod < 0.0 || o.tone_mod > 1.0) { std::fprintf(stderr, "--tone-mod must be 0..1\n"); return false; }
     // audio.md Rev 9: the trim is limited, but the commanded gain plus the trim
     // is deliberately not - clamping the sum would cap the tap at a lower

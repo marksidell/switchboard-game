@@ -90,6 +90,8 @@ class Recorder {
 public:
     explicit Recorder(Shared& sh) : sh_(sh) {}
     ~Recorder();
+    Recorder(const Recorder&) = delete;
+    Recorder& operator=(const Recorder&) = delete;
 
     // prepare()                                                      [startup]
     //   Allocates the ring and the transfer buffer.
@@ -140,6 +142,8 @@ class Player {
 public:
     explicit Player(Shared& sh) : sh_(sh) {}
     ~Player();
+    Player(const Player&) = delete;
+    Player& operator=(const Player&) = delete;
 
     // start()                                                           [mqtt]
     //   Plays <record-dir>/<name>.wav on the loudspeaker in place of the

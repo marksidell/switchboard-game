@@ -67,14 +67,13 @@ struct FileResult {
 // or limiter state.
 bool run_one(const Args& a, const std::string& base, FileResult& r)
 {
-    AudioBuffer* buf = nullptr;
+    std::unique_ptr<AudioBuffer> own;
     double hf = 0.0;
-    const LoadResult lr = load_wav(a.dir, base, 600.0, buf, hf);
+    const LoadResult lr = load_wav(a.dir, base, 600.0, own, hf);
     if (lr != LoadResult::Ok) {
         std::printf("%s: %s\n", base.c_str(), load_result_text(lr));
         return false;
     }
-    std::unique_ptr<AudioBuffer> own(buf);
 
     constexpr unsigned PERIOD = 48;                 // 1ms, the resolution of muted_ms
     const int src = chan::trunk_slot(1);
