@@ -67,7 +67,7 @@ class Dial:
 # Left to right under the strip. The page's steppers and §5.4's ranges.
 DIALS = (Dial("gap", 5, 0, 600, "s"), Dial("ramp", 1, 0, 60, "s"),
          Dial("floor", 1, 0, 600, "s"), Dial("jitter", 10, 0, 100, "%"))
-# In listen the first dial sets listen's own value and the others rest (Rev 17).
+# In listen the first dial sets listen's own value and the others rest.
 PAUSE = Dial("pause", 1, 0, 60, "s")
 
 # Colours, the page's where it has one (style.css :root).
@@ -83,18 +83,18 @@ VIOLET = (124, 92, 255)
 BLUE = (59, 110, 165)
 TEAL = (38, 128, 128)        # the deck's own: sweeps and the tutor's Help keys
 
-# The pacing key cycles in this order and shows all four (three until Rev 32), the echoed one lit
-# (§10, Rev 16), so the choices are on the key and not in the manual.
+# The pacing key cycles in this order and shows all four, the echoed one lit
+# (§10), so the choices are on the key and not in the manual.
 PACES = (("tutor", "Tutor"), ("manual", "Manual"), ("auto", "Auto"), ("listen", "Listen"))
 
 
 Command = tuple[str, str, int]           # topic under sbgame/, payload, QoS
 
-# Keys 5 and 6 (0-based 4 and 5), double-pressed: a board sweep (§11.5, Rev 62).
+# Keys 5 and 6 (0-based 4 and 5), double-pressed: a board sweep (§11.5).
 SWEEP_KEYS = {4: "trunks", 5: "stations"}
 
 # Key 5 held this long with no game and no sweep: the switchboard reset,
-# game/power_cut/set (§10, Rev 63).
+# game/power_cut/set (§10).
 RESET_KEY = 4
 RESET_HOLD = 2.0
 
@@ -123,9 +123,9 @@ class Panel:
         self.targets: list[list[float] | None] = [None] * len(DIALS)
         # The pacing key's target, as a dial's: [pace, time of the press].
         self.pace_target: tuple[str, float] | None = None
-        # The last press of a sweep key (§11.5, Rev 62): [key, time].
+        # The last press of a sweep key (§11.5): [key, time].
         self.last_sweep_press: tuple[int, float] | None = None
-        # When key 5 went down for a switchboard reset (Rev 63), or None.
+        # When key 5 went down for a switchboard reset, or None.
         self.reset_down: float | None = None
 
     # -- reading --
@@ -169,7 +169,7 @@ class Panel:
         return not self.broker_up or self.get("ctl/audio_status") != "online"
 
     def intro_part(self) -> tuple[int, int] | None:
-        """Her introduction's part now, and how many (§7, Rev 31), or None."""
+        """Her introduction's part now, and how many (§7), or None."""
         try:
             n, of = (int(x) for x in self.get("game/tutor/intro").split("/"))
         except ValueError:
@@ -177,8 +177,8 @@ class Panel:
         return n, of
 
     def more_shown(self) -> bool:
-        """Key 8 is More Help: in her introduction (Rev 32), or while a short
-        line of hers waits on the player, to hear it in full (Rev 55)."""
+        """Key 8 is More Help: in her introduction, or while a short
+        line of hers waits on the player, to hear it in full."""
         return self.intro_part() is not None or bool(self.get("game/tutor/more"))
 
     def more_live(self, now: float) -> bool:
@@ -187,11 +187,11 @@ class Panel:
         part = self.intro_part()
         if part is not None:
             return part[0] < part[1]
-        # As Repeat Help is: dark while she speaks (Rev 55).
+        # As Repeat Help is: dark while she speaks.
         return bool(self.get("game/tutor/more")) and not self.tutor_speaking()
 
     def flash(self, now: float, *waiting: str) -> bool:
-        """Whether a key that flashes while the tutor waits (§7, Rev 33)
+        """Whether a key that flashes while the tutor waits (§7)
         is in its dark half now: once a second, while game/tutor/waiting is
         one of `waiting`."""
         return (self.get("game/tutor/waiting") in waiting and not self.tutor_speaking()
@@ -200,10 +200,10 @@ class Panel:
     def tutor_speaking(self) -> bool:
         """Her voice is on the loudspeaker now (audio.md §10.4)."""
         p = self.get("audio/monitor/play")
-        return p not in ("", "missing") and not p.startswith("cue.")   # not the ring cue (Rev 51)
+        return p not in ("", "missing") and not p.startswith("cue.")   # not the ring cue
 
     def repeat_shown(self) -> bool:
-        """Key 7 is Repeat Help (§7, Rev 34)."""
+        """Key 7 is Repeat Help (§7)."""
         return bool(self.get("game/tutor/repeat"))
 
     def repeat_live(self, now: float) -> bool:
@@ -237,9 +237,9 @@ class Panel:
 
         if key == "audio/monitor/play" and payload != old and not (
                 payload.startswith("cue.") or old.startswith("cue.")):
-            self.repeat_guard_until = 0.0  # she began, or finished (Rev 34)
+            self.repeat_guard_until = 0.0  # she began, or finished
         if key in ("game/tutor/intro", "game/tutor/more") and payload != old:
-            self.more_guard_until = 0.0  # her next part began (Rev 31), or the line changed
+            self.more_guard_until = 0.0  # her next part began, or the line changed
         if key == "game/started" and payload != old:
             self.next_guard_until = 0.0  # the call started (§5.1)
         elif key == "game/error" and payload and payload != old:
@@ -260,7 +260,7 @@ class Panel:
     def on_key(self, key: int, now: float) -> list[Command]:
         """Key 0-7 pressed. Returns what to publish."""
         if key == 6 and self.repeat_shown():
-            # Repeat Help (Rev 34): dark while she speaks, and for a second
+            # Repeat Help: dark while she speaks, and for a second
             # after a press or until her voice starts, so a double press
             # does not say it twice.
             if not self.repeat_live(now):
@@ -268,8 +268,8 @@ class Panel:
             self.repeat_guard_until = now + 1.0
             return [("game/repeat/set", "", 0)]
         if key == 7 and self.more_shown():
-            # More Help while she introduces the board (Rev 31, key 8 from
-            # Rev 32), or on a short line (Rev 55), guarded as Next Call is:
+            # More Help while she introduces the board, or on a short line,
+            # guarded as Next Call is:
             # dark until her next part begins or the line changes, or 3s.
             if not self.more_live(now):
                 return []
@@ -316,7 +316,7 @@ class Panel:
 
     def _reset_allowed(self, now: float) -> bool:
         """A hold on key 5 counts only with no sweep and a game program to
-        send it to (§10, Rev 63); during a game too, from Rev 66."""
+        send it to (§10), during a game too."""
         return not (self.game_stale(now) or self.get("game/sweep"))
 
     def on_key_up(self, key: int, now: float) -> None:
@@ -345,7 +345,7 @@ class Panel:
     def _sweep_key(self, key: int, now: float) -> list[Command]:
         """Keys 5 and 6 double-pressed start a board sweep with no game
         running; either double-pressed during one stops it, and so does a
-        single press of the running sweep's own key (§11.5, Rev 62). A single
+        single press of the running sweep's own key (§11.5). A single
         press otherwise does nothing."""
         if (self.get("game/sweep") == SWEEP_KEYS[key]
                 and not self.game_stale(now) and not self.running()):
@@ -367,7 +367,7 @@ class Panel:
             return []
         d = self.dial(dial)
         if d is None:
-            return []                    # resting in listen (Rev 17)
+            return []                    # resting in listen
         t = self.targets[dial]
         if t is None or now - t[1] > DIAL_HOLD:
             base = self.num(f"game/{d.name}")
@@ -418,7 +418,7 @@ class Panel:
             if i:
                 d.line((x0, 10, x0, STRIP_H - 10), fill=GREY, width=1)
             # In listen the rest show auto's values, dimmer than manual's,
-            # since no dial reaches them (Rev 17, Rev 18).
+            # since no dial reaches them.
             dl = self.dial(i) or DIALS[i]
             v = self.num(f"game/{dl.name}")
             active = not stale and self.auto() and self.dial(i) is not None
@@ -454,7 +454,7 @@ class Panel:
         img = Image.new("RGB", (KEY_PX, KEY_PX), PANEL if stale else BG)
         d = ImageDraw.Draw(img)
         for i, (name, label) in enumerate(PACES):
-            y = 2 + i * 29                   # four rows from Rev 32
+            y = 2 + i * 29
             if name == pace and not stale:
                 d.rounded_rectangle((4, y, KEY_PX - 4, y + 27), 6, fill=BLUE)
             ink = GREY if stale else (INK if name == pace else DIM)
@@ -487,9 +487,9 @@ class Panel:
         return _key("Sweep", kind, fill=TEAL, ink=INK, size=30)
 
     def _k_calls(self, now: float) -> Image.Image:
-        if self.get("ctl/power_cut") == "on":            # Rev 63, whoever sent it
+        if self.get("ctl/power_cut") == "on":            # whoever sent it
             return _key("Switchboard", "reset", fill=DANGER, ink=INK, size=22)
-        if self.get("ctl/power_cut") == "hold":          # Rev 65: off from the page
+        if self.get("ctl/power_cut") == "hold":          # off from the page
             return _key("Switchboard", "off", fill=DANGER, ink=INK, size=22)
         if (img := self._k_sweep(4, now)) is not None:
             return img
@@ -509,7 +509,7 @@ class Panel:
                      ("fail", str(self._tally("game/fail"))), ink)
 
     def _k_pct(self, now: float) -> Image.Image:
-        if self.repeat_shown():          # Repeat Help (§7, Rev 34)
+        if self.repeat_shown():          # Repeat Help (§7)
             live = self.repeat_live(now)
             return _key("Repeat", "Help", fill=TEAL if live else PANEL,
                         ink=INK if live else GREY)
@@ -519,8 +519,8 @@ class Panel:
         return _key(pct, "success", fill=BG, ink=ink, size=40)
 
     def _k_health(self, now: float) -> Image.Image:
-        # More Help while the tutor introduces the board (Rev 32), or on a
-        # short line of hers (Rev 55).
+        # More Help while the tutor introduces the board, or on a
+        # short line of hers.
         if self.more_shown():
             live = self.more_live(now)
             if live and self.flash(now, "more"):
@@ -740,8 +740,15 @@ class DeckSurface:
 
 # ---- the program -----------------------------------------------------------
 
+Frame = list[tuple[str, bytes, Image.Image]]     # (key or strip, its pixels, image)
+
+
 class Drawer:
-    """Sends only the images that changed since they were last sent."""
+    """Sends only the images that changed since they were last sent.
+
+    render() reads the Panel, so it runs on the event loop; push() does the
+    slow USB writes, on a thread, with images nothing else holds.
+    """
 
     def __init__(self, surface: Surface) -> None:
         self.surface = surface
@@ -750,16 +757,26 @@ class Drawer:
     def forget(self) -> None:
         self._sent.clear()               # a new deck: draw everything
 
-    def draw(self, panel: Panel, now: float) -> None:
-        for i, img in enumerate(panel.keys(now)):
-            self._send(f"k{i}", img, lambda im, i=i: self.surface.set_key(i, im))
-        self._send("strip", panel.strip(now), self.surface.set_strip)
+    def render(self, panel: Panel, now: float) -> Frame:
+        images = [(f"k{i}", img) for i, img in enumerate(panel.keys(now))]
+        images.append(("strip", panel.strip(now)))
+        out = []
+        for name, img in images:
+            raw = img.tobytes()
+            if self._sent.get(name) != raw:
+                out.append((name, raw, img))
+        return out
 
-    def _send(self, name: str, img: Image.Image, put) -> None:
-        raw = img.tobytes()
-        if self._sent.get(name) != raw:
-            put(img)
+    def push(self, frame: Frame) -> None:
+        for name, raw, img in frame:
+            if name == "strip":
+                self.surface.set_strip(img)
+            else:
+                self.surface.set_key(int(name[1:]), img)
             self._sent[name] = raw
+
+    def draw(self, panel: Panel, now: float) -> None:
+        self.push(self.render(panel, now))
 
 
 async def run(args: argparse.Namespace) -> int:
@@ -790,7 +807,13 @@ async def run(args: argparse.Namespace) -> int:
                 log.info("no broker; dropped %s", topic)
                 return
             log.info("%s %r", topic, payload)
-            await client.publish(PREFIX + topic, payload, qos=qos, retain=False)
+            try:
+                await client.publish(PREFIX + topic, payload, qos=qos, retain=False)
+            except aiomqtt.MqttError as e:
+                # The connection going: broker() reconnects. Not a reason to
+                # end the task that pressed the key.
+                log.warning("dropped %s: %s", topic, e)
+                return
 
     async def broker() -> None:
         nonlocal client
@@ -842,7 +865,7 @@ async def run(args: argparse.Namespace) -> int:
         # and the timeouts above tick on their own.
         have = False
         while True:
-            # Faster while key 5 is held, for its bar and its 2s mark (Rev 63).
+            # Faster while key 5 is held, for its bar and its 2s mark.
             wait = 0.1 if panel.reset_down is not None else 0.5
             try:
                 await asyncio.wait_for(dirty.wait(), wait)
@@ -862,7 +885,7 @@ async def run(args: argparse.Namespace) -> int:
                 drawer.forget()
                 have = True
             try:
-                await asyncio.to_thread(drawer.draw, panel, now)
+                await asyncio.to_thread(drawer.push, drawer.render(panel, now))
             except Exception as e:       # unplugged mid-write
                 log.warning("draw: %s", e)
                 if deck is not None:

@@ -5,9 +5,11 @@ before anything connects, so a bad script.yml is a refusal to start with the
 faults listed, rather than a program that runs and cannot deal a call
 (game_control.md §12.1).
 
-Then one task each for the link, the scheduler and the client watchdog, and a
-clean shutdown on SIGINT or SIGTERM — which under systemd is what `stop` and
-`restart` send. A clean exit publishes `ctl/game_status` `"offline"` itself: a
+Then one task each for the link, the scheduler, the client watchdog and the
+free calls, and a clean shutdown on SIGINT or SIGTERM — which under systemd is
+what `stop` and `restart` send. Those tasks run for the life of the program, so
+one that ends has failed: the program says which and exits non-zero, and
+systemd starts it again, rather than running on without it. A clean exit publishes `ctl/game_status` `"offline"` itself: a
 will fires only when a client vanishes, and a normal disconnect does not
 trigger it (mqtt.md §8.4).
 """
@@ -52,7 +54,7 @@ async def run(cfg: Config) -> int:
     board = Board()
 
     # Before anything connects: a bad script is a refusal to start, with every
-    # fault named, not one at a time (tts_task.md §3.1).
+    # fault named, not one at a time (docs/tts_task.md §3.1).
     try:
         gs = build(cfg.resolved("script"), cfg.resolved("wav_dir"))
     except ScriptError as e:
@@ -95,9 +97,9 @@ async def run(cfg: Config) -> int:
         asyncio.create_task(link.run(), name="link"),
         asyncio.create_task(game.run_scheduler(), name="scheduler"),
         asyncio.create_task(game.watch_clients(), name="clients"),
-        asyncio.create_task(game.free.run(), name="free-calls"),     # §8, Rev 74
+        asyncio.create_task(game.free.run(), name="free-calls"),     # §8
     ]
-    if cfg.ring_cue:                                # §9.2, Rev 51
+    if cfg.ring_cue:                                # §9.2
         if (cfg.resolved("wav_dir") / f"{cue.CUE}.wav").is_file():
             tasks.append(asyncio.create_task(cue.RingCue(board, Hw(link)).run(), name="ring-cue"))
         else:
@@ -105,8 +107,19 @@ async def run(cfg: Config) -> int:
                         cue.CUE, cfg.resolved("wav_dir"))
     log.info("running; broker %s:%d as %s",
              cfg.broker_host, cfg.broker_port, cfg.username)
+    rc = 0
+    stop = asyncio.create_task(stopping.wait(), name="signal")
     try:
-        await stopping.wait()
+        done, _ = await asyncio.wait([stop, *tasks], return_when=asyncio.FIRST_COMPLETED)
+        for t in done:
+            if t is stop:
+                continue
+            rc = 1
+            err = None if t.cancelled() else t.exception()
+            if err is not None:
+                log.error("%s failed", t.get_name(), exc_info=err)
+            else:
+                log.error("%s ended", t.get_name())
         log.info("stopping")
         # Tear down a game in progress first, so the controller and the audio
         # program are left idle rather than holding a call we walked away from.
@@ -114,14 +127,14 @@ async def run(cfg: Config) -> int:
         await game.free.close()
         try:
             await asyncio.wait_for(link.state("ctl/game_status", "offline"), 2)
-        except (Exception, asyncio.TimeoutError) as e:
+        except Exception as e:
             log.warning("could not say goodbye: %s", e)
     finally:
-        for t in tasks:
+        for t in (stop, *tasks):
             t.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
+        await asyncio.gather(stop, *tasks, return_exceptions=True)
         await session.close()
-    return 0
+    return rc
 
 
 def main(argv: list[str] | None = None) -> int:
