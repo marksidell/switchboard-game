@@ -4,7 +4,8 @@
  * Every number the firmware's behaviour depends on lives here or in sb_table.cpp,
  * so a reader checking the firmware against control.md does not have to search for
  * the value that implements a given threshold. Each constant carries the section
- * of control.md or mqtt.md it comes from.
+ * of control.md or mqtt.md it comes from. The waveform arithmetic, which
+ * ring_generator.md owns, is in sb_ring.h.
  * ========================================================================== */
 
 #pragma once
@@ -56,10 +57,10 @@ static constexpr uint8_t PHONE_STATION  = 24;              // the real telephone
 static constexpr uint8_t N_STATION_ROWS = N_STATIONS + 1;  // and its row, the 23rd
 static constexpr uint8_t N_TRUNKS       = 8;
 
-/* ---- Pins (control.md 3; generator 3.1/3.2 is the authority) ---------------
- * PIN_PWM_A/B, PIN_SD and PIN_ENBL are declared in control.ino, which owns the
- * waveform. The I2C pins, /RESET and the power cut are here because their
- * drivers are separate translation units.
+/* ---- Pins (control.md 3; ring_generator.md §3.1/3.2 is the authority) -------
+ * PIN_PWM_A/B, PIN_SD and PIN_ENBL are in sb_ring.h, with the waveform. The
+ * I2C pins, /RESET and the power cut are here because their drivers are
+ * separate translation units.
  * ------------------------------------------------------------------------- */
 static constexpr int PIN_EXP_RESET = 5;     // expander /RESET, active LOW, idles HIGH.
                                             // Strapping pin - must be high at boot.
@@ -110,6 +111,12 @@ static constexpr uint32_t PULSE_BREAK_MAX_MS   = 100;   // open, above this is n
 static constexpr uint32_t DIGIT_END_MAKE_MS    = 200;   // closed, after >= 1 pulse
 static constexpr uint32_t RELEASE_OPEN_MS      = 250;   // open, trunk released
 static constexpr uint32_t RING_BREAK_GAP_MS    =  60;   // successive breaks this close = ring
+/* A ring pattern is declared on two consecutive break-to-break gaps of 60ms or
+ * less, not one: a single interval measured at 5ms granularity sits only one
+ * sample clear of a 15 pps dial, 67ms. Two cost 50ms of latency on a fault
+ * report and cannot be produced by any dial in the 8.2 table. */
+static constexpr uint8_t  RING_SHORT_GAPS_TO_DECLARE = 2;
+static constexpr uint32_t RING_PATTERN_TIMEOUT_MS = 150; // no break for three ring periods: stopped
 static constexpr uint8_t  MAX_DIAL_PULSES      =  10;   // ten pulses is "0"; eleven is a fault
 
 /* ---- Trunk ring cadence and guards (control.md 8.4, 8.5) ------------------ */
@@ -135,12 +142,23 @@ static constexpr uint32_t    GAME_HEARTBEAT_TIMEOUT_MS = 2000;  // two missed be
 static constexpr uint32_t    STATE_REPUBLISH_MS = 30000; // 9.2 slow timer
 static constexpr uint32_t    MQTT_RECONNECT_MIN_MS = 500;
 static constexpr uint32_t    MQTT_RECONNECT_MAX_MS = 8000;
+static constexpr uint32_t    MQTT_BOOT_WAIT_MS = 6000;   // 4.2 step 7: bounded, then loop() retries
+
+/* ---- Ring waveform start, stop and enable (control.md 4.2, 4.3) ----------- */
+static constexpr uint32_t ENBL_DEBOUNCE_MS     =   20;   // GPIO4 level must hold this long
+static constexpr uint32_t RING_FIRST_TICK_US   = 5000;   // start refused without a step tick
+static constexpr uint32_t RING_STOP_WAIT_US    = 5000;   // bound on waiting out a step in flight
 
 /* ---- Expander /RESET (control.md 6.2) ------------------------------------- */
 static constexpr uint32_t EXP_RESET_HOLD_MS   = 2;   // "at least 1ms", chosen safe;
                                                      // the datasheet figure is an
                                                      // open item in control.md 11.
 static constexpr uint32_t EXP_RESET_SETTLE_MS = 5;
+
+/* A single NAK can be noise on a daisy-chained bus with 2.2k pull-ups and six
+ * feet of 6P6C cord. Three consecutive failures on the same device is a fault;
+ * one is a glitch to log and retry (control.md 6.2, 10). */
+static constexpr uint8_t BUS_FAULT_THRESHOLD = 3;
 
 /* How often a bus fault is retried (control.md 10). An absent expander is
  * polled by nobody, so nothing on the bus can report it back: the retry is

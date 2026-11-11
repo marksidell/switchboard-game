@@ -47,18 +47,6 @@ void stationInit() {
   }
 }
 
-/* Publish `ring` or `hook` if the value differs from what was last sent.
- * mqtt.md 2: the ESP32 publishes debounced state changes only, never the raw
- * pulse train - a ringing station is a 40Hz train at the detector and one
- * message on the bus. */
-static void publishIfChanged(const CircuitMap& c, const char* leaf,
-                             bool value, int8_t& cache) {
-  const int8_t now = value ? 1 : 0;
-  if (cache == now) return;
-  cache = now;
-  netPublishState(c, leaf, value ? "on" : "off");
-}
-
 /* The digits still to finish, the echo on `dial`. */
 static void publishDial(const CircuitMap& c, const StationState& s) {
   netPublishState(c, "dial", s.dial_phase == DIAL_IDLE ? "" : s.dial + s.dial_pos);
@@ -133,11 +121,11 @@ static void phonePoll(const CircuitMap& c, StationState& s, bool raw, uint32_t n
   }
   if (s.ring && elapsedMs(now_ms, s.last_trans_ms) >= RING_RELEASE_QUIET_MS)
     s.ring = false;
-  publishIfChanged(c, "ring", s.ring, s.ring_pub);
+  netPublishBoolIfChanged(c, "ring", s.ring, s.ring_pub);
 
   if (!s.ring && elapsedMs(now_ms, s.last_trans_ms) >= PHONE_HOOK_STABLE_MS)
     s.lifted = !raw;
-  publishIfChanged(c, "lifted", s.lifted, s.lifted_pub);
+  netPublishBoolIfChanged(c, "lifted", s.lifted, s.lifted_pub);
 }
 
 void stationPoll(uint32_t now_ms) {
@@ -175,33 +163,23 @@ void stationPoll(uint32_t now_ms) {
       s.filled = 0;
     }
 
-    publishIfChanged(c, "ring", s.ring, s.ring_pub);
+    netPublishBoolIfChanged(c, "ring", s.ring, s.ring_pub);
   }
 }
 
 void stationSetHook(uint8_t n, bool on) {
-  const CircuitMap* c = stationCircuit(n);
-  if (!c) { Serial.printf("hook/set: station %u out of range\n", (unsigned)n); return; }
-  if (!circuitLive(*c)) {
-    Serial.printf("hook/set: station %u dropped - expander 0x%02X absent\n",
-                  (unsigned)n, expanders[c->exp].addr);
-    return;
-  }
+  const CircuitMap* c = commandCircuit("hook/set", Kind::Station, n);
+  if (!c) return;
   StationState& s = st[stationRow(n)];
   stopDial(*c, s, true);                   // a hook command ends any dialling (7.3)
   s.hook = on;
   circuitSetRelay(*c, on);                 // 1 = off-hook, loop closed through R3
-  publishIfChanged(*c, "hook", s.hook, s.hook_pub);
+  netPublishBoolIfChanged(*c, "hook", s.hook, s.hook_pub);
 }
 
 void stationDial(uint8_t n, const char* digits) {
-  const CircuitMap* c = stationCircuit(n);
-  if (!c) { Serial.printf("dial/set: station %u out of range\n", (unsigned)n); return; }
-  if (!circuitLive(*c)) {
-    Serial.printf("dial/set: station %u dropped - expander 0x%02X absent\n",
-                  (unsigned)n, expanders[c->exp].addr);
-    return;
-  }
+  const CircuitMap* c = commandCircuit("dial/set", Kind::Station, n);
+  if (!c) return;
   if (n == PHONE_STATION) {               // 7.4: the relay does not carry the loop
     Serial.printf("dial/set: station %u is the telephone - dropped\n", (unsigned)n);
     return;

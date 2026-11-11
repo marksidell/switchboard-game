@@ -68,6 +68,11 @@ const CircuitMap* stationCircuit(uint8_t n);   // n = 1-22 or 24, nullptr otherw
 int               stationRow(uint8_t n);       // its row, 0-22, or -1
 const CircuitMap* trunkCircuit(uint8_t n);     // n = 1-8
 
+/* The circuit a command names, or nullptr after logging why there is none:
+ * the number is out of range, or its expander is absent (control.md 9.4).
+ * `cmd` names the topic in the log. */
+const CircuitMap* commandCircuit(const char* cmd, Kind kind, uint8_t n);
+
 /* True when this circuit's expander answered the scan. Commands for a circuit
  * whose expander is absent are logged and dropped (control.md 9.4), and state is
  * not published for one whose value the firmware cannot know. */

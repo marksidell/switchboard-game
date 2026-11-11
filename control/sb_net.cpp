@@ -16,11 +16,7 @@
  * small message. 512 is generous and costs nothing worth counting. */
 static MQTTClient mqtt(512);
 
-#if ESP_ARDUINO_VERSION_MAJOR >= 3
 static NetworkClient net_client;
-#else
-static WiFiClient net_client;
-#endif
 
 static bool     just_connected  = false;
 static bool     sync_requested  = false;
@@ -107,6 +103,14 @@ void netPublishState(const CircuitMap& c, const char* leaf, const char* payload)
   if (!mqtt.publish(topic, payload, /*retained=*/true, /*qos=*/1))
     Serial.printf("mqtt: %s \"%s\" publish failed, error %d\n",
                   topic, payload, (int)mqtt.lastError());
+}
+
+void netPublishBoolIfChanged(const CircuitMap& c, const char* leaf,
+                             bool value, int8_t& cache) {
+  const int8_t now = value ? 1 : 0;
+  if (cache == now) return;
+  cache = now;
+  netPublishState(c, leaf, value ? "on" : "off");
 }
 
 void netPublishEvent(const CircuitMap& c, const char* leaf, const char* payload) {

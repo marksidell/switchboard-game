@@ -92,7 +92,7 @@ void setup() {
    * whenever GPIO4 is low (8.5), so a broker that is down must not keep the
    * ring bus dark. If the connection does not come up here, netService() in
    * loop() keeps trying and the birth sequence runs on the connect edge. */
-  const uint32_t mqtt_wait_until = millis() + 6000;
+  const uint32_t mqtt_wait_until = millis() + MQTT_BOOT_WAIT_MS;
   while (!netConnected() && millis() < mqtt_wait_until) {
     netService(millis());
     delay(10);

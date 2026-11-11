@@ -23,11 +23,6 @@ static constexpr uint8_t REG_INTFA  = 0x0E;
 static constexpr uint8_t REG_GPIOA  = 0x12;
 static constexpr uint8_t REG_OLATB  = 0x15;
 
-/* A single NAK can be noise on a daisy-chained bus with 2.2k pull-ups and six
- * feet of 6P6C cord. Three consecutive failures on the same device is a fault;
- * one is a glitch to log and retry. control.md 6.2 and 10 both give the three. */
-static constexpr uint8_t BUS_FAULT_THRESHOLD = 3;
-
 static uint8_t consecutive_errors[N_EXPANDERS];
 static bool    bus_fault = false;
 

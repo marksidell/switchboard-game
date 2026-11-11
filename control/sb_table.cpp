@@ -89,6 +89,22 @@ const CircuitMap* trunkCircuit(uint8_t n) {
   return &circuits[N_STATION_ROWS + n - 1];         // trunks occupy rows 23..30
 }
 
+const CircuitMap* commandCircuit(const char* cmd, Kind kind, uint8_t n) {
+  const bool station = kind == Kind::Station;
+  const char* name = station ? "station" : "trunk";
+  const CircuitMap* c = station ? stationCircuit(n) : trunkCircuit(n);
+  if (!c) {
+    Serial.printf("%s: %s %u out of range\n", cmd, name, (unsigned)n);
+    return nullptr;
+  }
+  if (!circuitLive(*c)) {
+    Serial.printf("%s: %s %u dropped - expander 0x%02X absent\n",
+                  cmd, name, (unsigned)n, expanders[c->exp].addr);
+    return nullptr;
+  }
+  return c;
+}
+
 bool circuitLive(const CircuitMap& c) {
   return expanderConfigured(c.exp) && exp_state[c.exp].present;
 }

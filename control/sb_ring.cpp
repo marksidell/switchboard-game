@@ -117,7 +117,7 @@ static void stopStepTimer() {
   do {
     seen = tick_count;
     delayMicroseconds(STEP_PERIOD_US);
-  } while (tick_count != seen && micros() - t0 < 5000);
+  } while (tick_count != seen && micros() - t0 < RING_STOP_WAIT_US);
 }
 
 /* ---- Start and stop (control.md 4.2, 4.3, 5.3) ---------------------------
@@ -165,7 +165,7 @@ static bool startWaveform() {
   // Wait for the first tick so the waveform phase is established before SD.
   const uint32_t t0 = micros();
   while (tick_count == 0) {
-    if (micros() - t0 > 5000) {
+    if (micros() - t0 > RING_FIRST_TICK_US) {
       Serial.println("ARM REFUSED: no step tick within 5 ms");
       stopStepTimer();
       parkOutputs();
@@ -188,8 +188,6 @@ void ringStop() {
 }
 
 /* ---- Enable input, debounced --------------------------------------------- */
-
-static constexpr uint32_t ENBL_DEBOUNCE_MS = 20;
 
 static bool     enbl_stable   = false;   // true = asserted = pin LOW = run
 static bool     enbl_last_raw = false;

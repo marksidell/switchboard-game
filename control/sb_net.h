@@ -59,6 +59,13 @@ void netHeartbeat(uint32_t now_ms);
 /* Retained, QoS 1, for state (mqtt.md 2). */
 void netPublishState(const CircuitMap& c, const char* leaf, const char* payload);
 
+/* Publish `leaf` "on" or "off" if `value` differs from `cache`, the value last
+ * published (-1 never, 0 off, 1 on). mqtt.md 2: the ESP32 publishes debounced
+ * state changes only, never the raw pulse train - a ringing station is a 40Hz
+ * train at the detector and one message on the bus. */
+void netPublishBoolIfChanged(const CircuitMap& c, const char* leaf,
+                             bool value, int8_t& cache);
+
 /* Unretained, QoS 0, for the one event topic - trunk/<n>/digit (mqtt.md 7). */
 void netPublishEvent(const CircuitMap& c, const char* leaf, const char* payload);
 
