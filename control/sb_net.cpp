@@ -147,6 +147,31 @@ void netHeartbeat(uint32_t now_ms) {
   netPublishCtl("esp_heartbeat", payload, /*retained=*/false, /*qos=*/1);
 }
 
+/* ---- The spread state republish (control.md 9.2) --------------------------
+ * A full republish is 93 retained QoS 1 messages, and with this client each
+ * QoS 1 publish blocks until its PUBACK arrives. Sent as one burst it would
+ * hold the 200Hz loop for 100-300ms - longer than a ringing station's 100ms
+ * quiet rule (7.1) and longer than a dial pulse (8.2). Instead every full
+ * republish walks the channel table one circuit per poll tick: each tick pays
+ * for three round trips, and all 31 circuits are refreshed in 31 ticks, about
+ * 155ms.
+ *
+ * A request that arrives mid-walk restarts it, so every circuit is published
+ * after the latest request. While the connection is down the walk pauses; the
+ * reconnect restarts it anyway.
+ * ------------------------------------------------------------------------- */
+static int16_t republish_row = -1;       // next circuits[] row; -1 = idle
+
+void netRequestRepublish() { republish_row = 0; }
+
+void netRepublishStep() {
+  if (republish_row < 0 || !netConnected()) return;
+  const uint8_t r = (uint8_t)republish_row;
+  if (r < N_STATION_ROWS) stationPublishOne(r);
+  else                    trunkPublishOne((uint8_t)(r - N_STATION_ROWS));
+  republish_row = (r + 1 < N_CIRCUITS) ? (int16_t)(r + 1) : -1;
+}
+
 /* ---- incoming ----------------------------------------------------------- */
 
 /* control.md 9.4: a command payload is exactly "on" or "off". Anything else is

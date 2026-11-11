@@ -38,6 +38,6 @@ void stationReleaseAll();
  * 24 - for station row i (0-21 for stations 1-22, 22 for 24), ignoring
  * change detection; nothing if its expander is absent. Two QoS 1 publishes,
  * each blocking until its PUBACK, so it is called for one circuit per poll tick
- * by the spread republish in control.ino and never in a loop over every station
+ * by the spread republish in sb_net.cpp and never in a loop over every station
  * (control.md 9.2). */
 void stationPublishOne(uint8_t i);

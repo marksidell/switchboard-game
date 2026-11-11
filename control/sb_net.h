@@ -62,6 +62,12 @@ void netPublishState(const CircuitMap& c, const char* leaf, const char* payload)
 /* Unretained, QoS 0, for the one event topic - trunk/<n>/digit (mqtt.md 7). */
 void netPublishEvent(const CircuitMap& c, const char* leaf, const char* payload);
 
+/* Republish every circuit's state topics, spread one circuit per poll tick
+ * (control.md 9.2): the request (re)starts the walk from row 0, and the step,
+ * called once per poll tick, publishes one row. */
+void netRequestRepublish();
+void netRepublishStep();
+
 void netPublishCtl(const char* leaf, const char* payload, bool retained, int qos);
 
 /* The expander scan result on sbgame/ctl/i2c (mqtt.md 4): "ok", or "missing:"
