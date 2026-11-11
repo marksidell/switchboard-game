@@ -1,7 +1,7 @@
 // detector.h - the analysis thread (audio.md 3, 6).
 //
 // Receives 4096-sample blocks per capture channel from the audio thread at the
-// 2048-sample hop, runs the FFT and the detector of station 8.7, and hands
+// 2048-sample hop, runs the FFT and the detector of station_circuit.md §8.7, and hands
 // results to the MQTT thread. Normal priority, separate from the audio thread
 // so that thirty-two 4096-point FFTs every 43ms - a fraction of a millisecond
 // of work, but bursty - never sit inside a period deadline.
@@ -35,6 +35,8 @@ public:
     // ~Detector()                                                    [startup]
     //   Frees the FFTW plan and buffers.
     ~Detector();
+    Detector(const Detector&) = delete;
+    Detector& operator=(const Detector&) = delete;
 
     // prepare()                                                      [startup]
     //   Allocates the FFT buffers and plans the transform (reusing saved FFTW

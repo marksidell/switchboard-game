@@ -1,14 +1,14 @@
 // channels.h - the channel plan and the pilot comb.
 //
-// docs/pilot-map.md is the authoritative slot <-> bin <-> circuit table and
-// CLAUDE.md forbids recomputing it inline. This header is that table expressed
-// once, in one place, so that the rest of the program asks rather than derives.
+// docs/pilot-map.md is the authoritative slot <-> bin <-> circuit table, and
+// nothing recomputes it inline. This header is that table expressed once, in
+// one place, so that the rest of the program asks rather than derives.
 //
 // Numbering, audio.md 2: circuits, A32 channels and document channels are all
 // 1-based and all the same number. Slot n is A32 channel n is document channel
 // n; the ALSA frame index is n-1. Stations are slots 1-22 and 24, slot 23 is
 // the operator tap strip, trunks are slots 25-32. Station 24 is a real
-// telephone (audio.md Rev 24); the audience monitor is on the Digiface's own
+// telephone; the audience monitor is on the Digiface's own
 // analog pair, 33 and 34.
 //
 // The one idea to hold on to when reading the rest of the program: almost
@@ -25,9 +25,8 @@
 //      bin    512 ... 680 (688)  696         704 ... 760   -
 //
 // Slot 23 has no circuit and no pilot: station board 3's strip 7 is the
-// operator tap (audio.md 2, Rev 7). Its bin, 688, is never generated, so
-// hearing it is a fault rather than a topology. Slot 24 fed the loudspeaker
-// from Rev 7 to Rev 23 and is station 24 from Rev 24.
+// operator tap (audio.md 2). Its bin, 688, is never generated, so
+// hearing it is a fault rather than a topology.
 //
 // Everything here is constexpr or inline, so there is no channels.cpp.
 #pragma once
@@ -37,7 +36,7 @@
 
 namespace chan {
 
-// ---- the transform and the comb (station 8.2, docs/pilot-map.md)
+// ---- the transform and the comb (station_circuit.md §8.2, docs/pilot-map.md)
 
 constexpr int SAMPLE_RATE = 48000;
 constexpr int FFT_N       = 4096;
@@ -50,14 +49,13 @@ constexpr int OP_BIN      = 768;                   // 9000.00 Hz, operator tone
 
 constexpr int N_SLOTS     = 32;
 constexpr int N_STATIONS  = 22;                    // 1-22; and 24, PHONE_STATION
-constexpr int PHONE_STATION = 24;                  // the real telephone, audio.md Rev 24
+constexpr int PHONE_STATION = 24;                  // the real telephone
 constexpr int N_TRUNKS    = 8;
 constexpr int TAP_CH      = 23;                    // operator tone out, tap receive in
 constexpr int TRUNK_SLOT0 = 24;                    // trunk n is slot 24 + n
 
 // The loudspeaker's file (audio.md 10.4) is kept in prog_[MONITOR_PROG] and
-// reported under that index: element 0, which no slot uses. It was prog_[24]
-// while channel 24 carried the monitor.
+// reported under that index: element 0, which no slot uses.
 constexpr int MONITOR_PROG = 0;
 
 constexpr int N_PLAY_CH   = 34;                    // 32 A32 + the Digiface pair
@@ -65,7 +63,7 @@ constexpr int N_CAP_CH    = 32;                    // the four ADAT ports
 constexpr int DIGIFACE_CH_A = 33;                  // Digiface analog out:
 constexpr int DIGIFACE_CH_B = 34;                  // the monitor
 
-// Guard bins for the ratiometric threshold (station 8.4, 8.7). Offsets of +-2
+// Guard bins for the ratiometric threshold (station_circuit.md §8.4, 8.7). Offsets of +-2
 // and +-3 are clear of the neighbouring pilots, which sit 8 bins away.
 constexpr int GUARD_OFFSET[4] = { -3, -2, 2, 3 };
 
@@ -108,7 +106,7 @@ inline int station_slot(int n) { return n; }
 inline int trunk_slot(int n)   { return TRUNK_SLOT0 + n; }
 
 // is_station()                                                           [any]
-//   True for a station number that exists: 1-22 and 24 (audio.md 12, Rev 24).
+//   True for a station number that exists: 1-22 and 24 (audio.md 12).
 inline bool is_station(int n) { return (n >= 1 && n <= N_STATIONS) || n == PHONE_STATION; }
 
 // is_circuit_slot()                                                      [any]
@@ -119,15 +117,6 @@ inline bool is_station(int n) { return (n >= 1 && n <= N_STATIONS) || n == PHONE
 inline bool is_circuit_slot(int slot)
 {
     return slot >= 1 && slot <= N_SLOTS && slot != TAP_CH;
-}
-
-// is_read_channel()                                                     [any]
-//   True for the capture channels anything reads: the 31 circuits and the tap
-//   (channel 23), whose bin 768 is the optone check and whose audio is the
-//   monitor source - which is to say all 32.
-inline bool is_read_channel(int ch)
-{
-    return is_circuit_slot(ch) || ch == TAP_CH;
 }
 
 // monitor_source_channel()                                              [any]
@@ -177,8 +166,7 @@ inline bool monitor_source_name(int ch, char* out, size_t n)
 // can_carry_monitor()                                                    [any]
 //   The playback channels --monitor-ch may name (audio.md 10.1, 14): the
 //   Digiface's own analog pair. A circuit or the tap is refused, so the
-//   monitor can never displace a pilot or the operator tone. 24 was accepted
-//   until Rev 24 made it a station.
+//   monitor can never displace a pilot or the operator tone.
 inline bool can_carry_monitor(int ch)
 {
     return ch == DIGIFACE_CH_A || ch == DIGIFACE_CH_B;

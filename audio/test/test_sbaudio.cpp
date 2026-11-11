@@ -27,6 +27,7 @@
 #include "../src/vad.h"
 #include "../src/alsa.h"
 #include "../src/engine.h"
+#include "engine_probe.h"
 #include "../src/options.h"
 #include "../src/rec.h"
 
@@ -62,7 +63,7 @@ static void check_near(double got, double want, double tol, const char* what)
 //   response at the frequencies that matter; also the Butterworth sections.
 static void test_monitor_filter()
 {
-    std::printf("monitor low-pass (station 8.8: 3.6k pass, 5.6k stop, 70 dB)\n");
+    std::printf("monitor low-pass (station_circuit.md §8.8: 3.6k pass, 5.6k stop, 70 dB)\n");
 
     double ripple = 0.0;
     const std::vector<Biquad> lp =
@@ -110,7 +111,7 @@ static void test_monitor_filter()
     check(cascade_mag_db({ hp }, 1000.0, fs) > -0.2, "and flat at 1 kHz");
     const Biquad vlp = butter_lowpass(3400.0, fs);
     check_near(cascade_mag_db({ vlp }, 3400.0, fs), -3.0, 0.2, "3400 Hz low-pass is -3 dB at 3400 Hz");
-    // audio.md 9.2, Rev 18: the speech detector's low-pass is sixth-order, so
+    // audio.md 9.2: the speech detector's low-pass is sixth-order, so
     // the pilots fall below the line's noise rather than setting the floor.
     const std::vector<Biquad> vlp6 = butter_lowpass6(3400.0, fs);
     check(vlp6.size() == 3, "the speech detector's low-pass is three sections");
@@ -154,7 +155,7 @@ static void add_noise(float* blk, double db, unsigned seed)
 //   checks what it would publish.
 static void test_detector()
 {
-    std::printf("detector (station 8.7, one hop against a synthetic block)\n");
+    std::printf("detector (station_circuit.md §8.7, one hop against a synthetic block)\n");
 
     Shared sh;
     sh.opt.margin_db = 20.0;
@@ -196,7 +197,7 @@ static void test_detector()
     add_noise(s3, NOISE, 5);
 
     // Trunk 4: idle, hearing trunks 2 and 3 at 72dB under its own pilot -
-    // the trunk board's strip-to-strip crosstalk (station 8.7, Rev 3.46).
+    // the trunk board's strip-to-strip crosstalk (station_circuit.md §8.7).
     // Above the noise floor by more than MARGIN_DB, outside PEER_WINDOW_DB.
     const double XTALK = PILOT - 72.0, QUIET = -110.0;
     float* t4 = d + (size_t)(chan::trunk_slot(4) - 1) * chan::FFT_N;
@@ -218,7 +219,7 @@ static void test_detector()
     // Trunk 8: idle, with trunk 7's crosstalk 72dB under its own pilot, and
     // noise close around its own pilot raising that bin's floor 40dB above
     // the others - so measured against each bin's floor the crosstalk looks
-    // only 30dB down. The window reads absolute levels (Rev 3.48).
+    // only 30dB down. The window reads absolute levels.
     float* t8 = d + (size_t)(chan::trunk_slot(8) - 1) * chan::FFT_N;
     const int b8 = chan::pilot_bin(chan::trunk_slot(8));
     add_pilot(t8, tbl, b8, PILOT);
@@ -275,7 +276,7 @@ static void test_detector()
           "an unconnected circuit reads deaf, not idle");
 
     // Slot 23, the tap, has no pilot and no circuit, so no peer or op may be
-    // published for it. Slot 24 is station 24 (audio.md Rev 24) and is.
+    // published for it. Slot 24 is station 24 and is.
     bool any_tap = false, any_24 = false;
     for (const Result& x : all) {
         if (x.topic != Topic::Peer && x.topic != Topic::Op) continue;
@@ -301,7 +302,7 @@ static void test_pilot_map()
     check(chan::station_slot(22) == 22 && chan::trunk_slot(1) == 25,
           "station 22 is slot 22 and trunk 1 is slot 25");
     check(chan::N_STATIONS == 22 && chan::PHONE_STATION == 24,
-          "the stations are 1-22 and 24 (audio.md 2, Rev 24)");
+          "the stations are 1-22 and 24 (audio.md 2)");
     check(!chan::is_circuit_slot(chan::TAP_CH) && chan::is_circuit_slot(24),
           "slot 23 is the tap, not a circuit; slot 24 is station 24");
     check(chan::is_station(24) && !chan::is_station(23) && chan::is_station(22) &&
@@ -409,7 +410,7 @@ static void test_hf_meter()
         if (std::fabs(cascade_mag_db(hp, f, fs)) > 0.5) pass_ok = false;
     check(pass_ok, "flat from 5.5 kHz to Nyquist, where the answer is wanted");
 
-    // The property the change is for: two correctly band-limited files that
+    // What the steepness is for: two correctly band-limited files that
     // differ only in brightness must read the same, because neither has
     // anything above the corner.
     const std::vector<double> dull = band_limited_noise(true);
@@ -417,20 +418,20 @@ static void test_hf_meter()
     const double new_dull = measure(dull, hp), new_bright = measure(bright, hp);
 
     const Biquad b = butter_highpass(5500.0, fs);
-    const std::vector<Biquad> old { b, b };
-    const double old_dull = measure(dull, old), old_bright = measure(bright, old);
+    const std::vector<Biquad> butter { b, b };   // a gentle filter, for contrast
+    const double old_dull = measure(dull, butter), old_bright = measure(bright, butter);
 
-    std::printf("    dull voice: old %6.1f dBFS, new %6.1f;  bright: old %6.1f, new %6.1f\n",
+    std::printf("    dull voice: Butterworth %6.1f dBFS, elliptic %6.1f;  bright: %6.1f, %6.1f\n",
                 old_dull, new_dull, old_bright, new_bright);
     check(new_dull < -80.0 && new_bright < -80.0,
           "a band-limited file reads at least 20 dB below the -60 dBFS threshold");
     check(old_bright > -60.0,
-          "where the old meter tripped on the same file if the voice was bright");
+          "where a Butterworth pair trips on the same file if the voice is bright");
 
-    // The clearest case, and the one that shows what the old meter was really
-    // measuring: a full-scale 1kHz sine has nothing above the corner at all.
-    // The old meter read it 1dB from the threshold; the new one puts it out of
-    // sight, because 1kHz is 99dB down rather than 61dB down.
+    // The clearest case, and the one that shows what a gentle filter really
+    // measures: a full-scale 1kHz sine has nothing above the corner at all.
+    // The Butterworth pair reads it 1dB from the threshold; the elliptic puts
+    // it out of sight, because 1kHz is 99dB down rather than 61dB down.
     // Faded in and out over 20ms at each end. A tone that starts at full scale
     // on the first sample is a step, and a step has energy at every frequency
     // - the meter would be right to report it, and every delivered file begins
@@ -443,10 +444,10 @@ static void test_hf_meter()
         if (i >= sine.size() - fade)      g = 0.5 - 0.5 * std::cos(M_PI * (sine.size() - 1 - i) / fade);
         sine[i] = g * std::sin(2.0 * M_PI * 1000.0 * (double)i / chan::SAMPLE_RATE);
     }
-    const double old_sine = measure(sine, old), new_sine = measure(sine, hp);
-    std::printf("    full-scale 1 kHz sine: old %6.1f dBFS, new %6.1f\n", old_sine, new_sine);
-    check(old_sine > -61.0, "the old meter read a 1 kHz sine within a dB of tripping");
-    check(new_sine < -90.0, "the new one reads it 30 dB clear of the threshold");
+    const double old_sine = measure(sine, butter), new_sine = measure(sine, hp);
+    std::printf("    full-scale 1 kHz sine: Butterworth %6.1f dBFS, elliptic %6.1f\n", old_sine, new_sine);
+    check(old_sine > -61.0, "a Butterworth pair reads a 1 kHz sine within a dB of tripping");
+    check(new_sine < -90.0, "the elliptic reads it 30 dB clear of the threshold");
 
     // And it still finds what it is for.
     std::vector<double> noisy = bright;
@@ -471,8 +472,8 @@ struct Script {
     int       speech = -1, silence = -1, timeout = -1, events = 0;
 
     // A talker's level varies from frame to frame - 8 dB here, all of it
-    // above the threshold - or the detector takes it for a steady noise
-    // (Rev 32). Anything else, or a talker run with held, is run as given.
+    // above the threshold - or the detector takes it for a steady noise.
+    // Anything else, or a talker run with held, is run as given.
     void run(float db, int n, bool valid = true, bool held = false)
     {
         static const float syllable[4] = { 0.0f, -4.0f, -8.0f, -3.0f };
@@ -493,11 +494,11 @@ struct Script {
 static const float ROOM = -70.0f, TALK = -30.0f;
 
 // test_listener()
-//   The state machine of audio.md 9.2 (Rev 6): start of speech, end of speech
+//   The state machine of audio.md 9.2: start of speech, end of speech
 //   after the hangover, the two timeouts, discarded frames and cancel.
 static void test_listener()
 {
-    std::printf("speech detector (audio.md 9.2, Rev 6)\n");
+    std::printf("speech detector (audio.md 9.2)\n");
 
     {   // One sentence. Speech is declared on its 20th frame (20 of 30). Its
         // end: 28 quiet frames bring the window to 2 of 30, which is quiet;
@@ -560,7 +561,7 @@ static void test_listener()
         s.lis.cancel(); s.run(TALK, 300);
         check(s.events == 0 && !s.lis.active(), "a cancelled listen reports nothing");
     }
-    {   // Rev 32, as captured on trunk 1, 2026-10-27, with the installation's
+    {   // A steady noise, as captured on trunk 1, 2026-10-27, with the installation's
         // -70 bound and 0.5 s hangover: -108 unseized, then seized with the
         // operator's key already in, -69.2 and steady, a listen started at
         // once. The floor from before is -108 and the bar -70, under the
@@ -628,7 +629,7 @@ static bool opts(Options& o, std::vector<const char*> args)
 
 // test_monitor_ch()
 //   audio.md 14: the monitor goes to channels from {33, 34}, and anything
-//   else is a startup error rather than a clamp. 24 is station 24 (Rev 24).
+//   else is a startup error rather than a clamp. 24 is station 24.
 static void test_monitor_ch()
 {
     std::printf("--monitor-ch (audio.md 10.1, 14)\n");
@@ -652,6 +653,37 @@ static void test_monitor_ch()
     check(!opts(o, { "--monitor-ch", "35" }), "35 refused: there is no such channel");
 }
 
+// test_options()
+//   audio.md 14: a number with anything after it is refused rather than read
+//   as far as it goes; and without --card, the one Digiface is found.
+static void test_options()
+{
+    std::printf("numbers and the card (audio.md 4, 14)\n");
+    Options o;
+    check(opts(o, { "--pilot-db", "-38.5" }) && o.pilot_db == -38.5, "-38.5 accepted");
+    check(!opts(o, { "--pilot-db", "-4O" }), "\"-4O\" refused, not read as -4");
+    check(!opts(o, { "--monitor-gate", "x" }), "\"x\" refused, not read as 0");
+    check(!opts(o, { "--period", "256k" }), "a period with junk after it refused");
+    check(!opts(o, { "--period", "8" }), "a period out of range refused");
+    check(opts(o, { "--broker", "host:1884" }) && o.port == 1884 && o.broker == "host",
+          "the broker's port");
+    check(!opts(o, { "--broker", "host:18x3" }), "a port with junk in it refused");
+    check(!opts(o, { "--monitor-lp", "3600", "5600", "7O" }), "--monitor-lp checks all three");
+
+    const char* two =
+        " 0 [PCH            ]: HDA-Intel - HDA Intel PCH\n"
+        "                      HDA Intel PCH at 0xf7f10000 irq 31\n"
+        " 1 [USB12345678    ]: USB-Audio - Digiface USB (12345678)\n"
+        "                      RME Digiface USB (12345678) at usb-0000:00:14.0-2, high speed\n";
+    std::string why;
+    check(find_card(two, "Digiface", why) == "USB12345678", "the Digiface's id found");
+    check(find_card(" 0 [PCH            ]: HDA-Intel - HDA Intel PCH\n", "Digiface", why).empty()
+          && !why.empty(), "none found, and why");
+    const std::string twice = std::string(two) +
+        " 2 [USB87654321    ]: USB-Audio - Digiface USB (87654321)\n";
+    check(find_card(twice, "Digiface", why).empty(), "two Digifaces: neither guessed");
+}
+
 // ---------------------------------------------------------------- render
 
 // render_once()
@@ -665,10 +697,10 @@ static std::vector<int32_t> render_once(const Options& o, float monitor_value)
     sh->opt = o;
     AlsaStream st;                          // never opened
     Engine eng(*sh, st);
-    if (!eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH)) return {};
-    eng.set_monitor_row_for_test(monitor_value);
-    eng.render_for_test();
-    return eng.playback();
+    if (!EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH)) return {};
+    EngineProbe(eng).set_monitor_row(monitor_value);
+    EngineProbe(eng).render();
+    return EngineProbe(eng).playback();
 }
 
 // Does document channel `ch` carry `want` in every frame of the period?
@@ -690,12 +722,12 @@ static bool any_signal(const std::vector<int32_t>& buf, int ch)
 }
 
 // test_render_map()
-//   audio.md 2, Rev 24: which playback channel carries what. The monitor row is
+//   audio.md 2: which playback channel carries what. The monitor row is
 //   set to a value nothing else produces, so the channel carrying it is
 //   unmistakable.
 static void test_render_map()
 {
-    std::printf("playback channel map (audio.md 2, Rev 24)\n");
+    std::printf("playback channel map (audio.md 2)\n");
     const float MON = 0.5f;
     const int32_t mon_s32 = float_to_s32(MON);
 
@@ -728,55 +760,55 @@ static void test_render_map()
 }
 
 // test_output_check()
-//   audio.md 11.4, Rev 12: a render as designed passes the output self-check
+//   audio.md 11.4: a render as designed passes the output self-check
 //   on every channel - pilots, the operator tone, the monitor at its limit,
 //   silence, the test tone - and a corrupted buffer is caught on the channels
 //   corrupted and on no others.
 static void test_output_check()
 {
-    std::printf("output self-check (audio.md 11.4, Rev 12)\n");
+    std::printf("output self-check (audio.md 11.4)\n");
     auto sh = std::make_unique<Shared>();
     sh->opt.monitor_ch = { 33 };            // so that 34 is a silent channel
     AlsaStream st;                          // never opened
     Engine eng(*sh, st);
-    check(eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
+    check(EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
 
     Command t;
     t.verb = Verb::Test; t.idx = 5; t.on = true;
     check(sh->cmdq.push(t), "a test tone on 5 queues");
-    eng.drain_for_test();
-    eng.set_monitor_row_for_test(0.70f);    // just under the -3dBFS limit
-    for (int k = 0; k < 4; ++k) { eng.render_for_test(); eng.check_output_for_test(); }
+    EngineProbe(eng).drain();
+    EngineProbe(eng).set_monitor_row(0.70f);    // just under the -3dBFS limit
+    for (int k = 0; k < 4; ++k) { EngineProbe(eng).render(); EngineProbe(eng).check_output(); }
     bool clean = true;
     for (int ch = 1; ch <= chan::N_PLAY_CH; ++ch)
-        if (eng.out_over_for_test(ch)) clean = false;
+        if (EngineProbe(eng).out_over(ch)) clean = false;
     check(clean, "a render as designed exceeds no channel's ceiling");
 
-    eng.render_for_test();
-    std::vector<int32_t>& buf = eng.playback_for_test();
+    EngineProbe(eng).render();
+    std::vector<int32_t>& buf = EngineProbe(eng).playback();
     buf[(size_t)7 * chan::N_PLAY_CH + 9 - 1]  = 2000000000;    // a pilot channel
     buf[(size_t)9 * chan::N_PLAY_CH + 34 - 1] = -100000;       // a silent one
-    eng.check_output_for_test();
-    check(eng.out_over_for_test(9) == 1 && eng.out_over_for_test(34) == 1,
+    EngineProbe(eng).check_output();
+    check(EngineProbe(eng).out_over(9) == 1 && EngineProbe(eng).out_over(34) == 1,
           "a corrupted pilot channel and a corrupted silent channel are caught");
     bool others = true;
     for (int ch = 1; ch <= chan::N_PLAY_CH; ++ch)
-        if (ch != 9 && ch != 34 && eng.out_over_for_test(ch)) others = false;
+        if (ch != 9 && ch != 34 && EngineProbe(eng).out_over(ch)) others = false;
     check(others, "and no other channel is");
 }
 
 // test_tap_play()
-//   audio.md 7, Rev 10: a file on the operator tap sums over the operator
+//   audio.md 7: a file on the operator tap sums over the operator
 //   tone, and the tap's play echo is its own topic, not a circuit's.
 static void test_tap_play()
 {
-    std::printf("a file on the operator tap (audio.md 7, Rev 10)\n");
+    std::printf("a file on the operator tap (audio.md 7)\n");
     auto sh = std::make_unique<Shared>();
     AlsaStream st;                          // never opened
     Engine eng(*sh, st);
-    check(eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
-    eng.render_for_test();
-    const std::vector<int32_t> before = eng.playback();
+    check(EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
+    EngineProbe(eng).render();
+    const std::vector<int32_t> before = EngineProbe(eng).playback();
 
     Command c;
     c.verb = Verb::Play;
@@ -785,9 +817,9 @@ static void test_tap_play()
     c.buf->samples.assign(4096, 0.25f);
     std::snprintf(c.name, sizeof c.name, "diag");
     check(sh->cmdq.push(c), "the play command queues");
-    eng.drain_for_test();
-    eng.render_for_test();
-    const std::vector<int32_t> after = eng.playback();
+    EngineProbe(eng).drain();
+    EngineProbe(eng).render();
+    const std::vector<int32_t> after = EngineProbe(eng).playback();
 
     bool shifted = true;
     const int n = (int)after.size() / chan::N_PLAY_CH;
@@ -806,6 +838,74 @@ static void test_tap_play()
     check(echoed, "and posts the tap's play echo");
 }
 
+// test_stop_game()
+//   audio.md 13.2: a lost game stops every file - on a circuit, the tap and
+//   the monitor - and every trunk tone and listen, and clears their topics.
+static void test_stop_game()
+{
+    std::printf("stop game (audio.md 13.2)\n");
+    auto sh = std::make_unique<Shared>();
+    AlsaStream st;                          // never opened
+    Engine eng(*sh, st);
+    check(EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
+    EngineProbe(eng).render();
+    // An untouched engine's third period, for the pilots' phase.
+    auto sh0 = std::make_unique<Shared>();
+    Engine ref(*sh0, st);
+    EngineProbe(ref).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH);
+    for (int k = 0; k < 3; ++k) EngineProbe(ref).render();
+    const std::vector<int32_t> idle = EngineProbe(ref).playback();
+
+    const int trunk = chan::trunk_slot(2);
+    for (int slot : { 5, (int)chan::TAP_CH, (int)chan::MONITOR_PROG }) {
+        Command c;
+        c.verb = Verb::Play;
+        c.idx  = (int16_t)slot;
+        c.buf  = new AudioBuffer;
+        c.buf->samples.assign(48000, 0.25f);
+        std::snprintf(c.name, sizeof c.name, "long");
+        check(sh->cmdq.push(c), "a play command queues");
+    }
+    Command t;
+    t.verb = Verb::Tone; t.idx = (int16_t)trunk; t.arg = (float)(int)ToneKind::Ringback;
+    sh->cmdq.push(t);
+    Command l;
+    l.verb = Verb::Listen; l.idx = 3; l.arg = 10.0f;
+    sh->cmdq.push(l);
+    EngineProbe(eng).drain();
+    EngineProbe(eng).render();
+    Result r;
+    while (sh->res_audio.pop(r)) {}
+
+    Command s;
+    s.verb = Verb::StopGame;
+    sh->cmdq.push(s);
+    EngineProbe(eng).drain();
+
+    bool play5 = false, tap = false, mon = false, tone = false, listen = false;
+    int freed = 0;
+    while (sh->res_audio.pop(r)) {
+        if (r.topic == Topic::FreeBuf) { delete r.buf; ++freed; continue; }
+        if (r.value[0] != '\0') continue;
+        if (r.topic == Topic::Play && r.idx == 5)                  play5 = true;
+        if (r.topic == Topic::Play && r.idx == chan::TAP_CH)       tap = true;
+        if (r.topic == Topic::Play && r.idx == chan::MONITOR_PROG) mon = true;
+        if (r.topic == Topic::Tone && r.idx == trunk)              tone = true;
+        if (r.topic == Topic::Listen && r.idx == 3)                listen = true;
+    }
+    check(play5 && tap && mon, "a circuit's, the tap's and the monitor's play clear");
+    check(tone && listen, "a trunk's tone and a station's listen clear");
+    check(freed == 3, "all three buffers are handed back");
+
+    EngineProbe(eng).render();
+    const std::vector<int32_t>& out = EngineProbe(eng).playback();
+    bool same = out.size() == idle.size();
+    for (int ch : { 5, (int)chan::TAP_CH, trunk })
+        for (size_t f = 0; same && f < out.size() / chan::N_PLAY_CH; ++f)
+            if (out[f * chan::N_PLAY_CH + ch - 1] != idle[f * chan::N_PLAY_CH + ch - 1]) same = false;
+    check(same, "station 5, the tap and the trunk carry only their fixed source again");
+}
+
 // tone_out()
 //   One trunk's tone, alone: `periods` renders with the tone on, less the same
 //   renders with it off, so the pilot cancels. Samples of that channel, -1..1.
@@ -817,18 +917,18 @@ static std::vector<double> tone_out(ToneKind k, int periods)
         auto sh = std::make_unique<Shared>();
         AlsaStream st;
         Engine eng(*sh, st);
-        if (!eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH)) return out;
+        if (!EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH)) return out;
         if (on) {
             Command c;
             c.verb = Verb::Tone;
             c.idx  = (int16_t)ch;
             c.arg  = (float)(int)k;
             sh->cmdq.push(c);
-            eng.drain_for_test();
+            EngineProbe(eng).drain();
         }
         for (int p = 0; p < periods; ++p) {
-            eng.render_for_test();
-            const std::vector<int32_t> b = eng.playback();
+            EngineProbe(eng).render();
+            const std::vector<int32_t> b = EngineProbe(eng).playback();
             for (size_t f = 0; f < b.size() / chan::N_PLAY_CH; ++f)
                 out.push_back(b[f * chan::N_PLAY_CH + ch - 1] / 2147483648.0);
         }
@@ -853,13 +953,13 @@ static double goertzel_db(const std::vector<double>& x, double hz)
 }
 
 // test_trunk_tones()
-//   audio.md 8.2: ringback is the city ring of cityring.h (Rev 21) - repeating
+//   audio.md 8.2: ringback is the city ring of cityring.h - repeating
 //   every 2400 samples, its strongest line at 440Hz and almost nothing at the
 //   nominal 420Hz, at the tones' peak level - and reorder runs 0.25s on, 0.25s
-//   off (Rev 20).
+//   off.
 static void test_trunk_tones()
 {
-    std::printf("trunk tones (audio.md 8.2, Rev 20, Rev 21)\n");
+    std::printf("trunk tones (audio.md 8.2)\n");
     const std::vector<double> r = tone_out(ToneKind::Ringback, 2 * chan::SAMPLE_RATE / 256);
     check(r.size() > 4 * CITY_RING_PERIOD, "ringback renders");
     double rep = 0, peak = 0;
@@ -892,16 +992,16 @@ static void test_trunk_tones()
 }
 
 // test_monitor_play()
-//   audio.md 10.4, Rev 11: a file on the monitor plays through the monitor's
+//   audio.md 10.4: a file on the monitor plays through the monitor's
 //   gain and low-pass onto channel 24, clears its own play topic when it
 //   ends, and is silent while the monitor is off.
 static void test_monitor_play()
 {
-    std::printf("a file on the monitor (audio.md 10.4, Rev 11)\n");
+    std::printf("a file on the monitor (audio.md 10.4)\n");
     auto sh = std::make_unique<Shared>();
     AlsaStream st;                          // never opened
     Engine eng(*sh, st);
-    check(eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
+    check(EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
 
     // 1 kHz, well inside the passband, for 20 periods.
     const unsigned len = 256 * 20;
@@ -916,8 +1016,8 @@ static void test_monitor_play()
         Command m;
         m.verb = Verb::Monitor; m.on = on; m.arg = 0.0f;
         check(sh->cmdq.push(m), "the monitor command queues");
-        eng.drain_for_test();
-        for (int k = 0; k < 10; ++k) { eng.capture_for_test(); eng.render_for_test(); }
+        EngineProbe(eng).drain();
+        for (int k = 0; k < 10; ++k) { EngineProbe(eng).capture(); EngineProbe(eng).render(); }
         Result r;
         while (sh->res_audio.pop(r)) {}     // let the 20ms ramp and the last file ring out
         Command c;
@@ -926,15 +1026,15 @@ static void test_monitor_play()
         c.buf  = file();
         std::snprintf(c.name, sizeof c.name, "tutor.hello");
         check(sh->cmdq.push(c), "the play command queues");
-        eng.drain_for_test();
+        EngineProbe(eng).drain();
     };
     auto peak_over = [&](unsigned periods, bool& finished) {
         double peak = 0.0;
         finished = false;
         for (unsigned p = 0; p < periods; ++p) {
-            eng.capture_for_test();
-            eng.render_for_test();
-            const std::vector<int32_t>& out = eng.playback();
+            EngineProbe(eng).capture();
+            EngineProbe(eng).render();
+            const std::vector<int32_t>& out = EngineProbe(eng).playback();
             const int n = (int)out.size() / chan::N_PLAY_CH;
             for (int f = 0; f < n; ++f) {
                 const size_t i = (size_t)f * chan::N_PLAY_CH + chan::DIGIFACE_CH_A - 1;
@@ -983,7 +1083,7 @@ static void test_monitor_source()
     check(chan::monitor_source_channel("trunk/0")    == 0, "trunk/0 is refused");
     check(chan::monitor_source_channel("trunk/9")    == 0, "trunk/9 is refused - 8 trunks");
 
-    // Station 24, the real telephone, is a source like any station (Rev 24).
+    // Station 24, the real telephone, is a source like any station.
     check(chan::monitor_source_channel("station/24") == 24, "station/24 is channel 24");
 
     // Malformed payloads. strtol would have taken most of these.
@@ -1014,7 +1114,7 @@ static void test_monitor_source()
     check(chan::monitor_source_name(24, n, sizeof n) && std::strcmp(n, "station/24") == 0,
           "channel 24 echoes as station/24");
 
-    // audio.md Rev 9 1.9: a source beyond what the device captures is refused
+    // audio.md 10.3: a source beyond what the device captures is refused
     // at startup rather than echoed against silence. Testable without hardware
     // because prepare_detached() takes the capture count.
     {
@@ -1023,7 +1123,7 @@ static void test_monitor_source()
             sh->opt.monitor_src = src;
             AlsaStream st;                      // never opened
             Engine eng(*sh, st);
-            return !eng.prepare_detached(256, chan::N_PLAY_CH, ncap);
+            return !EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, ncap);
         };
         check(refuses(32, 24),  "trunk/8 is refused when the device grants 24 capture channels");
         check(refuses(25, 24),  "trunk/1 is refused when the device grants 24");
@@ -1046,34 +1146,34 @@ static void test_monitor_source()
 }
 
 // test_monitor_gate()
-//   audio.md 10.5, Rev 17: speech on the monitor's source passes, 10ms late;
+//   audio.md 10.5: speech on the monitor's source passes, 10ms late;
 //   ringing on the line shuts it, and it opens again after the hold.
 static void test_monitor_gate()
 {
-    std::printf("the monitor's line-disturbance gate (audio.md 10.5, Rev 17)\n");
+    std::printf("the monitor's line-disturbance gate (audio.md 10.5)\n");
     auto sh = std::make_unique<Shared>();
     sh->opt.monitor_gate_db   = -60.0;
     sh->opt.monitor_gate_hold = 0.25;
     AlsaStream st;
     Engine eng(*sh, st);
-    check(eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
+    check(EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
     Command m;
     m.verb = Verb::Monitor; m.on = true; m.arg = 0.0f;
     sh->cmdq.push(m);
-    eng.drain_for_test();
+    EngineProbe(eng).drain();
     double t = 0.0;
     // Periods with 1 kHz speech-like tone at -20dBFS, and ring at 20 Hz if asked;
     // returns the monitor's peak over them.
     auto run = [&](int periods, bool ring) {
         double peak = 0.0;
         for (int p = 0; p < periods; ++p) {
-            float* in = eng.capture_row_for_test(chan::TAP_CH);
+            float* in = EngineProbe(eng).capture_row(chan::TAP_CH);
             for (int i = 0; i < 256; ++i, t += 1.0 / chan::SAMPLE_RATE)
                 in[i] = (float)(0.1 * std::sin(2.0 * M_PI * 1000.0 * t)
                                 + (ring ? 0.3 * std::sin(2.0 * M_PI * 20.0 * t) : 0.0));
-            eng.capture_for_test();
-            eng.render_for_test();
-            const std::vector<int32_t>& out = eng.playback();
+            EngineProbe(eng).capture();
+            EngineProbe(eng).render();
+            const std::vector<int32_t>& out = EngineProbe(eng).playback();
             const int n = (int)out.size() / chan::N_PLAY_CH;
             for (int f = 0; f < n; ++f) {
                 const size_t i = (size_t)f * chan::N_PLAY_CH + chan::DIGIFACE_CH_A - 1;
@@ -1099,11 +1199,11 @@ static void test_monitor_gate()
 }
 
 // test_monitor_limit()
-//   audio.md 10.1, Rev 16: a limiter set just above speech holds a switch's
+//   audio.md 10.1: a limiter set just above speech holds a switch's
 //   click to that level, and leaves speech below it alone.
 static void test_monitor_limit()
 {
-    std::printf("monitor limiter at --monitor-limit (audio.md 10.1, Rev 16)\n");
+    std::printf("monitor limiter at --monitor-limit (audio.md 10.1)\n");
     Limiter lim;
     lim.init(-30.0, 0.100, chan::SAMPLE_RATE);
     const double ceil = db_to_lin(-30.0);
@@ -1125,12 +1225,12 @@ static void test_monitor_limit()
 }
 
 // test_recording()
-//   audio.md 10.6, Rev 22: the audio thread hands the monitor row over only
+//   audio.md 10.6: the audio thread hands the monitor row over only
 //   while a recording runs; the Recorder writes it with the makeup gain that
 //   puts --monitor-limit at -1dBFS, to a WAV named for the local time.
 static void test_recording()
 {
-    std::printf("loudspeaker recording (audio.md 10.6, Rev 22)\n");
+    std::printf("loudspeaker recording (audio.md 10.6)\n");
     char dir[] = "/tmp/sbaudio_rec_XXXXXX";
     if (!mkdtemp(dir)) { check(false, "a temporary directory"); return; }
 
@@ -1141,13 +1241,13 @@ static void test_recording()
     Engine eng(*sh, st);
     Recorder rec(*sh);
     rec.prepare();
-    if (!eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH)) { check(false, "engine"); return; }
+    if (!EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH)) { check(false, "engine"); return; }
 
     std::vector<float> got(4096);
-    eng.capture_for_test();
+    EngineProbe(eng).capture();
     check(sh->rec_ring.read(got.data(), got.size()) == 0, "not recording: nothing handed over");
     sh->rec_on.store(true);
-    for (int i = 0; i < 4; ++i) eng.capture_for_test();
+    for (int i = 0; i < 4; ++i) EngineProbe(eng).capture();
     sh->rec_on.store(false);
     check(sh->rec_ring.read(got.data(), got.size()) == 1024, "recording: every period handed over");
 
@@ -1193,13 +1293,13 @@ static void test_recording()
     check(sh->play_on.load() && sh->play_ring.available() > 0, "next pass: playing, ring filled");
     float pk = 0.0f;
     for (int i = 0; i < 40; ++i) {
-        eng.capture_for_test();
-        for (float v : eng.monitor_row()) pk = std::max(pk, std::fabs(v));
+        EngineProbe(eng).capture();
+        for (float v : EngineProbe(eng).monitor_row()) pk = std::max(pk, std::fabs(v));
     }
     check_near(lin_to_db(pk), -40.0, 0.1, "played back at the level recorded: -40dBFS");
     while (pl.service() == false && sh->play_ring.available() > 0)
-        eng.capture_for_test();
-    for (int i = 0; i < 300 && !pl.name().empty(); ++i) { eng.capture_for_test(); pl.service(); }
+        EngineProbe(eng).capture();
+    for (int i = 0; i < 300 && !pl.name().empty(); ++i) { EngineProbe(eng).capture(); pl.service(); }
     check(pl.name().empty() && !sh->play_on.load(), "the end of the file ends the playback");
     std::string cmd = std::string("rm -rf ") + dir;
     check(std::system(cmd.c_str()) == 0, "cleaned up");
@@ -1228,7 +1328,7 @@ struct Talker {
 
 static void test_aec()
 {
-    std::printf("echo canceller (audio.md 9.4, Rev 26)\n");
+    std::printf("echo canceller (audio.md 9.4)\n");
 
     {   // The class alone, at 8 kHz: an echo 12 dB down, 95 samples late
         // through a three-tap path, and a caller 20 dB below the echo for a
@@ -1281,7 +1381,7 @@ static void test_aec()
             sh->opt.vad_hangover = 0.5;
             AlsaStream st;
             Engine eng(*sh, st);
-            eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH);
+            EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH);
             const int S = 5;
             Talker file(3, -20.0), caller(4, -50.0);
             Command c;
@@ -1294,17 +1394,17 @@ static void test_aec()
             std::vector<float> sent;
             double speech_at = -1, ended_at = -1;
             for (int per = 0; per < 6 * 48000 / 256; ++per) {
-                float* cap = eng.capture_row_for_test(S);
+                float* cap = EngineProbe(eng).capture_row(S);
                 for (int i = 0; i < 256; ++i) {
                     const size_t t = (size_t)per * 256 + (size_t)i;
                     float v = t >= 562 && t - 562 < sent.size() ? 0.25f * sent[t - 562] : 0.0f;
                     if (talk && t >= 3 * 48000 && t < (size_t)(3.6 * 48000)) v += caller.next();
                     cap[i] = v;
                 }
-                eng.capture_for_test();
-                eng.drain_for_test();
-                eng.render_for_test();
-                const std::vector<int32_t>& o = eng.playback();
+                EngineProbe(eng).capture();
+                EngineProbe(eng).drain();
+                EngineProbe(eng).render();
+                const std::vector<int32_t>& o = EngineProbe(eng).playback();
                 for (int i = 0; i < 256; ++i)
                     sent.push_back((float)o[(size_t)i * chan::N_PLAY_CH + S - 1] / 2147483648.0f);
                 Result r;
@@ -1330,20 +1430,20 @@ static void test_aec()
 }
 
 // test_peer_boost()
-//   audio.md 10.8, Rev 28: the monitor follows station 1, patched to station
+//   audio.md 10.8: the monitor follows station 1, patched to station
 //   2. Station 1's file comes back on its own line at 0.5, station 2's
 //   through the cord at 0.1, 14dB lower. Lines alternate, 2 s each: after the
 //   first of each, the boost is measured and the called party is raised to
 //   the caller's level. With no peer heard, nothing is raised. Fixed by the
-//   game at 6dB (Rev 29), it is 6dB, and the called party 8dB down.
+//   game at 6dB, it is 6dB, and the called party 8dB down.
 static void test_peer_boost()
 {
-    std::printf("the monitor's peer boost (audio.md 10.8, Rev 28, 29)\n");
+    std::printf("the monitor's peer boost (audio.md 10.8)\n");
     for (int heard = 0; heard < 3; ++heard) {
         auto sh = std::make_unique<Shared>();
         AlsaStream st;
         Engine eng(*sh, st);
-        eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH);
+        EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH);
         Command m; m.verb = Verb::Monitor; m.on = true; m.arg = 0.0f;
         sh->cmdq.push(m);
         Command src; src.verb = Verb::MonitorSrc; src.idx = 1;
@@ -1352,7 +1452,7 @@ static void test_peer_boost()
             Command p; p.verb = Verb::MonitorPeer; p.on = true; p.arg = 6.0f;
             sh->cmdq.push(p);
         }
-        eng.drain_for_test();
+        EngineProbe(eng).drain();
         sh->heard_peer[1].store(heard ? 2 : 0);
         Talker a(5, -20.0), b(6, -20.0);
         std::vector<float> sent1, sent2;
@@ -1369,15 +1469,15 @@ static void test_peer_boost()
             for (int per = 0; per < line_p; ++per) {
                 // The line returns what was sent two periods ago: the file
                 // alone, since the pilots are outside the monitor's band.
-                float* cap = eng.capture_row_for_test(1);
+                float* cap = EngineProbe(eng).capture_row(1);
                 for (int i = 0; i < 256; ++i) {
                     const size_t k = sent1.size() + (size_t)i;
                     cap[i] = k >= 512 ? 0.5f * sent1[k - 512] + 0.1f * sent2[k - 512] : 0.0f;
                 }
-                eng.capture_for_test();
-                eng.drain_for_test();
-                eng.render_for_test();
-                const std::vector<int32_t>& o = eng.playback();
+                EngineProbe(eng).capture();
+                EngineProbe(eng).drain();
+                EngineProbe(eng).render();
+                const std::vector<int32_t>& o = EngineProbe(eng).playback();
                 for (int i = 0; i < 256; ++i) {
                     const size_t j = (size_t)per * 256 + (size_t)i;
                     const float v = j < file.size() ? file[j] : 0.0f;
@@ -1393,13 +1493,13 @@ static void test_peer_boost()
         const double caller = 10.0 * std::log10(lv[2] + 1e-20), called = 10.0 * std::log10(lv[3] + 1e-20);
         std::printf("    peer %s: caller %.1f dB, called %.1f dB, boost %.1f dB\n",
                     heard == 2 ? "fixed" : heard ? "heard" : "not heard", caller, called,
-                    eng.peer_boost_db_for_test());
+                    EngineProbe(eng).peer_boost_db());
         if (heard == 2) {
-            check(std::fabs(eng.peer_boost_db_for_test() - 6.0) < 0.1, "fixed by the game: 6 dB");
+            check(std::fabs(EngineProbe(eng).peer_boost_db() - 6.0) < 0.1, "fixed by the game: 6 dB");
             check(std::fabs(caller - called - 8.0) < 1.5, "and the called party 8 dB down");
         } else if (heard) {
             check(std::fabs(caller - called) < 1.5, "the called party is raised to the caller's level");
-            check(std::fabs(eng.peer_boost_db_for_test() - 14.0) < 1.0, "by the 14 dB between the paths");
+            check(std::fabs(EngineProbe(eng).peer_boost_db() - 14.0) < 1.0, "by the 14 dB between the paths");
         } else {
             check(caller - called > 12.0, "no peer heard: the called party is left 14 dB down");
         }
@@ -1408,15 +1508,15 @@ static void test_peer_boost()
 
 static void test_ringing()
 {
-    std::printf("ring heard on a circuit (audio.md 9.5, Rev 30, Rev 36)\n");
+    std::printf("ring heard on a circuit (audio.md 9.5)\n");
     auto sh = std::make_unique<Shared>();
     AlsaStream st;
     Engine eng(*sh, st);
-    eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH);
+    EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH);
     // Station 1 rung at the level measured on the switchboard, -25 dBFS rms;
     // station 2 carrying loud speech-band tone and hum, which must not count;
     // trunk 1 rung too, as the public line's ATA rings it; station 3 a plug's contact
-    // bouncing, steps that decay through the transformer (Rev 31).
+    // bouncing, steps that decay through the transformer.
     const double ring = 0.056 * M_SQRT2;
     double ph = 0.0;
     std::vector<std::string> seen;
@@ -1424,10 +1524,10 @@ static void test_ringing()
     const int P = 48000 / 256;                                  // ~1 s of periods
     for (int per = 0; per < 3 * P; ++per) {
         const bool ringing = per >= P / 2 && per < 2 * P;       // 0.5 s to 2 s
-        float* s1 = eng.capture_row_for_test(1);
-        float* s2 = eng.capture_row_for_test(2);
-        float* t1 = eng.capture_row_for_test(chan::trunk_slot(1));
-        float* s3 = eng.capture_row_for_test(3);
+        float* s1 = EngineProbe(eng).capture_row(1);
+        float* s2 = EngineProbe(eng).capture_row(2);
+        float* t1 = EngineProbe(eng).capture_row(chan::trunk_slot(1));
+        float* s3 = EngineProbe(eng).capture_row(3);
         for (int i = 0; i < 256; ++i, ph += 1.0 / 48000.0) {
             const float r = ringing ? (float)(ring * std::sin(2 * M_PI * 20.0 * ph)) : 0.0f;
             s1[i] = r + 0.001f;                                 // and a little DC
@@ -1438,7 +1538,7 @@ static void test_ringing()
             const double sg = std::fmod(ph + 0.05, 0.2) >= 0.1 ? -1.0 : 1.0;
             s3[i] = ph >= 0.5 && ph < 2.0 ? (float)(0.3 * sg * std::exp(-tc / 0.02)) : 0.0f;
         }
-        eng.capture_for_test();
+        EngineProbe(eng).capture();
         Result r;
         while (sh->res_audio.pop(r)) {
             if (r.buf) delete r.buf;
@@ -1471,10 +1571,12 @@ int main()
     test_listener();
     test_hf_meter();
     test_monitor_ch();
+    test_options();
     test_render_map();
     test_monitor_source();
     test_output_check();
     test_tap_play();
+    test_stop_game();
     test_monitor_play();
     test_trunk_tones();
     test_recording();

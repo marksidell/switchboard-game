@@ -93,7 +93,7 @@ std::string Recorder::start()
     sf_command(snd_, SFC_SET_CLIPPING, nullptr, SF_TRUE);
     sf_command(snd_, SFC_SET_UPDATE_HEADER_AUTO, nullptr, SF_TRUE);
 
-    // --record-line (Rev 25): each slot's output and capture beside it, as
+    // --record-line: each slot's output and capture beside it, as
     // float, unscaled, two channels a slot. The '.' keeps it out of list().
     const std::vector<int>& sl = sh_.opt.record_line;
     if (!sl.empty()) {

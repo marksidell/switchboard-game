@@ -7,8 +7,8 @@
 // limiter, as sbaudio.service sets them. A file the gate shuts on is cut off
 // on the loudspeaker in play. No audio device and no broker.
 //
-//     ./build/monitor_check                         every file, the service's settings
-//     ./build/monitor_check --line-gain 0 v16       files whose name contains "v16"
+//     audio/build/monitor_check                     every file in wav/, the service's settings
+//     audio/build/monitor_check --line-gain 0 v16   files whose name contains "v16"
 //
 // What it cannot see: anything the line adds. A file that passes here and is
 // still cut off in play is being cut off by something on the line itself.
@@ -27,15 +27,16 @@
 #include "../src/channels.h"
 #include "../src/dsp.h"
 #include "../src/engine.h"
+#include "engine_probe.h"
 #include "../src/ipc.h"
 #include "../src/wav.h"
 
 namespace {
 
 struct Args {
-    std::string dir   = "/home/sidell/s/sbgame/wav";    // sbaudio.service's --wav-dir
+    std::string dir   = "wav";      // from the repository's top
     double line_gain  = -17.5;  // file to its own receive channel (audio.md 1.19)
-    double gate_db    = -70.0;  // sbaudio.service --monitor-gate
+    double gate_db    = -60.0;  // sbaudio.service --monitor-gate
     double hold       = 0.25;   // --monitor-gate-hold's default
     double limit_db   = -18.0;  // sbaudio.service --monitor-limit
     double margin     = 6.0;    // list a file this close to the gate, too
@@ -49,7 +50,7 @@ void usage()
         "usage: monitor_check [--dir D] [--line-gain DB] [--gate DB] [--hold S]\n"
         "                     [--limit DB] [--margin DB] [--all] [MATCH]\n"
         "  --line-gain  a file's level on its own receive channel (-17.5)\n"
-        "  --gate       --monitor-gate (-70)\n"
+        "  --gate       --monitor-gate (-60)\n"
         "  --margin     also list files within this of the gate (6)\n"
         "  --all        list every file\n"
         "  MATCH        only files whose name contains it\n");
@@ -67,14 +68,13 @@ struct FileResult {
 // or limiter state.
 bool run_one(const Args& a, const std::string& base, FileResult& r)
 {
-    AudioBuffer* buf = nullptr;
+    std::unique_ptr<AudioBuffer> own;
     double hf = 0.0;
-    const LoadResult lr = load_wav(a.dir, base, 600.0, buf, hf);
+    const LoadResult lr = load_wav(a.dir, base, 600.0, own, hf);
     if (lr != LoadResult::Ok) {
         std::printf("%s: %s\n", base.c_str(), load_result_text(lr));
         return false;
     }
-    std::unique_ptr<AudioBuffer> own(buf);
 
     constexpr unsigned PERIOD = 48;                 // 1ms, the resolution of muted_ms
     const int src = chan::trunk_slot(1);
@@ -87,7 +87,7 @@ bool run_one(const Args& a, const std::string& base, FileResult& r)
     sh->opt.monitor_gate_hold = a.hold;
     AlsaStream st;
     Engine eng(*sh, st);
-    if (!eng.prepare_detached(PERIOD, chan::N_PLAY_CH, chan::N_CAP_CH)) return false;
+    if (!EngineProbe(eng).prepare_detached(PERIOD, chan::N_PLAY_CH, chan::N_CAP_CH)) return false;
 
     // The gate's own detector, 50Hz second-order run twice, for the margin.
     const Biquad lp = butter_lowpass(50.0, chan::SAMPLE_RATE);
@@ -99,20 +99,20 @@ bool run_one(const Args& a, const std::string& base, FileResult& r)
     const size_t lead = chan::SAMPLE_RATE / 2, tail = chan::SAMPLE_RATE / 2;
     const size_t total = lead + x.size() + tail;
     for (size_t p = 0; p < total; p += PERIOD) {
-        float* in = eng.capture_row_for_test(src);
+        float* in = EngineProbe(eng).capture_row(src);
         for (unsigned i = 0; i < PERIOD; ++i) {
             const size_t k = p + i;
             const float v = (k >= lead && k - lead < x.size()) ? (float)(x[k - lead] * g) : 0.0f;
             in[i] = v;
             lf = std::max(lf, std::fabs(s2.run(lp, s1.run(lp, (double)v))));
         }
-        eng.capture_for_test();
-        if (eng.gate_gain() < 0.5) r.muted_ms += 1000.0 * PERIOD / chan::SAMPLE_RATE;
+        EngineProbe(eng).capture();
+        if (EngineProbe(eng).gate_gain() < 0.5) r.muted_ms += 1000.0 * PERIOD / chan::SAMPLE_RATE;
     }
     r.name    = base;
     r.seconds = (double)x.size() / chan::SAMPLE_RATE;
     r.lf_db   = 20.0 * std::log10(lf + 1e-12);
-    r.shuts   = eng.gate_hits_for_test();
+    r.shuts   = EngineProbe(eng).gate_hits();
     return true;
 }
 

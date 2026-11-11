@@ -84,8 +84,8 @@ int main(int argc, char** argv)
     sh.opt   = opt;
     g_shared = &sh;
 
-    log_line("sbaudio starting: broker %s:%d, wav dir %s, card %s",
-             opt.broker.c_str(), opt.port, opt.wav_dir.c_str(), opt.device().c_str());
+    log_line("sbaudio %s starting: broker %s:%d, wav dir %s, card %s",
+             sbaudio_version(), opt.broker.c_str(), opt.port, opt.wav_dir.c_str(), opt.device().c_str());
 
     struct sigaction sa;
     std::memset(&sa, 0, sizeof sa);

@@ -2,6 +2,7 @@
 // thread, never on the audio thread.
 #pragma once
 
+#include <memory>
 #include <string>
 
 #include "ipc.h"
@@ -26,8 +27,8 @@ const char* load_result_text(LoadResult r);
 // load_wav()                                                             [mqtt]
 //   Loads <dir>/<base>.wav whole into memory as float mono samples, after
 //   checking the name, the sample rate (48000), the channel count (1) and the
-//   length (max_seconds). On Ok, `out` owns a newly allocated buffer the
-//   caller must hand to the audio thread. `hf_db` reports the energy above
-//   5.5kHz, for the content warning of audio.md 5.3.
+//   length (max_seconds). On Ok, `out` holds the buffer for the caller to
+//   hand to the audio thread. `hf_db` reports the energy above 5.5kHz, for
+//   the content warning of audio.md 5.3.
 LoadResult load_wav(const std::string& dir, const std::string& base,
-                    double max_seconds, AudioBuffer*& out, double& hf_db);
+                    double max_seconds, std::unique_ptr<AudioBuffer>& out, double& hf_db);

@@ -2,8 +2,8 @@
 //
 // audio.md 11.2: one line per event, to stderr, with uptime, picked up by the
 // journal when run under systemd. Nothing here may be called from the audio
-// thread: std::fprintf takes a lock and can block on a full pipe, which is the
-// first invariant CLAUDE.md lists. The audio thread reports through the result
+// thread: std::fprintf takes a lock and can block on a full pipe, and nothing
+// blocks there (audio.md 3). The audio thread reports through the result
 // queue instead.
 //
 // The exceptions are the pure arithmetic helpers at the bottom (db_to_lin,

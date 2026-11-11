@@ -31,6 +31,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <cstdio>
 #include <vector>
 
 #include "channels.h"
@@ -60,7 +61,7 @@ enum class Verb : uint8_t {
     Listen,      // slot, arg = timeout in seconds, 0 = cancel
     Monitor,     // arg = gain dB, on = false for mute
     MonitorSrc,  // idx = capture channel of the new source (audio.md 10.3)
-    MonitorPeer, // on = fixed at arg dB, off = measured (audio.md 10.8, Rev 29)
+    MonitorPeer, // on = fixed at arg dB, off = measured (audio.md 10.8)
     Test,        // ch 1-34, on
     StopGame,    // stop every file and tone, cancel every listen (audio.md 13.2)
     Quit
@@ -92,7 +93,7 @@ enum class Topic : uint8_t {
     Peer,       // idx = slot
     Op,         // idx = slot
     OpTone,
-    Ringing,    // idx = circuit slot (audio.md 9.5, Rev 30, Rev 36)
+    Ringing,    // idx = circuit slot (audio.md 9.5)
     FreeBuf     // not a topic: a buffer the audio thread has finished with
 };
 
@@ -149,13 +150,13 @@ struct Shared {
     std::atomic<bool> snap_busy[2] { { false }, { false } };
     std::atomic<int>  snap_ready { -1 };   // index of a filled snapshot, or -1
 
-    // ---- the loudspeaker recording, audio -> MQTT (audio.md 10.6, Rev 22).
+    // ---- the loudspeaker recording, audio -> MQTT (audio.md 10.6).
     // The Recorder on the MQTT thread sets rec_on once its file is open and
     // clears it before closing; while it is set the audio thread appends each
     // period's monitor row to rec_ring.
     SampleRing        rec_ring;
     std::atomic<bool> rec_on { false };
-    // --record-line's slot, raw, beside it (Rev 25): its output and its
+    // --record-line's slot, raw, beside it: its output and its
     // capture, interleaved in pairs, while rec_on is set.
     SampleRing        line_ring;
     // Playback of a recording, MQTT -> audio (audio.md 10.7): the Player
@@ -193,7 +194,7 @@ struct Shared {
     std::atomic<unsigned> rec_dropped  { 0 };   // periods the recording lost, ring full
     std::atomic<unsigned> play_short   { 0 };   // periods playback ran dry mid-file
 
-    // audio.md 10.8, Rev 28: each circuit's heard peer, by slot, written by
+    // audio.md 10.8: each circuit's heard peer, by slot, written by
     // the analysis thread every hop - the one circuit heard, or 0 for idle,
     // deaf or ambiguous - and read by the audio thread for the peer boost.
     std::atomic<int> heard_peer[chan::N_SLOTS + 1] {};
@@ -215,3 +216,18 @@ struct Shared {
     int ncap  = chan::N_CAP_CH;
     int nplay = chan::N_PLAY_CH;
 };
+
+// post_result()                                                        [audio]
+//   Queues "topic t for slot or channel idx is now value" for the MQTT thread:
+//   how every state change the audio thread makes reaches the broker. A full
+//   queue drops it and counts it - nothing more can be done from here, and
+//   since the MQTT thread drains even while disconnected, the count is what
+//   says it has wedged.
+inline void post_result(Shared& sh, Topic t, int idx, const char* value)
+{
+    Result r;
+    r.topic = t;
+    r.idx   = (int16_t)idx;
+    std::snprintf(r.value, sizeof r.value, "%s", value ? value : "");
+    if (!sh.res_audio.push(r)) sh.res_dropped.fetch_add(1, std::memory_order_relaxed);
+}

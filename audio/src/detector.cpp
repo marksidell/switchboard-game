@@ -1,4 +1,4 @@
-// detector.cpp - the analysis thread: FFT and station 8.7. See detector.h
+// detector.cpp - the analysis thread: FFT and station_circuit.md §8.7. See detector.h
 // for the detector in one paragraph and the data structures.
 
 #include "detector.h"
@@ -128,7 +128,7 @@ double Detector::bin_power(int b) const
 
 // bin_level()                                                       [analysis]
 //   Power at bin b in dB, absolute rather than against a floor. The windows
-//   of station 8.7 (Rev 3.48) compare two bins' levels with each other, and
+//   of station_circuit.md §8.7 compare two bins' levels with each other, and
 //   two bins' floors need not be the same: through the switchboard they were
 //   found 15-30dB apart, which bin_db() differences carry straight through.
 double Detector::bin_level(int b) const
@@ -138,7 +138,7 @@ double Detector::bin_level(int b) const
 }
 
 // bin_db()                                                          [analysis]
-//   dB of one bin above the median of its guard bins, station 8.7. Powers
+//   dB of one bin above the median of its guard bins, station_circuit.md §8.7. Powers
 //   rather than magnitudes, so the factor is 10 and not 20. The median of
 //   four is the mean of the middle two after sorting, which ignores one
 //   unusually loud or quiet guard bin. This number compared against
@@ -186,7 +186,7 @@ void Detector::confirm(Confirm& c, Topic t, int idx, const char* value, bool fir
 }
 
 // analyse()                                                         [analysis]
-//   Runs identify_peer() (station 8.7) on one capture channel, whose power
+//   Runs identify_peer() (station_circuit.md §8.7) on one capture channel, whose power
 //   spectrum is already in pw_, and feeds the results to confirm(). The tap's
 //   channel gets only the optone check; slot 23 is otherwise skipped.
 void Detector::analyse(int cap_index)
@@ -209,8 +209,8 @@ void Detector::analyse(int cap_index)
     const double own_db = bin_db(chan::pilot_bin(slot));
     const double op_db  = bin_db(chan::OP_BIN);
     // A pilot must also be within PEER_WINDOW_DB of the circuit's own pilot,
-    // and the operator tone within OP_WINDOW_DB of it (station 8.7, Rev
-    // 3.46-3.48), each by absolute level. A real peer arrives a few dB under
+    // and the operator tone within OP_WINDOW_DB of it (station_circuit.md
+    // §8.7), each by absolute level. A real peer arrives a few dB under
     // the own pilot and the operator tone above it; crosstalk in the boards
     // and the switchboard cabling arrives 46dB or more under it, which can
     // still be well above the noise floor.
@@ -253,11 +253,11 @@ void Detector::analyse(int cap_index)
 
         // Log the full list with levels - above the floor, and in brackets
         // against the own pilot, which is what the window reads. That alone usually identifies which
-        // of the three causes it is (station 8.7): a threshold problem shows
+        // of the three causes it is (station_circuit.md §8.7): a threshold problem shows
         // several weak pilots, crosstalk one strong and one weak, a cord fault
         // two strong. Logged when the circuit becomes ambiguous and then at
         // most once a second - every hop would be 23 lines a second for as
-        // long as the condition lasts (audio.md Rev 3).
+        // long as the condition lasts.
         const bool   amb = (n > 1) || (n == 1 && !chan::is_circuit_slot(heard[0]));
         const double now = monotonic_s();
         if (amb && (!amb_prev_[slot] || now - amb_logged_[slot] >= 1.0)) {
@@ -328,10 +328,7 @@ void Detector::process_snapshot(int w)
     const int    ncap = std::min(sh_.ncap, (int)chan::N_CAP_CH);
 
     for (int c = 0; c < ncap; ++c) {
-        // audio.md 2: the 31 circuits and the tap are transformed - every
-        // capture channel since Rev 24 made 24 a station.
-        if (!chan::is_read_channel(c + 1)) continue;
-
+        // audio.md 2: every capture channel, the 31 circuits and the tap.
         const float* src = base + (size_t)c * FFT_N;
         if (spread_) for (int i = 0; i < FFT_N; ++i) in_[i] = src[i] * win_[i];
         else         std::memcpy(in_, src, FFT_N * sizeof(float));

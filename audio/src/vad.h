@@ -1,5 +1,5 @@
 // vad.h - the speech detector's decisions, one 10 ms frame at a time
-// (audio.md 9.2, Rev 6).
+// (audio.md 9.2).
 //
 // The engine does the signal processing - band-pass, square, sum 480 samples -
 // and hands each frame's level in dBFS to Listener::frame(). Everything that
@@ -40,7 +40,7 @@ public:
     static constexpr int WIN           = 30;    // frames in the decision window
     static constexpr int START_NEEDED  = 20;    // of 30 above threshold: speech
     static constexpr int END_ALLOWED   = 2;     // of 30 above threshold: quiet
-    // A steady level is noise, not speech (audio.md 9.2, Rev 32): frames that
+    // A steady level is noise, not speech (audio.md 9.2): frames that
     // all lie within STEADY_DB of each other. Over STEADY_FRAMES it becomes
     // the floor; over the 30-frame window it cannot start speech. Only at or
     // below STEADY_MAX_DB: louder than that, steady or not, is a talker.
@@ -67,7 +67,7 @@ public:
     //   it (audio.md 9.3). Called for every frame whether or not a listen is
     //   running, because the history must always be current. Returns what
     //   happened, if anything; after Silence or Timeout the phase is Off.
-    //   A frame the echo canceller cleaned (audio.md 9.4, Rev 26) counts but
+    //   A frame the echo canceller cleaned (audio.md 9.4) counts but
     //   is kept out of the history, `keep` false, so the floor is still the
     //   quiet before the file; and it must clear `min_db` as well as the
     //   threshold.

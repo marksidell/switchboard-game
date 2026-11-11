@@ -77,7 +77,7 @@ Biquad butter_highpass(double fc, double fs)
 // Landen/descending-modulus recursions for the Jacobi elliptic functions, the
 // degree equation solved through the nome, and poles and zeros read off cd().
 // It is written out here rather than taken from a library because the only
-// dependency that would supply it is a large one, and because station 8.8 puts
+// dependency that would supply it is a large one, and because station_circuit.md §8.8 puts
 // a requirement on the realised stopband that a unit test has to check anyway.
 //
 // Convention: the normalised functions carry the argument in units of K(k), so
@@ -211,7 +211,7 @@ static std::vector<ProtoSection> elliptic_prototype(int order, double k,
     const std::vector<double> vk = landen(k);
 
     // Step 3. Degree equation, N*K'(k)/K(k) = K'(k1)/K(k1), solved for k1 through the
-    // nome. The order is fixed by station 8.8 and the stopband by the option,
+    // nome. The order is fixed by station_circuit.md §8.8 and the stopband by the option,
     // so the free parameter is the passband ripple - which is the right thing
     // to spend the spare order on for a feed that is already band-limited to a
     // telephone.

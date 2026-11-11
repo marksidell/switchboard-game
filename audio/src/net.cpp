@@ -10,11 +10,14 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <memory>
 
 #include "util.h"
 #include "wav.h"
 
-static const char* PREFIX = "sbgame/";
+// The topic root (mqtt.md 3), pasted onto every topic as a literal so the
+// subscriptions, the matches and the publishes all read the same way.
+#define ROOT "sbgame/"
 
 // The one Net object, for the libmosquitto callbacks to find. Set in
 // prepare().
@@ -31,12 +34,12 @@ static Net* g_net = nullptr;
 static bool topic_for(Topic t, int idx, char* out, size_t n)
 {
     char id[24];
-    if (t == Topic::Play && idx == chan::TAP_CH) {        // audio.md 7.4, Rev 10
-        std::snprintf(out, n, "%saudio/tap/play", PREFIX);
+    if (t == Topic::Play && idx == chan::TAP_CH) {        // audio.md 7.4
+        std::snprintf(out, n, ROOT "audio/tap/play");
         return true;
     }
-    if (t == Topic::Play && idx == chan::MONITOR_PROG) {  // audio.md 10.4, Rev 11
-        std::snprintf(out, n, "%saudio/monitor/play", PREFIX);
+    if (t == Topic::Play && idx == chan::MONITOR_PROG) {  // audio.md 10.4
+        std::snprintf(out, n, ROOT "audio/monitor/play");
         return true;
     }
     switch (t) {
@@ -51,25 +54,43 @@ static bool topic_for(Topic t, int idx, char* out, size_t n)
                          : (t == Topic::Tone)   ? "tone"
                          : (t == Topic::Listen) ? "listen"
                          : (t == Topic::Peer)   ? "peer" : "op";
-        std::snprintf(out, n, "%s%s/%s", PREFIX, id, leaf);
+        std::snprintf(out, n, ROOT "%s/%s", id, leaf);
         return true;
     }
-    case Topic::Monitor: std::snprintf(out, n, "%saudio/monitor", PREFIX); return true;
+    case Topic::Monitor: std::snprintf(out, n, ROOT "audio/monitor"); return true;
     case Topic::MonitorSrc:
-        std::snprintf(out, n, "%saudio/monitor/source", PREFIX); return true;
+        std::snprintf(out, n, ROOT "audio/monitor/source"); return true;
     case Topic::MonitorPeer:
-        std::snprintf(out, n, "%saudio/monitor/peer", PREFIX); return true;
-    case Topic::OpTone:  std::snprintf(out, n, "%saudio/optone",  PREFIX); return true;
-    case Topic::Ringing: {                                // audio.md 9.5, Rev 30
+        std::snprintf(out, n, ROOT "audio/monitor/peer"); return true;
+    case Topic::OpTone:  std::snprintf(out, n, ROOT "audio/optone"); return true;
+    case Topic::Ringing: {                                // audio.md 9.5
         chan::circuit_id(idx, id, sizeof id);
         if (!id[0]) return false;
-        std::snprintf(out, n, "%s%s/ringing", PREFIX, id);
+        std::snprintf(out, n, ROOT "%s/ringing", id);
         return true;
     }
-    case Topic::Test:    std::snprintf(out, n, "%saudio/test/%d", PREFIX, idx); return true;
+    case Topic::Test:    std::snprintf(out, n, ROOT "audio/test/%d", idx); return true;
     case Topic::FreeBuf: return false;
     }
     return false;
+}
+
+// verb_name()                                                           [any]
+//   A Command's verb for the log.
+static const char* verb_name(Verb v)
+{
+    switch (v) {
+    case Verb::Play:        return "play";
+    case Verb::Tone:        return "tone";
+    case Verb::Listen:      return "listen";
+    case Verb::Monitor:     return "monitor";
+    case Verb::MonitorSrc:  return "monitor source";
+    case Verb::MonitorPeer: return "monitor peer";
+    case Verb::Test:        return "test";
+    case Verb::StopGame:    return "stop game";
+    case Verb::Quit:        return "quit";
+    }
+    return "?";
 }
 
 // ~Net()                                                             [startup]
@@ -107,7 +128,7 @@ bool Net::prepare()
     // died leaves the last topology it saw on the broker looking current; this
     // topic is how the game knows to treat it as stale.
     char topic[64];
-    std::snprintf(topic, sizeof topic, "%sctl/audio_status", PREFIX);
+    std::snprintf(topic, sizeof topic, ROOT "ctl/audio_status");
     mosquitto_will_set(m_, topic, 7, "offline", 1, true);
 
     // audio.md 10.3, 12: monitor/source is published with the rest of the
@@ -165,15 +186,15 @@ void Net::on_connect(int rc)
     // audio.md 12. Every pattern is named; a wildcard over every `set` would
     // deliver the ESP32's hook and ring commands here to be dropped.
     static const char* subs[] = {
-        "sbgame/station/+/play/set",   "sbgame/trunk/+/play/set",
-        "sbgame/audio/tap/play/set",   "sbgame/audio/monitor/play/set",
-        "sbgame/trunk/+/tone/set",
-        "sbgame/station/+/listen/set", "sbgame/trunk/+/listen/set",
-        "sbgame/audio/monitor/set",    "sbgame/audio/monitor/source/set",
-        "sbgame/audio/monitor/peer/set",
-        "sbgame/audio/test/+/set",
-        "sbgame/audio/record/set",     "sbgame/audio/playback/set",
-        "sbgame/ctl/game_heartbeat"
+        ROOT "station/+/play/set",   ROOT "trunk/+/play/set",
+        ROOT "audio/tap/play/set",   ROOT "audio/monitor/play/set",
+        ROOT "trunk/+/tone/set",
+        ROOT "station/+/listen/set", ROOT "trunk/+/listen/set",
+        ROOT "audio/monitor/set",    ROOT "audio/monitor/source/set",
+        ROOT "audio/monitor/peer/set",
+        ROOT "audio/test/+/set",
+        ROOT "audio/record/set",     ROOT "audio/playback/set",
+        ROOT "ctl/game_heartbeat"
     };
     for (const char* s : subs) mosquitto_subscribe(m_, nullptr, s, 1);
 
@@ -205,12 +226,11 @@ void Net::on_disconnect(int rc)
 //   Pushes a Command to the audio thread. If the queue is full - 255
 //   commands unprocessed, which would mean the audio thread has stopped -
 //   logs it and frees any file buffer the command carried.
-void Net::send(const Command& c)
+bool Net::send(const Command& c)
 {
-    if (!sh_.cmdq.push(c)) {
-        log_line("command queue full - dropped %s for %d", "command", c.idx);
-        delete c.buf;
-    }
+    if (sh_.cmdq.push(c)) return true;
+    log_line("command queue full - dropped %s for %d", verb_name(c.verb), c.idx);
+    return false;
 }
 
 // handle_play()                                                         [mqtt]
@@ -229,7 +249,7 @@ void Net::handle_play(int slot, const char* circuit, const char* payload)
         return;
     }
 
-    AudioBuffer* buf = nullptr;
+    std::unique_ptr<AudioBuffer> buf;
     double hf_db = 0.0;
     const LoadResult r = load_wav(sh_.opt.wav_dir, payload, sh_.opt.max_file, buf, hf_db);
     if (r != LoadResult::Ok) {
@@ -249,9 +269,10 @@ void Net::handle_play(int slot, const char* circuit, const char* payload)
         log_line("content: %s has %.1f dBFS above 5.5 kHz; audio.md 5.3 wants it "
                  "below -60 or the detector may read ambiguous", payload, hf_db);
 
-    c.buf = buf;
+    // The audio thread owns the buffer once the command is queued.
+    c.buf = buf.get();
     std::snprintf(c.name, sizeof c.name, "%s", payload);
-    send(c);
+    if (send(c)) buf.release();
 }
 
 // handle_tone()                                                         [mqtt]
@@ -331,7 +352,7 @@ void Net::handle_monitor_source(const char* payload)
         log_line("mqtt: monitor/source/set %s - not a source, dropped", payload);
         return;
     }
-    // audio.md Rev 9 17.9: the same refusal as at startup, for the same reason.
+    // audio.md 10.3: the same refusal as at startup, for the same reason.
     // Logged and dropped with no echo, so the game is not told a source it
     // cannot have is in use.
     if (ch > sh_.ncap) {
@@ -348,7 +369,7 @@ void Net::handle_monitor_source(const char* payload)
 
 // handle_monitor_peer()                                                 [mqtt]
 //   monitor/peer/set: "auto", or the peer boost fixed at a figure in dB,
-//   clamped to 0 - --monitor-peer-max (audio.md 10.8, Rev 29).
+//   clamped to 0 - --monitor-peer-max (audio.md 10.8).
 void Net::handle_monitor_peer(const char* payload)
 {
     Command c;
@@ -400,14 +421,14 @@ void Net::on_message(const char* topic, const char* payload)
     int n = 0;
     char leaf[32];
 
-    if (std::strcmp(topic, "sbgame/ctl/game_heartbeat") == 0) {
+    if (std::strcmp(topic, ROOT "ctl/game_heartbeat") == 0) {
         last_beat_ = monotonic_s();
         if (!beat_seen_) { beat_seen_ = true; log_line("game: heartbeat seen"); }
         if (game_lost_)  { game_lost_ = false; log_line("game: heartbeat returned"); }
         return;
     }
 
-    if (std::sscanf(topic, "sbgame/station/%d/%31s", &n, leaf) == 2) {
+    if (std::sscanf(topic, ROOT "station/%d/%31s", &n, leaf) == 2) {
         if (!chan::is_station(n)) {
             log_line("mqtt: %s - station out of range 1-%d and %d, dropped", topic,
                      chan::N_STATIONS, chan::PHONE_STATION);
@@ -425,7 +446,7 @@ void Net::on_message(const char* topic, const char* payload)
         return;
     }
 
-    if (std::sscanf(topic, "sbgame/trunk/%d/%31s", &n, leaf) == 2) {
+    if (std::sscanf(topic, ROOT "trunk/%d/%31s", &n, leaf) == 2) {
         if (n < 1 || n > chan::N_TRUNKS) {
             log_line("mqtt: %s - trunk out of range 1-%d, dropped", topic, chan::N_TRUNKS);
             return;
@@ -438,26 +459,26 @@ void Net::on_message(const char* topic, const char* payload)
         return;
     }
 
-    // audio.md 7.1, Rev 10: a file on the operator tap, for the diagnostics.
-    if (std::strcmp(topic, "sbgame/audio/tap/play/set") == 0) {
+    // audio.md 7.1: a file on the operator tap, for the diagnostics.
+    if (std::strcmp(topic, ROOT "audio/tap/play/set") == 0) {
         handle_play(chan::TAP_CH, "tap", payload); return;
     }
-    // audio.md 10.4, Rev 11: a file on the monitor, the tutor's voice.
-    if (std::strcmp(topic, "sbgame/audio/monitor/play/set") == 0) {
+    // audio.md 10.4: a file on the monitor, the tutor's voice.
+    if (std::strcmp(topic, ROOT "audio/monitor/play/set") == 0) {
         handle_play(chan::MONITOR_PROG, "monitor", payload); return;
     }
-    if (std::strcmp(topic, "sbgame/audio/monitor/set") == 0) { handle_monitor(payload); return; }
-    if (std::strcmp(topic, "sbgame/audio/monitor/source/set") == 0) {
+    if (std::strcmp(topic, ROOT "audio/monitor/set") == 0) { handle_monitor(payload); return; }
+    if (std::strcmp(topic, ROOT "audio/monitor/source/set") == 0) {
         handle_monitor_source(payload); return;
     }
-    if (std::strcmp(topic, "sbgame/audio/monitor/peer/set") == 0) {
+    if (std::strcmp(topic, ROOT "audio/monitor/peer/set") == 0) {
         handle_monitor_peer(payload); return;
     }
 
-    if (std::strcmp(topic, "sbgame/audio/record/set") == 0) { handle_record(payload); return; }
-    if (std::strcmp(topic, "sbgame/audio/playback/set") == 0) { handle_playback(payload); return; }
+    if (std::strcmp(topic, ROOT "audio/record/set") == 0) { handle_record(payload); return; }
+    if (std::strcmp(topic, ROOT "audio/playback/set") == 0) { handle_playback(payload); return; }
 
-    if (std::sscanf(topic, "sbgame/audio/test/%d/set", &n) == 1) {
+    if (std::sscanf(topic, ROOT "audio/test/%d/set", &n) == 1) {
         if (n < 1 || n > chan::N_PLAY_CH) {
             log_line("mqtt: %s - channel out of range 1-%d, dropped", topic, chan::N_PLAY_CH);
             return;
@@ -470,7 +491,7 @@ void Net::on_message(const char* topic, const char* payload)
 }
 
 // handle_record()                                                       [mqtt]
-//   record/set: "on" or "off" (audio.md 10.6, Rev 22). Unlike every other
+//   record/set: "on" or "off" (audio.md 10.6). Unlike every other
 //   command this one is carried out on this thread - the file is this
 //   thread's, and the audio thread only reads Shared::rec_on - so it is
 //   echoed from here once the file is open or closed.
@@ -492,7 +513,7 @@ void Net::handle_record(const char* payload)
 }
 
 // handle_playback()                                                     [mqtt]
-//   playback/set: a recording's name, or "stop" (audio.md 10.7, Rev 22).
+//   playback/set: a recording's name, or "stop" (audio.md 10.7).
 //   Carried out on this thread, as record/set is, and echoed from here.
 void Net::handle_playback(const char* payload)
 {
@@ -511,7 +532,7 @@ void Net::handle_playback(const char* payload)
 void Net::publish_recordings()
 {
     char topic[64];
-    std::snprintf(topic, sizeof topic, "%saudio/recordings", PREFIX);
+    std::snprintf(topic, sizeof topic, ROOT "audio/recordings");
     publish(topic, rec_.list().c_str());
 }
 
@@ -520,7 +541,7 @@ void Net::publish_recordings()
 void Net::publish_playback()
 {
     char topic[64];
-    std::snprintf(topic, sizeof topic, "%saudio/playback", PREFIX);
+    std::snprintf(topic, sizeof topic, ROOT "audio/playback");
     publish(topic, !player_.name().empty() ? player_.name().c_str() : play_missing_ ? "missing" : "");
 }
 
@@ -529,7 +550,7 @@ void Net::publish_playback()
 void Net::publish_record()
 {
     char topic[64];
-    std::snprintf(topic, sizeof topic, "%saudio/record", PREFIX);
+    std::snprintf(topic, sizeof topic, ROOT "audio/record");
     publish(topic, rec_.running() ? rec_.name().c_str() : rec_failed_ ? "failed" : "off");
 }
 
@@ -585,6 +606,24 @@ void Net::publish_result(const Result& r)
     }
 }
 
+// publish_cleared_sources()                                            [mqtt]
+//   Every circuit's play, listen and ringing (and tone, for trunks), and the
+//   tap's and the monitor's play, as nothing running.
+void Net::publish_cleared_sources()
+{
+    char topic[64];
+    for (int s = 1; s <= chan::N_SLOTS; ++s) {
+        if (!chan::is_circuit_slot(s)) continue;
+        if (topic_for(Topic::Play, s, topic, sizeof topic))    publish(topic, "");
+        if (topic_for(Topic::Listen, s, topic, sizeof topic))  publish(topic, "");
+        if (topic_for(Topic::Ringing, s, topic, sizeof topic)) publish(topic, "off");
+        if (chan::slot_circuit(s).kind == chan::Kind::Trunk &&
+            topic_for(Topic::Tone, s, topic, sizeof topic))    publish(topic, "");
+    }
+    if (topic_for(Topic::Play, chan::TAP_CH, topic, sizeof topic))       publish(topic, "");
+    if (topic_for(Topic::Play, chan::MONITOR_PROG, topic, sizeof topic)) publish(topic, "");
+}
+
 // publish_initial()                                                     [mqtt]
 //   On every (re)connect: every circuit's play, listen (and tone, for
 //   trunks) empty; monitor and all 34 test channels as they actually are;
@@ -596,17 +635,7 @@ void Net::publish_initial()
     // audio.md 12: published before the birth message, so that a subscriber
     // that sees audio_status go online already has consistent values.
     char topic[64];
-    for (int s = 1; s <= chan::N_SLOTS; ++s) {
-        if (!chan::is_circuit_slot(s)) continue;
-        const chan::Circuit c = chan::slot_circuit(s);
-        if (topic_for(Topic::Play, s, topic, sizeof topic))   publish(topic, "");
-        if (topic_for(Topic::Listen, s, topic, sizeof topic)) publish(topic, "");
-        if (topic_for(Topic::Ringing, s, topic, sizeof topic)) publish(topic, "off");
-        if (c.kind == chan::Kind::Trunk &&
-            topic_for(Topic::Tone, s, topic, sizeof topic))   publish(topic, "");
-    }
-    if (topic_for(Topic::Play, chan::TAP_CH, topic, sizeof topic)) publish(topic, "");
-    if (topic_for(Topic::Play, chan::MONITOR_PROG, topic, sizeof topic)) publish(topic, "");
+    publish_cleared_sources();
     topic_for(Topic::Monitor, 0, topic, sizeof topic);
     publish(topic, monitor_state_.c_str());
     topic_for(Topic::MonitorSrc, 0, topic, sizeof topic);
@@ -652,7 +681,7 @@ void Net::publish_birth_when_ready(double now)
 
     drain_results(true);
     char topic[64];
-    std::snprintf(topic, sizeof topic, "%sctl/audio_status", PREFIX);
+    std::snprintf(topic, sizeof topic, ROOT "ctl/audio_status");
     publish(topic, "online");
     birth_pending_ = false;
     log_line("mqtt: online (detector pass %.0f ms after the state publish)",
@@ -668,7 +697,7 @@ void Net::drain_results(bool publishing)
     Result r;
     for (Spsc<Result, 512>* q : { &sh_.res_audio, &sh_.res_ana }) {
         while (q->pop(r)) {
-            if (r.topic == Topic::FreeBuf) { delete r.buf; continue; }
+            if (r.topic == Topic::FreeBuf) { std::unique_ptr<AudioBuffer> done(r.buf); continue; }
             // While disconnected the state is discarded rather than queued: the
             // game sources were stopped when the connection dropped, so the
             // empty play and tone published on reconnect are true (mqtt.md 8.4).
@@ -706,7 +735,7 @@ void Net::check_heartbeat(double now)
 //   line if any of them is non-zero. Silence in the log means all is well.
 void Net::report_counters(double now)
 {
-    // audio.md 10.8, Rev 28: the peer boost, when it or its peer changes by
+    // audio.md 10.8: the peer boost, when it or its peer changes by
     // enough to matter. The audio thread writes it once a second.
     const int pb = sh_.peer_boost.load(std::memory_order_relaxed);
     if (pb != last_peer_boost_) {
@@ -798,7 +827,7 @@ void Net::run()
             // With no connection mosquitto_loop() returns at once rather than
             // waiting in select(), so without this the loop would run flat out
             // between reconnect attempts - a core pegged for up to 30s at a
-            // time (audio.md 3, Rev 3 code consequence 1). While connecting
+            // time (audio.md 3). While connecting
             // or connected it returns SUCCESS and has already waited.
             struct timespec ts = { 0, 20 * 1000 * 1000 };
             nanosleep(&ts, nullptr);
@@ -842,17 +871,7 @@ void Net::shutdown()
     drain_results(connected_);
 
     char topic[64];
-    for (int s = 1; s <= chan::N_SLOTS; ++s) {
-        if (!chan::is_circuit_slot(s)) continue;
-        const chan::Circuit cc = chan::slot_circuit(s);
-        if (topic_for(Topic::Play, s, topic, sizeof topic))   publish(topic, "");
-        if (topic_for(Topic::Listen, s, topic, sizeof topic)) publish(topic, "");
-        if (topic_for(Topic::Ringing, s, topic, sizeof topic)) publish(topic, "off");
-        if (cc.kind == chan::Kind::Trunk &&
-            topic_for(Topic::Tone, s, topic, sizeof topic))   publish(topic, "");
-    }
-    if (topic_for(Topic::Play, chan::TAP_CH, topic, sizeof topic)) publish(topic, "");
-    if (topic_for(Topic::Play, chan::MONITOR_PROG, topic, sizeof topic)) publish(topic, "");
+    publish_cleared_sources();
     for (int ch = 1; ch <= chan::N_PLAY_CH; ++ch) {
         topic_for(Topic::Test, ch, topic, sizeof topic);
         publish(topic, "off");
@@ -863,7 +882,7 @@ void Net::shutdown()
     publish_record();
     player_.stop();
     publish_playback();
-    std::snprintf(topic, sizeof topic, "%sctl/audio_status", PREFIX);
+    std::snprintf(topic, sizeof topic, ROOT "ctl/audio_status");
     publish(topic, "offline");
 
     for (int i = 0; i < 20 && connected_; ++i) mosquitto_loop(m_, 10, 1);

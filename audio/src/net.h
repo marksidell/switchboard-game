@@ -36,6 +36,8 @@ public:
     // ~Net()                                                         [startup]
     //   Destroys the libmosquitto client.
     ~Net();
+    Net(const Net&) = delete;
+    Net& operator=(const Net&) = delete;
 
     // prepare()                                                      [startup]
     //   Creates the client, sets credentials, callbacks and the last will.
@@ -78,10 +80,11 @@ private:
     void publish_recordings();
     void publish_playback();
 
-    void send(const Command& c);
+    bool send(const Command& c);
     void publish(const char* topic, const char* value, bool retain = true);
     void publish_result(const Result& r);
     void publish_initial();
+    void publish_cleared_sources();
     void publish_birth_when_ready(double now);
     void drain_results(bool publishing);
     void check_heartbeat(double now);
@@ -110,6 +113,6 @@ private:
     // truthfully rather than assert the startup defaults (audio.md 12).
     std::string monitor_state_ = "off";
     std::string monitor_source_ = "tap";       // audio.md 10.3, echoed retained
-    std::string monitor_peer_ = "auto";        // audio.md 10.8, Rev 29, the same
+    std::string monitor_peer_ = "auto";        // audio.md 10.8, the same
     bool        test_state_[chan::N_PLAY_CH + 1] = { false };
 };

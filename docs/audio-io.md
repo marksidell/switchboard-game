@@ -13,54 +13,54 @@ in this file was measured through it and will change when the A32 arrives — th
 *map* should not, since both present eight channels per ADAT port.
 
 ```
-  RME Digiface USB (24306452)   USB 2a39:3f8c, ALSA card 1, hw:1
+  RME Digiface USB (<serial>)   USB 2a39:3f8c, ALSA card 1, hw:1
                                 34 playback / 32 capture channels at 48 kHz
                                 S32_LE, 24 bits in a 32-bit word
 ```
 
 Playback has two channels more than capture; those two are the headphone jack.
 
-## Channel map
+The card number above is what ALSA assigned on this host; `/proc/asound/cards` lists the
+number and the card id, and `hw:<number>` or `hw:<id>` both name the device.
 
-Zero-based, as the device and the ALSA frame present them:
+## Channel numbering
+
+Every channel number in this file and in the bench tools is one-based, as in `audio.md`:
+channel *n* is ALSA frame index *n*−1. The tools take and print channel numbers only,
+and refuse 0 or a channel past the device's width.
 
 ```
-   0 –  7   ADAT port 1, via the ADA8200            8 in / 8 out
-   8 – 31   ADAT ports 2–4, nothing connected      24 in / 24 out
-  32 – 33   headphone jack                          out only
+  pilot_loopback_test   -p / -c   first playback / capture channel; slot n plays on
+                                  p+n−1 and is expected back on c+n−1
+  tone_out              -c        output channels
+  tone_monitor          -p / -c   drive channel / watched channels
+```
+
+The headphone pair is `-c 33,34` to `tone_out` and `-p 33` or `-p 34` to `tone_monitor`.
+
+## Channel map
+
+```
+   1 –  8   ADAT port 1, via the ADA8200            8 in / 8 out
+   9 – 32   ADAT ports 2–4, nothing connected      24 in / 24 out
+  33 – 34   headphone jack                          out only
 ```
 
 Within ADAT port 1, as wired 2026-09-17:
 
 ```
-   0 –  5   loopback cables, out to in, for reference measurements
-       6    switchboard circuit  (station, or the operator tap — it has been both)
-       7    switchboard circuit  (trunk)
+   1 –  6   loopback cables, out to in, for reference measurements
+       7    switchboard circuit  (station, or the operator tap — it has been both)
+       8    switchboard circuit  (trunk)
 ```
 
-Channels 6 and 7 have been re-patched several times during bring-up. Any level recorded
+Channels 7 and 8 have been re-patched several times during bring-up. Any level recorded
 against them names the configuration it was taken in.
-
-## Channel numbering — read this before using the tools
-
-The three bench tools do not agree, and the mismatch is deliberate rather than an
-oversight:
-
-```
-  pilot_loopback_test   -p / -c take ZERO-based first-channel indices
-  tone_out              -c takes ONE-based channel numbers
-  tone_monitor          -p / -c take ONE-based channel numbers
-```
-
-`tone_out` prints both conventions on startup — *"channel 34 (0-based
-index 33)"* — so the resolved pin is never in doubt. `pilot_loopback_test` reports its
-result table one-based while taking its arguments zero-based, which is the trap. The
-headphone pair is `-c 33,34` to `tone_out`, `-p 33` and `34` to `tone_monitor`, and indices 32/33 to `pilot_loopback_test`.
 
 ## Measured reference levels
 
 All at 48 kHz, drive −12 dBFS unless stated, through the ADA8200. Taken with
-`pilot_loopback_test -D hw:1`, 2026-09-17, plain cable loopback on channels 0–5:
+`pilot_loopback_test -D hw:1`, 2026-09-17, plain cable loopback on channels 1–6:
 
 ```
   returned level        −28.7 dBFS      (−28.46 to −29.14 across six channels)
@@ -78,7 +78,7 @@ A channel spread wider than about 1 dB, or a returned level away from −28.7 by
 a dB or two, means something has changed in the analog path. That is the whole reason
 these numbers are written down.
 
-Headphone jack, indices 32/33, confirmed audible at −20 dBFS on 2026-09-17. Nothing else
+Headphone jack, channels 33 and 34, confirmed audible at −20 dBFS on 2026-09-17. Nothing else
 is known about its gain; it has not been measured.
 
 ## The switchboard circuits
@@ -86,7 +86,7 @@ is known about its gain; it has not been measured.
 Levels here are lower and noisier than the cable channels, and that is expected — the
 signal goes out through the ADA8200, through a circuit board and a transformer, and back.
 
-Station↔trunk through a switchboard cord pair, channels 6 and 7, after contact cleaning
+Station↔trunk through a switchboard cord pair, channels 7 and 8, after contact cleaning
 (2026-09-16, held over a re-patch the following day):
 
 ```
@@ -134,7 +134,7 @@ everything beyond it in one measurement, and is worth doing first.
 
 ## The operator path
 
-Measured 2026-09-17 with channel 6 moved onto the operator tap and channel 7 on a trunk.
+Measured 2026-09-17 with channel 7 moved onto the operator tap and channel 8 on a trunk.
 Swept 300 Hz–6656 Hz with `tone_out -s` and `tone_monitor`, drift-checked by repeating
 1 kHz at the end (closed to 0.3 dB, so the sweep is valid end to end):
 
@@ -165,7 +165,16 @@ pass what a dozen listening tests could not.
 
 ## Bench tools
 
-Sources in the repo root; each carries its reasoning in its own header comment.
+Sources in the repo root; each carries its reasoning in its own header comment. The
+ALSA plumbing they share is in `bench_alsa.h`, header-only, and `pilot_loopback_test`
+takes the pilot comb from `audio/src/channels.h`, so each builds from the repo root with
+one line (`libasound2-dev` is the only dependency):
+
+```
+g++ -O2 -Wall -Wextra -o pilot_loopback_test pilot_loopback_test.cpp -lasound
+g++ -O2 -Wall -Wextra -o tone_out            tone_out.cpp            -lasound
+g++ -O2 -Wall -Wextra -o tone_monitor        tone_monitor.cpp        -lasound
+```
 
 ```
   pilot_loopback_test   plays the 8-slot pilot comb on eight outputs while capturing
@@ -187,11 +196,10 @@ Sources in the repo root; each carries its reasoning in its own header comment.
                         tenth of a second still shows. Built for chasing intermittents.
 ```
 
-`pilot_loopback_test` and `tone_monitor` use a Hann window for every level reading. An earlier version of
-`pilot_loopback_test` read the cross-channel matrix off a rectangular window, which is
-leakage-free only while sampling stays perfectly coherent; 0.1 bin of drift throws
-−67 dBFS into the neighbouring pilot bin against Hann's −103, and that artefact was
-briefly mistaken for real crosstalk.
+`pilot_loopback_test` and `tone_monitor` use a Hann window for every level reading. A
+rectangular window is leakage-free only while sampling stays perfectly coherent; 0.1 bin
+of drift throws −67 dBFS into the neighbouring pilot bin against Hann's −103, which reads
+as crosstalk that is not there.
 
 ## Open items
 
@@ -199,4 +207,4 @@ briefly mistaken for real crosstalk.
   move when it is.
 - Headphone output gain unmeasured.
 - Nothing is recorded about the monitor bus, which this file is also supposed to cover.
-- Channels 8–31 are unconnected, so no ADAT port beyond the first has been exercised.
+- Channels 9–32 are unconnected, so no ADAT port beyond the first has been exercised.
