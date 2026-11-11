@@ -16,7 +16,7 @@
  *   The poll reads whole ports at 200Hz. Per-pin digitalRead() would be eight
  *   transactions where one will do.
  *
- * The whole driver is about a hundred lines, which is less than the cost of
+ * The whole driver is a few hundred lines, which is less than the cost of
  * working around a library that does not fit.
  * ========================================================================== */
 
@@ -62,7 +62,7 @@ void expanderReleaseAllRelays();
  * second time. Holding it is what makes the caller's retry happen at all. */
 bool expanderBusFault();
 
-/* control.md 6.4 (Rev 19): check the next present expander's configuration and
+/* control.md 6.4: check the next present expander's configuration and
  * restore it if a reset has cleared it. Returns its index, or -1 if it was fine
  * or none was checked. Called once a second from loop(). */
 int8_t expanderVerifyNext();

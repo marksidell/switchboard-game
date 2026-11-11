@@ -12,14 +12,14 @@
 
 #include <Arduino.h>
 
-/* ---- Which firmware this is (control.md 9.1, Rev 18) ---------------------
+/* ---- Which firmware this is (control.md 9.1) -----------------------------
  * The revision of control.md this source implements: raise it with that
  * document whenever a revision has a firmware consequence. The commit and the
  * build time come from sb_version.h, which control/compile writes before it
  * compiles; a build without it says "unknown". Published on ctl/firmware. */
 static constexpr unsigned FIRMWARE_SPEC_REV = 40;
 
-/* Milliseconds from `since` to `now`, never wrapping (control.md 6.3, Rev 21).
+/* Milliseconds from `since` to `now`, never wrapping (control.md 6.3).
  * The loop reads millis() once a pass, and a command handled in that pass
  * stamps its times with a later reading; plain `now - since` then wrapped to
  * four billion and every timeout fired at once - a ring stopped as it started,
@@ -49,8 +49,8 @@ static constexpr uint8_t STATIONS_PER_BOARD = 8;
 
 /* Twenty-two stations, 1-22, and station 24. The last two positions on the last
  * station board - 0x22, strips 7 and 8, bits 6 and 7 - are the operator tap,
- * which has no relay or ring detector fitted and no row (station Rev 3.40,
- * control.md 6.1), and station 24, a real telephone (control.md 7.4, Rev 33).
+ * which has no relay or ring detector fitted and no row (control.md 6.1), and
+ * station 24, a real telephone (control.md 7.4).
  * Station 24 is a row after station 22, so the station rows are 0-22. */
 static constexpr uint8_t N_STATIONS     = 22;              // 1-22, numbered as their rows
 static constexpr uint8_t PHONE_STATION  = 24;              // the real telephone
@@ -67,7 +67,7 @@ static constexpr int PIN_EXP_RESET = 5;     // expander /RESET, active LOW, idle
 static constexpr int PIN_I2C_SDA = 13;      // Wire.begin(13, 16) - argument order
 static constexpr int PIN_I2C_SCL = 16;
 static constexpr uint32_t I2C_CLOCK_HZ = 100000;
-static constexpr int PIN_POWER_CUT = 15;    // switchboard power cut, 5.4 (Rev 31): active
+static constexpr int PIN_POWER_CUT = 15;    // switchboard power cut, 5.4: active
                                             // HIGH, idles LOW. J1 pin 4. Strapping pin -
                                             // an input until setup() claims it.
 
@@ -86,16 +86,16 @@ static constexpr uint32_t PHONE_RING_RUN_MS           = 50;    // 7.4: pulses th
 static constexpr uint32_t PHONE_RING_GAP_MS           = 50;    //   with no gap longer than this
 static constexpr uint8_t  PHONE_RING_PULSES           = 4;     //   and at least this many pulses
 static constexpr uint32_t RING_RELEASE_QUIET_MS       = 100;   // no transition
-// control.md 7.3 (Rev 17): a station dialling, for the board test. The nominal
+// control.md 7.3: a station dialling, for the board test. The nominal
 // Bell figures, 10pps at 61% break, and a dial's return between digits.
 static constexpr uint32_t DIAL_BREAK_MS               = 61;
 static constexpr uint32_t DIAL_MAKE_MS                = 39;
 static constexpr uint32_t DIAL_INTERDIGIT_MS          = 700;
 static constexpr uint8_t  DIAL_MAX_DIGITS             = 16;
-// control.md 6.4 (Rev 19): one present expander's configuration read back
+// control.md 6.4: one present expander's configuration read back
 // this often, in turn.
 static constexpr uint32_t CONFIG_CHECK_MS             = 1000;
-// control.md 6.2 (Rev 20): the longest one I2C transaction may block. The
+// control.md 6.2: the longest one I2C transaction may block. The
 // core's default is 50ms, which a probe of an absent board would take every
 // time; a real transaction at 100kHz is under 1ms.
 static constexpr uint16_t I2C_TIMEOUT_MS              = 5;
@@ -124,14 +124,14 @@ static constexpr uint32_t CADENCE_ON_MS        =  2000;
 static constexpr uint32_t CADENCE_OFF_MS       =  4000;
 static constexpr uint32_t RING_HARD_TIMEOUT_MS = 30000;  // 8.5, independent of the host
 static constexpr uint32_t SHORT_RING_MS        =  1000;  // 8.4, shortring/set: one burst
-
-/* ---- Switchboard power cut (control.md 5.4, Rev 31) ----------------------- */
-static constexpr uint32_t POWER_CUT_MS         =  1000;  // the 551's relays drop well inside it
 static constexpr uint8_t  MAX_TRUNKS_RINGING   =     4;  // 8.5 starting value, pending
-                                                         // the trunk 7.6 measurements.
+                                                         // trunk_circuit.md §7.6 measurements.
                                                          // Leaves headroom for one
                                                          // station ring the firmware
                                                          // cannot see coming.
+
+/* ---- Switchboard power cut (control.md 5.4) ------------------------------ */
+static constexpr uint32_t POWER_CUT_MS         =  1000;  // the 551's relays drop well inside it
 
 /* ---- MQTT (mqtt.md 4, 8; control.md 9) ------------------------------------ */
 static constexpr const char* TOPIC_PREFIX = "sbgame/";

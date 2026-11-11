@@ -7,14 +7,14 @@
 #include "sb_net.h"
 
 static bool     cutting        = false;
-static bool     held           = false;    // Rev 32: no time limit
+static bool     held           = false;    // a hold: no time limit
 static uint32_t cut_started_ms = 0;
 
 void powerCutInit() {
   /* Claimed here, in setup(), and not before: GPIO15 is a strapping pin (MTDO).
    * Until now the Olimex's 10k pull-up against the opto's 220R and the 1k
    * across its LED holds it near 0.36V and the LED dark, so the relay stays
-   * released through a reset (generator 7.8, Rev 76). */
+   * released through a reset (ring_generator.md §7.8). */
   pinMode(PIN_POWER_CUT, OUTPUT);
   digitalWrite(PIN_POWER_CUT, LOW);
 }
@@ -39,7 +39,7 @@ void powerCutSet(PowerCmd cmd) {
     return;
   }
   if (cmd == POWER_HOLD) {
-    /* Rev 32: until "off". A pulse under way becomes a hold; a hold
+    /* Until "off". A pulse under way becomes a hold; a hold
      * repeated is echoed and nothing more. */
     if (!(cutting && held)) {
       digitalWrite(PIN_POWER_CUT, HIGH);
@@ -64,7 +64,7 @@ void powerCutSet(PowerCmd cmd) {
 }
 
 void powerCutService(uint32_t now_ms) {
-  /* Signed, as netGameAlive() is (9.3, Rev 21): now_ms is read at the top of
+  /* Signed, as netGameAlive() is (9.3): now_ms is read at the top of
    * the pass and the cut may have started later in it. */
   if (cutting && !held && (int32_t)(now_ms - cut_started_ms) >= (int32_t)POWER_CUT_MS)
     endCut("time up");

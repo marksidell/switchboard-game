@@ -24,7 +24,7 @@ void stationPoll(uint32_t now_ms);
  * (control.md 9.4). */
 void stationSetHook(uint8_t n, bool on);
 
-/* From sbgame/station/<n>/dial/set (control.md 7.3, Rev 17): pulse the
+/* From sbgame/station/<n>/dial/set (control.md 7.3): pulse the
  * off-hook relay for each digit, timed in stationPoll(), and echo the digits
  * still to finish on `dial`. Dropped unless the station is off-hook; an empty
  * payload stops dialling. */

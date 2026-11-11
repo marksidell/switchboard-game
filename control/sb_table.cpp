@@ -48,11 +48,10 @@ const CircuitMap circuits[N_CIRCUITS] = {
   { Kind::Station,  20,   2,   3 },
   { Kind::Station,  21,   2,   4 },
   { Kind::Station,  22,   2,   5 },
-  /* 0x22 bit 6 is the operator tap strip and has no row (station Rev 3.40,
-   * control.md 6.1): no relay or ring detector is fitted, so nothing polls it,
-   * nothing publishes it and no command can reach it, and the shadow leaves
-   * it 0 for the life of the run. Bit 7 fed the audience loudspeaker until
-   * control.md Rev 33 made it station 24, the real telephone (7.4). */
+  /* 0x22 bit 6 is the operator tap strip and has no row (control.md 6.1): no
+   * relay or ring detector is fitted, so nothing polls it, nothing publishes
+   * it and no command can reach it, and the shadow leaves it 0 for the life of
+   * the run. Bit 7 is station 24, the real telephone (7.4). */
   { Kind::Station,  24,   2,   7 },
   { Kind::Trunk,     1,   3,   0 },
   { Kind::Trunk,     2,   3,   1 },

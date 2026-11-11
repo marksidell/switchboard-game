@@ -1,12 +1,12 @@
 /* =============================================================================
  * sb_power.h - the switchboard power cut
  *
- * control.md 5.4, Rev 31. GPIO15 drives a relay in the switchboard's leg of
- * the 24V star (generator 7.8): high, the relay opens its normally closed
+ * control.md 5.4. GPIO15 drives a relay in the switchboard's leg of the 24V
+ * star (ring_generator.md §7.8): high, the relay opens its normally closed
  * contact and the switchboard is dark. A trunk rung in holds its lamp and
  * buzzer on the 551's own battery until a cord goes in; a pulse, POWER_CUT_MS
- * long, clears it. Rev 32 adds a held cut, for switching the switchboard off
- * from the page: it lasts until "off" or a failsafe. Powered is the
+ * long, clears it. A held cut, for switching the switchboard off from the
+ * page, lasts until "off" or a failsafe. Powered is the
  * switchboard's safe state, and every failsafe returns to it.
  * ========================================================================== */
 

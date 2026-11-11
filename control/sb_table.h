@@ -1,13 +1,14 @@
 /* =============================================================================
  * sb_table.h - the channel table
  *
- * Twenty-two stations and eight trunks differ only in which expander bit they
- * live on and which of two behaviours they follow. Everything else about them
- * is identical, so they are described by a table rather than by code: one row
- * per circuit, 31 rows, and every loop in the firmware walks the table.
+ * Twenty-three stations (1-22 and 24) and eight trunks differ only in which
+ * expander bit they live on and which of two behaviours they follow. Everything
+ * else about them is identical, so they are described by a table rather than by
+ * code: one row per circuit, 31 rows, and every loop in the firmware walks the
+ * table.
  * Fitting or removing a station board is a change to STATION_BOARDS_FITTED and
  * nothing else. The operator tap's bit has no row (control.md 6.1); station 24,
- * the real telephone, is a station row (7.4, Rev 33).
+ * the real telephone, is a station row (7.4).
  *
  * control.md 6.1 for the port assignments:
  *   Station board  Port A = RING_DET_1..8   Port B = OFFHOOK_1..8
@@ -82,7 +83,7 @@ bool circuitLive(const CircuitMap& c);
 bool circuitInput(const CircuitMap& c);
 
 /* True when this circuit's input changed since the poll before, though it may
- * read the same: a pulse shorter than the 5ms poll (control.md 7.4, Rev 34).
+ * read the same: a pulse shorter than the 5ms poll (control.md 7.4).
  * Latched by the expander, and only for the Port A bits in latchMask(). */
 bool circuitChanged(const CircuitMap& c);
 

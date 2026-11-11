@@ -3,9 +3,9 @@
  *
  * control.md 9 and mqtt.md. This module owns the connection, the subscriptions
  * and the publishing primitives. It does not own policy: the failsafe table of
- * control.md 10 lives in the main loop, which is the only place that can see all
- * of the conditions at once. So this module reports facts - connected, just
- * connected, sync asked for, game heartbeat alive - and the loop decides.
+ * control.md 10 is sb_failsafe, the only place that sees all of the conditions
+ * at once. So this module reports facts - connected, just connected, sync
+ * asked for, game heartbeat alive - and the caller decides.
  *
  * Library: MQTT 2.5.3 (Joel Gaehwiler, 256dpi/arduino-mqtt). Chosen over
  * PubSubClient because that cannot publish at QoS 1, which mqtt.md 2 requires
@@ -29,7 +29,7 @@ void netInit();                       // ETH.begin() and client setup
 void netService(uint32_t now_ms);
 
 /* Called once when the connection is found gone, before any attempt to
- * reconnect (control.md 10, Rev 40). */
+ * reconnect (control.md 10). */
 void netOnLost(void (*fn)());
 
 bool netConnected();

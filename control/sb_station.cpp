@@ -99,12 +99,12 @@ static void dialStep(const CircuitMap& c, StationState& s, uint32_t now_ms) {
 }
 
 /* Station 24, the real telephone (7.4). Its hook detector reads 1 while the
- * phone is on-hook. Rung, it releases for about 2ms in each 25ms (Rev 34):
+ * phone is on-hook. Rung, it releases for about 2ms in each 25ms:
  * mostly between polls, and at 40Hz in step with them, so the expander latches
  * the change, and a poll that sees a change, or a latched one, is a pulse.
  * Ring is four pulses over 50ms or more with no gap over 50ms. Plugging a cord
  * into the jack or pulling it out opens the line for 29-192ms, measured, with
- * a bounce at each end: two or three pulses, which are not ring (Rev 35, 38).
+ * a bounce at each end: two or three pulses, which are not ring.
  * The level counts as the hook once it has held for 400ms, past the longest
  * of those, and not while ring is on. */
 static void phonePoll(const CircuitMap& c, StationState& s, bool raw, uint32_t now_ms) {

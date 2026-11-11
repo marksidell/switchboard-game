@@ -28,7 +28,7 @@ static uint32_t backoff_ms      = MQTT_RECONNECT_MIN_MS;
 static uint32_t last_hb_ms      = 0;
 static bool     eth_up_logged   = false;
 
-/* Commands received, waiting to be acted on (control.md 9.1, Rev 22). The
+/* Commands received, waiting to be acted on (control.md 9.4). The
  * client calls onMessage from inside mqtt.loop(), and acting there publishes
  * the echo from inside it: the nested QoS 1 publish reads the socket for its
  * PUBACK, takes bytes the outer loop() had already counted as available, and
@@ -93,9 +93,8 @@ static void ctlTopic(const char* leaf, char* out, size_t n) {
 void netPublishState(const CircuitMap& c, const char* leaf, const char* payload) {
   char topic[64];
   circuitTopic(c, leaf, topic, sizeof topic);
-  /* control.md 9.2, Rev 28: a state change that does not reach the broker is
-   * logged. Only the 30s republish would otherwise put it right, and on the
-   * bench, 2026-10-09, seize changes arrived only with it. */
+  /* control.md 9.2: a state change that does not reach the broker is logged.
+   * Only the 30s republish would otherwise put it right, and nothing would say so. */
   if (!mqtt.connected()) {
     Serial.printf("mqtt: %s \"%s\" not sent - not connected\n", topic, payload);
     return;
@@ -179,9 +178,9 @@ void netRepublishStep() {
 /* ---- incoming ----------------------------------------------------------- */
 
 /* control.md 9.4: a command payload is exactly "on" or "off". Anything else is
- * logged and dropped - not read as "off", which the first firmware did, making
- * a malformed command a silent relay release. Returns false for a payload to
- * drop; `on` is set only when it returns true. */
+ * logged and dropped - not read as "off", which would make a malformed command
+ * a silent relay release. Returns false for a payload to drop; `on` is set only
+ * when it returns true. */
 static bool parseOnOff(const char* topic, const char* p, bool& on) {
   if (strcmp(p, "on") == 0)  { on = true;  return true; }
   if (strcmp(p, "off") == 0) { on = false; return true; }
@@ -214,9 +213,9 @@ static bool parseCircuitTopic(const char* rest, uint8_t& kind, unsigned long& n)
 }
 
 /* mqtt.md 6 is the whole of the inbound surface: four per-circuit commands -
- * hook/set and dial/set (control.md 7.3, Rev 17) on a station, ring/set and
- * shortring/set (control.md 8.4, Rev 25) on a trunk - and three ctl topics, power_cut/set
- * (control.md 5.4, Rev 31) the third. Parsed rather than dispatched through a table
+ * hook/set and dial/set (control.md 7.3) on a station, ring/set and
+ * shortring/set (control.md 8.4) on a trunk - and three ctl topics, power_cut/set
+ * (control.md 5.4) the third. Parsed rather than dispatched through a table
  * because the circuit number has to come out of the middle. */
 static void onMessage(String& topic, String& payload) {
   const char* t = topic.c_str();
@@ -239,7 +238,7 @@ static void onMessage(String& topic, String& payload) {
     return;
   }
   if (strcmp(rest, "ctl/power_cut/set") == 0) {
-    /* "on", "off", or "hold" (control.md 5.4, Rev 32): n carries which. */
+    /* "on", "off", or "hold" (control.md 5.4): n carries which. */
     bool on = false;
     Command* c;
     const bool hold = strcmp(p, "hold") == 0;
@@ -263,7 +262,7 @@ static void onMessage(String& topic, String& payload) {
   }
 
   if (kind == CMD_DIAL) {
-    /* control.md 7.3, Rev 17. Too long to copy is too long to dial: an
+    /* control.md 7.3. Too long to copy is too long to dial: an
      * over-long payload is replaced by one stationDial() refuses, with its log. */
     if (Command* c = cmdPush(t)) {
       c->kind = CMD_DIAL; c->n = (uint8_t)n;
@@ -308,13 +307,13 @@ void netInit() {
  * topic once. A clean session forgets subscriptions, so every reconnect repeats
  * all of it. The state publish is left to the caller, which owns the circuits. */
 static void onConnected() {
-  /* control.md 9.1 (Rev 20): no Nagle. Every QoS 1 publish waits for its PUBACK,
+  /* control.md 9.1: no Nagle. Every QoS 1 publish waits for its PUBACK,
    * and with Nagle on, the small packets met the broker's delayed ACK: about
    * 40ms a message, which held the 200Hz loop for up to 130ms while state was
    * republished. With TCP_NODELAY each round trip is the LAN's, about 1ms. */
   net_client.setNoDelay(true);
   netPublishCtl("status", "online", /*retained=*/true, /*qos=*/1);
-  // control.md 9.1, Rev 18: which firmware this is, with the birth message.
+  // control.md 9.1: which firmware this is, with the birth message.
   char fw[96];
   snprintf(fw, sizeof fw, "control.md Rev %u, %s, built %s",
            FIRMWARE_SPEC_REV, FIRMWARE_COMMIT, FIRMWARE_BUILT);
@@ -346,12 +345,12 @@ void netOnLost(void (*fn)()) { on_lost = fn; }
 
 void netService(uint32_t now_ms) {
   mqtt.loop();                       // sends the keepalive and dispatches messages
-  runCommands();                     // outside loop(): they publish (Rev 22)
+  runCommands();                     // outside loop(): they publish
 
   if (mqtt.connected()) { was_connected = true; return; }
 
-  /* Rev 40: before the connect below, which blocks and may succeed, so a
-   * connection back within this pass still releases the relays. */
+  /* Before the connect below, which blocks and may succeed, so a connection
+   * back within this pass still releases the relays (control.md 10). */
   if (was_connected) {
     was_connected = false;
     if (on_lost) on_lost();
@@ -368,6 +367,8 @@ void netService(uint32_t now_ms) {
 
   if (elapsedMs(now_ms, last_attempt_ms) < retry_wait_ms) return;   // wrap-safe
 
+  /* Blocks for up to its timeout while the broker is down, stalling the poll;
+   * acceptable because the loss has already released every relay (9.1). */
   if (mqtt.connect(MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD)) {
     onConnected();
     return;
@@ -402,7 +403,7 @@ bool netTakeSyncRequest() {
 
 bool netGameAlive(uint32_t now_ms) {
   if (!game_beat_seen) return false;
-  /* Signed (control.md 9.3, Rev 21). `now_ms` is read at the top of the loop
+  /* Signed (control.md 9.3). `now_ms` is read at the top of the loop
    * pass and a heartbeat that arrives later in the same pass is stamped after
    * it; unsigned, that small negative age wrapped to four billion, the game
    * read as gone, and every relay was released - each second, intermittently. */

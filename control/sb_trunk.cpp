@@ -37,7 +37,7 @@ struct TrunkState {
 
   /* What `seize` reports: the loop as last classified. Set on entering SEIZED,
    * cleared on entering IDLE, and deliberately untouched on entering
-   * RING_ON_TRUNK, so it is not simply phase == Seized (control.md 8.3, Rev 7). */
+   * RING_ON_TRUNK, so it is not simply phase == Seized (control.md 8.3). */
   bool        seize_on;
 
   int8_t      seize_pub;    // -1 never published, 0 off, 1 on
@@ -155,7 +155,7 @@ static void classifyBreak(uint8_t i, uint32_t len) {
   /* Shorter than 25ms, or between 100ms and 250ms: neither a pulse nor a
    * release. Log it, and if it landed inside a digit that digit is spoiled.
    * A long one is pulses run together by a lost make, so it spoils the digit
-   * even before its first pulse (control.md 8.2, Rev 23): otherwise the rest
+   * even before its first pulse (control.md 8.2): otherwise the rest
    * would be counted as a shorter, valid digit. */
   Serial.printf("trunk %u: break of %lums is neither pulse nor release\n",
                 (unsigned)row(i).number, (unsigned long)len);
@@ -185,7 +185,7 @@ void trunkPoll(uint32_t now) {
     /* ---- cadence and the hard timeout, before the input is looked at ----
      * During the ring-on phase pole 2 has lifted the return off R_LOOP and
      * SEIZE reads nothing, so the input is only meaningful in the off phase. */
-    /* shortring/set (control.md 8.4, Rev 25): one burst, then IDLE, where a
+    /* shortring/set (control.md 8.4): one burst, then IDLE, where a
      * seizure is readable at once. The level recorded before the burst says
      * nothing about now, so rebaseline as at the start of an off phase. */
     if (s.phase == Phase::Ringing && s.short_burst &&
@@ -225,7 +225,7 @@ void trunkPoll(uint32_t now) {
     const bool sample = circuitInput(c);
     const bool blind  = (s.phase == Phase::Ringing && s.cadence_on);
 
-    /* Glitch filter (control.md 8.1, Rev 24): a change of level is accepted
+    /* Glitch filter (control.md 8.1): a change of level is accepted
      * only when two consecutive samples agree on it, and it is timed from the
      * first of them, so both edges of a pulse move together and a break or
      * make keeps its length. Anything shorter than one 5ms sample interval -
@@ -266,7 +266,7 @@ void trunkPoll(uint32_t now) {
           if (s.phase != Phase::RingOnTrunk) {
             Serial.printf("trunk %u: ring applied from the switchboard\n",
                           (unsigned)c.number);
-            /* `seize` is left as it was (control.md 8.3, Rev 7). Entered from
+            /* `seize` is left as it was (control.md 8.3). Entered from
              * SEIZED it stays "on": publishing "off" here would look to the
              * game like a release and tear the call down for an operator's
              * slip. `fault` = "ring_on_trunk" is the report. When the pattern
@@ -357,7 +357,7 @@ static void requestRing(uint8_t n, bool on, bool short_burst, const char* cmd) {
     return;
   }
 
-  /* control.md 8.3, Rev 7: "on" is acted on in IDLE only. In RINGING it is a
+  /* control.md 8.3: "on" is acted on in IDLE only. In RINGING it is a
    * no-op - a burst already ringing finishes, and a cadence already ringing is
    * not cut short. In SEIZED and RING_ON_TRUNK it is dropped with a log line
    * and not held for later - a ring that started seconds after the command,

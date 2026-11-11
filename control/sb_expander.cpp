@@ -117,7 +117,7 @@ void expanderResetPulse() {
  * zero so every relay is released by command as well as by default. There is no
  * INT line and none is wanted (6.3); interrupt-on-change is enabled only on
  * station 24's input, for its flag, INTFA, which latches a change the 5ms poll
- * would miss (7.4, Rev 34). Every other bit's is disabled explicitly. */
+ * would miss (7.4). Every other bit's is disabled explicitly. */
 static bool configureOne(uint8_t idx) {
   const uint8_t a = expanders[idx].addr;
   bool ok = true;
@@ -247,7 +247,7 @@ void expanderReleaseAllRelays() {
 
 bool expanderBusFault() { return bus_fault; }
 
-/* control.md 6.4 (Rev 19). The next present expander, in turn: read back its
+/* control.md 6.4. The next present expander, in turn: read back its
  * directions and Port A polarity, and if a reset has put them back to the
  * power-on defaults, configure it again and mark its relays to be rewritten
  * from the shadow, which still holds what was commanded. */
@@ -287,7 +287,7 @@ bool expanderAnyPresent() {
   return false;
 }
 
-/* control.md 6.2 (Rev 20): one absent expander per call, in turn. A probe of an
+/* control.md 6.2: one absent expander per call, in turn. A probe of an
  * address nobody answers is the slowest transaction there is, and probing every
  * missing board at once held the 200Hz loop for over 100ms each second - long
  * enough to swallow dial pulses and ring transitions on the boards that are

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Stamp the firmware with the commit it is built from and when, then compile it
-# (control.md 9.1, Rev 18). Any arguments go to arduino-cli compile, e.g.
+# (control.md 9.1). Any arguments go to arduino-cli compile, e.g.
 #
 #   control/compile                                  # a plain build
 #   control/compile --output-dir control/build       # for a network update
