@@ -15,7 +15,6 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
 endif()
 
-# CLAUDE.md: -Wall -Wextra clean.
 add_compile_options(-Wall -Wextra)
 
 find_package(PkgConfig REQUIRED)

@@ -1,5 +1,5 @@
 // rec.h - recording the loudspeaker feed to a file, and playing a recording
-// back to it (audio.md 10.6, 10.7, Rev 22).
+// back to it (audio.md 10.6, 10.7).
 //
 // Three pieces, on the two sides of the real-time line:
 //

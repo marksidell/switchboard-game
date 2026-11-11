@@ -1,4 +1,4 @@
-// cityring.h - the ringback waveform (audio.md 8.2, Rev 21).
+// cityring.h - the ringback waveform (audio.md 8.2).
 //
 // The Western Electric 803C tone alternator's "city ring": 420Hz mixed with the
 // 20Hz ringing current, which beats at 40Hz, and the harmonics the machine and

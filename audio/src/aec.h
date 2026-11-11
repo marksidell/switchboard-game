@@ -1,4 +1,4 @@
-// aec.h - the line echo canceller (audio.md 9.4, Rev 26).
+// aec.h - the line echo canceller (audio.md 9.4).
 //
 // A two-wire circuit has no hybrid, so a file played on it returns on its own
 // receive, 14 dB down on the bench, about 12 ms late (audio.md 9.3). While a

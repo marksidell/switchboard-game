@@ -305,7 +305,7 @@ void Engine::process_capture()
             // no hybrid, so our own file returns on this receive at full
             // strength. The Listener discards it and restarts its window -
             // unless the echo canceller ran for the whole frame and has
-            // converged (9.4, Rev 26). Then the residual is judged, against
+            // converged (9.4). Then the residual is judged, against
             // the echo it took out as well as the usual threshold, and kept
             // out of the history so the floor stays the quiet before the file.
             bool   valid = !v.src_seen;
@@ -496,7 +496,7 @@ void Engine::render()
             n = (n + 1) & (FFT_N - 1);
         }
 
-        // The tap takes a file too (audio.md 7, Rev 10), summed over the
+        // The tap takes a file too (audio.md 7), summed over the
         // operator tone exactly as a circuit's is over its pilot. Never a tone:
         // the MQTT thread has no tone command for it.
         // A file or a tone can reach full scale by design, so only the fixed
@@ -551,7 +551,7 @@ void Engine::render()
 
 // aec_feed()                                                           [audio]
 //   The echo canceller's reference for one circuit, this period (audio.md
-//   9.4, Rev 26): n samples of its file, then silence, through the speech
+//   9.4): n samples of its file, then silence, through the speech
 //   detector's band-pass so that both sides of the subtraction are filtered
 //   alike, every sixth sample kept. A file starting starts the canceller;
 //   while it runs, silence is fed after the file ends, until its echo is over.
@@ -610,7 +610,7 @@ void Engine::check_output()
 }
 
 // record_line()                                                        [audio]
-//   --record-line (audio.md 10.6, Rev 25): while a recording runs, each
+//   --record-line (audio.md 10.6): while a recording runs, each
 //   slot's output as about to be written and its capture of this period, a
 //   pair per slot in each frame, to the MQTT thread's second file. Raw: the
 //   samples ALSA is given and gave, so the echo of a slot's own playback can

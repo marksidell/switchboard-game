@@ -34,11 +34,11 @@ static Net* g_net = nullptr;
 static bool topic_for(Topic t, int idx, char* out, size_t n)
 {
     char id[24];
-    if (t == Topic::Play && idx == chan::TAP_CH) {        // audio.md 7.4, Rev 10
+    if (t == Topic::Play && idx == chan::TAP_CH) {        // audio.md 7.4
         std::snprintf(out, n, ROOT "audio/tap/play");
         return true;
     }
-    if (t == Topic::Play && idx == chan::MONITOR_PROG) {  // audio.md 10.4, Rev 11
+    if (t == Topic::Play && idx == chan::MONITOR_PROG) {  // audio.md 10.4
         std::snprintf(out, n, ROOT "audio/monitor/play");
         return true;
     }
@@ -63,7 +63,7 @@ static bool topic_for(Topic t, int idx, char* out, size_t n)
     case Topic::MonitorPeer:
         std::snprintf(out, n, ROOT "audio/monitor/peer"); return true;
     case Topic::OpTone:  std::snprintf(out, n, ROOT "audio/optone"); return true;
-    case Topic::Ringing: {                                // audio.md 9.5, Rev 30
+    case Topic::Ringing: {                                // audio.md 9.5
         chan::circuit_id(idx, id, sizeof id);
         if (!id[0]) return false;
         std::snprintf(out, n, ROOT "%s/ringing", id);
@@ -352,7 +352,7 @@ void Net::handle_monitor_source(const char* payload)
         log_line("mqtt: monitor/source/set %s - not a source, dropped", payload);
         return;
     }
-    // audio.md Rev 9 17.9: the same refusal as at startup, for the same reason.
+    // audio.md 10.3: the same refusal as at startup, for the same reason.
     // Logged and dropped with no echo, so the game is not told a source it
     // cannot have is in use.
     if (ch > sh_.ncap) {
@@ -369,7 +369,7 @@ void Net::handle_monitor_source(const char* payload)
 
 // handle_monitor_peer()                                                 [mqtt]
 //   monitor/peer/set: "auto", or the peer boost fixed at a figure in dB,
-//   clamped to 0 - --monitor-peer-max (audio.md 10.8, Rev 29).
+//   clamped to 0 - --monitor-peer-max (audio.md 10.8).
 void Net::handle_monitor_peer(const char* payload)
 {
     Command c;
@@ -459,11 +459,11 @@ void Net::on_message(const char* topic, const char* payload)
         return;
     }
 
-    // audio.md 7.1, Rev 10: a file on the operator tap, for the diagnostics.
+    // audio.md 7.1: a file on the operator tap, for the diagnostics.
     if (std::strcmp(topic, ROOT "audio/tap/play/set") == 0) {
         handle_play(chan::TAP_CH, "tap", payload); return;
     }
-    // audio.md 10.4, Rev 11: a file on the monitor, the tutor's voice.
+    // audio.md 10.4: a file on the monitor, the tutor's voice.
     if (std::strcmp(topic, ROOT "audio/monitor/play/set") == 0) {
         handle_play(chan::MONITOR_PROG, "monitor", payload); return;
     }
@@ -491,7 +491,7 @@ void Net::on_message(const char* topic, const char* payload)
 }
 
 // handle_record()                                                       [mqtt]
-//   record/set: "on" or "off" (audio.md 10.6, Rev 22). Unlike every other
+//   record/set: "on" or "off" (audio.md 10.6). Unlike every other
 //   command this one is carried out on this thread - the file is this
 //   thread's, and the audio thread only reads Shared::rec_on - so it is
 //   echoed from here once the file is open or closed.
@@ -513,7 +513,7 @@ void Net::handle_record(const char* payload)
 }
 
 // handle_playback()                                                     [mqtt]
-//   playback/set: a recording's name, or "stop" (audio.md 10.7, Rev 22).
+//   playback/set: a recording's name, or "stop" (audio.md 10.7).
 //   Carried out on this thread, as record/set is, and echoed from here.
 void Net::handle_playback(const char* payload)
 {
@@ -735,7 +735,7 @@ void Net::check_heartbeat(double now)
 //   line if any of them is non-zero. Silence in the log means all is well.
 void Net::report_counters(double now)
 {
-    // audio.md 10.8, Rev 28: the peer boost, when it or its peer changes by
+    // audio.md 10.8: the peer boost, when it or its peer changes by
     // enough to matter. The audio thread writes it once a second.
     const int pb = sh_.peer_boost.load(std::memory_order_relaxed);
     if (pb != last_peer_boost_) {
@@ -827,7 +827,7 @@ void Net::run()
             // With no connection mosquitto_loop() returns at once rather than
             // waiting in select(), so without this the loop would run flat out
             // between reconnect attempts - a core pegged for up to 30s at a
-            // time (audio.md 3, Rev 3 code consequence 1). While connecting
+            // time (audio.md 3). While connecting
             // or connected it returns SUCCESS and has already waited.
             struct timespec ts = { 0, 20 * 1000 * 1000 };
             nanosleep(&ts, nullptr);

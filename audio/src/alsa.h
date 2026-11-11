@@ -93,7 +93,7 @@ private:
 // Full scale is encoded as 2^31 - 256 on the way out so the value survives the
 // device truncating to 24 bits, and read back against 2^31, which is what full
 // scale means coming in. The 1e-6 dB between the two constants is deliberate;
-// pilot_loopback_test.cpp has the same pair for the same reason.
+// bench_alsa.h has the same pair for the same reason.
 //
 // float_to_s32()                                                       [audio]
 //   One float sample, nominally -1.0..+1.0, to the driver's 32-bit integer.

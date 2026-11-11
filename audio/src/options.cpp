@@ -130,7 +130,7 @@ static void usage(const char* p)
 
 // parse_record_line()                                                [startup]
 //   "21" or "20,25,26" -> the slots, in the order given: circuits only, no
-//   repeats, at most 8 (audio.md 10.6, Rev 25).
+//   repeats, at most 8 (audio.md 10.6).
 static bool parse_record_line(const char* s, std::vector<int>& out)
 {
     out.clear();
@@ -374,7 +374,7 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         }
     }
     if (o.tone_mod < 0.0 || o.tone_mod > 1.0) { std::fprintf(stderr, "--tone-mod must be 0..1\n"); return false; }
-    // audio.md Rev 9: the trim is limited, but the commanded gain plus the trim
+    // audio.md 10.3: the trim is limited, but the commanded gain plus the trim
     // is deliberately not - clamping the sum would cap the tap at a lower
     // commanded gain than a circuit, which is the mismatch the trim exists to
     // remove. The -3dBFS limiter is what protects the output.

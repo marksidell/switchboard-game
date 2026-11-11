@@ -23,7 +23,7 @@
 
 // ---------------------------------------------------------------- sine table
 
-// One shared 4096-entry sine table, station 8.8 and audio.md 5.1. For a comb
+// One shared 4096-entry sine table, station_circuit.md §8.8 and audio.md 5.1. For a comb
 // bin b, sample n of the 4096-sample cycle is table[(b * n) & 4095]: every
 // pilot completes an integer number of cycles per block, so a counter that
 // wraps at 4096 is the whole oscillator - no phase accumulator, no rounding,
@@ -126,8 +126,8 @@ Biquad butter_highpass(double fc, double fs);
 // butter_lowpass6()                                                  [startup]
 //   Sixth-order Butterworth low-pass as three sections, Q 0.518, 0.707 and
 //   1.932, run in series: -3 dB at fc, then 36 dB/octave. The speech
-//   detector's low-pass since audio.md Rev 18, which puts the pilots 30 dB
-//   or more down where one section left the lowest only 10.
+//   detector's low-pass (audio.md 9.2): it puts the pilots 30 dB or more
+//   down, where one section left the lowest only 10.
 std::vector<Biquad> butter_lowpass6(double fc, double fs);
 
 // elliptic_lowpass()                                                 [startup]
@@ -186,8 +186,8 @@ public:
     inline double run(double x)
     {
         // Release first, then attack, so the sample that sets the gain is
-        // never let back up past the threshold (Rev 16: at a threshold well
-        // below full scale the other order overshot by about 0.6%).
+        // never let back up past the threshold; the other order overshoots
+        // by about 0.6% at a threshold well below full scale.
         if (gain_ < 1.0) {
             gain_ += (1.0 - gain_) * rel_;               // one-pole release
             if (gain_ > 1.0) gain_ = 1.0;

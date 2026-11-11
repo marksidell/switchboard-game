@@ -83,7 +83,7 @@ Listener::Event Listener::frame(float db, bool valid, const VadParams& p, bool k
         // does not lower the bar.
         const double cand = history_p10();
         if (cand > floor_db_) floor_db_ = std::min(cand, floor_db_ + 0.01);
-        // Rev 32: but a line that steps up to a new steady noise - a trunk
+        // But a line that steps up to a new steady noise - a trunk
         // seized as the listen starts, 38 dB louder than before - takes it as
         // the floor at once, and the window starts again. Only a step: a
         // level wandering within STEADY_DB of the floor is left to the creep,
@@ -110,8 +110,7 @@ Listener::Event Listener::frame(float db, bool valid, const VadParams& p, bool k
         if (valid && full && above >= START_NEEDED && !steady(WIN, top)) {
             // 200 ms of 300 above threshold. A click or a relay is a frame or
             // two; a word is many. Not a steady level, which is noise waiting
-            // to become the floor (Rev 32). The maximum speech time runs from
-            // here.
+            // to become the floor. The maximum speech time runs from here.
             phase_   = Phase::Speaking;
             elapsed_ = 0;
             quiet_   = 0;

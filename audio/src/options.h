@@ -1,6 +1,6 @@
 // options.h - command line. audio.md 14: no configuration file, because there
 // are few enough options that a systemd unit's ExecStart line holds them, and
-// one place is better than two. Every level station 8 gives as a figure is an
+// one place is better than two. Every level station_circuit.md §8 gives as a figure is an
 // option here and defaults to that figure.
 //
 // Options is filled once by parse_options() in main(), copied into Shared (see
@@ -35,67 +35,67 @@ struct Options {
     std::string wav_dir  = "wav";
     double      max_file = 120.0;       // seconds
 
-    // The loudspeaker recording, audio.md 10.6 (Rev 22)
+    // The loudspeaker recording, audio.md 10.6
     std::string record_dir = "recordings";
     double      record_max = 14400.0;   // seconds; a forgotten recording stops
-    // --record-line (Rev 25): up to 8 circuit slots whose output and capture
+    // --record-line: up to 8 circuit slots whose output and capture
     // are recorded raw beside each loudspeaker recording, for measuring the
     // echo of their own playback. Empty for none.
     std::vector<int> record_line;
 
-    // Levels, all station 8 figures
-    double pilot_db  = -40.0;           // station 8.4
-    double op_db     = -18.0;           // station 7.9.3
+    // Levels, all station_circuit.md §8 figures
+    double pilot_db  = -40.0;           // station_circuit.md §8.4
+    double op_db     = -18.0;           // station_circuit.md §7.9.3
     double tone_db   = -20.0;           // audio.md 8.3, peak
     double tone_mod  = 1.0;             // modulation depth, 0-1
     double test_db   = -20.0;           // audio.md 11.1
-    double margin_db = 20.0;            // station 8.7 MARGIN_DB
-    double peer_window_db = 25.0;       // station 8.7 PEER_WINDOW_DB
-    double op_window_db   = 20.0;       // station 8.7 OP_WINDOW_DB
+    double margin_db = 20.0;            // station_circuit.md §8.7 MARGIN_DB
+    double peer_window_db = 25.0;       // station_circuit.md §8.7 PEER_WINDOW_DB
+    double op_window_db   = 20.0;       // station_circuit.md §8.7 OP_WINDOW_DB
 
     // Monitor
     bool   monitor_on = false;          // default off, audio.md 10.2
     double monitor_db = 0.0;
     // --monitor-ch: the playback channels the monitor is written to
     // (audio.md 10.1, 14). Document channel numbers from {33, 34}, the
-    // Digiface's analog pair; 24 until Rev 24 made it a station. Never empty.
+    // Digiface's analog pair. Never empty.
     std::vector<int> monitor_ch { 33, 34 };
-    // audio.md 10.3, 14. The source at startup, as a capture channel; tap by
-    // default so a bench run with no game behaves as Rev 7 did. The trim is
+    // audio.md 10.3, 14. The source at startup, as a capture channel, the tap
+    // by default: the one source that is not about a call. The trim is
     // added to the gain only while the source is the tap, because the tap
-    // arrives about 15dB below the operator's line (station 7.9.3).
+    // arrives about 15dB below the operator's line (station_circuit.md §7.9.3).
     int    monitor_src = 23;            // chan::TAP_CH
     double monitor_tap_trim_db = 0.0;
-    // audio.md 10.4, Rev 11. Gain added to a file on the monitor, the tutor's
+    // audio.md 10.4. Gain added to a file on the monitor, the tutor's
     // voice, over the commanded gain, so her level is set against the calls'
     // once on the bench and monitor/set stays one number.
     double monitor_file_trim_db = 0.0;
-    double monitor_limit_db     = -3.0;   // audio.md 10.1, Rev 16: the limiter's threshold
-    // audio.md 10.5, Rev 17: the line-disturbance gate. Off (0) by default.
+    double monitor_limit_db     = -3.0;   // audio.md 10.1: the limiter's threshold
+    // audio.md 10.5: the line-disturbance gate. Off (0) by default.
     double monitor_gate_db      = 0.0;    // below-50Hz level that shuts it, dBFS
     double monitor_gate_hold    = 0.25;   // seconds it stays shut once that is gone
-    // audio.md 10.8, Rev 28: the peer boost. The most the source is raised
+    // audio.md 10.8: the peer boost. The most the source is raised
     // while the circuit it is patched to plays a file (0: off), and what it
     // is raised by until both paths are measured.
     double monitor_peer_max_db   = 15.0;
     double monitor_peer_start_db = 6.0;
-    double lp_pass    = 3600.0;         // station 8.8
+    double lp_pass    = 3600.0;         // station_circuit.md §8.8
     double lp_stop    = 5600.0;
     double lp_att     = 70.0;
 
     // Speech detector, audio.md 9.2
     double vad_margin     = 10.0;
     double vad_floor      = -50.0;
-    double vad_hangover   = 1.5;        // s of quiet that ends speech (Rev 6)
+    double vad_hangover   = 1.5;        // s of quiet that ends speech
     double vad_max_speech = 30.0;       // s of speech waited out before timeout
-    // The echo canceller, audio.md 9.4 (Rev 26)
+    // The echo canceller, audio.md 9.4
     bool   aec       = true;
     double aec_delay = 10.0;            // ms before its first tap
 
     // Diagnostics
     std::string dump_circuit;           // "station/5" or "trunk/2"
     double      dump_seconds = 0.0;
-    bool        hann = false;           // station 8.2 fallback, see the comment
+    bool        hann = false;           // station_circuit.md §8.2 fallback, see the comment
                                         // in detector.cpp
     bool        no_rt = false;          // skip SCHED_FIFO/mlockall (bench)
 
