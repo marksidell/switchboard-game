@@ -1,4 +1,4 @@
-"""Tutor mode (game_control.md §7, Rev 29).
+"""Tutor mode (game_control.md §7).
 
 Her lines are checked where they are made, in the loader; then the flows are
 run with her, against the echoing fake, for the order of her lines against
@@ -8,9 +8,6 @@ introduction, one call at a time, and the end of a call.
 """
 
 import asyncio
-import logging
-import sys
-import tempfile
 import wave
 from pathlib import Path
 
@@ -19,28 +16,13 @@ import sbgame.tutor as tutor_mod
 from sbgame.board import Board
 from sbgame.calls import Call
 from sbgame.flows import outside_to_station, station_to_outside, station_to_station, to_operator
+from sbgame.game import pick_lessons
 from sbgame.scenes import say
-from sbgame.script_data import Speech, Shape, build
+from sbgame.script_data import Speech, Shape
 from sbgame.tutor import Tutor
-from tts.script import load
+from tts.script import ScriptError, load, scene_kind
 
-from test_flows import Harness, scene, speech, answers, request_heard
-from test_game import StateLink
-from sbgame.config import Config
-from sbgame.game import Game, pick_lessons
-from sbgame.session import SessionLog
-from test_sim import D, HOLD
-
-logging.basicConfig(level=logging.WARNING, stream=sys.stdout)
-
-failures = 0
-
-
-def check(ok: bool, what: str) -> None:
-    global failures
-    print(f"    {what:<62} {'ok' if ok else 'FAIL'}")
-    if not ok:
-        failures += 1
+from harness import D, HOLD, REPO, Harness, answers, build_game, request_heard, scene, speech
 
 
 KEYS = ("intro-jacks", "intro-cords", "intro-switches", "answer-station", "answer-trunk", "talk", "greet",
@@ -173,7 +155,7 @@ def slow_listens(h: Harness) -> None:
 
 
 async def repeating_operator(h: Harness) -> None:
-    """Asks for the greeting again while the game listens for her (Rev 35)."""
+    """Asks for the greeting again while the game listens for her."""
     c, want = "station/12", 2
     await answers(h, c)
     await heard_tutor(h, "greet")
@@ -208,34 +190,17 @@ async def run(h: Harness, flow, operator, *args):
         h.w.stop()
 
 
-async def build_game(tmp: Path, wav: str = "../wav"):
-    """test_game's, with a wav directory of our own."""
-    b = Board(hold=HOLD)
-    link = StateLink(b)
-    cfg = Config(script="../script.yml", wav_dir=wav, session_db=str(tmp / "s.db"))
-    gs = build(cfg.resolved("script"), cfg.resolved("wav_dir"))
-    sess = SessionLog(cfg.resolved("session_db"))
-    await sess.open()
-    g = Game(b, gs, cfg, sess)
-    await g.on_birth(link)
-    await b.set_broker(True)
-    await b.update("ctl/status", "online")
-    await b.update("ctl/audio_status", "online")
-    await b.update("ctl/esp_heartbeat", "1")
-    return b, link, g, sess
-
-
 def make_wavs(tmp: Path, names) -> Path:
     """The real wavs but hers, and a short silent one for each tutor line."""
     d = tmp / "wav"
     d.mkdir()
-    for f in Path("../wav").glob("*.wav"):
+    for f in (REPO / "wav").glob("*.wav"):
         if not f.name.startswith("tutor."):
             (d / f.name).symlink_to(f.resolve())
     for n in names:
         stub = d / f"{n}.wav"
         if stub.is_symlink():
-            stub.unlink()       # or writing it would go through to ../wav
+            stub.unlink()       # or writing it would go through to the real wav
         with wave.open(str(stub), "wb") as w:
             w.setnchannels(1)
             w.setsampwidth(2)
@@ -244,96 +209,92 @@ def make_wavs(tmp: Path, names) -> Path:
     return d
 
 
-async def main() -> int:
-    print("\n== her lines, from script.yml's tutor: (§7)")
-    s = load("../script.yml")
+async def test_her_lines_from_script_yml_s_tutor():
+    """Her lines, from script.yml's tutor: (§7)"""
+    s = load(REPO / "script.yml")
     t = s.tutor
-    check(all(k in t for k in ("intro-jacks", "answer-station", "hangup-pair")), "the plain lines are there")
-    # Not for the real telephone, which no scene rings (game_control.md Rev 73).
+    assert all(k in t for k in ("intro-jacks", "answer-station", "hangup-pair")), "the plain lines are there"
+    # Not for the real telephone, which no scene rings (game_control.md §8.1).
     cabled = [j["station"] for j in s.jacks
               if j["station"] and s.stations[j["station"]]["number"] != 24]
-    check(all(f"ring-front-{st}" in t and f"ring-rear-{st}" in t for st in cabled),
-          f"a ring line each way for each of {len(cabled)} cabled stations, by name")
-    check(not any(k.endswith("-phone") for k in t), "and none for the real telephone")
-    check("room 403" in t["ring-front-room403"].text, "a numbered jack is said as a room")
-    check("dial Sunset four, four one oh one." in t["dial-pizza"].text,
-          f"a number as the card prints it: {t['dial-pizza'].text[-80:]!r}")
-    check(t["dial-pizza"].text.endswith("That's seven eight four, four one oh one."),
-          "and as a person today says it, the exchange as digits (Rev 102)")
-    check(t["dial-rays"].text.endswith("That's seven eight four, five thousand."),
-          "round thousands said whole, as with the exchange name")
-    check(t["say-operator.1"].text == "Say: How may I connect your call?",
-          "an operator line, as she is to say it")
-    check(all(u.speaker == "tutor" and u.name == ("brief." + k.removeprefix("brief-")
+    assert all(f"ring-front-{st}" in t and f"ring-rear-{st}" in t for st in cabled), f"a ring line each way for each of {len(cabled)} cabled stations, by name"
+    assert not any(k.endswith("-phone") for k in t), "and none for the real telephone"
+    assert "room 403" in t["ring-front-room403"].text, "a numbered jack is said as a room"
+    assert "dial Sunset four, four one oh one." in t["dial-pizza"].text, f"a number as the card prints it: {t['dial-pizza'].text[-80:]!r}"
+    assert t["dial-pizza"].text.endswith("That's seven eight four, four one oh one."), "and as a person today says it, the exchange as digits"
+    assert t["dial-rays"].text.endswith("That's seven eight four, five thousand."), "round thousands said whole, as with the exchange name"
+    assert t["say-operator.1"].text == "Say: How may I connect your call?", "an operator line, as she is to say it"
+    assert (all(u.speaker == "tutor" and u.name == ("brief." + k.removeprefix("brief-")
                                                    if k.startswith("brief-") else "tutor." + k)
-              for k, u in t.items()),
-          "each said by the tutor, as tutor.<key>, or brief.<key> for a short form (Rev 55)")
-    check(t["brief-ring-front-room403"].text.startswith("Front cord to room 403."),
-          "a short form expanded per jack like its full line")
-    check(all(f"brief-ring-rear-{st}" in t for st in cabled), "for every cabled station")
-    check(not any(k.startswith(("brief-greet", "brief-say", "brief-intro")) for k in t),
-          "none for the introduction or before the operator speaks")
-    check(max(len(u.name) for u in t.values()) <= 31, "every name within 31 characters")
-    check(all(len(u.name) <= 31 for u in t.values()), "every name fits audio.md §7.1")
+              for k, u in t.items())), "each said by the tutor, as tutor.<key>, or brief.<key> for a short form"
+    assert t["brief-ring-front-room403"].text.startswith("Front cord to room 403."), "a short form expanded per jack like its full line"
+    assert all(f"brief-ring-rear-{st}" in t for st in cabled), "for every cabled station"
+    assert not any(k.startswith(("brief-greet", "brief-say", "brief-intro")) for k in t), "none for the introduction or before the operator speaks"
+    assert max(len(u.name) for u in t.values()) <= 31, "every name within 31 characters"
+    assert all(len(u.name) <= 31 for u in t.values()), "every name fits audio.md §7.1"
 
-    print("\n== the lessons (§7, Rev 30)")
-    from tts.script import scene_kind, ScriptError
+
+async def test_the_lessons(tmp_path):
+    """The lessons (§7)"""
+    s = load(REPO / "script.yml")
     kinds = [{scene_kind(s.scenes[i], s.stations) for i in g} for g in s.lessons]
-    check(kinds == [{"between rooms"}, {"out to a number"}, {"in from outside"},
-                    {"to the operator"}], f"four groups, one kind each, in order: {kinds}")
+    assert (kinds == [{"between rooms"}, {"out to a number"}, {"in from outside"},
+                    {"to the operator"}]), f"four groups, one kind each, in order: {kinds}"
     picks = {tuple(pick_lessons(s.lessons, seed)) for seed in range(20)}
-    check(len(picks) > 10, f"different games pick differently: {len(picks)} of 20")
-    check(pick_lessons(s.lessons, 7) == pick_lessons(s.lessons, 7), "the same seed picks the same")
-    real = Path("../script.yml").read_text(encoding="utf-8")
-    with tempfile.TemporaryDirectory() as td:
-        for what, old, new in (
-                ("a scene of another kind", "-   [times-pike,", "-   [crane-wakeup, times-pike,"),
-                ("an after: scene", "-   [times-pike,", "-   [taxi-pike, times-pike,"),
-                ("no such scene", "-   [times-pike,", "-   [nosuch, times-pike,")):
-            f = Path(td) / "bad.yml"
-            f.write_text(real.replace(old, new, 1), encoding="utf-8")
-            try:
-                load(f)
-                check(False, f"refused: {what}")
-            except ScriptError as e:
-                check(any("lessons" in x for x in e.failures), f"refused: {what}")
-        f = Path(td) / "bad.yml"
-        f.write_text(real.replace("    brief:\n", "    brief:\n        greet: Hello.\n", 1),
-                     encoding="utf-8")
+    assert len(picks) > 10, f"different games pick differently: {len(picks)} of 20"
+    assert pick_lessons(s.lessons, 7) == pick_lessons(s.lessons, 7), "the same seed picks the same"
+    real = (REPO / "script.yml").read_text(encoding="utf-8")
+    for what, old, new in (
+            ("a scene of another kind", "-   [times-pike,", "-   [crane-wakeup, times-pike,"),
+            ("an after: scene", "-   [times-pike,", "-   [taxi-pike, times-pike,"),
+            ("no such scene", "-   [times-pike,", "-   [nosuch, times-pike,")):
+        f = tmp_path / "bad.yml"
+        f.write_text(real.replace(old, new, 1), encoding="utf-8")
         try:
             load(f)
-            check(False, "refused: a short form of a prompt before the operator speaks")
+            assert False, f"refused: {what}"
         except ScriptError as e:
-            check(any("brief.greet" in x for x in e.failures),
-                  "refused: a short form of a prompt before the operator speaks")
+            assert any("lessons" in x for x in e.failures), f"refused: {what}"
+    f = tmp_path / "bad.yml"
+    f.write_text(real.replace("    brief:\n", "    brief:\n        greet: Hello.\n", 1),
+                 encoding="utf-8")
+    try:
+        load(f)
+        assert False, "refused: a short form of a prompt before the operator speaks"
+    except ScriptError as e:
+        assert any("brief.greet" in x for x in e.failures), "refused: a short form of a prompt before the operator speaks"
 
-    print("\n== a call between rooms, tutored")
+
+async def test_a_call_between_rooms_tutored():
+    """A call between rooms, tutored"""
     h = tutored(scene(Shape.STATION_TO_STATION))
     out = await run(h, station_to_station, tutored_station_operator)
-    check(out.ok, f"success, {out.reason!r}")
-    check(h.w.said[:3] == ["answer-station", "greet", "ring-front-b"],
-          f"answer, greet, ring, in that order: {h.w.said}")
-    check(not h.w.overlap, f"she is never speaking as a listen starts: {h.w.overlap}")
+    assert out.ok, f"success, {out.reason!r}"
+    assert h.w.said[:3] == ["answer-station", "greet", "ring-front-b"], f"answer, greet, ring, in that order: {h.w.said}"
+    assert not h.w.overlap, f"she is never speaking as a listen starts: {h.w.overlap}"
     shown = [k for k in h.repeats if k]
-    check(shown == ["answer-station", "greet", "ring-front-b"],
-          f"Repeat Help offers each line she waits on the player after (Rev 34, 35): {shown}")
-    check(h.repeats[-1] == "", "and goes once the player has acted")
+    assert shown == ["answer-station", "greet", "ring-front-b"], f"Repeat Help offers each line she waits on the player after: {shown}"
+    assert h.repeats[-1] == "", "and goes once the player has acted"
 
-    print("\n== Repeat Help while the game listens for her (Rev 35)")
+
+async def test_repeat_help_while_the_game_listens_for_her():
+    """Repeat Help while the game listens for her"""
     h = tutored(scene(Shape.STATION_TO_STATION))
     slow_listens(h)
     out = await run(h, station_to_station, repeating_operator)
-    check(out.ok, f"success, {out.reason!r}")
-    check(h.asked_ok, "the press is taken")
-    check(h.w.said.count("greet") == 2, f"the greeting said again: {h.w.said}")
-    check(("station/12/listen/set", "0") in h.link.sent, "the listen stopped first")
-    check(not h.w.overlap, "and she is never speaking as a listen starts")
-    check("greet" in h.repeats, "the Say prompt is offered for repeating")
+    assert out.ok, f"success, {out.reason!r}"
+    assert h.asked_ok, "the press is taken"
+    assert h.w.said.count("greet") == 2, f"the greeting said again: {h.w.said}"
+    assert ("station/12/listen/set", "0") in h.link.sent, "the listen stopped first"
+    assert not h.w.overlap, "and she is never speaking as a listen starts"
+    assert "greet" in h.repeats, "the Say prompt is offered for repeating"
     t = Tutor(h.b, h.hw, lines())
     t.repeat_key, t.asked, t._speaking = "greet", asyncio.Event(), lambda: True
-    check(not await t.repeat() and not t.asked.is_set(), "refused once she has started speaking")
+    assert not await t.repeat() and not t.asked.is_set(), "refused once she has started speaking"
 
-    print("\n== a prompt short once said twice, More Help in full (Rev 55)")
+
+async def test_a_prompt_short_once_said_twice_more_help_in():
+    """A prompt short once said twice, More Help in full"""
     h = tutored(scene(Shape.STATION_TO_STATION))
     await h.live()
     t = h.ctx.tutor
@@ -351,36 +312,34 @@ async def main() -> int:
             if ch.key == "audio/monitor/play" and ch.new not in ("", "pending"):
                 plays.append(ch.new)
     watch = asyncio.create_task(played())
-    check(tutor_mod.prompt_of("ring-front-room403") == "ring-front"
+    assert (tutor_mod.prompt_of("ring-front-room403") == "ring-front"
           and tutor_mod.prompt_of("dial-operator") == "dial-operator"
           and tutor_mod.prompt_of("dial-pizza") == "dial"
-          and tutor_mod.prompt_of("center-ringing") == "center-ringing",
-          "every jack and number is the one prompt")
+          and tutor_mod.prompt_of("center-ringing") == "center-ringing"), "every jack and number is the one prompt"
     never = lambda b: b.on("station/9/hook")
     await t.say("hangup-pair", hold=True)
     for _ in range(2):
         await t.say("answer-station", hold=True)
-    check(plays[-3:] == ["tutor.hangup-pair", "tutor.answer-station", "tutor.answer-station"],
-          f"each prompt in full twice: {plays}")
+    assert plays[-3:] == ["tutor.hangup-pair", "tutor.answer-station", "tutor.answer-station"], f"each prompt in full twice: {plays}"
     await t.say("answer-station", until=never)
-    check(plays[-1:] == ["brief.answer-station"], f"then the short form: {plays[-1:]}")
-    check(t.repeat_key == "brief-answer-station" and t.more_key == "answer-station"
-          and mores[-1:] == ["answer-station"], "More Help offered, naming the full line")
-    check(await t.more(), "More Help taken")
+    assert plays[-1:] == ["brief.answer-station"], f"then the short form: {plays[-1:]}"
+    assert (t.repeat_key == "brief-answer-station" and t.more_key == "answer-station"
+          and mores[-1:] == ["answer-station"]), "More Help offered, naming the full line"
+    assert await t.more(), "More Help taken"
     await asyncio.sleep(D * 4)
-    check(plays[-1:] == ["tutor.answer-station"], f"the full line said: {plays}")
-    check(t.repeat_key == "answer-station" and t.more_key == "" and mores[-1:] == [""],
-          "Repeat Help repeats the full line now, and More Help is done")
-    check(not await t.more(), "a second More Help refused")
+    assert plays[-1:] == ["tutor.answer-station"], f"the full line said: {plays}"
+    assert t.repeat_key == "answer-station" and t.more_key == "" and mores[-1:] == [""], "Repeat Help repeats the full line now, and More Help is done"
+    assert not await t.more(), "a second More Help refused"
     await t.say("talk", hold=True)
-    check(plays[-1:] == ["tutor.talk"] and t.more_key == "",
-          "a line with no short form said in full, no More Help")
+    assert plays[-1:] == ["tutor.talk"] and t.more_key == "", "a line with no short form said in full, no More Help"
     await t.say("hangup-pair", hold=True)
-    check(plays[-1:] == ["tutor.hangup-pair"], "a prompt said once so far: in full, its own count")
+    assert plays[-1:] == ["tutor.hangup-pair"], "a prompt said once so far: in full, its own count"
     await t.stop()
     watch.cancel()
 
-    print("\n== after the last repeat, how to hear it again (Rev 60)")
+
+async def test_after_the_last_repeat_how_to_hear_it_again(monkeypatch):
+    """After the last repeat, how to hear it again"""
     h = tutored(scene(Shape.STATION_TO_STATION))
     await h.live()
     t = h.ctx.tutor
@@ -392,20 +351,17 @@ async def main() -> int:
             if ch.key == "audio/monitor/play" and ch.new.startswith("tutor."):
                 heard.append(ch.new.removeprefix("tutor."))
     w = asyncio.create_task(heard_all())
-    was = tutor_mod.REPEAT
-    tutor_mod.REPEAT = D * 6
-    try:
-        await t.say("talk", until=lambda b: b.on("station/9/op"))
-        await asyncio.sleep(D * 40)
-    finally:
-        tutor_mod.REPEAT = was
-    check(heard == ["talk", "talk", "talk", "stuck"],
-          f"the prompt, twice more, then 'press Repeat Help': {heard}")
-    check(t.repeat_key == "talk", "and Repeat Help still has the prompt")
+    monkeypatch.setattr(tutor_mod, "REPEAT", D * 6)
+    await t.say("talk", until=lambda b: b.on("station/9/op"))
+    await asyncio.sleep(D * 40)
+    assert heard == ["talk", "talk", "talk", "stuck"], f"the prompt, twice more, then 'press Repeat Help': {heard}"
+    assert t.repeat_key == "talk", "and Repeat Help still has the prompt"
     await t.stop()
     w.cancel()
 
-    print("\n== a prompt stops once the player has done it (Rev 58)")
+
+async def test_a_prompt_stops_once_the_player_has_done_it():
+    """A prompt stops once the player has done it"""
     h = tutored(scene(Shape.STATION_TO_STATION))
     await h.live()
     t = h.ctx.tutor
@@ -416,12 +372,14 @@ async def main() -> int:
     await h.b.update("station/9/op", "on")                    # she pushes the switch
     await asyncio.wait_for(task, 1.0)
     took = asyncio.get_running_loop().time() - t0
-    check(took < 0.5, f"the line ends at once, not after its 2s: {took:.2f}s")
-    check(("audio/monitor/play/set", "stop") in h.link.sent, "the file is stopped")
-    check(t.repeat_key == "" and t._again is None, "nothing left to repeat, and no repeats")
+    assert took < 0.5, f"the line ends at once, not after its 2s: {took:.2f}s"
+    assert ("audio/monitor/play/set", "stop") in h.link.sent, "the file is stopped"
+    assert t.repeat_key == "" and t._again is None, "nothing left to repeat, and no repeats"
     await t.stop()
 
-    print("\n== a wrong-cord line over her prompt fails nothing (§7.7, Rev 101)")
+
+async def test_a_wrong_cord_line_over_her_prompt_fails_nothing():
+    """A wrong-cord line over her prompt fails nothing (§7.7)"""
     h = tutored(scene(Shape.STATION_TO_STATION))
     await h.live()
     t = h.ctx.tutor
@@ -429,231 +387,210 @@ async def main() -> int:
     task = asyncio.create_task(t.say("talk", until=lambda b: b.on("station/9/op")))
     await h.b.wait_until(lambda b: b.get("audio/monitor/play") == "tutor.talk", 5)
     hint = asyncio.create_task(say(h.b, h.hw, "audio/monitor", "tutor.center", 0.2))
-    try:
-        await asyncio.wait_for(asyncio.shield(task), 1.0)
-        check(True, "her prompt returns once replaced, no timeout")
-    except Exception as e:
-        check(False, f"her prompt returns once replaced, no timeout: {e!r}")
+    # Her prompt returns once replaced, with no timeout.
+    await asyncio.wait_for(asyncio.shield(task), 1.0)
     await hint
-    check(("audio/monitor/play/set", "stop") not in h.link.sent, "and does not stop the line")
-    check(t.repeat_key == "talk", "and comes round again")
+    assert ("audio/monitor/play/set", "stop") not in h.link.sent, "and does not stop the line"
+    assert t.repeat_key == "talk", "and comes round again"
     await t.stop()
 
-    print("\n== a caller left alone does not hang up in tutor pacing (Rev 92)")
-    was = flows.ABANDON
-    flows.ABANDON = D * 10
-    try:
-        h = tutored(scene(Shape.STATION_TO_STATION))
-        out = await run(h, station_to_station, tutored_slow_station_operator)
-        check(out.ok, f"success after {flows.ABANDON * 3:.2f}s alone: {out.reason!r}")
-    finally:
-        flows.ABANDON = was
 
-    print("\n== a call in on a trunk, tutored")
+async def test_a_caller_left_alone_does_not_hang_up_in_tutor_pacing(monkeypatch):
+    """A caller left alone does not hang up in tutor pacing"""
+    monkeypatch.setattr(flows, "ABANDON", D * 10)
+    h = tutored(scene(Shape.STATION_TO_STATION))
+    out = await run(h, station_to_station, tutored_slow_station_operator)
+    assert out.ok, f"success after {flows.ABANDON * 3:.2f}s alone: {out.reason!r}"
+
+
+async def test_a_call_in_on_a_trunk_tutored():
+    """A call in on a trunk, tutored"""
     h = tutored(scene(Shape.OUTSIDE_TO_STATION, from_station=None, from_line="pizza"))
     out = await run(h, outside_to_station, tutored_trunk_operator, 3)
-    check(out.ok, f"success, {out.reason!r}")
-    check(h.w.said == ["answer-trunk", "talk", "greet", "ring-rear-b", "center-ringing"],
-          f"the cord, then the switch, and the switch back before the room answers: {h.w.said}")
-    check(not h.w.overlap, "never over a listen")
+    assert out.ok, f"success, {out.reason!r}"
+    assert h.w.said == ["answer-trunk", "talk", "greet", "ring-rear-b", "center-ringing"], f"the cord, then the switch, and the switch back before the room answers: {h.w.said}"
+    assert not h.w.overlap, "never over a listen"
 
-    print("\n== a call out, tutored")
+
+async def test_a_call_out_tutored():
+    """A call out, tutored"""
     h = tutored(scene(Shape.STATION_TO_OUTSIDE, to_station=None, to_line="pizza",
                       dial="784-4101"))
     out = await run(h, station_to_outside, tutored_dialling_operator)
-    check(out.ok, f"success, {out.reason!r}")
-    check(h.w.said == ["answer-station", "greet", "trunk-front", "dial-pizza", "center-dialled"],
-          f"the trunk, the number, the switch back during ringback: {h.w.said}")
+    assert out.ok, f"success, {out.reason!r}"
+    assert h.w.said == ["answer-station", "greet", "trunk-front", "dial-pizza", "center-dialled"], f"the trunk, the number, the switch back during ringback: {h.w.said}"
 
-    print("\n== a call to the operator: the call is for her (Rev 59)")
+
+async def test_a_call_to_the_operator_the_call_is_for():
+    """A call to the operator: the call is for her"""
     h = tutored(scene(Shape.TO_OPERATOR, to_line="", to_station=None,
                       conversation=(speech("t.2", "caller"),)))
     out = await run(h, to_operator, lambda hh: answers(hh, "station/12"))
-    check(out.ok, f"success, {out.reason!r}")
-    check(h.w.said[:3] == ["answer-station", "greet", "for-you"],
-          f"told the call is for her, after the request: {h.w.said}")
-    check(not h.w.overlap, "never over a listen")
+    assert out.ok, f"success, {out.reason!r}"
+    assert h.w.said[:3] == ["answer-station", "greet", "for-you"], f"told the call is for her, after the request: {h.w.said}"
+    assert not h.w.overlap, "never over a listen"
 
-    print("\n== a call out whose conversation waits for her")
+
+async def test_a_call_out_whose_conversation_waits_for_her():
+    """A call out whose conversation waits for her"""
     conv = (speech("t.2", "called"), Speech("t.3", D * 3, "called", wait=True),
             speech("t.4", "caller"))
     h = tutored(scene(Shape.STATION_TO_OUTSIDE, to_station=None, to_line="pizza",
                       dial="784-4101", conversation=conv))
     out = await run(h, station_to_outside, tutored_dialling_operator)
-    check(out.ok, f"success, {out.reason!r}")
-    check(h.w.said[-2:] == ["respond", "center"] and "center-dialled" not in h.w.said,
-          f"the switch back after her last word, not during ringback: {h.w.said}")
-    check(not h.w.overlap, "never over a listen")
-
-    print("\n== told again while nothing happens, twice at most")
-    flows.REPEAT = tutor_mod.REPEAT = D * 8
-    try:
-        h = tutored(scene(Shape.STATION_TO_STATION))
-        out = await run(h, station_to_station, slow_operator)
-        check(out.ok, f"success, {out.reason!r}")
-        check(h.w.said.count("answer-station") == 3, f"said three times: {h.w.said}")
-        check(not h.w.overlap, "never over a listen")
-    finally:
-        flows.REPEAT = tutor_mod.REPEAT = 20.0
-
-    with tempfile.TemporaryDirectory() as td:
-        tmp = Path(td)
-
-        print("\n== pace tutor, without her wavs")
-        bare = tmp / "bare"
-        bare.mkdir()
-        for f in Path("../wav").glob("*.wav"):
-            if not f.name.startswith("tutor."):
-                (bare / f.name).symlink_to(f.resolve())
-        b, link, g, sess = await build_game(tmp, str(bare))
-        check(link.state_v.get("game/pace") == "manual", "manual at birth, as configured")
-        await g.on_command("pace", "tutor")
-        check(link.state_v.get("game/pace") == "manual"
-              and "have no wav" in link.state_v.get("game/error", ""),
-              f"refused while her lines are unrendered: {link.state_v.get('game/error')!r}")
-        await sess.close()
-
-        print("\n== a game with her")
-        wav = make_wavs(tmp, [u.name for u in s.tutor.values()])
-        b, link, g, sess = await build_game(tmp, str(wav))
-        w = Watch(b)
-        await g.on_command("pace", "tutor")
-        check(link.state_v.get("game/pace") == "tutor", "pace tutor, and echoed (Rev 32)")
-        await g.on_command("run", "on")
-        await b.wait_until(lambda b: w.said == ["intro-jacks"], 5)
-        check(link.state_v.get("game/tutor/intro") == "1/3", "Start: her first part, 1/3")
-        await asyncio.sleep(D * 8)                  # she finishes, and waits
-        check(w.said == ["intro-jacks"] and g.tallies.started == 0,
-              "after it she waits for More Help or Next Call")
-        check(link.state_v.get("game/tutor/waiting") == "more", "and says so: waiting more (Rev 33)")
-        check(link.state_v.get("game/tutor/repeat") == "intro-jacks",
-              "Repeat Help offers the part she finished (Rev 34)")
-        await g.on_command("repeat", "")
-        await b.wait_until(lambda b: w.said == ["intro-jacks", "intro-jacks"], 5)
-        check(True, "Repeat Help: the part again")
-        await asyncio.sleep(D * 8)
-        check(g.tallies.started == 0 and link.state_v.get("game/tutor/intro") == "1/3",
-              "and she waits again, on the same part")
-        await g.on_command("more", "")
-        await b.wait_until(lambda b: w.said[-1:] == ["intro-cords"], 5)
-        check(link.state_v.get("game/tutor/intro") == "2/3"
-              and link.state_v.get("game/tutor/waiting") == "",
-              "More Help: the second part, 2/3, and not waiting while she speaks")
-        await g.on_command("more", "")              # mid-part: cut short, and on
-        await b.wait_until(lambda b: w.said[-1:] == ["intro-switches"], 5)
-        check(("audio/monitor/play/set", "stop") in link.sent
-              and link.state_v.get("game/tutor/intro") == "3/3",
-              "More Help mid-part cuts it short: the last part, 3/3")
-        await asyncio.sleep(D * 8)
-        await g.on_command("more", "")
-        await asyncio.sleep(D * 4)
-        check(w.said[-1:] == ["intro-switches"] and g.tallies.started == 0,
-              "after the last, More Help does nothing and no call comes")
-        check(link.state_v.get("game/tutor/waiting") == "next", "waiting next")
-        await g.on_command("next", "")
-        check(link.state_v.get("game/tutor/intro") == "" and g._tutor_task is None,
-              "Next Call ends the introduction")
-        await g.on_command("next", "")
-        check(g.tallies.started == 1, "Next deals one")
-        first = link.state_v.get("game/call/1/scene")
-        check(first in g.gs.lessons[0] and len(g._lessons) == 3,
-              f"the first lesson, between rooms: {first}")
-        await g.on_command("next", "")
-        check(g.tallies.started == 1 and "one call at a time" in link.state_v.get("game/error", ""),
-              "a second is refused while it runs")
-        await g.on_command("run", "off")
-        check(g.tutor is None and ("audio/monitor/play/set", "stop") in link.sent,
-              "Stop silences her")
-        await g.on_command("more", "")
-        check("no short line" in link.state_v.get("game/error", ""),
-              "More Help with no introduction and no short line is refused")
-        await g.on_command("repeat", "")
-        check("nothing to repeat now" in link.state_v.get("game/error", ""),
-              "Repeat Help with nothing to repeat is refused")
-
-        print("\n== the end of a call with a trunk: her line, then Next Call (Rev 70)")
-        await g.on_command("run", "on")
-        await b.wait_until(lambda b: w.said.count("intro-jacks") == 2, 5)
-        g._tutor_task.cancel()                    # as Next Call would, without a call
-        await asyncio.gather(g._tutor_task, return_exceptions=True)
-        g._tutor_task, g._intro = None, False
-        # The last Stop's switchboard reset freezes the lines (Rev 66): let it end.
-        await b.wait_until(lambda b: b.get("ctl/power_cut") != "on", 5)
-        await asyncio.sleep(HOLD * 2)
-        sc = next(x for x in g.gs.scenes.values() if x.shape == Shape.STATION_TO_OUTSIDE)
-        await b.update(f"station/{sc.from_station}/peer", "trunk/3")
-        await b.update("trunk/3/peer", f"station/{sc.from_station}")
-        await b.update("trunk/3/seize", "on")
-        call = Call(slot=1, number=9, scene=sc.id, from_line=sc.from_line, to_line=sc.to_line,
-                    trunk="trunk/3")
-        g._tutor_task = asyncio.create_task(g._tutor_hangup(call, sc))
-        await b.wait_until(lambda b: "hangup-pair" in w.said, 5)
-        await b.wait_until(lambda b: w.said[-1:] == ["ready-manual"], 5)
-        check(b.on("trunk/3/seize"),
-              "with the trunk still seized she goes on: its seizure says nothing of the cord")
-        for _ in range(50):
-            if g._tutor_task is None:
-                break
-            await asyncio.sleep(D)
-        check(g._tutor_task is None, "cleared: she says so, and the game is free")
-        check(link.state_v.get("game/tutor/waiting") == "next", "waiting for Next Call")
-        await g.on_command("next", "")
-        check(g.tallies.started == 1 and link.state_v.get("game/tutor/waiting") == "",
-              "and Next deals, and she is no longer waiting")
-
-        print("\n== the end of a call with no trunk: the same (Rev 67)")
-        await g.on_command("run", "off")
-        await g.on_command("run", "on")
-        await b.wait_until(lambda b: w.said.count("intro-jacks") == 3, 5)
-        g._tutor_task.cancel()
-        await asyncio.gather(g._tutor_task, return_exceptions=True)
-        g._tutor_task, g._intro = None, False
-        await b.wait_until(lambda b: b.get("ctl/power_cut") != "on", 5)
-        await asyncio.sleep(HOLD * 2)
-        sc = next(x for x in g.gs.scenes.values() if x.shape == Shape.STATION_TO_STATION)
-        await b.update(f"station/{sc.from_station}/peer", f"station/{sc.to_station}")
-        await b.update(f"station/{sc.to_station}/peer", f"station/{sc.from_station}")
-        call = Call(slot=1, number=10, scene=sc.id, from_line=sc.from_line, to_line=sc.to_line)
-        n = w.said.count("hangup-pair")
-        g._tutor_task = asyncio.create_task(g._tutor_hangup(call, sc))
-        await b.wait_until(lambda b: w.said.count("hangup-pair") == n + 1, 5)
-        await b.wait_until(lambda b: w.said[-1:] == ["ready-manual"], 5)
-        check(b.get(f"station/{sc.from_station}/peer"),
-              "with the peers still up, she goes on to Next Call: on-hook, no cord shows")
-        for _ in range(50):
-            if link.state_v.get("game/tutor/waiting") == "next":
-                break
-            await asyncio.sleep(D)
-        await g.on_command("next", "")
-        check(g.tallies.started == 1, "and Next deals")
-        await g.on_command("run", "off")
-        await g.on_command("run", "on")
-        await b.wait_until(lambda b: w.said.count("intro-jacks") == 4, 5)
-        g._tutor_task.cancel()
-        await asyncio.gather(g._tutor_task, return_exceptions=True)
-        g._tutor_task, g._intro = None, False
-        await b.wait_until(lambda b: b.get("ctl/power_cut") != "on", 5)
-        await asyncio.sleep(HOLD * 2)
-        n = w.said.count("hangup-pair")
-        g._tutor_task = asyncio.create_task(g._tutor_hangup(call, sc))
-        await b.wait_until(lambda b: w.said.count("hangup-pair") == n + 1, 5)
-        k = len(link.sent)
-        await g.on_command("next", "")
-        check(g.tallies.started == 1 and ("audio/monitor/play/set", "stop") in link.sent[k:],
-              "Next during her line cuts it short and deals")
-        await g.on_command("pace", "manual")
-        check(g.tutor is None and link.state_v.get("game/pace") == "manual",
-              "another pace mid-game: she stops at once")
-        await g.on_command("pace", "tutor")
-        check(g.tutor is not None and g._tutor_task is None and not g._lessons,
-              "tutor again mid-game: tutored from the next call, no introduction or lessons")
-        await g.on_command("run", "off")
-        w.stop()
-        await sess.close()
-
-    print(f"\n{'FAILURES: ' + str(failures) if failures else 'tutor mode passed'}")
-    return 1 if failures else 0
+    assert out.ok, f"success, {out.reason!r}"
+    assert h.w.said[-2:] == ["respond", "center"] and "center-dialled" not in h.w.said, f"the switch back after her last word, not during ringback: {h.w.said}"
+    assert not h.w.overlap, "never over a listen"
 
 
-if __name__ == "__main__":
-    raise SystemExit(asyncio.run(main()))
+async def test_told_again_while_nothing_happens_twice_at_most(monkeypatch):
+    """Told again while nothing happens, twice at most"""
+    monkeypatch.setattr(flows, "REPEAT", D * 8)
+    monkeypatch.setattr(tutor_mod, "REPEAT", D * 8)
+    h = tutored(scene(Shape.STATION_TO_STATION))
+    out = await run(h, station_to_station, slow_operator)
+    assert out.ok, f"success, {out.reason!r}"
+    assert h.w.said.count("answer-station") == 3, f"said three times: {h.w.said}"
+    assert not h.w.overlap, "never over a listen"
+
+
+async def test_pace_tutor_without_her_wavs(tmp_path):
+    """Pace tutor, without her wavs"""
+    tmp = tmp_path
+    bare = tmp / "bare"
+    bare.mkdir()
+    for f in (REPO / "wav").glob("*.wav"):
+        if not f.name.startswith("tutor."):
+            (bare / f.name).symlink_to(f.resolve())
+    b, link, g, sess = await build_game(tmp, str(bare))
+    assert link.state_v.get("game/pace") == "manual", "manual at birth, as configured"
+    await g.on_command("pace", "tutor")
+    assert (link.state_v.get("game/pace") == "manual"
+          and "have no wav" in link.state_v.get("game/error", "")), f"refused while her lines are unrendered: {link.state_v.get('game/error')!r}"
+    await sess.close()
+
+
+async def test_a_game_with_her(tmp_path):
+    """A game with her: the introduction, a lesson, the end of a call"""
+    tmp = tmp_path
+    s = load(REPO / "script.yml")
+    wav = make_wavs(tmp, [u.name for u in s.tutor.values()])
+    b, link, g, sess = await build_game(tmp, str(wav))
+    w = Watch(b)
+    await g.on_command("pace", "tutor")
+    assert link.state_v.get("game/pace") == "tutor", "pace tutor, and echoed"
+    await g.on_command("run", "on")
+    await b.wait_until(lambda b: w.said == ["intro-jacks"], 5)
+    assert link.state_v.get("game/tutor/intro") == "1/3", "Start: her first part, 1/3"
+    await asyncio.sleep(D * 8)                  # she finishes, and waits
+    assert w.said == ["intro-jacks"] and g.tallies.started == 0, "after it she waits for More Help or Next Call"
+    assert link.state_v.get("game/tutor/waiting") == "more", "and says so: waiting more"
+    assert link.state_v.get("game/tutor/repeat") == "intro-jacks", "Repeat Help offers the part she finished"
+    await g.on_command("repeat", "")
+    await b.wait_until(lambda b: w.said == ["intro-jacks", "intro-jacks"], 5)
+    # Repeat Help: the part again.
+    await asyncio.sleep(D * 8)
+    assert g.tallies.started == 0 and link.state_v.get("game/tutor/intro") == "1/3", "and she waits again, on the same part"
+    await g.on_command("more", "")
+    await b.wait_until(lambda b: w.said[-1:] == ["intro-cords"], 5)
+    assert (link.state_v.get("game/tutor/intro") == "2/3"
+          and link.state_v.get("game/tutor/waiting") == ""), "More Help: the second part, 2/3, and not waiting while she speaks"
+    await g.on_command("more", "")              # mid-part: cut short, and on
+    await b.wait_until(lambda b: w.said[-1:] == ["intro-switches"], 5)
+    assert (("audio/monitor/play/set", "stop") in link.sent
+          and link.state_v.get("game/tutor/intro") == "3/3"), "More Help mid-part cuts it short: the last part, 3/3"
+    await asyncio.sleep(D * 8)
+    await g.on_command("more", "")
+    await asyncio.sleep(D * 4)
+    assert w.said[-1:] == ["intro-switches"] and g.tallies.started == 0, "after the last, More Help does nothing and no call comes"
+    assert link.state_v.get("game/tutor/waiting") == "next", "waiting next"
+    await g.on_command("next", "")
+    assert link.state_v.get("game/tutor/intro") == "" and g._tutor_task is None, "Next Call ends the introduction"
+    await g.on_command("next", "")
+    assert g.tallies.started == 1, "Next deals one"
+    first = link.state_v.get("game/call/1/scene")
+    assert first in g.gs.lessons[0] and len(g._lessons) == 3, f"the first lesson, between rooms: {first}"
+    await g.on_command("next", "")
+    assert g.tallies.started == 1 and "one call at a time" in link.state_v.get("game/error", ""), "a second is refused while it runs"
+    await g.on_command("run", "off")
+    assert g.tutor is None and ("audio/monitor/play/set", "stop") in link.sent, "Stop silences her"
+    await g.on_command("more", "")
+    assert "no short line" in link.state_v.get("game/error", ""), "More Help with no introduction and no short line is refused"
+    await g.on_command("repeat", "")
+    assert "nothing to repeat now" in link.state_v.get("game/error", ""), "Repeat Help with nothing to repeat is refused"
+
+
+    # the end of a call with a trunk: her line, then Next Call
+    await g.on_command("run", "on")
+    await b.wait_until(lambda b: w.said.count("intro-jacks") == 2, 5)
+    g._tutor_task.cancel()                    # as Next Call would, without a call
+    await asyncio.gather(g._tutor_task, return_exceptions=True)
+    g._tutor_task, g._intro = None, False
+    # The last Stop's switchboard reset freezes the lines: let it end.
+    await b.wait_until(lambda b: b.get("ctl/power_cut") != "on", 5)
+    await asyncio.sleep(HOLD * 2)
+    sc = next(x for x in g.gs.scenes.values() if x.shape == Shape.STATION_TO_OUTSIDE)
+    await b.update(f"station/{sc.from_station}/peer", "trunk/3")
+    await b.update("trunk/3/peer", f"station/{sc.from_station}")
+    await b.update("trunk/3/seize", "on")
+    call = Call(slot=1, number=9, scene=sc.id, from_line=sc.from_line, to_line=sc.to_line,
+                trunk="trunk/3")
+    g._tutor_task = asyncio.create_task(g._tutor_hangup(call, sc))
+    await b.wait_until(lambda b: "hangup-pair" in w.said, 5)
+    await b.wait_until(lambda b: w.said[-1:] == ["ready-manual"], 5)
+    assert b.on("trunk/3/seize"), "with the trunk still seized she goes on: its seizure says nothing of the cord"
+    for _ in range(50):
+        if g._tutor_task is None:
+            break
+        await asyncio.sleep(D)
+    assert g._tutor_task is None, "cleared: she says so, and the game is free"
+    assert link.state_v.get("game/tutor/waiting") == "next", "waiting for Next Call"
+    await g.on_command("next", "")
+    assert g.tallies.started == 1 and link.state_v.get("game/tutor/waiting") == "", "and Next deals, and she is no longer waiting"
+
+
+    # the end of a call with no trunk: the same
+    await g.on_command("run", "off")
+    await g.on_command("run", "on")
+    await b.wait_until(lambda b: w.said.count("intro-jacks") == 3, 5)
+    g._tutor_task.cancel()
+    await asyncio.gather(g._tutor_task, return_exceptions=True)
+    g._tutor_task, g._intro = None, False
+    await b.wait_until(lambda b: b.get("ctl/power_cut") != "on", 5)
+    await asyncio.sleep(HOLD * 2)
+    sc = next(x for x in g.gs.scenes.values() if x.shape == Shape.STATION_TO_STATION)
+    await b.update(f"station/{sc.from_station}/peer", f"station/{sc.to_station}")
+    await b.update(f"station/{sc.to_station}/peer", f"station/{sc.from_station}")
+    call = Call(slot=1, number=10, scene=sc.id, from_line=sc.from_line, to_line=sc.to_line)
+    n = w.said.count("hangup-pair")
+    g._tutor_task = asyncio.create_task(g._tutor_hangup(call, sc))
+    await b.wait_until(lambda b: w.said.count("hangup-pair") == n + 1, 5)
+    await b.wait_until(lambda b: w.said[-1:] == ["ready-manual"], 5)
+    assert b.get(f"station/{sc.from_station}/peer"), "with the peers still up, she goes on to Next Call: on-hook, no cord shows"
+    for _ in range(50):
+        if link.state_v.get("game/tutor/waiting") == "next":
+            break
+        await asyncio.sleep(D)
+    await g.on_command("next", "")
+    assert g.tallies.started == 1, "and Next deals"
+    await g.on_command("run", "off")
+    await g.on_command("run", "on")
+    await b.wait_until(lambda b: w.said.count("intro-jacks") == 4, 5)
+    g._tutor_task.cancel()
+    await asyncio.gather(g._tutor_task, return_exceptions=True)
+    g._tutor_task, g._intro = None, False
+    await b.wait_until(lambda b: b.get("ctl/power_cut") != "on", 5)
+    await asyncio.sleep(HOLD * 2)
+    n = w.said.count("hangup-pair")
+    g._tutor_task = asyncio.create_task(g._tutor_hangup(call, sc))
+    await b.wait_until(lambda b: w.said.count("hangup-pair") == n + 1, 5)
+    k = len(link.sent)
+    await g.on_command("next", "")
+    assert g.tallies.started == 1 and ("audio/monitor/play/set", "stop") in link.sent[k:], "Next during her line cuts it short and deals"
+    await g.on_command("pace", "manual")
+    assert g.tutor is None and link.state_v.get("game/pace") == "manual", "another pace mid-game: she stops at once"
+    await g.on_command("pace", "tutor")
+    assert g.tutor is not None and g._tutor_task is None and not g._lessons, "tutor again mid-game: tutored from the next call, no introduction or lessons"
+    await g.on_command("run", "off")
+    w.stop()
+    await sess.close()

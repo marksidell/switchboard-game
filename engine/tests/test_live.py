@@ -7,19 +7,19 @@ the will fires when the game program vanishes.
 """
 
 import asyncio
-import logging
+import shutil
 import subprocess
-import sys
+import time
 
 import aiomqtt
+import pytest
 
 from sbgame.board import Board, Offline
 from sbgame.link import Hw, Link
 
 PORT = 18830
-logging.basicConfig(level=logging.INFO, stream=sys.stdout,
-                    format="%(relativeCreated)6.0f %(name)-6s %(message)s")
-log = logging.getLogger("test")
+pytestmark = pytest.mark.skipif(shutil.which("mosquitto") is None,
+                                reason="needs mosquitto on PATH")
 
 
 def broker():
@@ -79,94 +79,87 @@ async def watcher(seen: list):
             await asyncio.sleep(0.3)
 
 
-async def main():
+async def test_link_against_mosquitto():
     p = broker()
-    await asyncio.sleep(0.5)
-    control = FakeControl()
-    b = Board()
-    seen: list = []
-    commands: list = []
-
-    async def on_birth(link):
-        await link.state("game/run", "off")
-
-    async def on_command(name, payload):
-        commands.append((name, payload))
-        await link.state(f"game/{name}", payload)  # the echo
-
-    link = Link(b, "localhost", PORT, username=None, on_birth=on_birth, on_command=on_command)
-    hw = Hw(link)
-    wt = asyncio.create_task(watcher(seen))
-    await asyncio.sleep(0.3)
-    tasks = [asyncio.create_task(control.run()), asyncio.create_task(link.run())]
-
-    await b.wait_live(5)
-    print("live: control", b.control_up, "audio", b.audio_up, "| trunk/3/seize =", b.get("trunk/3/seize"))
-    await asyncio.sleep(0.3)
-    print("syncs received by control:", control.syncs)
-    assert control.syncs >= 1
-
-    order = [t for t, _ in seen if t != "sbgame/ctl/game_heartbeat"]
-    print("page saw, in order:", order[:2])
-    assert order[:2] == ["sbgame/game/run", "sbgame/ctl/game_status"], "state before birth"
-    beats = [float(v) for t, v in seen if t == "sbgame/ctl/game_heartbeat"]
-    import time as _t
-    assert beats and abs(beats[-1] - _t.time()) < 5, beats
-    print("heartbeat carries host time:", beats[-1])
-
-    async with aiomqtt.Client("localhost", PORT, identifier="page") as page:
-        await page.publish("sbgame/game/run/set", "on", qos=1)
-    for _ in range(20):
-        await asyncio.sleep(0.05)
-        if commands: break
-    print("page command reached handler:", commands)
-    assert commands == [("run", "on")]
-    await asyncio.sleep(0.2)
-    assert b.get("game/run") == "", "game's own state stays out of Board"
-    assert ("sbgame/game/run", "on") in seen, "echo published"
-
-    await hw.hook(7, True)
-    await b.wait_until(lambda b: b.on("station/7/hook"), 2)
-    print("hook echo ok")
-
-    print("-- stop control heartbeat")
-    control.beating = False
+    tasks: list[asyncio.Task] = []
     try:
-        await b.wait_until(lambda b: False, 5)
-    except Offline as e:
-        print("wait failed with Offline:", e)
-    s0 = control.syncs
-    control.beating = True
-    await b.wait_live(3)
-    await asyncio.sleep(0.3)
-    print("control back; extra syncs:", control.syncs - s0)
-    assert control.syncs > s0
+        await asyncio.sleep(0.5)
+        control = FakeControl()
+        b = Board()
+        seen: list = []
+        commands: list = []
 
-    print("-- kill broker")
-    p.terminate(); p.wait()
-    for i in range(40):
-        await asyncio.sleep(0.25)
-        if not b.broker_up: break
-    print(f"noticed after {(i+1)*0.25:.2f}s;", "broker_up", b.broker_up, "control_up", b.control_up)
-    assert not b.control_up
-    p = broker()
-    await b.wait_live(15)
-    print("reconnected; live again; trunk/3/seize =", b.get("trunk/3/seize"))
+        async def on_birth(link):
+            await link.state("game/run", "off")
 
-    print("-- game program vanishes without disconnecting")
-    asyncio.get_running_loop().set_exception_handler(lambda loop, ctx: None)  # noise from the cut socket
-    link._client._client._sock.close()  # drop the TCP connection under it
-    tasks[1].cancel()
-    for _ in range(40):
-        await asyncio.sleep(0.25)
-        if ("sbgame/ctl/game_status", "offline") in seen: break
-    print("will fired:", ("sbgame/ctl/game_status", "offline") in seen)
-    assert ("sbgame/ctl/game_status", "offline") in seen
+        async def on_command(name, payload):
+            commands.append((name, payload))
+            await link.state(f"game/{name}", payload)  # the echo
 
-    for t in tasks + [wt]:
-        t.cancel()
-    p.terminate()
-    print("all passed")
+        link = Link(b, "localhost", PORT, username=None, on_birth=on_birth, on_command=on_command)
+        hw = Hw(link)
+        tasks.append(asyncio.create_task(watcher(seen)))
+        await asyncio.sleep(0.3)
+        tasks += [asyncio.create_task(control.run()), asyncio.create_task(link.run())]
+        link_task = tasks[-1]
 
+        await b.wait_live(5)
+        await asyncio.sleep(0.3)
+        assert control.syncs >= 1, "sync sent on connecting"
 
-asyncio.run(main())
+        order = [t for t, _ in seen if t != "sbgame/ctl/game_heartbeat"]
+        assert order[:2] == ["sbgame/game/run", "sbgame/ctl/game_status"], "state before birth"
+        beats = [float(v) for t, v in seen if t == "sbgame/ctl/game_heartbeat"]
+        assert beats and abs(beats[-1] - time.time()) < 5, f"heartbeat carries host time: {beats}"
+
+        async with aiomqtt.Client("localhost", PORT, identifier="page") as page:
+            await page.publish("sbgame/game/run/set", "on", qos=1)
+        for _ in range(20):
+            await asyncio.sleep(0.05)
+            if commands:
+                break
+        assert commands == [("run", "on")], "page command reached the handler"
+        await asyncio.sleep(0.2)
+        assert b.get("game/run") == "", "game's own state stays out of Board"
+        assert ("sbgame/game/run", "on") in seen, "echo published"
+
+        await hw.hook(7, True)
+        await b.wait_until(lambda b: b.on("station/7/hook"), 2)
+
+        # The controller's heartbeat stops: every wait fails, then comes back
+        # with a fresh sync.
+        control.beating = False
+        with pytest.raises(Offline):
+            await b.wait_until(lambda b: False, 5)
+        s0 = control.syncs
+        control.beating = True
+        await b.wait_live(3)
+        await asyncio.sleep(0.3)
+        assert control.syncs > s0, "a sync when the controller is back"
+
+        # The broker dies and comes back: reconnect and resync.
+        p.terminate()
+        p.wait()
+        for _ in range(40):
+            await asyncio.sleep(0.25)
+            if not b.broker_up:
+                break
+        assert not b.control_up
+        p = broker()
+        await b.wait_live(15)
+
+        # The game program vanishes without disconnecting: the will fires.
+        asyncio.get_running_loop().set_exception_handler(lambda loop, ctx: None)  # the cut socket
+        link._client._client._sock.close()  # drop the TCP connection under it
+        link_task.cancel()
+        for _ in range(40):
+            await asyncio.sleep(0.25)
+            if ("sbgame/ctl/game_status", "offline") in seen:
+                break
+        assert ("sbgame/ctl/game_status", "offline") in seen, "the will fired"
+    finally:
+        for t in tasks:
+            t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        p.terminate()
+        p.wait()

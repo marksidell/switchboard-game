@@ -1,13 +1,19 @@
 # The game program
 
 `game_control.md` is the specification; `mqtt.md` owns the topics. Runs on
-portland as a systemd service, as the user `sbgame`.
+the game host as a systemd service, as the user `sbgame`.
 
 ```text
 sbgame/board.py        the switchboard and the audio program, from MQTT
 sbgame/link.py         the connection: reconnect, will and birth, heartbeat
 sbgame/scenes.py       say/hear and the scene helpers
 sbgame/flows.py        the five call shapes
+sbgame/dialling.py     a number read off a trunk, for flows and free calls
+sbgame/freecall.py     free calls, Lenny mode
+sbgame/cue.py          the ring cue on the loudspeaker
+sbgame/diag.py         diagnostics from the page
+sbgame/sweep.py        board sweeps
+sbgame/config.py       the configuration, game.toml
 sbgame/script_data.py  script.yml resolved into scenes, wavs and the jack map
 sbgame/deck.py         which scene comes next (4.4)
 sbgame/pacing.py       tutor, manual, auto and listen, and the ramp (4.1-4.3)
@@ -41,8 +47,8 @@ It installs the two private voices if `private/` is present; `./release --public
 leaves them out (`docs/tts_task.md` §5.1).
 
 The daemon runs its own installed copies: the code in `/opt/sbgame/venv`, and
-`script.yml` and the wavs under `/srv/sbgame`, because it cannot traverse
-`/home/sidell`. `release` installs all three and the page, checks the
+`script.yml` and the wavs under `/srv/sbgame`, because it cannot read the
+checkout in a home directory. `release` installs all three and the page, checks the
 installed script before restarting, and leaves the running daemon alone if the
 check fails. Copying `script.yml` alone (`make -C host sbgame-data`) is not
 enough when its form has changed, since the installed loader is the one that
@@ -95,8 +101,8 @@ One pair at a time it rings the station from the trunk, takes the station
 off-hook and looks for the trunk's seizure, checks the two hear each other's
 pilot, has the station dial 1 to 0 and checks the trunk decodes every digit
 without losing the seizure, and puts it back on-hook; every other channel must
-stay idle throughout. The controller times the dial pulses (control.md §7.3,
-Rev 17), so it needs firmware with `dial/set`. Board c has six stations, since its strips 7 and 8 are the tap and
+stay idle throughout. The controller times the dial pulses (control.md §7.3),
+so it needs firmware with `dial/set`. Board c has six stations, since its strips 7 and 8 are the tap and
 the monitor. It needs the controller and the audio program online
 (`--no-audio` needs only the controller) and no game running, and sends the
 game program's heartbeat itself if the game program is not there, since the
@@ -130,20 +136,29 @@ The tests run under a checkout venv, not the installed one. Once, from the top
 of the repo (editable, so edits to `engine/` and `tts/` take effect at once):
 
 ```sh
-python3 -m venv engine/.venv && engine/.venv/bin/pip install -e engine -e tts
+python3 -m venv engine/.venv && engine/.venv/bin/pip install -e 'engine[test]' -e tts
 ```
 
-Then:
+`sbgame` imports `tts`, the `script.yml` loader in this repository's `tts/`,
+which is why both are installed; it is not on PyPI, so `pyproject.toml` cannot
+list it. Then, from `engine/`:
 
 ```sh
-cd engine && PYTHONPATH=.:tests ./.venv/bin/python tests/test_flows.py
+.venv/bin/pytest
 ```
+
+`pyproject.toml` puts the checkout's own `sbgame` and `tts` first on the path,
+so the tests see the working tree whatever the venv has installed. No
+hardware and no broker: `test_live.py` starts its own `mosquitto` on port
+18830, and is skipped without one; the JavaScript parse in `test_web.py` needs
+`gjs`, and is skipped without it. `tests/harness.py` is the simulated
+controller and audio program the others share.
 
 `test_streamdeck.py` checks every rule of §10 — keys, Stop's second press,
 Next Call's guard, the dials' target, errors, staleness — and draws each state
-once. `test_sim.py` is the delivered harness. `test_flows.py` covers every scene
-shape and every failure reason. `test_game.py` drives whole games against the
-real `script.yml`. `test_web.py` parses the page's JavaScript with gjs and
+once. `test_sim.py` covers say/hear and the Board. `test_flows.py` covers every
+scene shape and every failure reason. `test_game.py` drives whole games against
+the real `script.yml`. `test_web.py` parses the page's JavaScript with gjs and
 checks the service worker's cache list — a 404 in that list poisons the cache.
 
 None of it has met hardware. When the boards arrive, expect the simulator to

@@ -1,122 +1,40 @@
 """Every call flow, against the simulated controller, audio program and operator.
 
-No broker and no hardware — which, until the PCBs arrive, is the whole of the
-verification. Each case drives one shape of scene through a scripted operator
-and asserts the outcome, the §3.3 connected milestone, the §3.2 stages seen,
-and that the flow cleaned up after itself.
+No broker and no hardware. Each case drives one shape of scene through a
+scripted operator and asserts the outcome, the §3.3 connected milestone, the
+§3.2 stages seen, and that the flow cleaned up after itself.
 
 The operator is a coroutine per case. A *good* operator does the right thing;
 the failure cases are operators who do the wrong thing, or nothing.
 """
 
 import asyncio
-import time
 import dataclasses
-import logging
-import sys
+import time
+
+import pytest
 
 import sbgame.dialling as dialling
 import sbgame.flows as flows
-from sbgame.board import Board
-from sbgame.calls import Call, Reason, Slots, Stage
-from sbgame.config import Config
-from sbgame.flows import Ctx, busy_scene, outside_to_station, station_to_station, \
+from sbgame.calls import Reason, Stage
+from sbgame.flows import busy_scene, outside_to_station, station_to_station, \
     station_to_outside, to_operator
-from sbgame.link import Hw
-from sbgame.script_data import SceneDef, Shape, Speech
+from sbgame.script_data import Shape, Speech
 
-from test_sim import FakeLink, D, HOLD           # the echoing fake from the sim harness
-
-logging.basicConfig(level=logging.WARNING, stream=sys.stdout)
-
-failures = 0
+from harness import D, HOLD, Harness, answers, request_heard, scene, speech
 
 
-def check(ok: bool, what: str) -> None:
-    global failures
-    print(f"    {what:<56} {'ok' if ok else 'FAIL'}")
-    if not ok:
-        failures += 1
-
-
-def speech(name: str, by: str) -> Speech:
-    return Speech(name, D * 3, by)
-
-
-def scene(shape: str, **kw) -> SceneDef:
-    base = dict(id="t", shape=shape, from_line="a", to_line="b",
-                from_station=12, to_station=2, dial="", busy=False,
-                request=speech("t.1", "caller"),
-                conversation=(speech("t.2", "called"), speech("t.3", "caller")))
-    base.update(kw)
-    return SceneDef(**base)
-
-
-class Harness:
-    """Board, fake link, slots and a Ctx, with what happened recorded."""
-
-    def __init__(self, sc: SceneDef) -> None:
-        self.b = Board(hold=HOLD)
-        self.link = FakeLink(self.b)
-        self.hw = Hw(self.link)
-        self.events: list[str] = []
-        self.stages: list[str] = []
-        self.monitor: list[str] = []
-        self.connected = False
-        self.published: list[tuple[str, str]] = []
-        self.slots = Slots(self._publish)
-        self.call = Call(slot=1, number=1, scene=sc.id,
-                         from_line=sc.from_line, to_line=sc.to_line)
-        self.ctx = Ctx(board=self.b, hw=self.hw, cfg=Config(), slots=self.slots,
-                       call=self.call, scene=sc,
-                       say_event=self.events.append,
-                       mark_connected=self._connected,
-                       set_monitor=self._monitor)
-
-    async def _publish(self, key: str, value: str) -> None:
-        self.published.append((key, value))
-        if key.endswith("/stage") and value:
-            self.stages.append(value)
-
-    async def _connected(self) -> None:
-        self.connected = True
-
-    async def _monitor(self, src: str) -> None:
-        self.monitor.append(src)
-
-    async def live(self) -> None:
-        await self.b.set_broker(True)
-        await self.b.update("ctl/status", "online")
-        await self.b.update("ctl/audio_status", "online")
-        await self.b.update("ctl/esp_heartbeat", "1")
-
-    async def run(self, flow, operator, *args):
-        await self.live()
-        op = asyncio.create_task(operator(self))
-        try:
-            return await asyncio.wait_for(flow(self.ctx, *args), 20)
-        finally:
-            op.cancel()
+@pytest.fixture(autouse=True)
+def fast(monkeypatch):
+    """The flows' waits at the tests' speed: digits come D/2 apart (§3.5)."""
+    monkeypatch.setattr(dialling, "DIAL_SETTLE", D)
+    monkeypatch.setattr(dialling, "DIAL_PAUSE", D * 6)
+    for name, v in (("NUDGE_AFTER", D * 4), ("PATCH_WAIT", D * 6), ("ANSWER_AFTER", D),
+                    ("DIAL_FIRST", D * 10), ("BUSY_HOLD", D * 2), ("AWAY", D * 2)):
+        monkeypatch.setattr(flows, name, v)
 
 
 # ------------------------------------------------------------- operators ----
-
-
-async def answers(h: Harness, circuit: str) -> None:
-    """Wait for the line to signal, then throw the listening key."""
-    if circuit.startswith("station"):
-        await h.b.wait_until(lambda b: b.on(f"{circuit}/hook"), 5)
-    else:
-        await h.b.wait_until(lambda b: b.on(f"{circuit}/ring"), 5)
-    await asyncio.sleep(D)
-    if circuit.startswith("trunk"):
-        await h.b.update(f"{circuit}/seize", "on")      # the front cord in it
-    await h.b.update(f"{circuit}/op", "on")
-
-
-async def request_heard(h: Harness, circuit: str) -> None:
-    await h.b.wait_until(lambda b: b.get(f"{circuit}/play") == "t.1", 5)
-    await h.b.wait_until(lambda b: not b.get(f"{circuit}/play"), 5)
 
 
 async def good_station_operator(h: Harness) -> None:
@@ -159,7 +77,7 @@ async def cuts_off(h: Harness) -> None:
 
 async def switch_glitch(h: Harness) -> None:
     """Her switch moved mid-conversation: both lines break for a moment, read
-    deaf and then idle, and come back (§4, Rev 45). The call rides through."""
+    deaf and then idle, and come back (§4). The call rides through."""
     await good_station_operator(h)
     await asyncio.sleep(D * 4)
     for v in ("deaf", ""):
@@ -171,7 +89,7 @@ async def switch_glitch(h: Harness) -> None:
 
 
 async def power_reset(h: Harness) -> None:
-    """The switchboard reset mid-conversation (§2, Rev 66): every line drops
+    """The switchboard reset mid-conversation (§2): every line drops
     for longer than HOLD, and comes back. The call rides through."""
     await good_station_operator(h)
     await asyncio.sleep(D * 4)
@@ -187,7 +105,7 @@ async def power_reset(h: Harness) -> None:
 
 async def pulls_the_cord_before_routing(h: Harness) -> None:
     """She answers, hears the request, and pulls the answering cord before
-    taking a trunk (§5, Rev 46): the caller is lost, and the call abandoned."""
+    taking a trunk (§5): the caller is lost, and the call abandoned."""
     c = "station/12"
     await answers(h, c)
     await request_heard(h, c)
@@ -197,13 +115,13 @@ async def pulls_the_cord_before_routing(h: Harness) -> None:
 
 async def leaves_and_comes_back(h: Harness) -> None:
     """She answers, hears the request, leaves the caller longer than AWAY, and
-    comes back on with the answering cord alone (§3.5, Rev 112): the caller
+    comes back on with the answering cord alone (§3.5): the caller
     asks again; then she puts it through."""
     c, want = "station/12", 2
     await answers(h, c)
     await request_heard(h, c)
     await h.b.update(f"{c}/op", "off")
-    await asyncio.sleep(HOLD + D * 4)     # "off" takes effect HOLD late (§4, Rev 45)
+    await asyncio.sleep(HOLD + D * 4)     # "off" takes effect HOLD late (§4)
     await h.b.update(f"{c}/op", "on")
     await request_heard(h, c)
     await h.b.update(f"station/{want}/ring", "on")
@@ -224,7 +142,7 @@ async def outgoing_operator(h: Harness, number: str, answer: bool = True) -> Non
     for i, d in enumerate(number):
         await asyncio.sleep(D / 2)
         await h.b.update("trunk/3/digit", d)
-        if i == 0:                                    # dial tone stops (§3.5, Rev 42)
+        if i == 0:                                    # dial tone stops (§3.5)
             await h.b.wait_until(lambda b: b.get("trunk/3/tone") != "dial", 5)
 
 
@@ -240,7 +158,7 @@ async def wrong_then_right_number(h: Harness) -> None:
         await asyncio.sleep(D / 2)
         await h.b.update("trunk/3/digit", d)
     await asyncio.sleep(D * 3)
-    assert h.b.get("trunk/3/tone") == "busy", h.b.get("trunk/3/tone")   # Rev 46
+    assert h.b.get("trunk/3/tone") == "busy", h.b.get("trunk/3/tone")
     await h.b.update("trunk/3/seize", "off")          # release clears dialled
     await asyncio.sleep(D)
     await h.b.update("trunk/3/seize", "on")
@@ -263,7 +181,7 @@ async def speaks_when_asked(h: Harness) -> None:
 
 async def rear_then_front(h: Harness) -> None:
     """A call in on trunk 3: the rear cord first, heard but not seizing it,
-    then the front cord, and on as incoming_operator (§9.1, Rev 94)."""
+    then the front cord, and on as incoming_operator (§9.1)."""
     c, want = "trunk/3", 2
     await h.b.wait_until(lambda b: b.on(f"{c}/ring"), 5)
     await asyncio.sleep(D)
@@ -300,7 +218,7 @@ async def incoming_operator(h: Harness) -> None:
 
 async def misdialling_operator(h: Harness, number: str) -> None:
     """Dials `number`, waits for reorder, listens a while, releases, then
-    takes the trunk again and dials the right number (Rev 84)."""
+    takes the trunk again and dials the right number."""
     c = "station/12"
     await outgoing_operator(h, number)
     await h.b.wait_until(lambda b: b.get("trunk/3/tone") == "reorder", 5)
@@ -325,7 +243,7 @@ async def misdial_and_stay(h: Harness) -> None:
 
 
 def with_reactions(h: Harness) -> Harness:
-    """Every party has its reactions (Rev 60), named <kind>.<voice>; the caller
+    """Every party has its reactions, named <kind>.<voice>; the caller
     is "v1", the called party "v2", whoever is in a room "occ"."""
     h.ctx.scene = dataclasses.replace(h.ctx.scene, caller_voice="v1", called_voice="v2")
     h.ctx.reaction = lambda kind, voice: Speech(f"{kind}.{voice}", D * 3, "caller")
@@ -334,7 +252,7 @@ def with_reactions(h: Harness) -> Harness:
 
 
 def mute_first_listens(h: Harness, n: int) -> None:
-    """The first n listens hear nothing and time out (Rev 60)."""
+    """The first n listens hear nothing and time out."""
     echo, left = h.link._echo, [n]
 
     async def _echo(key: str, p: str) -> None:
@@ -401,77 +319,85 @@ async def never_dials(h: Harness) -> None:
     await h.b.update("trunk/3/seize", "off")
 
 
-async def main() -> int:
-    # §3.5, Rev 56, at the tests' speed: digits come D/2 apart.
-    dialling.DIAL_SETTLE, dialling.DIAL_PAUSE = D, D * 6
-    # Rev 60, the same.
-    flows.NUDGE_AFTER, flows.PATCH_WAIT, flows.ANSWER_AFTER, flows.DIAL_FIRST = \
-        D * 4, D * 6, D, D * 10
-    flows.BUSY_HOLD = D * 2
-    flows.AWAY = D * 2
-
-    print("\n== station to station, a good operator")
+async def test_station_to_station_a_good_operator():
+    """Station to station, a good operator"""
     h = Harness(scene(Shape.STATION_TO_STATION))
     r = await h.run(station_to_station, good_station_operator)
-    check(r.ok, "succeeds")
-    check(h.connected, "reports connected (§3.3)")
-    check(h.monitor == ["station/12"], f"moved the monitor once, to the caller: {h.monitor}")
-    check(h.stages == [Stage.SIGNALLING, Stage.REQUEST, Stage.ROUTING,
-                       Stage.RINGING, Stage.TALKING], f"stages {h.stages}")
-    check(("station/12/hook/set", "off") in h.link.sent
-          and ("station/2/hook/set", "off") in h.link.sent, "hung both up in finally")
+    assert r.ok, "succeeds"
+    assert h.connected, "reports connected (§3.3)"
+    assert h.monitor == ["station/12"], f"moved the monitor once, to the caller: {h.monitor}"
+    assert (h.stages == [Stage.SIGNALLING, Stage.REQUEST, Stage.ROUTING,
+                       Stage.RINGING, Stage.TALKING]), f"stages {h.stages}"
+    assert (("station/12/hook/set", "off") in h.link.sent
+          and ("station/2/hook/set", "off") in h.link.sent), "hung both up in finally"
 
-    print("\n== she leaves the caller and comes back: it asks again (§3.5, Rev 112)")
+
+async def test_she_leaves_the_caller_and_comes_back_it_asks():
+    """She leaves the caller and comes back: it asks again (§3.5)"""
     h = Harness(scene(Shape.STATION_TO_STATION))
     r = await h.run(station_to_station, leaves_and_comes_back)
     asked = [v for k, v in h.link.sent if k == "station/12/play/set" and v == "t.1"]
-    check(r.ok and len(asked) == 2, f"the request twice, and the call goes through: {len(asked)}, {r.reason!r}")
-    check(any("asks again" in e for e in h.events), "logged")
+    assert r.ok and len(asked) == 2, f"the request twice, and the call goes through: {len(asked)}, {r.reason!r}"
+    assert any("asks again" in e for e in h.events), "logged"
     h = Harness(scene(Shape.STATION_TO_STATION))
     r = await h.run(station_to_station, good_station_operator)
     asked = [v for k, v in h.link.sent if k == "station/12/play/set" and v == "t.1"]
-    check(len(asked) == 1, f"not when she never leaves: {len(asked)}")
+    assert len(asked) == 1, f"not when she never leaves: {len(asked)}"
 
-    print("\n== the operator rings the wrong station, then the right one")
+
+async def test_the_operator_rings_the_wrong_station_then_the_right():
+    """The operator rings the wrong station, then the right one"""
     h = Harness(scene(Shape.STATION_TO_STATION))
     r = await h.run(station_to_station, wrong_then_right_operator)
-    check(r.ok, "still succeeds — a wrong connection is not a failure (§3.5)")
-    check(any("wanted 2" in e for e in h.events), f"logged the wrong station: {h.events}")
+    assert r.ok, "still succeeds — a wrong connection is not a failure (§3.5)"
+    assert any("wanted 2" in e for e in h.events), f"logged the wrong station: {h.events}"
 
-    print("\n== nobody answers the lamp")
+
+async def test_nobody_answers_the_lamp():
+    """Nobody answers the lamp"""
     h = Harness(scene(Shape.STATION_TO_STATION))
     h.ctx.cfg.answer_timeout = 0.3
     r = await h.run(station_to_station, never_answers)
-    check(not r.ok and r.reason == Reason.NO_ANSWER, f"fails as 'no answer': {r.reason!r}")
-    check(not h.connected, "never reports connected")
+    assert not r.ok and r.reason == Reason.NO_ANSWER, f"fails as 'no answer': {r.reason!r}"
+    assert not h.connected, "never reports connected"
 
-    print("\n== the operator answers but never connects")
+
+async def test_the_operator_answers_but_never_connects():
+    """The operator answers but never connects"""
     h = Harness(scene(Shape.STATION_TO_STATION))
     h.ctx.cfg.connect_timeout = 0.3
     async def answers_only(hh):
         await answers(hh, "station/12")
         await asyncio.sleep(30)
     r = await h.run(station_to_station, answers_only)
-    check(not r.ok and r.reason == Reason.NOT_CONNECTED, f"fails as 'not connected': {r.reason!r}")
+    assert not r.ok and r.reason == Reason.NOT_CONNECTED, f"fails as 'not connected': {r.reason!r}"
 
-    print("\n== a cord is pulled during the conversation")
+
+async def test_a_cord_is_pulled_during_the_conversation():
+    """A cord is pulled during the conversation"""
     h = Harness(scene(Shape.STATION_TO_STATION))
     r = await h.run(station_to_station, cuts_off)
-    check(not r.ok and r.reason == Reason.CUT_OFF, f"fails as 'cut off': {r.reason!r}")
-    check(h.connected, "was connected before it was cut")
+    assert not r.ok and r.reason == Reason.CUT_OFF, f"fails as 'cut off': {r.reason!r}"
+    assert h.connected, "was connected before it was cut"
 
-    print("\n== her switch breaks both lines for a moment (§4, Rev 45)")
+
+async def test_her_switch_breaks_both_lines_for_a_moment():
+    """Her switch breaks both lines for a moment (§4)"""
     h = Harness(scene(Shape.STATION_TO_STATION))
     r = await h.run(station_to_station, switch_glitch)
-    check(r.ok, f"the call rides through: {r.reason!r}")
+    assert r.ok, f"the call rides through: {r.reason!r}"
 
-    print("\n== the switchboard reset during the conversation (§2, Rev 66)")
+
+async def test_the_switchboard_reset_during_the_conversation():
+    """The switchboard reset during the conversation (§2)"""
     h = Harness(scene(Shape.STATION_TO_STATION))
     r = await h.run(station_to_station, power_reset)
-    check(r.ok, f"the call rides through: {r.reason!r}")
-    check(h.b.get("station/12/peer") == "station/2", "and the lines read as before")
+    assert r.ok, f"the call rides through: {r.reason!r}"
+    assert h.b.get("station/12/peer") == "station/2", "and the lines read as before"
 
-    print("\n== a pull during the reset is seen once it settles")
+
+async def test_a_pull_during_the_reset_is_seen_once_it():
+    """A pull during the reset is seen once it settles"""
     h = Harness(scene(Shape.STATION_TO_STATION))
 
     async def pulled_in_reset(h: Harness) -> None:
@@ -482,64 +408,67 @@ async def main() -> int:
         await h.b.update("station/2/peer", "")
         await h.b.update("ctl/power_cut", "off")
     r = await h.run(station_to_station, pulled_in_reset)
-    check(not r.ok and r.reason == Reason.CUT_OFF, f"fails as 'cut off': {r.reason!r}")
+    assert not r.ok and r.reason == Reason.CUT_OFF, f"fails as 'cut off': {r.reason!r}"
 
-    print("\n== the caller left alone before connecting hangs up (§3.5, Rev 46, 48)")
-    was = flows.ABANDON, flows.ABANDON_MISDIALLED
-    flows.ABANDON, flows.ABANDON_MISDIALLED = D * 10, D * 3
-    try:
-        h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
-                          dial="275-4101"))
-        t0 = asyncio.get_running_loop().time()
-        r = await h.run(station_to_outside, pulls_the_cord_before_routing)
-        patient = asyncio.get_running_loop().time() - t0
-        check(not r.ok and r.reason == Reason.CUT_OFF, f"fails as 'cut off': {r.reason!r}")
-        check(any("hung up" in e for e in h.events), f"and says so: {h.events}")
-        h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
-                          dial="275-4101"))
-        h.ctx.misdialled = True
-        t0 = asyncio.get_running_loop().time()
-        r = await h.run(station_to_outside, pulls_the_cord_before_routing)
-        took = asyncio.get_running_loop().time() - t0
-        check(not r.ok and r.reason == Reason.CUT_OFF, "after a wrong number too")
-        check(took < patient - D * 5,
-              f"and sooner: {took:.2f}s against {patient:.2f}s")
-        # Rev 91: the tutor's wrong-cord line, ending while the caller is alone,
-        # restarts the wait.
-        h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
-                          dial="275-4101"))
-        said = time.time() + patient - D * 2
-        h.ctx.hint_end = lambda: said
-        t0 = asyncio.get_running_loop().time()
-        r = await h.run(station_to_outside, pulls_the_cord_before_routing)
-        took = asyncio.get_running_loop().time() - t0
-        check(not r.ok and r.reason == Reason.CUT_OFF, "after a wrong-cord line too")
-        check(took > patient + D * 5,
-              f"but waiting afresh from its end: {took:.2f}s against {patient:.2f}s")
-    finally:
-        flows.ABANDON, flows.ABANDON_MISDIALLED = was
 
-    print("\n== station to outside")
+async def test_the_caller_left_alone_before_connecting_hangs_up(monkeypatch):
+    """The caller left alone before connecting hangs up (§3.5)"""
+    monkeypatch.setattr(flows, "ABANDON", D * 10)
+    monkeypatch.setattr(flows, "ABANDON_MISDIALLED", D * 3)
+    h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
+                      dial="275-4101"))
+    t0 = asyncio.get_running_loop().time()
+    r = await h.run(station_to_outside, pulls_the_cord_before_routing)
+    patient = asyncio.get_running_loop().time() - t0
+    assert not r.ok and r.reason == Reason.CUT_OFF, f"fails as 'cut off': {r.reason!r}"
+    assert any("hung up" in e for e in h.events), f"and says so: {h.events}"
+    h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
+                      dial="275-4101"))
+    h.ctx.misdialled = True
+    t0 = asyncio.get_running_loop().time()
+    r = await h.run(station_to_outside, pulls_the_cord_before_routing)
+    took = asyncio.get_running_loop().time() - t0
+    assert not r.ok and r.reason == Reason.CUT_OFF, "after a wrong number too"
+    assert took < patient - D * 5, f"and sooner: {took:.2f}s against {patient:.2f}s"
+    # The tutor's wrong-cord line, ending while the caller is alone,
+    # restarts the wait.
+    h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
+                      dial="275-4101"))
+    said = time.time() + patient - D * 2
+    h.ctx.hint_end = lambda: said
+    t0 = asyncio.get_running_loop().time()
+    r = await h.run(station_to_outside, pulls_the_cord_before_routing)
+    took = asyncio.get_running_loop().time() - t0
+    assert not r.ok and r.reason == Reason.CUT_OFF, "after a wrong-cord line too"
+    assert took > patient + D * 5, f"but waiting afresh from its end: {took:.2f}s against {patient:.2f}s"
+
+
+async def test_station_to_outside():
+    """Station to outside"""
     h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
                       dial="275-4101"))
     r = await h.run(station_to_outside, lambda hh: outgoing_operator(hh, "2754101"))
-    check(r.ok, "succeeds")
-    check(h.connected, "reports connected")
-    check(any("dialled 275-4101" in e for e in h.events), f"logged the number: {h.events}")
-    check(Stage.DIALLING in h.stages, f"went through dialling: {h.stages}")
+    assert r.ok, "succeeds"
+    assert h.connected, "reports connected"
+    assert any("dialled 275-4101" in e for e in h.events), f"logged the number: {h.events}"
+    assert Stage.DIALLING in h.stages, f"went through dialling: {h.stages}"
 
-    print("\n== long distance: a line that waits for the operator on the trunk (§4.6)")
+
+async def test_long_distance_a_line_that_waits_for_the_operator():
+    """Long distance: a line that waits for the operator on the trunk (§4.6)"""
     h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="operator", to_station=None,
                       dial="0",
                       conversation=(speech("t.2", "called"),
                                     Speech("t.3", D * 3, "called", wait=True),
                                     speech("t.4", "caller"))))
     r = await h.run(station_to_outside, lambda hh: outgoing_operator(hh, "0"))
-    check(r.ok, "succeeds")
+    assert r.ok, "succeeds"
     listens = [k for k, _ in h.link.sent if k.endswith("/listen/set")]
-    check(listens.count("trunk/3/listen/set") == 1, f"listened once on the trunk: {listens}")
+    assert listens.count("trunk/3/listen/set") == 1, f"listened once on the trunk: {listens}"
 
-    print("\n== a line with pause: and ringback: (§6.2, Rev 20)")
+
+async def test_a_line_with_pause_and_ringback():
+    """A line with pause: and ringback: (§6.2)"""
     h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="operator", to_station=None,
                       dial="0",
                       conversation=(speech("t.2", "called"),
@@ -549,181 +478,210 @@ async def main() -> int:
     t0 = asyncio.get_running_loop().time()
     r = await h.run(station_to_outside, lambda hh: outgoing_operator(hh, "0"))
     took = asyncio.get_running_loop().time() - t0
-    check(r.ok, "succeeds")
+    assert r.ok, "succeeds"
     tones = [v for k, v in h.link.sent if k == "trunk/3/tone/set"]
     i = max(i for i, v in enumerate(tones) if v == "ringback")
-    check("off" in tones[i + 1:], f"ringback, then off, on the trunk: {tones}")
-    check(took >= D * 8, f"both waits taken: {took:.2f}s")
+    assert "off" in tones[i + 1:], f"ringback, then off, on the trunk: {tones}"
+    assert took >= D * 8, f"both waits taken: {took:.2f}s"
 
-    print("\n== ringback: on the calling side of a call in (§6.2, Rev 21)")
+
+async def test_ringback_on_the_calling_side_of_a_call_in():
+    """Ringback: on the calling side of a call in (§6.2)"""
     h = Harness(scene(Shape.OUTSIDE_TO_STATION, from_line="operator", from_station=None,
                       to_line="room105", to_station=2,
                       conversation=(speech("t.2", "called"),
                                     Speech("t.3", D * 3, "caller", ringback=D * 3))))
     r = await h.run(outside_to_station, incoming_operator, 3)
-    check(r.ok, "succeeds")
+    assert r.ok, "succeeds"
     tones = [v for k, v in h.link.sent if k == "trunk/3/tone/set"]
-    check(tones[:2] == ["ringback", "off"], f"rang the incoming trunk, then stopped: {tones}")
+    assert tones[:2] == ["ringback", "off"], f"rang the incoming trunk, then stopped: {tones}"
 
-    print("\n== the operator dials a wrong number, releases, and redials")
+
+async def test_the_operator_dials_a_wrong_number_releases_and_redials():
+    """The operator dials a wrong number, releases, and redials"""
     h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
                       dial="275-4101"))
     r = await h.run(station_to_outside, wrong_then_right_number)
-    check(r.ok, "still succeeds (§3.5)")
-    check(any("wanted 275-4101" in e for e in h.events), f"logged the wrong number: {h.events}")
+    assert r.ok, "still succeeds (§3.5)"
+    assert any("wanted 275-4101" in e for e in h.events), f"logged the wrong number: {h.events}"
 
-    for what, number in (("too many digits", "27541012"), ("too few digits", "27541")):
-        print(f"\n== the operator dials {what} (Rev 56)")
-        h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
-                          dial="275-4101"))
-        r = await h.run(station_to_outside, lambda hh: misdialling_operator(hh, number))
-        check(r.ok, f"succeeds once she redials (Rev 84): {r.reason!r}")
-        check(h.reorder_at == number, f"reorder once {h.reorder_at!r} is in")
-        check(h.still == "reorder", "and goes on while she stays on the trunk")
-        tones = [v for k, v in h.link.sent if k == "trunk/3/tone/set"]
-        i = tones.index("reorder")
-        check(tones[i + 1] == "off" and "dial" in tones[i:] and "ringback" in tones[i:],
-              f"stops when she releases, dial tone on the next seizure: {tones}")
-        check(any("too " + ("many" if len(number) > 7 else "few") in e for e in h.events),
-              f"logged: {h.events[-1:]}")
 
-    print("\n== a misdial and the connect timeout runs out (Rev 84)")
+@pytest.mark.parametrize("what, number", (("too many digits", "27541012"),
+                                          ("too few digits", "27541")))
+async def test_the_operator_dials_a_misdialled_number(what, number):
+    """Too many digits or too few: reorder, then she redials (§3.5)"""
+    h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
+                      dial="275-4101"))
+    r = await h.run(station_to_outside, lambda hh: misdialling_operator(hh, number))
+    assert r.ok, f"succeeds once she redials: {r.reason!r}"
+    assert h.reorder_at == number, f"reorder once {h.reorder_at!r} is in"
+    assert h.still == "reorder", "and goes on while she stays on the trunk"
+    tones = [v for k, v in h.link.sent if k == "trunk/3/tone/set"]
+    i = tones.index("reorder")
+    assert tones[i + 1] == "off" and "dial" in tones[i:] and "ringback" in tones[i:], f"stops when she releases, dial tone on the next seizure: {tones}"
+    assert any("too " + ("many" if len(number) > 7 else "few") in e for e in h.events), f"logged: {h.events[-1:]}"
+
+
+async def test_a_misdial_and_the_connect_timeout_runs_out():
+    """A misdial and the connect timeout runs out"""
     h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
                       dial="275-4101"))
     h.ctx.cfg.connect_timeout = 3.0           # DIAL_DELAY is 1s
     r = await h.run(station_to_outside, misdial_and_stay)
-    check(not r.ok and r.reason == Reason.MISDIALLED, f"fails as misdialled: {r.reason!r}")
+    assert not r.ok and r.reason == Reason.MISDIALLED, f"fails as misdialled: {r.reason!r}"
 
-    print("\n== the operator does not speak: the caller nudges her (Rev 60)")
+
+async def test_the_operator_does_not_speak_the_caller_nudges_her():
+    """The operator does not speak: the caller nudges her"""
     h = with_reactions(Harness(scene(Shape.STATION_TO_STATION)))
     mute_first_listens(h, 1)
     r = await h.run(station_to_station, good_station_operator)
-    check(r.ok, f"succeeds: {r.reason!r}")
-    check(played(h, "station/12")[:2] == ["nudge.v1", "t.1"],
-          f"'Hello? Operator?' in the caller's voice, then the request: {played(h, 'station/12')[:2]}")
-    check(sum(1 for k, _ in h.link.sent if k == "station/12/listen/set") >= 2,
-          "and listened again after it")
+    assert r.ok, f"succeeds: {r.reason!r}"
+    assert played(h, "station/12")[:2] == ["nudge.v1", "t.1"], f"'Hello? Operator?' in the caller's voice, then the request: {played(h, 'station/12')[:2]}"
+    assert sum(1 for k, _ in h.link.sent if k == "station/12/listen/set") >= 2, "and listened again after it"
 
-    print("\n== the wrong room is rung: it answers, and hangs up (Rev 60)")
+
+async def test_the_wrong_room_is_rung_it_answers_and_hangs():
+    """The wrong room is rung: it answers, and hangs up"""
     h = with_reactions(Harness(scene(Shape.STATION_TO_STATION)))
     r = await h.run(station_to_station, wrong_room_operator)
-    check(r.ok, f"still succeeds once she rings the right one: {r.reason!r}")
-    check(played(h, "station/7") == ["hello.occ"], f"the wrong party: {played(h, 'station/7')}")
-    check("wrong.v1" in played(h, "station/12"), "and the caller says so")
-    check(("station/7/hook/set", "off") in h.link.sent, "then the room hangs up")
+    assert r.ok, f"still succeeds once she rings the right one: {r.reason!r}"
+    assert played(h, "station/7") == ["hello.occ"], f"the wrong party: {played(h, 'station/7')}"
+    assert "wrong.v1" in played(h, "station/12"), "and the caller says so"
+    assert ("station/7/hook/set", "off") in h.link.sent, "then the room hangs up"
 
-    print("\n== the right room on a cord not patched to the caller (Rev 60)")
+
+async def test_the_right_room_on_a_cord_not_patched_to():
+    """The right room on a cord not patched to the caller"""
     h = with_reactions(Harness(scene(Shape.STATION_TO_STATION)))
     r = await h.run(station_to_station, unpatched_operator)
-    check(r.ok, f"succeeds once the pair is patched and it is rung again: {r.reason!r}")
-    check(played(h, "station/2")[:1] == ["hello.v2"], f"'Hello?' from the room: {played(h, 'station/2')}")
-    check(any("nobody on the line" in e for e in h.events), "it hung up, logged")
+    assert r.ok, f"succeeds once the pair is patched and it is rung again: {r.reason!r}"
+    assert played(h, "station/2")[:1] == ["hello.v2"], f"'Hello?' from the room: {played(h, 'station/2')}"
+    assert any("nobody on the line" in e for e in h.events), "it hung up, logged"
 
-    print("\n== a rear cord in the trunk of a call in is not an answer (§9.1, Rev 94)")
+
+async def test_a_rear_cord_in_the_trunk_of_a_call():
+    """A rear cord in the trunk of a call in is not an answer (§9.1)"""
     h = Harness(scene(Shape.OUTSIDE_TO_STATION, from_line="operator", from_station=None,
                       to_line="room105", to_station=2))
     r = await h.run(outside_to_station, rear_then_front, 3)
-    check(h.rear == ([], ""), f"heard unseized: not answered, the caller waits {h.rear}")
-    check(r.ok and h.monitor[:1] == ["trunk/3"], f"then the front cord: succeeds ({h.monitor})")
+    assert h.rear == ([], ""), f"heard unseized: not answered, the caller waits {h.rear}"
+    assert r.ok and h.monitor[:1] == ["trunk/3"], f"then the front cord: succeeds ({h.monitor})"
 
-    print("\n== a trunk left up from an earlier call is not this call's (Rev 60)")
+
+async def test_a_trunk_left_up_from_an_earlier_call_is():
+    """A trunk left up from an earlier call is not this call's"""
     h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
                       dial="275-4101"))
     await h.b.update("trunk/5/seize", "on")                    # a cord left in
     r = await h.run(station_to_outside, lambda hh: outgoing_operator(hh, "2754101"))
-    check(r.ok, f"succeeds: {r.reason!r}")
-    check(("trunk/5/tone/set", "dial") not in h.link.sent, "no dial tone on the stale trunk")
-    check(h.call.trunk == "trunk/3", f"the trunk she took: {h.call.trunk}")
+    assert r.ok, f"succeeds: {r.reason!r}"
+    assert ("trunk/5/tone/set", "dial") not in h.link.sent, "no dial tone on the stale trunk"
+    assert h.call.trunk == "trunk/3", f"the trunk she took: {h.call.trunk}"
 
-    print("\n== a trunk taken and not dialled (Rev 60)")
+
+async def test_a_trunk_taken_and_not_dialled():
+    """A trunk taken and not dialled"""
     h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
                       dial="275-4101"))
     h.ctx.cfg.connect_timeout = 3.0           # DIAL_DELAY is 1s
     r = await h.run(station_to_outside, never_dials)
-    check(not r.ok and r.reason == Reason.MISDIALLED, f"fails as misdialled at the timeout: {r.reason!r}")
-    check(any("nothing dialled" in e for e in h.events), f"logged: {h.events[-1:]}")
+    assert not r.ok and r.reason == Reason.MISDIALLED, f"fails as misdialled at the timeout: {r.reason!r}"
+    assert any("nothing dialled" in e for e in h.events), f"logged: {h.events[-1:]}"
 
-    print("\n== a busy scene")
+
+async def test_a_busy_scene():
+    """A busy scene"""
     h = Harness(scene(Shape.BUSY, to_line="pizza", to_station=None, dial="275-4101",
                       busy=True, conversation=(speech("t.2", "caller"),)))
     r = await h.run(busy_scene, lambda hh: outgoing_operator(hh, "2754101"))
-    check(r.ok, "succeeds")
-    check(h.connected, "connected at busy tone (§3.3)")
-    check(Stage.BUSY in h.stages, f"showed the busy stage: {h.stages}")
+    assert r.ok, "succeeds"
+    assert h.connected, "connected at busy tone (§3.3)"
+    assert Stage.BUSY in h.stages, f"showed the busy stage: {h.stages}"
     sent = h.link.sent
     busy_at = sent.index(("trunk/3/tone/set", "busy"))
     off_at = next((i for i, m in enumerate(sent) if i > busy_at and m == ("trunk/3/tone/set", "off")), None)
     heard_at = next((i for i, (k, _) in enumerate(sent) if i > busy_at and k == "station/12/listen/set"), None)
-    check(off_at is not None and heard_at is not None and off_at < heard_at,
-          f"busy tone stops before the game listens for her (§3.2): off {off_at}, listen {heard_at}")
+    assert off_at is not None and heard_at is not None and off_at < heard_at, f"busy tone stops before the game listens for her (§3.2): off {off_at}, listen {heard_at}"
 
-    print("\n== a call to the operator")
+
+async def test_a_call_to_the_operator():
+    """A call to the operator"""
     h = Harness(scene(Shape.TO_OPERATOR, to_line="", to_station=None,
                       conversation=(speech("t.2", "caller"),)))
     r = await h.run(to_operator, speaks_when_asked)
-    check(r.ok, "succeeds")
-    check(h.connected, "connected when the request finished (§3.3)")
-    check(Stage.OPERATOR in h.stages, f"showed the operator stage: {h.stages}")
+    assert r.ok, "succeeds"
+    assert h.connected, "connected when the request finished (§3.3)"
+    assert Stage.OPERATOR in h.stages, f"showed the operator stage: {h.stages}"
 
-    print("\n== a question to the operator waits for her answer, the closing (§6.3, Rev 47)")
+
+async def test_a_question_to_the_operator_waits_for_her_answer():
+    """A question to the operator waits for her answer, the closing (§6.3)"""
     h = Harness(scene(Shape.TO_OPERATOR, to_line="", to_station=None,
                       conversation=(), closing="t.2"))
     r = await h.run(to_operator, speaks_when_asked)
     listens = [k for k, v in h.link.sent if k == "station/12/listen/set"]
-    check(r.ok, "succeeds")
-    check(len(listens) == 2, f"listened for her greeting and her answer: {len(listens)}")
+    assert r.ok, "succeeds"
+    assert len(listens) == 2, f"listened for her greeting and her answer: {len(listens)}"
     h = Harness(scene(Shape.TO_OPERATOR, to_line="", to_station=None, conversation=()))
     r = await h.run(to_operator, speaks_when_asked)
     listens = [k for k, v in h.link.sent if k == "station/12/listen/set"]
-    check(r.ok and len(listens) == 1, "with no closing, only the greeting")
+    assert r.ok and len(listens) == 1, "with no closing, only the greeting"
 
-    print("\n== time and charges: a call to the operator rung in on a trunk (Rev 24)")
+
+async def test_time_and_charges_a_call_to_the_operator_rung():
+    """Time and charges: a call to the operator rung in on a trunk"""
     h = Harness(scene(Shape.TO_OPERATOR, from_line="operator", from_station=None,
                       to_line="", to_station=None, conversation=()))
     t0 = asyncio.get_running_loop().time()
     r = await h.run(to_operator, answers_the_trunk, 3)
     took = asyncio.get_running_loop().time() - t0
-    check(r.ok, "succeeds")
-    check(h.connected, "connected when the request finished (§3.3)")
-    check(("trunk/3/shortring/set", "on") in h.link.sent, "rang the trunk once, short (Rev 28)")
-    check(("trunk/3/ring/set", "off") in h.link.sent, "stopped ringing it once answered")
-    check(h.monitor == ["trunk/3"], f"monitor followed the trunk: {h.monitor}")
-    check(took < 5, f"hung up as soon as the request played, not waiting on her: {took:.2f}s")
-    check(not any(k.startswith("station/") and k.endswith("/hook/set") for k, _ in h.link.sent),
-          "took no station off-hook")
+    assert r.ok, "succeeds"
+    assert h.connected, "connected when the request finished (§3.3)"
+    assert ("trunk/3/shortring/set", "on") in h.link.sent, "rang the trunk once, short"
+    assert ("trunk/3/ring/set", "off") in h.link.sent, "stopped ringing it once answered"
+    assert h.monitor == ["trunk/3"], f"monitor followed the trunk: {h.monitor}"
+    assert took < 5, f"hung up as soon as the request played, not waiting on her: {took:.2f}s"
+    assert not any(k.startswith("station/") and k.endswith("/hook/set") for k, _ in h.link.sent), "took no station off-hook"
 
-    print("\n== time and charges nobody answers")
+
+async def test_time_and_charges_nobody_answers():
+    """Time and charges nobody answers"""
     h = Harness(scene(Shape.TO_OPERATOR, from_line="operator", from_station=None,
                       to_line="", to_station=None, conversation=()))
     h.ctx.cfg.answer_timeout = 0.3
     r = await h.run(to_operator, never_answers, 3)
-    check(not r.ok and r.reason == Reason.NO_ANSWER, f"fails as 'no answer': {r.reason!r}")
-    check(("trunk/3/ring/set", "off") in h.link.sent, "and stops ringing the trunk")
+    assert not r.ok and r.reason == Reason.NO_ANSWER, f"fails as 'no answer': {r.reason!r}"
+    assert ("trunk/3/ring/set", "off") in h.link.sent, "and stops ringing the trunk"
 
-    print("\n== a call in from outside")
+
+async def test_a_call_in_from_outside():
+    """A call in from outside"""
     h = Harness(scene(Shape.OUTSIDE_TO_STATION, from_line="pizza", from_station=None,
                       to_line="room214", to_station=2))
     r = await h.run(outside_to_station, incoming_operator, 3)
-    check(r.ok, "succeeds")
-    check(h.monitor == ["trunk/3"], f"monitor followed the trunk: {h.monitor}")
-    check(("trunk/3/shortring/set", "on") in h.link.sent, "rang the trunk once, short (Rev 28)")
-    check(("trunk/3/ring/set", "on") not in h.link.sent, "and never with the cadence")
-    check(("trunk/3/ring/set", "off") in h.link.sent, "stopped ringing the trunk")
+    assert r.ok, "succeeds"
+    assert h.monitor == ["trunk/3"], f"monitor followed the trunk: {h.monitor}"
+    assert ("trunk/3/shortring/set", "on") in h.link.sent, "rang the trunk once, short"
+    assert ("trunk/3/ring/set", "on") not in h.link.sent, "and never with the cadence"
+    assert ("trunk/3/ring/set", "off") in h.link.sent, "stopped ringing the trunk"
 
-    print("\n== if_busy: the called station engaged when the request ends (§6.6, Rev 39)")
+
+async def test_if_busy_the_called_station_engaged_when_the_request():
+    """If_busy: the called station engaged when the request ends (§6.6)"""
     h = Harness(scene(Shape.STATION_TO_STATION, if_busy=(speech("t.9", "caller"),)))
     await h.b.update("station/2/hook", "on")         # the front desk is on another call
     r = await h.run(station_to_station, speaks_when_asked)
-    check(r.ok, "succeeds")
-    check(h.connected, "connected when found engaged (§3.3)")
-    check(h.stages == [Stage.SIGNALLING, Stage.REQUEST, Stage.ROUTING, Stage.BUSY],
-          f"stages {h.stages}")
-    check(("station/12/play/set", "t.9") in h.link.sent, "played the if_busy: line")
-    check(not any(k == "station/2/hook/set" for k, _ in h.link.sent),
-          "left the engaged station to its own call")
-    check(any("is engaged" in e for e in h.events), f"logged it: {h.events}")
+    assert r.ok, "succeeds"
+    assert h.connected, "connected when found engaged (§3.3)"
+    assert h.stages == [Stage.SIGNALLING, Stage.REQUEST, Stage.ROUTING, Stage.BUSY], f"stages {h.stages}"
+    assert ("station/12/play/set", "t.9") in h.link.sent, "played the if_busy: line"
+    assert not any(k == "station/2/hook/set" for k, _ in h.link.sent), "left the engaged station to its own call"
+    assert any("is engaged" in e for e in h.events), f"logged it: {h.events}"
 
-    print("\n== if_busy: engaged while she routes")
+
+async def test_if_busy_engaged_while_she_routes():
+    """If_busy: engaged while she routes"""
     h = Harness(scene(Shape.STATION_TO_STATION, if_busy=(speech("t.9", "caller"),)))
     async def routes_slowly(hh):
         await answers(hh, "station/12")
@@ -732,19 +690,13 @@ async def main() -> int:
         await hh.b.update("station/2/hook", "on")    # another call takes it first
         await asyncio.sleep(60)
     r = await h.run(station_to_station, routes_slowly)
-    check(r.ok and Stage.BUSY in h.stages, f"found engaged: {r.reason!r} {h.stages}")
+    assert r.ok and Stage.BUSY in h.stages, f"found engaged: {r.reason!r} {h.stages}"
 
-    print("\n== if_busy: the station free, the call goes through as usual")
+
+async def test_if_busy_the_station_free_the_call_goes_through():
+    """If_busy: the station free, the call goes through as usual"""
     h = Harness(scene(Shape.STATION_TO_STATION, if_busy=(speech("t.9", "caller"),)))
     r = await h.run(station_to_station, good_station_operator)
-    check(r.ok and Stage.TALKING in h.stages and Stage.BUSY not in h.stages,
-          f"talked: {h.stages}")
-    check(("station/12/play/set", "t.9") not in h.link.sent, "and no if_busy: line")
-    check(("station/2/hook/set", "off") in h.link.sent, "hung the called station up")
-
-    print("\n" + ("FAILURES" if failures else "all flows passed"))
-    return 1 if failures else 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(asyncio.run(main()))
+    assert r.ok and Stage.TALKING in h.stages and Stage.BUSY not in h.stages, f"talked: {h.stages}"
+    assert ("station/12/play/set", "t.9") not in h.link.sent, "and no if_busy: line"
+    assert ("station/2/hook/set", "off") in h.link.sent, "hung the called station up"
