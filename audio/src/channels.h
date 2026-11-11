@@ -121,15 +121,6 @@ inline bool is_circuit_slot(int slot)
     return slot >= 1 && slot <= N_SLOTS && slot != TAP_CH;
 }
 
-// is_read_channel()                                                     [any]
-//   True for the capture channels anything reads: the 31 circuits and the tap
-//   (channel 23), whose bin 768 is the optone check and whose audio is the
-//   monitor source - which is to say all 32.
-inline bool is_read_channel(int ch)
-{
-    return is_circuit_slot(ch) || ch == TAP_CH;
-}
-
 // monitor_source_channel()                                              [any]
 //   audio.md 10.3: the monitor's source names a capture channel. "tap" is 23,
 //   "station/n" is n and "trunk/n" is 24 + n - which is to say the circuit's

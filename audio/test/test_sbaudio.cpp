@@ -27,6 +27,7 @@
 #include "../src/vad.h"
 #include "../src/alsa.h"
 #include "../src/engine.h"
+#include "engine_probe.h"
 #include "../src/options.h"
 #include "../src/rec.h"
 
@@ -696,10 +697,10 @@ static std::vector<int32_t> render_once(const Options& o, float monitor_value)
     sh->opt = o;
     AlsaStream st;                          // never opened
     Engine eng(*sh, st);
-    if (!eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH)) return {};
-    eng.set_monitor_row_for_test(monitor_value);
-    eng.render_for_test();
-    return eng.playback();
+    if (!EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH)) return {};
+    EngineProbe(eng).set_monitor_row(monitor_value);
+    EngineProbe(eng).render();
+    return EngineProbe(eng).playback();
 }
 
 // Does document channel `ch` carry `want` in every frame of the period?
@@ -770,29 +771,29 @@ static void test_output_check()
     sh->opt.monitor_ch = { 33 };            // so that 34 is a silent channel
     AlsaStream st;                          // never opened
     Engine eng(*sh, st);
-    check(eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
+    check(EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
 
     Command t;
     t.verb = Verb::Test; t.idx = 5; t.on = true;
     check(sh->cmdq.push(t), "a test tone on 5 queues");
-    eng.drain_for_test();
-    eng.set_monitor_row_for_test(0.70f);    // just under the -3dBFS limit
-    for (int k = 0; k < 4; ++k) { eng.render_for_test(); eng.check_output_for_test(); }
+    EngineProbe(eng).drain();
+    EngineProbe(eng).set_monitor_row(0.70f);    // just under the -3dBFS limit
+    for (int k = 0; k < 4; ++k) { EngineProbe(eng).render(); EngineProbe(eng).check_output(); }
     bool clean = true;
     for (int ch = 1; ch <= chan::N_PLAY_CH; ++ch)
-        if (eng.out_over_for_test(ch)) clean = false;
+        if (EngineProbe(eng).out_over(ch)) clean = false;
     check(clean, "a render as designed exceeds no channel's ceiling");
 
-    eng.render_for_test();
-    std::vector<int32_t>& buf = eng.playback_for_test();
+    EngineProbe(eng).render();
+    std::vector<int32_t>& buf = EngineProbe(eng).playback();
     buf[(size_t)7 * chan::N_PLAY_CH + 9 - 1]  = 2000000000;    // a pilot channel
     buf[(size_t)9 * chan::N_PLAY_CH + 34 - 1] = -100000;       // a silent one
-    eng.check_output_for_test();
-    check(eng.out_over_for_test(9) == 1 && eng.out_over_for_test(34) == 1,
+    EngineProbe(eng).check_output();
+    check(EngineProbe(eng).out_over(9) == 1 && EngineProbe(eng).out_over(34) == 1,
           "a corrupted pilot channel and a corrupted silent channel are caught");
     bool others = true;
     for (int ch = 1; ch <= chan::N_PLAY_CH; ++ch)
-        if (ch != 9 && ch != 34 && eng.out_over_for_test(ch)) others = false;
+        if (ch != 9 && ch != 34 && EngineProbe(eng).out_over(ch)) others = false;
     check(others, "and no other channel is");
 }
 
@@ -805,9 +806,9 @@ static void test_tap_play()
     auto sh = std::make_unique<Shared>();
     AlsaStream st;                          // never opened
     Engine eng(*sh, st);
-    check(eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
-    eng.render_for_test();
-    const std::vector<int32_t> before = eng.playback();
+    check(EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
+    EngineProbe(eng).render();
+    const std::vector<int32_t> before = EngineProbe(eng).playback();
 
     Command c;
     c.verb = Verb::Play;
@@ -816,9 +817,9 @@ static void test_tap_play()
     c.buf->samples.assign(4096, 0.25f);
     std::snprintf(c.name, sizeof c.name, "diag");
     check(sh->cmdq.push(c), "the play command queues");
-    eng.drain_for_test();
-    eng.render_for_test();
-    const std::vector<int32_t> after = eng.playback();
+    EngineProbe(eng).drain();
+    EngineProbe(eng).render();
+    const std::vector<int32_t> after = EngineProbe(eng).playback();
 
     bool shifted = true;
     const int n = (int)after.size() / chan::N_PLAY_CH;
@@ -846,14 +847,14 @@ static void test_stop_game()
     auto sh = std::make_unique<Shared>();
     AlsaStream st;                          // never opened
     Engine eng(*sh, st);
-    check(eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
-    eng.render_for_test();
+    check(EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
+    EngineProbe(eng).render();
     // An untouched engine's third period, for the pilots' phase.
     auto sh0 = std::make_unique<Shared>();
     Engine ref(*sh0, st);
-    ref.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH);
-    for (int k = 0; k < 3; ++k) ref.render_for_test();
-    const std::vector<int32_t> idle = ref.playback();
+    EngineProbe(ref).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH);
+    for (int k = 0; k < 3; ++k) EngineProbe(ref).render();
+    const std::vector<int32_t> idle = EngineProbe(ref).playback();
 
     const int trunk = chan::trunk_slot(2);
     for (int slot : { 5, (int)chan::TAP_CH, (int)chan::MONITOR_PROG }) {
@@ -871,15 +872,15 @@ static void test_stop_game()
     Command l;
     l.verb = Verb::Listen; l.idx = 3; l.arg = 10.0f;
     sh->cmdq.push(l);
-    eng.drain_for_test();
-    eng.render_for_test();
+    EngineProbe(eng).drain();
+    EngineProbe(eng).render();
     Result r;
     while (sh->res_audio.pop(r)) {}
 
     Command s;
     s.verb = Verb::StopGame;
     sh->cmdq.push(s);
-    eng.drain_for_test();
+    EngineProbe(eng).drain();
 
     bool play5 = false, tap = false, mon = false, tone = false, listen = false;
     int freed = 0;
@@ -896,8 +897,8 @@ static void test_stop_game()
     check(tone && listen, "a trunk's tone and a station's listen clear");
     check(freed == 3, "all three buffers are handed back");
 
-    eng.render_for_test();
-    const std::vector<int32_t>& out = eng.playback();
+    EngineProbe(eng).render();
+    const std::vector<int32_t>& out = EngineProbe(eng).playback();
     bool same = out.size() == idle.size();
     for (int ch : { 5, (int)chan::TAP_CH, trunk })
         for (size_t f = 0; same && f < out.size() / chan::N_PLAY_CH; ++f)
@@ -916,18 +917,18 @@ static std::vector<double> tone_out(ToneKind k, int periods)
         auto sh = std::make_unique<Shared>();
         AlsaStream st;
         Engine eng(*sh, st);
-        if (!eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH)) return out;
+        if (!EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH)) return out;
         if (on) {
             Command c;
             c.verb = Verb::Tone;
             c.idx  = (int16_t)ch;
             c.arg  = (float)(int)k;
             sh->cmdq.push(c);
-            eng.drain_for_test();
+            EngineProbe(eng).drain();
         }
         for (int p = 0; p < periods; ++p) {
-            eng.render_for_test();
-            const std::vector<int32_t> b = eng.playback();
+            EngineProbe(eng).render();
+            const std::vector<int32_t> b = EngineProbe(eng).playback();
             for (size_t f = 0; f < b.size() / chan::N_PLAY_CH; ++f)
                 out.push_back(b[f * chan::N_PLAY_CH + ch - 1] / 2147483648.0);
         }
@@ -1000,7 +1001,7 @@ static void test_monitor_play()
     auto sh = std::make_unique<Shared>();
     AlsaStream st;                          // never opened
     Engine eng(*sh, st);
-    check(eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
+    check(EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
 
     // 1 kHz, well inside the passband, for 20 periods.
     const unsigned len = 256 * 20;
@@ -1015,8 +1016,8 @@ static void test_monitor_play()
         Command m;
         m.verb = Verb::Monitor; m.on = on; m.arg = 0.0f;
         check(sh->cmdq.push(m), "the monitor command queues");
-        eng.drain_for_test();
-        for (int k = 0; k < 10; ++k) { eng.capture_for_test(); eng.render_for_test(); }
+        EngineProbe(eng).drain();
+        for (int k = 0; k < 10; ++k) { EngineProbe(eng).capture(); EngineProbe(eng).render(); }
         Result r;
         while (sh->res_audio.pop(r)) {}     // let the 20ms ramp and the last file ring out
         Command c;
@@ -1025,15 +1026,15 @@ static void test_monitor_play()
         c.buf  = file();
         std::snprintf(c.name, sizeof c.name, "tutor.hello");
         check(sh->cmdq.push(c), "the play command queues");
-        eng.drain_for_test();
+        EngineProbe(eng).drain();
     };
     auto peak_over = [&](unsigned periods, bool& finished) {
         double peak = 0.0;
         finished = false;
         for (unsigned p = 0; p < periods; ++p) {
-            eng.capture_for_test();
-            eng.render_for_test();
-            const std::vector<int32_t>& out = eng.playback();
+            EngineProbe(eng).capture();
+            EngineProbe(eng).render();
+            const std::vector<int32_t>& out = EngineProbe(eng).playback();
             const int n = (int)out.size() / chan::N_PLAY_CH;
             for (int f = 0; f < n; ++f) {
                 const size_t i = (size_t)f * chan::N_PLAY_CH + chan::DIGIFACE_CH_A - 1;
@@ -1122,7 +1123,7 @@ static void test_monitor_source()
             sh->opt.monitor_src = src;
             AlsaStream st;                      // never opened
             Engine eng(*sh, st);
-            return !eng.prepare_detached(256, chan::N_PLAY_CH, ncap);
+            return !EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, ncap);
         };
         check(refuses(32, 24),  "trunk/8 is refused when the device grants 24 capture channels");
         check(refuses(25, 24),  "trunk/1 is refused when the device grants 24");
@@ -1155,24 +1156,24 @@ static void test_monitor_gate()
     sh->opt.monitor_gate_hold = 0.25;
     AlsaStream st;
     Engine eng(*sh, st);
-    check(eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
+    check(EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
     Command m;
     m.verb = Verb::Monitor; m.on = true; m.arg = 0.0f;
     sh->cmdq.push(m);
-    eng.drain_for_test();
+    EngineProbe(eng).drain();
     double t = 0.0;
     // Periods with 1 kHz speech-like tone at -20dBFS, and ring at 20 Hz if asked;
     // returns the monitor's peak over them.
     auto run = [&](int periods, bool ring) {
         double peak = 0.0;
         for (int p = 0; p < periods; ++p) {
-            float* in = eng.capture_row_for_test(chan::TAP_CH);
+            float* in = EngineProbe(eng).capture_row(chan::TAP_CH);
             for (int i = 0; i < 256; ++i, t += 1.0 / chan::SAMPLE_RATE)
                 in[i] = (float)(0.1 * std::sin(2.0 * M_PI * 1000.0 * t)
                                 + (ring ? 0.3 * std::sin(2.0 * M_PI * 20.0 * t) : 0.0));
-            eng.capture_for_test();
-            eng.render_for_test();
-            const std::vector<int32_t>& out = eng.playback();
+            EngineProbe(eng).capture();
+            EngineProbe(eng).render();
+            const std::vector<int32_t>& out = EngineProbe(eng).playback();
             const int n = (int)out.size() / chan::N_PLAY_CH;
             for (int f = 0; f < n; ++f) {
                 const size_t i = (size_t)f * chan::N_PLAY_CH + chan::DIGIFACE_CH_A - 1;
@@ -1240,13 +1241,13 @@ static void test_recording()
     Engine eng(*sh, st);
     Recorder rec(*sh);
     rec.prepare();
-    if (!eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH)) { check(false, "engine"); return; }
+    if (!EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH)) { check(false, "engine"); return; }
 
     std::vector<float> got(4096);
-    eng.capture_for_test();
+    EngineProbe(eng).capture();
     check(sh->rec_ring.read(got.data(), got.size()) == 0, "not recording: nothing handed over");
     sh->rec_on.store(true);
-    for (int i = 0; i < 4; ++i) eng.capture_for_test();
+    for (int i = 0; i < 4; ++i) EngineProbe(eng).capture();
     sh->rec_on.store(false);
     check(sh->rec_ring.read(got.data(), got.size()) == 1024, "recording: every period handed over");
 
@@ -1292,13 +1293,13 @@ static void test_recording()
     check(sh->play_on.load() && sh->play_ring.available() > 0, "next pass: playing, ring filled");
     float pk = 0.0f;
     for (int i = 0; i < 40; ++i) {
-        eng.capture_for_test();
-        for (float v : eng.monitor_row()) pk = std::max(pk, std::fabs(v));
+        EngineProbe(eng).capture();
+        for (float v : EngineProbe(eng).monitor_row()) pk = std::max(pk, std::fabs(v));
     }
     check_near(lin_to_db(pk), -40.0, 0.1, "played back at the level recorded: -40dBFS");
     while (pl.service() == false && sh->play_ring.available() > 0)
-        eng.capture_for_test();
-    for (int i = 0; i < 300 && !pl.name().empty(); ++i) { eng.capture_for_test(); pl.service(); }
+        EngineProbe(eng).capture();
+    for (int i = 0; i < 300 && !pl.name().empty(); ++i) { EngineProbe(eng).capture(); pl.service(); }
     check(pl.name().empty() && !sh->play_on.load(), "the end of the file ends the playback");
     std::string cmd = std::string("rm -rf ") + dir;
     check(std::system(cmd.c_str()) == 0, "cleaned up");
@@ -1380,7 +1381,7 @@ static void test_aec()
             sh->opt.vad_hangover = 0.5;
             AlsaStream st;
             Engine eng(*sh, st);
-            eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH);
+            EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH);
             const int S = 5;
             Talker file(3, -20.0), caller(4, -50.0);
             Command c;
@@ -1393,17 +1394,17 @@ static void test_aec()
             std::vector<float> sent;
             double speech_at = -1, ended_at = -1;
             for (int per = 0; per < 6 * 48000 / 256; ++per) {
-                float* cap = eng.capture_row_for_test(S);
+                float* cap = EngineProbe(eng).capture_row(S);
                 for (int i = 0; i < 256; ++i) {
                     const size_t t = (size_t)per * 256 + (size_t)i;
                     float v = t >= 562 && t - 562 < sent.size() ? 0.25f * sent[t - 562] : 0.0f;
                     if (talk && t >= 3 * 48000 && t < (size_t)(3.6 * 48000)) v += caller.next();
                     cap[i] = v;
                 }
-                eng.capture_for_test();
-                eng.drain_for_test();
-                eng.render_for_test();
-                const std::vector<int32_t>& o = eng.playback();
+                EngineProbe(eng).capture();
+                EngineProbe(eng).drain();
+                EngineProbe(eng).render();
+                const std::vector<int32_t>& o = EngineProbe(eng).playback();
                 for (int i = 0; i < 256; ++i)
                     sent.push_back((float)o[(size_t)i * chan::N_PLAY_CH + S - 1] / 2147483648.0f);
                 Result r;
@@ -1442,7 +1443,7 @@ static void test_peer_boost()
         auto sh = std::make_unique<Shared>();
         AlsaStream st;
         Engine eng(*sh, st);
-        eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH);
+        EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH);
         Command m; m.verb = Verb::Monitor; m.on = true; m.arg = 0.0f;
         sh->cmdq.push(m);
         Command src; src.verb = Verb::MonitorSrc; src.idx = 1;
@@ -1451,7 +1452,7 @@ static void test_peer_boost()
             Command p; p.verb = Verb::MonitorPeer; p.on = true; p.arg = 6.0f;
             sh->cmdq.push(p);
         }
-        eng.drain_for_test();
+        EngineProbe(eng).drain();
         sh->heard_peer[1].store(heard ? 2 : 0);
         Talker a(5, -20.0), b(6, -20.0);
         std::vector<float> sent1, sent2;
@@ -1468,15 +1469,15 @@ static void test_peer_boost()
             for (int per = 0; per < line_p; ++per) {
                 // The line returns what was sent two periods ago: the file
                 // alone, since the pilots are outside the monitor's band.
-                float* cap = eng.capture_row_for_test(1);
+                float* cap = EngineProbe(eng).capture_row(1);
                 for (int i = 0; i < 256; ++i) {
                     const size_t k = sent1.size() + (size_t)i;
                     cap[i] = k >= 512 ? 0.5f * sent1[k - 512] + 0.1f * sent2[k - 512] : 0.0f;
                 }
-                eng.capture_for_test();
-                eng.drain_for_test();
-                eng.render_for_test();
-                const std::vector<int32_t>& o = eng.playback();
+                EngineProbe(eng).capture();
+                EngineProbe(eng).drain();
+                EngineProbe(eng).render();
+                const std::vector<int32_t>& o = EngineProbe(eng).playback();
                 for (int i = 0; i < 256; ++i) {
                     const size_t j = (size_t)per * 256 + (size_t)i;
                     const float v = j < file.size() ? file[j] : 0.0f;
@@ -1492,13 +1493,13 @@ static void test_peer_boost()
         const double caller = 10.0 * std::log10(lv[2] + 1e-20), called = 10.0 * std::log10(lv[3] + 1e-20);
         std::printf("    peer %s: caller %.1f dB, called %.1f dB, boost %.1f dB\n",
                     heard == 2 ? "fixed" : heard ? "heard" : "not heard", caller, called,
-                    eng.peer_boost_db_for_test());
+                    EngineProbe(eng).peer_boost_db());
         if (heard == 2) {
-            check(std::fabs(eng.peer_boost_db_for_test() - 6.0) < 0.1, "fixed by the game: 6 dB");
+            check(std::fabs(EngineProbe(eng).peer_boost_db() - 6.0) < 0.1, "fixed by the game: 6 dB");
             check(std::fabs(caller - called - 8.0) < 1.5, "and the called party 8 dB down");
         } else if (heard) {
             check(std::fabs(caller - called) < 1.5, "the called party is raised to the caller's level");
-            check(std::fabs(eng.peer_boost_db_for_test() - 14.0) < 1.0, "by the 14 dB between the paths");
+            check(std::fabs(EngineProbe(eng).peer_boost_db() - 14.0) < 1.0, "by the 14 dB between the paths");
         } else {
             check(caller - called > 12.0, "no peer heard: the called party is left 14 dB down");
         }
@@ -1511,7 +1512,7 @@ static void test_ringing()
     auto sh = std::make_unique<Shared>();
     AlsaStream st;
     Engine eng(*sh, st);
-    eng.prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH);
+    EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH);
     // Station 1 rung at the level measured on the switchboard, -25 dBFS rms;
     // station 2 carrying loud speech-band tone and hum, which must not count;
     // trunk 1 rung too, as the public line's ATA rings it; station 3 a plug's contact
@@ -1523,10 +1524,10 @@ static void test_ringing()
     const int P = 48000 / 256;                                  // ~1 s of periods
     for (int per = 0; per < 3 * P; ++per) {
         const bool ringing = per >= P / 2 && per < 2 * P;       // 0.5 s to 2 s
-        float* s1 = eng.capture_row_for_test(1);
-        float* s2 = eng.capture_row_for_test(2);
-        float* t1 = eng.capture_row_for_test(chan::trunk_slot(1));
-        float* s3 = eng.capture_row_for_test(3);
+        float* s1 = EngineProbe(eng).capture_row(1);
+        float* s2 = EngineProbe(eng).capture_row(2);
+        float* t1 = EngineProbe(eng).capture_row(chan::trunk_slot(1));
+        float* s3 = EngineProbe(eng).capture_row(3);
         for (int i = 0; i < 256; ++i, ph += 1.0 / 48000.0) {
             const float r = ringing ? (float)(ring * std::sin(2 * M_PI * 20.0 * ph)) : 0.0f;
             s1[i] = r + 0.001f;                                 // and a little DC
@@ -1537,7 +1538,7 @@ static void test_ringing()
             const double sg = std::fmod(ph + 0.05, 0.2) >= 0.1 ? -1.0 : 1.0;
             s3[i] = ph >= 0.5 && ph < 2.0 ? (float)(0.3 * sg * std::exp(-tc / 0.02)) : 0.0f;
         }
-        eng.capture_for_test();
+        EngineProbe(eng).capture();
         Result r;
         while (sh->res_audio.pop(r)) {
             if (r.buf) delete r.buf;

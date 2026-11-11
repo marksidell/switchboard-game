@@ -13,14 +13,15 @@
 //   process_capture()  capf_ -> ring_          last 4096 samples per channel
 //                      capf_ -> vad_[]         speech detection, per circuit:
 //                                              frames -> Listener (vad.h)
-//                      capf_ row 23 -> mon_row_  the loudspeaker feed
-//                                              play_ring -> mon_row_ while
+//                      capf_ -> ringdet_       ring heard (ringdet.h)
+//                      capf_ -> mon_           the loudspeaker feed (monitor.h)
+//                                              play_ring -> its row while
 //                                              playing back (audio.md 10.7)
-//                                              mon_row_ -> rec_ring while
+//                                              its row -> rec_ring while
 //                                              recording (audio.md 10.6)
 //                      hop_if_due()            every 2048: ring_ -> Snapshot
-//   drain_commands()   cmdq -> prog_[], vad_[], test_on_[], monitor gain
-//   render()           pilots + prog_[] + test + mon_row_ -> obuf_
+//   drain_commands()   cmdq -> prog_[], vad_[], test_on_[], mon_
+//   render()           pilots + prog_[] + test + monitor row -> obuf_
 //   write()            obuf_ -> ALSA           34 channels, interleaved ints
 //
 // The order matters in one place: commands are drained after capture is
@@ -38,13 +39,19 @@
 #include "alsa.h"
 #include "dsp.h"
 #include "ipc.h"
+#include "monitor.h"
+#include "ringdet.h"
+#include "tones.h"
 #include "vad.h"
 
 class Engine {
 public:
     // Engine()                                                       [startup]
     //   Stores references; does no work. prepare() does the work.
-    Engine(Shared& sh, AlsaStream& st) : sh_(sh), st_(st) {}
+    Engine(Shared& sh, AlsaStream& st)
+        : sh_(sh), st_(st), tones_(tbl_), ringdet_(sh), mon_(sh) {}
+    Engine(const Engine&) = delete;
+    Engine& operator=(const Engine&) = delete;
 
     // prepare()                                                      [startup]
     //   Allocates every buffer and designs every filter. Called before the
@@ -57,51 +64,19 @@ public:
     //   Shared::audio_failed).
     void run();
 
-    // ---- test hooks. sbaudio_test drives a render with no audio device, to
-    // check the channel map of audio.md 2: which playback channel carries the
-    // monitor, the operator tone, a pilot or silence. Nothing in the program
-    // calls these.
-    bool prepare_detached(unsigned period, unsigned nplay, unsigned ncap)
-    {
-        detached_ = true;
-        det_period_ = period; det_nplay_ = nplay; det_ncap_ = ncap;
-        return prepare();
-    }
-    void render_for_test()                       { render(); }
-    void drain_for_test()                        { drain_commands(); }
-    void set_monitor_row_for_test(float v)       { std::fill(mon_row_.begin(), mon_row_.end(), v); }
-    void capture_for_test()                      { process_capture(); }
-    float* capture_row_for_test(int ch)          { return &capf_[(size_t)(ch - 1) * period_]; }
-    const std::vector<float>& monitor_row() const { return mon_row_; }
-    const std::vector<int32_t>& playback() const { return obuf_; }
-    std::vector<int32_t>& playback_for_test()    { return obuf_; }
-    void check_output_for_test()                 { check_output(); }
-    unsigned out_over_for_test(int ch) const     { return out_over_[ch]; }
-
-    // monitor_ripple_db() / monitor_lowpass()                            [any]
-    //   What prepare() designed, for the startup log and the unit test.
-    double monitor_ripple_db() const { return mon_ripple_db_; }
-    const std::vector<Biquad>& monitor_lowpass() const { return mon_lp_; }
-    double gate_gain() const { return gate_g_; }
-    // Times the gate has shut. run() hands the count to Shared each second;
-    // a detached engine keeps it, for monitor_check.
-    unsigned gate_hits_for_test() const { return gate_hits_; }
-    double peer_boost_db_for_test() const { return 20.0 * std::log10(pb_lin_); }
-
 private:
+    // The tests, and monitor_check, drive the real periods with no audio
+    // device through this (test/engine_probe.h).
+    friend struct EngineProbe;
+
     // Prog - what one circuit is playing on top of its pilot: nothing, a file
     // or a trunk tone (audio.md 5.2: one at a time). One per slot, in prog_[].
     // The fields for the kind not in use are ignored.
     struct Prog {
         enum class Kind : uint8_t { None, File, Tone } kind = Kind::None;
-        // File
-        AudioBuffer* buf  = nullptr;    // owned by this thread while playing
-        size_t       pos  = 0;          // next sample of buf to play
-        // Tone
-        ToneKind     tone = ToneKind::Off;
-        uint32_t     ph   = 0;      // carrier phase, Q32 (see SineTable)
-        uint32_t     mph  = 0;      // modulation phase, Q32
-        uint32_t     cad  = 0;      // samples into the cadence period
+        AudioBuffer*       buf = nullptr;   // File: owned by this thread while playing
+        size_t             pos = 0;         // File: next sample of buf to play
+        TrunkTones::State  tone;            // Tone
     };
 
     // Vad - one circuit's speech detector (audio.md 9.2). One per slot, in
@@ -113,57 +88,46 @@ private:
     // goes to the Listener (vad.h). The Listener keeps the history and makes
     // every decision; this struct is only the signal processing in front of it.
     struct Vad {
-        BiquadState hp, lp[3];              // 300-3400Hz band-pass (Rev 18: 6th-order low)
+        BiquadState hp, lp[3];              // 300-3400Hz band-pass
         double      acc      = 0.0;         // sum of squares in this frame
         int         nacc     = 0;           // samples in acc so far, 0-479
         bool        src_seen = false;       // a source ran during this frame
         Listener    lis;                    // history, floor, window, phases
     };
 
-    // RingDet - ring heard on one station's capture channel (audio.md 9.5).
-    // A 20Hz Goertzel over 100ms Hann-windowed blocks, and one at 40Hz to tell
-    // ring from a plug's click (Rev 31); the state is only the
-    // filter's two delays and the debounce counts. One per slot, in ring_det_[];
-    // trunks and the tap are skipped.
-    struct RingDet {
-        double s1 = 0.0, s2 = 0.0;          // 20Hz Goertzel delays
-        double h1 = 0.0, h2 = 0.0;          // 40Hz, its absent second harmonic
-        int    above = 0, below = 0;        // consecutive blocks either side
-        bool   on = false;                  // last value posted
+    // The echo canceller's reference (audio.md 9.4): the file through the
+    // speech detector's band-pass, and the 8 kHz index its last echo sample
+    // falls at, after which the canceller stops.
+    struct AecRef {
+        BiquadState hp, lp[3];
+        uint32_t    until = 0;
     };
 
     // Per-period steps of run(). Each is described where it is defined.
-    void drain_commands();
-
-    // monitor_target() - the gain the ramp should head for: the commanded gain
-    // with the tap trim added while the source is the tap, or 0 when muted.
-    double monitor_target(int src_ch) const;
-    void   monitor_ramp_to(double target);
-    double gate_step(float raw, double y);
-    void   monitor_switch_to(int ch);       // at the bottom of the ramp
-    int    peer_boost_begin();              // which path this period measures
-    void   peer_boost_end(int mode, double energy, bool gated);
     void process_capture();
-    void ring_step(int ncirc);
+    void drain_commands();
     void render();
     void check_output();
-    void aec_feed(int slot, const float* s, unsigned n);
     void record_line();
     void hop_if_due();
+    void aec_feed(int slot, const float* s, unsigned n);
 
     // Helpers for drain_commands() and friends.
     void stop_source(int slot, const char* echo);   // echo == nullptr: no publish
     void start_listen(int slot, double seconds);
     void cancel_listen(int slot, const char* echo);
-    void post(Topic t, int idx, const char* value);
+    void post(Topic t, int idx, const char* value) { post_result(sh_, t, idx, value); }
     void post_free(AudioBuffer* b);
 
     Shared&     sh_;
     AlsaStream& st_;
     SineTable   tbl_;
+    TrunkTones  tones_;
+    RingDetector ringdet_;
+    MonitorChain mon_;
 
-    // Set only by prepare_detached(), so prepare() can size its buffers
-    // without an open stream.
+    // Set only by the probe, so prepare() can size its buffers without an
+    // open stream.
     bool     detached_ = false;
     unsigned det_period_ = 0, det_nplay_ = 0, det_ncap_ = 0;
 
@@ -185,104 +149,25 @@ private:
 
     // ---- oscillators
     uint32_t pilot_n_ = 0;                  // wraps at 4096; the whole oscillator
-    float    pilot_amp_ = 0.0f, op_amp_ = 0.0f, tone_amp_ = 0.0f, test_amp_ = 0.0f;
-    double   tone_mod_ = 1.0;               // trunk tone modulation depth
-
+    float    pilot_amp_ = 0.0f, op_amp_ = 0.0f, test_amp_ = 0.0f;
     uint32_t test_ph_ = 0, test_inc_ = 0;   // 1 kHz test tone, Q32
     std::vector<float> test_row_;           // one period of 1kHz, shared
-    std::vector<float> city_;               // one period of ringback, peak 1 (Rev 21)
 
     Biquad    vad_hp_;                      // 300-3400Hz, shared coefficients
-    Biquad    vad_lp_[3];                   // the low-pass's three sections (Rev 18)
+    Biquad    vad_lp_[3];                   // the low-pass's three sections
     VadParams vad_params_;                  // from the options, set in prepare()
 
     // ---- per-channel state, indexed by slot 1-32 or playback channel 1-34;
-    // element 0 unused (channels.h)
-    Prog prog_[chan::N_SLOTS + 1];
-    Vad  vad_[chan::N_SLOTS + 1];           // Listener holds 400 bytes of history;
-                                            // 33 of them, allocated with Engine
-    RingDet ring_det_[chan::N_SLOTS + 1];
-    std::vector<float> ring_win_;           // Hann window, RING_BLOCK samples
-    unsigned ring_n_ = 0;                   // samples into the current block,
-                                            // the same for every station
-
-    // ---- the echo canceller (audio.md 9.4, Rev 26), one per slot, on the
-    // heap: 3 KB each. Its reference, the file, through the detector's band-
-    // pass, sample by sample in render(); and the 8 kHz index its last echo
-    // sample falls at, after which it stops.
-    struct AecRef {
-        BiquadState hp, lp[3];
-        uint32_t    until = 0;
-    };
-    std::vector<EchoCanceller> aec_;
-    AecRef   aec_ref_[chan::N_SLOTS + 1];
+    // element 0 unused (channels.h) except as MONITOR_PROG
+    Prog   prog_[chan::N_SLOTS + 1];
+    Vad    vad_[chan::N_SLOTS + 1];
+    std::vector<EchoCanceller> aec_;        // one per slot, on the heap: 3 KB each
+    AecRef aec_ref_[chan::N_SLOTS + 1];
     uint64_t g_ = 0;                        // 48 kHz samples before this period
     bool test_on_[chan::N_PLAY_CH + 1] = { false };
     bool mon_out_[chan::N_PLAY_CH + 1] = { false };  // --monitor-ch, by channel
 
-    // ---- monitor (audio.md 10.1): the source's capture (the tap, 23, unless
-    // named) -> mon_hp_ -> mon_lp_[0..3] -> gate_dly_ -> the gate -> the peer
-    // boost -> + a file on prog_[MONITOR_PROG] through its own mon_lp_ -> gain ->
-    // lim_ -> mon_row_ -> the playback channels --monitor-ch names, 33 and 34 by
-    // default
-    Biquad                   mon_hp_;       // 150 Hz high-pass
-    std::vector<Biquad>      mon_lp_;       // elliptic low-pass, 4 sections
-    BiquadState              mon_hp_s_;
-    std::vector<BiquadState> mon_lp_s_;
-    std::vector<BiquadState> mon_file_lp_s_;  // the file's own copy (10.4)
-    double  mon_file_lin_ = 1.0;            // --monitor-file-trim, linear
-    double  mon_file_on_tap_ = 1.0;         // the same, less the tap trim
-    Limiter                  lim_;
-    // ---- the line-disturbance gate (audio.md 10.5, Rev 17): the source's raw
-    // capture below 50 Hz (Rev 19), and a 10ms delay on the filtered source so the
-    // gate shuts before a click's onset reaches the output.
-    bool    gate_on_ = false;
-    Biquad  gate_lp_;                       // 50 Hz low-pass, run twice (Rev 19)
-    BiquadState gate_s1_, gate_s2_;
-    double  gate_thr_ = 0.0;                // linear peak threshold
-    int     gate_hold_n_ = 0;               // samples it stays shut after
-    int     gate_left_ = 0;                 // samples of shut remaining
-    double  gate_g_ = 1.0;                  // 0 shut .. 1 open
-    unsigned gate_hits_ = 0;                // times shut, for the log
-    std::vector<float> gate_dly_;           // GATE_DELAY samples
-    size_t  gate_pos_ = 0;
-    double  mon_ripple_db_ = 0.0;
-    // audio.md 10.3. The commanded gain is kept apart from the ramp's target
-    // because a source switch ramps to silence and back, and has to know what
-    // to come back to - which is the commanded gain plus the tap trim, if the
-    // new source is the tap.
-    int     mon_src_ch_ = chan::TAP_CH;     // capture channel feeding the chain
-    int     mon_pend_ch_ = 0;               // switch waiting for the ramp's bottom
-    double  mon_cmd_db_ = 0.0;              // what monitor/set last commanded
-    bool    mon_on_ = false;
-    double  mon_gain_ = 0.0;                // current gain, linear; 0 = muted
-    double  mon_target_ = 0.0;              // where the ramp is heading
-    double  mon_step_ = 0.0;                // gain change per sample while ramping
-    int     mon_ramp_ = 0;                  // samples of ramp remaining
-    std::vector<float> mon_row_;            // this period's monitor samples
-
-    // ---- the peer boost (audio.md 10.8, Rev 28). render() adds each file's
-    // energy as sent and how long its echo lasts; process_capture() sums the
-    // monitor's source against them on the two paths, own and peer.
-    struct PathSum {
-        double mon = 0.0, file = 0.0;       // energies, monitor and file
-        double n   = 0.0;                   // samples summed
-    };
-    double   file_e_[chan::N_SLOTS + 1] = {};       // since process_capture() took it
-    uint64_t file_until_[chan::N_SLOTS + 1] = {};   // g_ its echo lasts until
-    double   pb_max_lin_ = 1.0, pb_start_lin_ = 1.0;
-    int      pb_src_ = 0;                   // the source the sums are for
-    int      pb_peer_ = 0;                  // its peer, held through flicker
-    uint64_t pb_peer_at_ = 0;               // g_ it was last heard
-    PathSum  pb_own_, pb_other_;
-    bool     pb_measured_ = false;
-    bool     pb_fixed_ = false;             // monitor/peer/set a figure (Rev 29)
-    double   pb_fixed_lin_ = 1.0;           // and that figure, linear
-    double   pb_lin_ = 1.0;                 // the boost, linear
-    double   pb_target_ = 1.0;              // this period's: pb_lin_ or 1
-    double   pb_g_ = 1.0;                   // eased toward it, per sample
     std::vector<float> line_row_;           // --record-line: output, capture pairs
-
     unsigned clips_ = 0;                    // clipped samples since last report
     unsigned rec_lost_ = 0;                 // recorded periods lost, ring full
     unsigned play_short_ = 0;               // playback periods short, ring dry

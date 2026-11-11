@@ -328,10 +328,7 @@ void Detector::process_snapshot(int w)
     const int    ncap = std::min(sh_.ncap, (int)chan::N_CAP_CH);
 
     for (int c = 0; c < ncap; ++c) {
-        // audio.md 2: the 31 circuits and the tap are transformed - every
-        // capture channel since Rev 24 made 24 a station.
-        if (!chan::is_read_channel(c + 1)) continue;
-
+        // audio.md 2: every capture channel, the 31 circuits and the tap.
         const float* src = base + (size_t)c * FFT_N;
         if (spread_) for (int i = 0; i < FFT_N; ++i) in_[i] = src[i] * win_[i];
         else         std::memcpy(in_, src, FFT_N * sizeof(float));

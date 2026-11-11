@@ -31,6 +31,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <cstdio>
 #include <vector>
 
 #include "channels.h"
@@ -215,3 +216,18 @@ struct Shared {
     int ncap  = chan::N_CAP_CH;
     int nplay = chan::N_PLAY_CH;
 };
+
+// post_result()                                                        [audio]
+//   Queues "topic t for slot or channel idx is now value" for the MQTT thread:
+//   how every state change the audio thread makes reaches the broker. A full
+//   queue drops it and counts it - nothing more can be done from here, and
+//   since the MQTT thread drains even while disconnected, the count is what
+//   says it has wedged.
+inline void post_result(Shared& sh, Topic t, int idx, const char* value)
+{
+    Result r;
+    r.topic = t;
+    r.idx   = (int16_t)idx;
+    std::snprintf(r.value, sizeof r.value, "%s", value ? value : "");
+    if (!sh.res_audio.push(r)) sh.res_dropped.fetch_add(1, std::memory_order_relaxed);
+}

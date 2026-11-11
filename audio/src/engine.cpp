@@ -10,83 +10,26 @@
 #include <cmath>
 #include <cstring>
 
-#include "cityring.h"
 #include "util.h"
 
 using chan::FFT_N;
 using chan::FFT_HOP;
 using chan::SAMPLE_RATE;
 
-// The most the monitor limiter's threshold may be (audio.md 10.1), and so the
-// most the output self-check expects on a monitor channel (audio.md 11.4).
-// --monitor-limit sets the threshold itself, at or below this (Rev 16).
-static constexpr double MON_LIMIT_DB = -3.0;
-// audio.md 10.5, Rev 17: the monitor source's delay ahead of the gate, 10ms.
-static constexpr size_t GATE_DELAY = 480;
-// Rev 19: the gate's band, below 50 Hz. At 100 Hz a man's voice, whose
-// fundamental is near 100-130 Hz, reached it within a few dB of the threshold.
-static constexpr double GATE_LP_HZ = 50.0;
-// audio.md 10.8, Rev 28: a file counts as playing until its echo is over,
-// 50ms after its last sample; the source's peer is held through 2s of the
-// detector hearing anything else.
-static constexpr uint64_t PB_ECHO = 2400;
-static constexpr uint64_t PB_HOLD = 96000;
-static const float      MON_CEIL     = (float)std::pow(10.0, MON_LIMIT_DB / 20.0);
-
-// audio.md 8.2. The Bell System tones of the period the 551 belongs to, before
-// the precise tone plan replaced them with two-frequency sums. Busy is the
-// dial-tone waveform interrupted at 60 IPM, which is how the period offices
-// made it - one tone source, one interrupter - and a listener tells the two
-// apart by the cadence alone. Reorder, the fast busy (Rev 20), is the same
-// again at 120 IPM. Ringback is the city ring measured from a recording
-// (Rev 21, cityring.h): one period of it in a table, played sample by sample.
-//
-// ToneSpec - one row of the tone table: carrier and modulation frequency, and
-// the cadence as "on for on_samples out of every period_samples". TONES[] is
-// indexed by ToneKind, so TONES[Ringback] is ringback.
-struct ToneSpec {
-    double carrier_hz, mod_hz;
-    unsigned on_samples, period_samples;   // period 0 = continuous
-    bool table;                            // city_ in place of carrier and mod
-};
-
-static const ToneSpec TONES[] = {
-    { 0.0,   0.0,   0,                  0,                 false },  // Off
-    { 600.0, 120.0, 0,                  0,                 false },  // Dial, continuous
-    { 420.0,  40.0, 2 * SAMPLE_RATE,    6 * SAMPLE_RATE,   true  },  // Ringback 2s/4s
-    { 600.0, 120.0, SAMPLE_RATE / 2,    SAMPLE_RATE,       false },  // Busy 0.5s/0.5s
-    { 600.0, 120.0, SAMPLE_RATE / 4,    SAMPLE_RATE / 2,   false }   // Reorder 0.25s/0.25s
-};
-
-// The payload echoed on `tone` for each ToneKind; "" for Off clears the topic.
-static const char* TONE_NAME[] = { "", "dial", "ringback", "busy", "reorder" };
+// What the output self-check expects at most on a monitor channel.
+static const float MON_CEIL = MonitorChain::ceiling();
 
 // Speech detection runs on 10ms frames (audio.md 9.2); the decisions and their
 // constants are in vad.h.
 static const int VAD_FRAME = Listener::FRAME_SAMPLES;          // 480 samples
-
-// audio.md 9.5: 20Hz ring heard on a station. 4800 samples is 100ms and two
-// cycles, so the Goertzel's frequency is bin 2 exactly and DC and 60Hz fall on
-// the Hann window's nulls. The amplitude of a sine through the window is
-// 4|X|/N. Ring is nearly free of even harmonics, a click is not, so 40Hz
-// (bin 4) must be RING_PURE_DB below 20Hz as well (Rev 31).
-static const unsigned RING_BLOCK    = 4800;
-static const double   RING_HZ       = 20.0;
-static const double   RING_ON_DBFS  = -50.0;
-static const double   RING_PURE_DB  = 20.0;
-static const int      RING_ON_BLOCKS  = 3;                     // 300 ms
-static const int      RING_OFF_BLOCKS = 3;                     // 300 ms
-static_assert(SAMPLE_RATE % (RING_BLOCK / 2) == 0 && SAMPLE_RATE / (RING_BLOCK / 2) == 20,
-              "RING_BLOCK must be two cycles of 20Hz");
 static_assert(VAD_FRAME * Listener::FRAMES_PER_S == SAMPLE_RATE,
               "a speech frame is 10 ms");
 
 // prepare()                                                          [startup]
 //   Sizes every buffer from what the driver granted, converts the level
-//   options from dBFS to amplitudes, designs the three filters (speech
-//   band-pass, monitor high-pass, monitor elliptic low-pass), logs the
-//   realised monitor response, and sets the monitor's starting gain. Returns
-//   false only if the elliptic design fails.
+//   options from dBFS to amplitudes, designs the speech band-pass, and
+//   prepares the tones, the ring detector and the monitor chain. Returns
+//   false only if the monitor chain cannot be prepared.
 bool Engine::prepare()
 {
     period_ = detached_ ? det_period_ : st_.period();
@@ -98,12 +41,9 @@ bool Engine::prepare()
     capf_.assign((size_t)period_ * ncap_,  0.0f);
     ring_.assign((size_t)chan::N_CAP_CH * FFT_N, 0.0f);
     test_row_.assign(period_, 0.0f);
-    mon_row_.assign(period_, 0.0f);
     line_row_.assign((size_t)period_ * 2 * sh_.opt.record_line.size(), 0.0f);
     aec_.assign(chan::N_SLOTS + 1, EchoCanceller());
-    ring_win_.assign(RING_BLOCK, 0.0f);
-    for (unsigned i = 0; i < RING_BLOCK; ++i)
-        ring_win_[i] = (float)(0.5 - 0.5 * std::cos(2.0 * M_PI * i / RING_BLOCK));
+    ringdet_.prepare();
     for (auto& a : aec_) a.configure((int)std::lround(sh_.opt.aec_delay * 8.0));
 
     for (int i = 0; i < 2; ++i) {
@@ -113,33 +53,15 @@ bool Engine::prepare()
 
     pilot_amp_ = (float)db_to_lin(sh_.opt.pilot_db);
     op_amp_    = (float)db_to_lin(sh_.opt.op_db);
-    tone_amp_  = (float)db_to_lin(sh_.opt.tone_db);
     test_amp_  = (float)db_to_lin(sh_.opt.test_db);
-    tone_mod_  = sh_.opt.tone_mod;
-
-    // Ringback's one period (audio.md 8.2, Rev 21), summed from cityring.h and
-    // set to a peak of 1, so tone_amp_ is its peak as it is the other tones'.
-    city_.assign(CITY_RING_PERIOD, 0.0f);
-    {
-        std::vector<double> w(CITY_RING_PERIOD, 0.0);
-        double peak = 0.0;
-        for (unsigned i = 0; i < CITY_RING_PERIOD; ++i) {
-            const double t = (double)i / SAMPLE_RATE;
-            for (const CityPartial& c : CITY_RING)
-                w[i] += c.amp * std::cos(2.0 * M_PI * c.n * 20.0 * t + c.phase);
-            peak = std::max(peak, std::fabs(w[i]));
-        }
-        for (unsigned i = 0; i < CITY_RING_PERIOD; ++i) city_[i] = (float)(w[i] / peak);
-    }
+    tones_.prepare(sh_.opt.tone_db, sh_.opt.tone_mod);
     test_inc_  = SineTable::inc_q32(1000.0, SAMPLE_RATE);
 
     // Speech detector band-pass: the pilots at 6-9kHz are the loudest thing on
     // the channel and must not count; hum must not either (audio.md 9.2). The
-    // low-pass is sixth-order since Rev 18: one section left the lowest pilot
-    // only 10.9dB down, so the pilot residual set the noise floor - about
-    // -71dBFS on a station - and floor + --vad-margin put the bar above an
-    // operator's normal voice. Three sections put it 30dB or more down, below
-    // the line's own noise, and --vad-floor is the bar on a quiet line.
+    // low-pass is sixth-order: second-order left the lowest pilot only 10.9dB
+    // down, so its residual set the noise floor and floor + --vad-margin sat
+    // above an operator's normal voice. Sixth puts it below the line's noise.
     vad_hp_ = butter_highpass(300.0, SAMPLE_RATE);
     const std::vector<Biquad> vlp = butter_lowpass6(3400.0, SAMPLE_RATE);
     for (int s = 0; s < 3; ++s) vad_lp_[s] = vlp[(size_t)s];
@@ -153,75 +75,13 @@ bool Engine::prepare()
              "max speech %.1f s", sh_.opt.vad_margin, sh_.opt.vad_floor,
              sh_.opt.vad_hangover, sh_.opt.vad_max_speech);
 
-    // Monitor chain, station 8.8 through audio.md 10.1.
-    mon_hp_ = butter_highpass(150.0, SAMPLE_RATE);
-    mon_lp_ = elliptic_lowpass(8, sh_.opt.lp_pass, sh_.opt.lp_stop,
-                               sh_.opt.lp_att, SAMPLE_RATE, mon_ripple_db_);
-    if (mon_lp_.empty()) { log_line("monitor: low-pass design failed"); return false; }
-    mon_lp_s_.assign(mon_lp_.size(), BiquadState());
-    mon_file_lp_s_.assign(mon_lp_.size(), BiquadState());
-    // audio.md 10.4, Rev 11: the file's own gain relative to the source's. It
-    // shares the source's ramp, which carries the tap trim while the source is
-    // the tap, so the trim is taken back out of the file's share.
-    mon_file_lin_    = db_to_lin(sh_.opt.monitor_file_trim_db);
-    mon_file_on_tap_ = db_to_lin(sh_.opt.monitor_file_trim_db - sh_.opt.monitor_tap_trim_db);
-    // Rev 16: set just above speech, so a switch's click on the line is held
-    // to the level of the loudest speech rather than reaching -3dBFS.
-    lim_.init(sh_.opt.monitor_limit_db, 0.100, SAMPLE_RATE);
-    log_line("monitor: limiter at %.1f dBFS", sh_.opt.monitor_limit_db);
-    // audio.md 10.8, Rev 28.
-    pb_max_lin_   = db_to_lin(sh_.opt.monitor_peer_max_db);
-    pb_start_lin_ = db_to_lin(sh_.opt.monitor_peer_start_db);
-    pb_lin_       = pb_start_lin_;
-    if (sh_.opt.monitor_peer_max_db > 0.0)
-        log_line("monitor: peer boost up to %.1f dB, %.1f dB until measured",
-                 sh_.opt.monitor_peer_max_db, sh_.opt.monitor_peer_start_db);
-    // audio.md 10.5, Rev 17. The delay line is allocated whether or not the
-    // gate is on, so the chain's latency does not depend on a setting.
-    gate_on_     = sh_.opt.monitor_gate_db != 0.0;
-    gate_lp_     = butter_lowpass(GATE_LP_HZ, SAMPLE_RATE);
-    gate_thr_    = db_to_lin(sh_.opt.monitor_gate_db);
-    gate_hold_n_ = (int)(sh_.opt.monitor_gate_hold * SAMPLE_RATE);
-    gate_dly_.assign(GATE_DELAY, 0.0f);
-    if (gate_on_)
-        log_line("monitor: gate at %.1f dBFS below %.0f Hz, hold %.2f s, delay %.0f ms",
-                 sh_.opt.monitor_gate_db, GATE_LP_HZ, sh_.opt.monitor_gate_hold,
-                 1000.0 * GATE_DELAY / SAMPLE_RATE);
-
-    const double at_6k = cascade_mag_db(mon_lp_, 6000.0, SAMPLE_RATE);
-    log_line("monitor: elliptic low-pass order 8, pass %.0f Hz, stop %.0f Hz, "
-             "%.1f dB; ripple %.4f dB, %.1f dB at 6000 Hz",
-             sh_.opt.lp_pass, sh_.opt.lp_stop, sh_.opt.lp_att,
-             mon_ripple_db_, at_6k);
-    if (at_6k > -sh_.opt.lp_att)
-        log_line("monitor: WARNING the lowest pilot at 6000 Hz is only %.1f dB "
-                 "down; station 8.8 asks for %.0f", -at_6k, sh_.opt.lp_att);
+    if (!mon_.prepare(period_, ncap_)) return false;
 
     for (int ch = 0; ch <= chan::N_PLAY_CH; ++ch) mon_out_[ch] = false;
     for (int ch : sh_.opt.monitor_ch) mon_out_[ch] = true;
 
-    // audio.md 10.2: the monitor is on at startup only if --monitor gives a
-    // level. Started at its target rather than ramped to it - there is no
-    // loudspeaker transient to avoid before the stream is running.
-    // audio.md Rev 9 17.9: a source the device does not capture is refused at
-    // startup, as --monitor-ch already refuses an output channel it cannot
-    // reach. Echoing a live line while the loudspeaker gets silence would look
-    // like a quiet caller with nothing pointing at the fault.
-    if (sh_.opt.monitor_src > (int)ncap_) {
-        char name[24];
-        chan::monitor_source_name(sh_.opt.monitor_src, name, sizeof name);
-        log_line("--monitor-src %s is capture channel %d, but the device granted "
-                 "only %u capture channels", name, sh_.opt.monitor_src, ncap_);
-        return false;
-    }
-    mon_src_ch_ = sh_.opt.monitor_src;          // audio.md 10.3, --monitor-src
-    mon_on_     = sh_.opt.monitor_on;
-    mon_cmd_db_ = sh_.opt.monitor_db;
-    mon_target_ = monitor_target(mon_src_ch_);
-    mon_gain_   = mon_target_;
-
-    // audio.md 2, and task 2 step 10: print the map actually in use, so a
-    // wiring check can be done from the journal alone.
+    // audio.md 2: the map in use, so a wiring check can be done from the
+    // journal alone.
     {
         char mon[32] = { 0 };
         int  k = 0;
@@ -242,87 +102,6 @@ bool Engine::prepare()
 }
 
 // ---------------------------------------------------------------- results
-
-// monitor_target()                                                     [audio]
-//   audio.md 10.2, 10.3. The gain the ramp heads for: the commanded gain, plus
-//   --monitor-tap-trim while the source is the tap, or silence when muted. The
-//   trim is not part of the commanded gain and is not echoed on `monitor`,
-//   which carries what monitor/set asked for.
-double Engine::monitor_target(int src_ch) const
-{
-    if (!mon_on_) return 0.0;
-    const double db = mon_cmd_db_ +
-                      (src_ch == chan::TAP_CH ? sh_.opt.monitor_tap_trim_db : 0.0);
-    return db_to_lin(db);
-}
-
-// gate_step()                                                          [audio]
-//   audio.md 10.5, Rev 17. One sample of the line-disturbance gate: `raw` is
-//   the source's capture, `y` the same sample through the monitor's filters.
-//   A switch on the line, or ringing near it, puts far more below 50 Hz on
-//   it than speech ever does - telephone speech has nothing below 300 Hz. While
-//   the low band's peak exceeds the threshold, and for the hold after, the
-//   source is shut: 1ms down, 20ms back up. The filtered source is delayed by
-//   GATE_DELAY so the gate is shut before a click's onset reaches the output.
-//   Returns the delayed, gated sample.
-double Engine::gate_step(float raw, double y)
-{
-    const double d = gate_dly_[gate_pos_];
-    gate_dly_[gate_pos_] = (float)y;
-    if (++gate_pos_ == gate_dly_.size()) gate_pos_ = 0;
-    if (!gate_on_) return d;
-
-    const double lf = gate_s2_.run(gate_lp_, gate_s1_.run(gate_lp_, (double)raw));
-    if (std::fabs(lf) > gate_thr_) {
-        if (gate_left_ == 0) ++gate_hits_;
-        gate_left_ = gate_hold_n_;
-    } else if (gate_left_ > 0) {
-        --gate_left_;
-    }
-    if (gate_left_ > 0) gate_g_ = std::max(0.0, gate_g_ - 1.0 / (0.001 * SAMPLE_RATE));
-    else                gate_g_ = std::min(1.0, gate_g_ + 1.0 / (0.020 * SAMPLE_RATE));
-    return d * gate_g_;
-}
-
-// monitor_ramp_to()                                                    [audio]
-//   Starts a 20ms ramp from wherever the gain is now. A ramp already running is
-//   taken over from where it has reached, which is what audio.md 10.3 asks for
-//   when a second source/set arrives mid-ramp.
-void Engine::monitor_ramp_to(double target)
-{
-    mon_target_ = target;
-    mon_ramp_   = (int)(0.020 * SAMPLE_RATE);
-    mon_step_   = (mon_target_ - mon_gain_) / (double)mon_ramp_;
-}
-
-// monitor_switch_to()                                                  [audio]
-//   The bottom of the ramp: change the input and echo. The filter state is
-//   carried across rather than cleared - the step from one input to the other
-//   happens at zero gain and has rung out before the ramp up is audible
-//   (audio.md 10.3).
-void Engine::monitor_switch_to(int ch)
-{
-    mon_src_ch_  = ch;
-    mon_pend_ch_ = 0;
-    char name[24];
-    if (chan::monitor_source_name(ch, name, sizeof name)) post(Topic::MonitorSrc, 0, name);
-}
-
-// post()                                                               [audio]
-//   Queues a Result for the MQTT thread: "topic t for slot/channel idx is now
-//   value". This is how every state change the audio thread makes reaches the
-//   broker. If the queue is full the result is dropped and counted.
-void Engine::post(Topic t, int idx, const char* value)
-{
-    Result r;
-    r.topic = t;
-    r.idx   = (int16_t)idx;
-    std::snprintf(r.value, sizeof r.value, "%s", value ? value : "");
-    // Nothing to be done from here - no logging in this thread. The MQTT thread
-    // drains continuously even while disconnected, so a full queue means it is
-    // wedged, and the count is what says so.
-    if (!sh_.res_audio.push(r)) sh_.res_dropped.fetch_add(1, std::memory_order_relaxed);
-}
 
 // post_free()                                                          [audio]
 //   Hands a finished file buffer back to the MQTT thread, which deletes it.
@@ -356,7 +135,7 @@ void Engine::stop_source(int slot, const char* echo)
     }
     p.kind = Prog::Kind::None;
     p.pos  = 0;
-    p.tone = ToneKind::Off;
+    p.tone = TrunkTones::State();
 }
 
 // start_listen()                                                       [audio]
@@ -414,13 +193,9 @@ void Engine::drain_commands()
             if (k == ToneKind::Off) {
                 post(Topic::Tone, slot, "");
             } else {
-                Prog& p = prog_[slot];
-                p.kind = Prog::Kind::Tone;
-                p.tone = k;
-                // The cadence starts at the beginning of the on period when the
-                // tone is commanded, so the operator always hears a burst first.
-                p.ph = p.mph = p.cad = 0;
-                post(Topic::Tone, slot, TONE_NAME[(int)k]);
+                prog_[slot].kind = Prog::Kind::Tone;
+                tones_.start(prog_[slot].tone, k);
+                post(Topic::Tone, slot, TrunkTones::name(k));
             }
             break;
         }
@@ -430,56 +205,9 @@ void Engine::drain_commands()
             else               start_listen(c.idx, c.arg);
             break;
 
-        case Verb::Monitor: {
-            // 20ms ramp so a level step does not click; "off" is a mute, ramped
-            // the same way, and the filter keeps running so turning the monitor
-            // on is instant and has no transient from a cold filter state.
-            mon_on_     = c.on;
-            mon_cmd_db_ = c.arg;
-            // A source switch is mid-flight: stay headed for silence, and let
-            // the switch ramp back up to this new gain when it lands.
-            if (!mon_pend_ch_) monitor_ramp_to(monitor_target(mon_src_ch_));
-            char buf[32];
-            if (c.on) format_db(c.arg, buf, sizeof buf);
-            else      std::snprintf(buf, sizeof buf, "off");
-            post(Topic::Monitor, 0, buf);
-            break;
-        }
-
-        case Verb::MonitorSrc: {
-            // audio.md 10.3. Already there: echo and do nothing else.
-            if (c.idx == mon_src_ch_ && !mon_pend_ch_) {
-                char name[24];
-                if (chan::monitor_source_name(c.idx, name, sizeof name))
-                    post(Topic::MonitorSrc, 0, name);
-                break;
-            }
-            // Muted: the input changes at once, with no ramp, and is echoed.
-            // There is nothing to click, and the filter keeps running either way.
-            if (!mon_on_) {
-                monitor_switch_to(c.idx);
-                mon_target_ = monitor_target(mon_src_ch_);   // still 0 while muted
-                break;
-            }
-            // Otherwise ramp to silence and change at the bottom. A second
-            // source/set during a ramp replaces the pending channel and takes
-            // the ramp over from wherever it has reached.
-            mon_pend_ch_ = c.idx;
-            monitor_ramp_to(0.0);
-            break;
-        }
-
-        case Verb::MonitorPeer: {
-            // audio.md 10.8, Rev 29: a figure from the game, or back to the
-            // measurement. Net has clamped it to 0 - --monitor-peer-max.
-            pb_fixed_ = c.on;
-            pb_fixed_lin_ = db_to_lin(c.arg);
-            char buf[32];
-            if (c.on) format_db(c.arg, buf, sizeof buf);
-            else      std::snprintf(buf, sizeof buf, "auto");
-            post(Topic::MonitorPeer, 0, buf);
-            break;
-        }
+        case Verb::Monitor:     mon_.set_level(c.on, c.arg);  break;
+        case Verb::MonitorSrc:  mon_.set_source(c.idx);       break;
+        case Verb::MonitorPeer: mon_.set_peer(c.on, c.arg);   break;
 
         case Verb::Test:
             if (c.idx >= 1 && c.idx <= (int)chan::N_PLAY_CH) {
@@ -503,24 +231,8 @@ void Engine::drain_commands()
                 stop_source(chan::TAP_CH, "");
             if (prog_[chan::MONITOR_PROG].kind != Prog::Kind::None)
                 stop_source(chan::MONITOR_PROG, "");
-            // The monitor keeps running, but its source returns to the tap
-            // under the 10.3 ramp: the calls a circuit source was following
-            // have been torn down, and the tap is the one source that is not
-            // about a call (audio.md 13.2, Rev 8).
-            if (mon_src_ch_ != chan::TAP_CH || mon_pend_ch_) {
-                if (!mon_on_) {
-                    monitor_switch_to(chan::TAP_CH);
-                    mon_target_ = monitor_target(mon_src_ch_);
-                } else {
-                    mon_pend_ch_ = chan::TAP_CH;
-                    monitor_ramp_to(0.0);
-                }
-            }
-            // And the peer boost to its measurement (10.8, Rev 29).
-            if (pb_fixed_) {
-                pb_fixed_ = false;
-                post(Topic::MonitorPeer, 0, "auto");
-            }
+            // The monitor keeps running, its source back to the tap.
+            mon_.stop_game();
             break;
 
         case Verb::Quit:
@@ -538,59 +250,14 @@ void Engine::drain_commands()
 //     - run the speech detector on it (circuits only, not the tap): filter,
 //       accumulate 10 ms frames, and hand each frame to the Listener, which
 //       keeps the history and reports speech, silence or timeout;
-//   then run the monitor source's channel (the tap, 23, unless a circuit has
-//   been named) through the chain of audio.md 10.1 into mon_row_,
-//   advance the ring position, and take a snapshot if a hop is due.
-// ring_step()                                                          [audio]
-//   audio.md 9.5: one period of every circuit's capture through its 20Hz
-//   Goertzel. At the end of each 100ms block the 20Hz amplitude is judged
-//   against RING_ON_DBFS, and `ringing` posted when the debounce turns. The
-//   block boundary is shared by every circuit, so one counter serves them all.
-void Engine::ring_step(int ncirc)
-{
-    const double coeff  = 2.0 * std::cos(2.0 * M_PI * RING_HZ / SAMPLE_RATE);
-    const double coeff2 = 2.0 * std::cos(2.0 * M_PI * 2.0 * RING_HZ / SAMPLE_RATE);
-    unsigned n = ring_n_;
-    for (int slot = 1; slot <= ncirc; ++slot) {
-        if (!chan::is_circuit_slot(slot)) continue;
-        const float* src = &capf_[(size_t)(slot - 1) * period_];
-        RingDet& r = ring_det_[slot];
-        n = ring_n_;
-        for (unsigned i = 0; i < period_; ++i) {
-            const double x  = (double)(src[i] * ring_win_[n]);
-            const double s0 = x + coeff * r.s1 - r.s2;
-            r.s2 = r.s1;
-            r.s1 = s0;
-            const double h0 = x + coeff2 * r.h1 - r.h2;
-            r.h2 = r.h1;
-            r.h1 = h0;
-            if (++n < RING_BLOCK) continue;
-            n = 0;
-
-            const double mag2 = r.s1 * r.s1 + r.s2 * r.s2 - coeff * r.s1 * r.s2;
-            const double hag2 = r.h1 * r.h1 + r.h2 * r.h2 - coeff2 * r.h1 * r.h2;
-            const double amp  = 4.0 * std::sqrt(std::max(mag2, 0.0)) / RING_BLOCK;
-            const double amp2 = 4.0 * std::sqrt(std::max(hag2, 0.0)) / RING_BLOCK;
-            r.s1 = r.s2 = r.h1 = r.h2 = 0.0;
-            const double db = lin_to_db(amp);
-            if (db >= RING_ON_DBFS && db - lin_to_db(amp2) >= RING_PURE_DB) { r.below = 0; if (r.above < RING_ON_BLOCKS) ++r.above; }
-            else                                { r.above = 0; if (r.below < RING_OFF_BLOCKS) ++r.below; }
-            if (!r.on && r.above >= RING_ON_BLOCKS) { r.on = true;  post(Topic::Ringing, slot, "on"); }
-            if (r.on && r.below >= RING_OFF_BLOCKS) { r.on = false; post(Topic::Ringing, slot, "off"); }
-        }
-    }
-    ring_n_ = (ring_n_ + period_) % RING_BLOCK;
-}
-
+//   then the ring detector on every circuit, the monitor chain on its
+//   source, the recording and its playback; advance the ring position, and
+//   take a snapshot if a hop is due.
 void Engine::process_capture()
 {
     const int ncirc = (int)std::min<unsigned>(ncap_, chan::N_CAP_CH);
 
     for (int c = 0; c < ncirc; ++c) {
-        // Every capture channel is read: the 31 circuits and the tap (audio.md
-        // 2), so this skips nothing while the map is as it is.
-        if (!chan::is_read_channel(c + 1)) continue;
-
         const float* src = &capf_[(size_t)c * period_];
         float*       rg  = &ring_[(size_t)c * FFT_N];
 
@@ -661,18 +328,9 @@ void Engine::process_capture()
         }
     }
 
-    ring_step(ncirc);
+    ringdet_.step(capf_.data(), period_, ncirc);
 
-    // Monitor: the source's receive channel through the chain of audio.md 10.1,
-    // which is the tap unless monitor/source/set has named a circuit (10.3).
-    // Run unconditionally, muted or not, so that turning the monitor on is
-    // instant and has no transient from a cold filter state.
-    //
-    // A file on the monitor (audio.md 10.4, Rev 11) is summed in after the
-    // filter, through a second copy of the same low-pass, so it is held out of
-    // the pilot band exactly as the source is: the loudspeaker is in the room
-    // with the operator's microphone. Its filter runs whether a file plays or
-    // not, so a file never starts against a cold state either.
+    // The monitor (audio.md 10), with its own file if it has one.
     Prog& mf = prog_[chan::MONITOR_PROG];
     const float* fs = nullptr;
     unsigned     fn = 0;
@@ -680,75 +338,31 @@ void Engine::process_capture()
         fn = (unsigned)std::min<size_t>(mf.buf->samples.size() - mf.pos, period_);
         fs = mf.buf->samples.data() + mf.pos;
     }
-    const int pb_mode = peer_boost_begin();     // audio.md 10.8
-    double pb_e = 0.0;
-    bool   pb_gated = false;
-    if ((int)ncap_ >= mon_src_ch_) {
-        const float* src = &capf_[(size_t)(mon_src_ch_ - 1) * period_];
-        for (unsigned i = 0; i < period_; ++i) {
-            double y = mon_hp_s_.run(mon_hp_, (double)src[i]);
-            for (size_t s = 0; s < mon_lp_.size(); ++s) y = mon_lp_s_[s].run(mon_lp_[s], y);
-            y = gate_step(src[i], y);
-            pb_e += y * y;
-            if (gate_g_ < 1.0) pb_gated = true;
-            pb_g_ += (pb_target_ - pb_g_) * (1.0 / (0.020 * SAMPLE_RATE));
-            y *= pb_g_;
-            double f = (i < fn) ? (double)fs[i] : 0.0;
-            for (size_t s = 0; s < mon_lp_.size(); ++s) f = mon_file_lp_s_[s].run(mon_lp_[s], f);
-            if (mon_ramp_ > 0) { mon_gain_ += mon_step_; --mon_ramp_; }
-            else               { mon_gain_ = mon_target_; }
-            const double fg = (mon_src_ch_ == chan::TAP_CH) ? mon_file_on_tap_ : mon_file_lin_;
-            mon_row_[i] = (float)lim_.run((y + f * fg) * mon_gain_);
-
-            // The bottom of a source ramp, mid-period: change the input, echo,
-            // and ramp back up to the commanded gain for the new source
-            // (audio.md 10.3). Done here rather than at a period boundary so
-            // the silence is the 20ms the specification asks for and not 20ms
-            // plus whatever is left of this period.
-            // mon_ramp_ reaching 0 is the test, not the gain reaching 0: the
-            // last ramp step lands on the target by accumulation and can sit a
-            // float's breadth either side of it. A pending channel is only ever
-            // set together with a ramp to silence, so ramp == 0 means arrived.
-            if (mon_pend_ch_ && mon_ramp_ == 0) {
-                mon_gain_ = 0.0;
-                const int want = mon_pend_ch_;
-                if ((int)ncap_ >= want) {
-                    monitor_switch_to(want);
-                    src = &capf_[(size_t)(mon_src_ch_ - 1) * period_];
-                } else {
-                    mon_pend_ch_ = 0;       // not captured; stay where we are
-                }
-                monitor_ramp_to(monitor_target(mon_src_ch_));
-            }
-        }
-    } else {
-        std::fill(mon_row_.begin(), mon_row_.end(), 0.0f);
-    }
-    peer_boost_end(pb_mode, pb_e, pb_gated);
+    mon_.process(capf_.data(), fs, fn, g_);
     if (fs) {
         // As a circuit's file: `play` clears from the period after it ends.
         mf.pos += fn;
         if (mf.pos >= mf.buf->samples.size()) stop_source(chan::MONITOR_PROG, "");
     }
 
-    // Playback of a recording (audio.md 10.7, Rev 22): in place of the
-    // monitor, already at its level. A ring that runs dry once samples have
-    // started arriving is counted; before the first ones, it is the start.
+    // Playback of a recording (audio.md 10.7): in place of the monitor,
+    // already at its level. A ring that runs dry once samples have started
+    // arriving is counted; before the first ones, it is the start.
+    std::vector<float>& row = mon_.row();
     if (sh_.play_on.load(std::memory_order_acquire)) {
-        const size_t n = sh_.play_ring.read(mon_row_.data(), period_);
+        const size_t n = sh_.play_ring.read(row.data(), period_);
         if (n) play_fed_ = true;
         else if (play_fed_ && n < period_) ++play_short_;
-        std::fill(mon_row_.begin() + (long)n, mon_row_.end(), 0.0f);
+        std::fill(row.begin() + (long)n, row.end(), 0.0f);
     } else {
         sh_.play_ring.discard();
         play_fed_ = false;
     }
 
-    // The recording (audio.md 10.6, Rev 22): this period's loudspeaker feed,
-    // as sent, to the MQTT thread's file. A full ring loses the period
-    // rather than wait.
+    // The recording (audio.md 10.6): this period's loudspeaker feed, as sent,
+    // to the MQTT thread's file. A full ring loses the period rather than wait.
     if (sh_.rec_on.load(std::memory_order_acquire) &&
-        !sh_.rec_ring.write(mon_row_.data(), period_))
+        !sh_.rec_ring.write(row.data(), period_))
         ++rec_lost_;
 
     ring_w_ = (ring_w_ + period_) & (FFT_N - 1);
@@ -779,7 +393,6 @@ void Engine::hop_if_due()
 
     float* dst = sh_.snap[w].data.data();
     for (int c = 0; c < chan::N_CAP_CH; ++c) {
-        if (!chan::is_read_channel(c + 1)) continue;   // skips nothing: all 32 are read
         const float* rg = &ring_[(size_t)c * FFT_N];
         float*       d  = dst + (size_t)c * FFT_N;
         const size_t a  = FFT_N - ring_w_;          // oldest run, from ring_w_
@@ -853,8 +466,9 @@ void Engine::render()
         // The monitor goes to whichever channels --monitor-ch named
         // (audio.md 10.1): 33 and 34, the Digiface pair, by default.
         if (mon_out_[ch]) {
+            const std::vector<float>& row = mon_.row();
             for (unsigned i = 0; i < period_; ++i)
-                out[i * stride] = float_to_s32(mon_row_[i]);
+                out[i * stride] = float_to_s32(row[i]);
             out_ceil_[ch] = MON_CEIL;
             continue;
         }
@@ -902,8 +516,7 @@ void Engine::render()
             if (chan::is_circuit_slot(slot)) {          // audio.md 10.8
                 double e = 0.0;
                 for (unsigned i = 0; i < n_s; ++i) e += (double)s[i] * s[i];
-                file_e_[slot] += e;
-                file_until_[slot] = g_ + n_s + PB_ECHO;
+                mon_.file_sent(slot, e, g_ + n_s);
             }
             n = pilot_n_;
             for (unsigned i = 0; i < n_s; ++i) {
@@ -921,31 +534,12 @@ void Engine::render()
                 stop_source(slot, "");
             }
         } else {
-            const ToneSpec& t = TONES[(int)p.tone];
-            const uint32_t inc  = SineTable::inc_q32(t.carrier_hz, SAMPLE_RATE);
-            const uint32_t minc = SineTable::inc_q32(t.mod_hz,     SAMPLE_RATE);
-            const float    g    = (float)(tone_amp_ / (1.0 + tone_mod_));
             n = pilot_n_;
             for (unsigned i = 0; i < period_; ++i) {
-                const bool on = (t.period_samples == 0) || (p.cad < t.on_samples);
-                float v = amp * tbl_.at(b * n);
-                if (on && t.table) {
-                    // The city ring: p.ph counts samples into its period.
-                    v += tone_amp_ * city_[p.ph];
-                } else if (on) {
-                    // Carrier times (1 + m sin), so the spectrum is the carrier
-                    // plus one sideband either side - all inside the
-                    // switchboard's passband and all well clear of the comb.
-                    const float m = 1.0f + (float)tone_mod_ * tbl_.at_q32(p.mph);
-                    v += g * tbl_.at_q32(p.ph) * m;
-                }
+                float v = amp * tbl_.at(b * n) + tones_.next(p.tone);
                 if (v > 1.0f)  { v =  1.0f; ++clips_; }
                 if (v < -1.0f) { v = -1.0f; ++clips_; }
                 out[i * stride] = float_to_s32(v);
-                if (t.table) p.ph = (p.ph + 1) % CITY_RING_PERIOD;
-                else         p.ph += inc;
-                p.mph += minc;
-                if (t.period_samples) p.cad = (p.cad + 1) % t.period_samples;
                 n = (n + 1) & (FFT_N - 1);
             }
         }
@@ -953,78 +547,6 @@ void Engine::render()
 
     pilot_n_ = (pilot_n_ + period_) & (FFT_N - 1);
     g_ += period_;
-}
-
-// peer_boost_begin()                                                   [audio]
-//   audio.md 10.8, Rev 28. Before the monitor's samples: which path this
-//   period's source measures - 1 own, 2 peer, 0 neither - and the boost it
-//   heads for. The peer is the detector's, held through PB_HOLD of anything
-//   else, since a circuit's own playback makes its peer flicker to idle. A
-//   new source or peer starts its sums afresh.
-int Engine::peer_boost_begin()
-{
-    pb_target_ = 1.0;
-    const int src = mon_src_ch_;
-    if (pb_max_lin_ <= 1.0 || !chan::is_circuit_slot(src) || mon_pend_ch_) {
-        pb_src_ = 0;
-        return 0;
-    }
-    if (src != pb_src_) {
-        pb_src_ = src;
-        pb_peer_ = 0;
-        pb_own_ = PathSum();
-        pb_other_ = PathSum();
-    }
-    const int h = sh_.heard_peer[src].load(std::memory_order_relaxed);
-    if (h > 0) {
-        if (h != pb_peer_) { pb_peer_ = h; pb_other_ = PathSum(); }
-        pb_peer_at_ = g_;
-    } else if (pb_peer_ && g_ - pb_peer_at_ > PB_HOLD) {
-        pb_peer_ = 0;
-    }
-    const bool own   = g_ < file_until_[src];
-    const bool other = pb_peer_ && g_ < file_until_[pb_peer_];
-    // Fixed by the game (Rev 29): the same moments, nothing measured.
-    if (own && !other) return pb_fixed_ ? 0 : 1;
-    if (other && !own) { pb_target_ = pb_lin_; return pb_fixed_ ? 0 : 2; }
-    return 0;
-}
-
-// peer_boost_end()                                                     [audio]
-//   After them: this period's source energy, before the boost, against the
-//   file energy render() sent on the path measured, unless the gate shut;
-//   then the boost from the two sums once each holds a second of file. Every
-//   circuit's file energy is consumed here, measured or not.
-void Engine::peer_boost_end(int mode, double energy, bool gated)
-{
-    if (mode && !gated) {
-        PathSum& p = (mode == 1) ? pb_own_ : pb_other_;
-        const double f = file_e_[mode == 1 ? pb_src_ : pb_peer_];
-        if (f > 0.0) {
-            p.mon += energy;
-            p.file += f;
-            p.n += period_;
-            if (p.n > 10.0 * SAMPLE_RATE) { p.mon *= 0.5; p.file *= 0.5; p.n *= 0.5; }
-        }
-    }
-    for (int s = 1; s <= chan::N_SLOTS; ++s) file_e_[s] = 0.0;
-
-    if (pb_fixed_) {
-        pb_lin_ = std::min(pb_fixed_lin_, pb_max_lin_);
-        pb_measured_ = false;
-        return;
-    }
-    const bool both = pb_own_.n >= SAMPLE_RATE && pb_other_.n >= SAMPLE_RATE &&
-                      pb_own_.file > 0.0 && pb_other_.file > 0.0 &&
-                      pb_own_.mon > 0.0 && pb_other_.mon > 0.0;
-    pb_measured_ = both;
-    if (!both) {
-        pb_lin_ = pb_start_lin_;
-        return;
-    }
-    // Energies: the square root gives the amplitude ratio.
-    const double r = std::sqrt((pb_own_.mon / pb_own_.file) / (pb_other_.mon / pb_other_.file));
-    pb_lin_ = std::min(std::max(r, 1.0), pb_max_lin_);
 }
 
 // aec_feed()                                                           [audio]
@@ -1160,15 +682,9 @@ void Engine::run()
         const double now = monotonic_s();
         if (now - last_report >= 1.0) {
             if (clips_) { sh_.clips.fetch_add(clips_, std::memory_order_relaxed); clips_ = 0; }
-            if (gate_hits_) { sh_.gate_hits.fetch_add(gate_hits_, std::memory_order_relaxed); gate_hits_ = 0; }
             if (rec_lost_) { sh_.rec_dropped.fetch_add(rec_lost_, std::memory_order_relaxed); rec_lost_ = 0; }
             if (play_short_) { sh_.play_short.fetch_add(play_short_, std::memory_order_relaxed); play_short_ = 0; }
-            sh_.peer_boost.store(pb_src_ && pb_peer_
-                                 ? (int)std::lround(2000.0 * std::log10(pb_lin_)) * 1000
-                                   + pb_peer_ * 10 + (pb_fixed_ ? 2 : pb_measured_ ? 1 : 0)
-                                 : -1, std::memory_order_relaxed);
-            const unsigned l = lim_.take_active();
-            if (l) sh_.limiter_hits.fetch_add(l, std::memory_order_relaxed);
+            mon_.hand_over();
             for (int ch = 1; ch <= chan::N_PLAY_CH; ++ch) {
                 if (!out_over_[ch]) continue;
                 sh_.out_over[ch].fetch_add(out_over_[ch], std::memory_order_relaxed);
