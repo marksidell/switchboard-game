@@ -15,6 +15,10 @@ Printed things for the game, and how to print them.
 | `game_control.pdf` | `docs/game_control.md` for the binder: its title block on page one, file and revision at every page's foot; `python3 hardcopy/doc-pdf.py docs/game_control.md`, and the same for any other spec in `docs/` | `doc-pdf.py`, `doc-pdf.css` |
 | `bench/` | Bench sheets and checklists | |
 
+`strips.py` and `cards.py` read `script.yml` through the game's own loader
+(`tts/script.py`), so they need `python3-ruamel.yaml` as well as `python3-cairo`.
+`dialcard.py` needs `python3-reportlab`.
+
 ## Printers
 
 **Brother MFC-9330CDW (colour).** Its driver shrinks the page, so print the PDFs at **105%** to
