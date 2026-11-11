@@ -1,4 +1,4 @@
-"""Board sweeps from the Stream Deck (game_control.md §11.5, Rev 50).
+"""Board sweeps from the Stream Deck (game_control.md §11.5).
 
 A check of the cabling after a recabling, with no game running: `trunks`
 gives each trunk one short ring in turn, so its lamp lights on the
@@ -29,7 +29,7 @@ log = logging.getLogger("sweep")
 KINDS = ("trunks", "stations")
 ROWS = (range(21, 31), range(11, 21), range(1, 11))   # top row first (§11.1)
 
-BURST = 1.0          # s: the controller's short ring (control.md §8.4, Rev 30)
+BURST = 1.0          # s: the controller's short ring (control.md §8.4)
 LATCH_HOLD = 3.0     # s after the burst, the lamp lit only if its relay latched
 CUT = 1.0            # s the switchboard is off: the controller's (control.md §5.4)
 OFF_HOOK = 1.0       # s a station is held off-hook
@@ -56,7 +56,7 @@ async def run(kind: str, hw: Hw, jacks: Iterable[Jack], stations: int, trunks: i
               busy: Callable[[], set[str]], say: Callable[[str], Awaitable[None]],
               out_of_service: Callable[[str], bool], public_trunk: int = 0) -> None:
     """One sweep, to its end. Cancelling it puts the current circuit back.
-    Not the public line nor station 24, the real telephone (§8, Rev 74):
+    Not the public line nor station 24, the real telephone (§8):
     the game never rings the one, and the other's relay lights nothing."""
     if kind == "trunks":
         steps = [(f"trunk/{n}", f"trunk {n}") for n in range(1, trunks + 1)

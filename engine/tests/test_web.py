@@ -16,7 +16,6 @@ one, and each is a mistake already made once:
 import json
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 WEB = Path(__file__).resolve().parent.parent / "web"

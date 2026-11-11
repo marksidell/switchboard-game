@@ -217,7 +217,7 @@ class BoardTest:
                 await self.pair(trunk, station)
             except Stop as e:
                 self.r.stopped.append(f"{trunk} <-> {station}: stopped at {e}")
-                self.out(f"    stopped: the rest of this pair depends on that")
+                self.out("    stopped: the rest of this pair depends on that")
             finally:
                 await self.pub(f"{station}/dial/set", "")
                 await self.pub(f"{trunk}/ring/set", "off")

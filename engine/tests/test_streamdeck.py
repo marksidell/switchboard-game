@@ -7,7 +7,6 @@ staleness. Then the images are drawn once through a FileSurface, so a drawing
 error shows up here rather than on the deck.
 """
 
-import sys
 import tempfile
 from pathlib import Path
 

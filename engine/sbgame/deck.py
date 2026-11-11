@@ -13,13 +13,13 @@ about to call back on. People are held the same way: one voice cannot be in
 two calls at once.
 
 A scene with `follows:` is passed over the same way while a scene it names is
-still to come this round (§6.1, Rev 114), so a guest's story is dealt in order.
+still to come this round (§6.1), so a guest's story is dealt in order.
 """
 
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from .script_data import GameScript, SceneDef
 
@@ -65,7 +65,7 @@ class Deck:
         return True
 
     def _to_come(self, sid: str, live: frozenset[str] | set[str]) -> bool:
-        """Whether the scene can still play this round (§6.1, Rev 114): in the
+        """Whether the scene can still play this round (§6.1): in the
         deck, in progress or waiting to start, or an `after:` scene whose
         predecessor is still to come. A chain has no loop (the loader's check)."""
         if sid in self._cards or sid in live:
@@ -108,7 +108,7 @@ class Deck:
         return None, "every scene is using a busy line"
 
     def take(self, scene: SceneDef, held: list[Holding]) -> bool:
-        """Deal this scene next if it is free (§6.4, Rev 25), taking it out of
+        """Deal this scene next if it is free (§6.4), taking it out of
         the current deck so it does not come round again before the reshuffle."""
         if not self._free(scene, held):
             return False
