@@ -1,6 +1,6 @@
 #!/bin/sh
 # Stand in for the controller and the audio program, so the game can be played
-# before the boards arrive.
+# without the boards.
 #
 #   ./run-sim -o           it answers and connects the calls too  <- what you want
 #   ./run-sim -o -d 0.3    the same, but a quick operator
@@ -10,9 +10,9 @@
 # runs to its timeout at the first stage — which looks exactly like the game
 # being stuck. The status page cannot stand in: it sends run, next and the
 # pacing, and nothing else (game_control.md §11 makes it a monitor). The thing
-# that works the board is the switchboard, and the switchboard is not here
-# yet. So plain mode is for watching the hardware side alone, and -o is the
-# mode that plays.
+# that works the board is the switchboard, which the simulator does not have.
+# So plain mode is for watching the hardware side alone, and -o is the mode
+# that plays.
 #
 # Ctrl-C to stop. It is a tool, not a service: nothing restarts it, and both
 # of its identities go offline the moment it exits, however it exits.

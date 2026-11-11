@@ -1,4 +1,4 @@
-# Host configuration for portland: the broker, the page's server, the renewal
+# Host configuration for the game host: the broker, the page's server, the renewal
 # hook. mqtt.md 9 and 9.1 are the specification; these are the files as they
 # stand on the host, so that a rebuild is a checkout and a `make install`
 # rather than an afternoon of reading.
@@ -42,7 +42,7 @@ FILES := \
   etc/sbgame/game.toml:root:root:644 \
   etc/sbgame/ata-known_hosts:root:root:644
 
-.PHONY: diff install passwd status check-clean sbgame-user sbgame-deck-user sbgame-host-user sbgame-data sbgame-install sbgame-web sim
+.PHONY: diff install passwd status check-clean sbgame-user sbgame-deck-user sbgame-host-user sbgame-data sbgame-install sbgame-web
 
 ## diff - what differs between this tree and the host
 diff:
@@ -167,7 +167,7 @@ sbgame-host-user:
 ## sbgame-install - the game program into /opt/sbgame, as the unit expects
 ##
 ## Its own venv, not the developer's: the daemon runs as sbgame and must not
-## depend on anything under /home/sidell that ProtectHome could take away. The
+## depend on anything under /home that ProtectHome could take away. The
 ## engine and the shared script loader are installed from the checkout, so an
 ## install is a `git pull` and this target.
 REPO := $(shell cd .. && pwd)
@@ -184,7 +184,7 @@ sbgame-install: sbgame-user sbgame-deck-user sbgame-host-user sbgame-data
 
 ## sbgame-data - the script and the wavs where the daemon can read them
 ##
-## The daemon cannot traverse /home/sidell (0750), so it runs against copies.
+## The daemon cannot traverse the developer's home (0750), so it runs against copies.
 ## Re-run this after editing script.yml or regenerating wav/, then restart.
 ## Also makes /srv/sbgame/recordings, where sbaudio records the loudspeaker.
 ## private/wav goes over the wavs if it is there (tts_task.md 5.1); VOICES=public
@@ -209,7 +209,8 @@ sbgame-data:
 ## app.js carries the broker password, because the page is a browser and has
 ## nowhere else to put it (mqtt.md 9: the access list is the protection, not
 ## the password). It is substituted here rather than committed, so the
-## repository holds a placeholder and never the password itself.
+## repository holds a placeholder and never the password itself. It reaches
+## python on stdin, so it is never on a command line.
 sbgame-web:
 	@test -r /etc/sbgame/mqtt-web.pass || { echo "no /etc/sbgame/mqtt-web.pass"; exit 1; }
 	@$(SUDO) install -d -m 755 /srv/sbgame/web
@@ -218,9 +219,11 @@ sbgame-web:
 	         $(REPO)/engine/web/mqtt.min.js \
 	         $(REPO)/engine/web/manifest.webmanifest /srv/sbgame/web/
 	@$(SUDO) install -m 644 $(REPO)/engine/web/icons/*.png /srv/sbgame/web/icons/
-	@pw=$$($(SUDO) cat /etc/sbgame/mqtt-web.pass); \
-	 sed "s|PAGE_PASSWORD|$$pw|" $(REPO)/engine/web/app.js \
-	   | $(SUDO) tee /srv/sbgame/web/app.js >/dev/null
+	@set -o pipefail; $(SUDO) cat /etc/sbgame/mqtt-web.pass \
+	 | python3 -c 'import sys; pw = sys.stdin.read().rstrip("\n"); \
+	     sys.stdout.write(open(sys.argv[1]).read().replace("PAGE_PASSWORD", pw))' \
+	     $(REPO)/engine/web/app.js \
+	 | $(SUDO) tee /srv/sbgame/web/app.js >/dev/null
 	@$(SUDO) chmod 644 /srv/sbgame/web/app.js
 	@build=$$(cat $(REPO)/engine/web/index.html $(REPO)/engine/web/app.js \
 	                $(REPO)/engine/web/style.css | md5sum | cut -c1-10); \
@@ -231,21 +234,6 @@ sbgame-web:
 	@grep -q PAGE_PASSWORD /srv/sbgame/web/app.js && \
 	   { echo "the placeholder is still there"; exit 1; } || true
 	@echo "page installed:"; ls -l /srv/sbgame/web | tail -n +2 | sed 's/^/  /'
-
-## sim - stand in for the controller, the audio program and the operator
-##
-## Until the boards arrive the game program starts, deals a call and stops at
-## once: every scene wait fails while ctl/status and ctl/audio_status are down
-## (game_control.md 2). This plays both parts on the real broker so the page
-## can be used. Foreground, ^C to stop; it is a tool, not a service.
-##
-##   make -C host sim              hardware only; you are the operator
-##   make -C host sim OPERATOR=1   it answers and connects the calls too
-OPERATOR ?=
-sim:
-	@test -r /etc/sbgame/mqtt-audio.pass || { \
-	  echo "cannot read /etc/sbgame/mqtt-audio.pass — are you in its group?"; exit 1; }
-	/opt/sbgame/venv/bin/sbgame-sim $(if $(OPERATOR),--operator,)
 
 ## status - what is running and what is served
 status:
