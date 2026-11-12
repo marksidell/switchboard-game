@@ -1,7 +1,18 @@
 """Print-ready rotary dial number cards, 1.5" (38.1 mm) diameter.
 Style: Bell System stamped card — exchange name with two large caps,
-rest in small caps; number below in stamped gothic digits."""
+rest in small caps; number below in stamped gothic digits.
+
+    python3 hardcopy/dialcard.py hardcopy/dial-card-WAverly-7-2004.pdf
+
+Needs reportlab, and Liberation Sans and DejaVu Sans Condensed, found through
+fontconfig (fc-match) where they are not at the Debian paths."""
+from __future__ import annotations
+
+import os
 import random
+import subprocess
+import sys
+
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import mm, inch
 from reportlab.pdfgen import canvas
@@ -11,15 +22,38 @@ from reportlab.pdfbase.ttfonts import TTFont
 EXCHANGE = "WAVERLY"          # first two letters large
 NUMBER = "7-2004"
 
-pdfmetrics.registerFont(TTFont("Goth", "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"))
-pdfmetrics.registerFont(TTFont("GothR", "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"))
-pdfmetrics.registerFont(TTFont("Cond", "/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed.ttf"))
+# name: (Debian's path, the fontconfig pattern to look for elsewhere)
+FONTS = {
+    "Goth": ("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", "Liberation Sans:bold"),
+    "GothR": ("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", "Liberation Sans:regular"),
+    "Cond": ("/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed.ttf", "DejaVu Sans:condensed"),
+}
 
 D = 1.5 * inch
 R = D / 2
 INK = (0.12, 0.11, 0.10)      # slightly warm black, like old stamp ink
 
-def solid_text(c, x, y, text, font, size, spacing=0.0):
+def font_file(path: str, pattern: str) -> str:
+    """`path` if it exists, else the file fontconfig matches to `pattern`."""
+    if os.path.exists(path):
+        return path
+    try:
+        found = subprocess.run(["fc-match", "-f", "%{file}", pattern],
+                               capture_output=True, text=True, check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        found = ""
+    if not found or not found.lower().endswith(".ttf"):
+        sys.exit(f"no TrueType font for {pattern!r}: install Liberation Sans and DejaVu Sans")
+    return found
+
+
+def register_fonts() -> None:
+    for name, (path, pattern) in FONTS.items():
+        pdfmetrics.registerFont(TTFont(name, font_file(path, pattern)))
+
+
+def solid_text(c: canvas.Canvas, x: float, y: float, text: str, font: str, size: float,
+               spacing: float = 0.0) -> None:
     """Clean black type for the exchange name."""
     widths = [pdfmetrics.stringWidth(ch, font, size) for ch in text]
     cx = x - (sum(widths) + spacing * (len(text) - 1)) / 2
@@ -29,7 +63,9 @@ def solid_text(c, x, y, text, font, size, spacing=0.0):
         c.drawString(cx, y, ch)
         cx += w + spacing
 
-def stamped_text(c, x, y, text, font, size, seed, spacing=0.0, bg=(1, 1, 1)):
+def stamped_text(c: canvas.Canvas, x: float, y: float, text: str, font: str, size: float,
+                 seed: int, spacing: float = 0.0,
+                 bg: tuple[float, float, float] = (1, 1, 1)) -> None:
     """Draw text char by char with a tiny jitter so it reads as hand-stamped."""
     rnd = random.Random(seed)
     widths = [pdfmetrics.stringWidth(ch, font, size) for ch in text]
@@ -68,7 +104,8 @@ def stamped_text(c, x, y, text, font, size, seed, spacing=0.0, bg=(1, 1, 1)):
         c.restoreState()
         cx += w + spacing
 
-def card(c, cx, cy, seed, tint=None, guides=True):
+def card(c: canvas.Canvas, cx: float, cy: float, seed: int,
+         tint: tuple[float, float, float] | None = None, guides: bool = True) -> None:
     c.saveState()
     c.translate(cx, cy)
     if tint:
@@ -100,7 +137,7 @@ def card(c, cx, cy, seed, tint=None, guides=True):
     stamped_text(c, 0, -6.4 * mm, NUMBER, "Cond", 13.5, seed + 3, spacing=1.1, bg=tint or (1, 1, 1))
     c.restoreState()
 
-def sheet(path):
+def sheet(path: str) -> None:
     c = canvas.Canvas(path, pagesize=letter)
     W, H = letter
     c.setTitle(f"Dial card {EXCHANGE} {NUMBER}")
@@ -132,5 +169,15 @@ def sheet(path):
                  "Rows 1-2: plain, for cream or white card stock.   Rows 3-4: aged tint printed, for white stock.")
     c.save()
 
+def main(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else argv
+    if len(args) != 1:
+        print("usage: dialcard.py OUT.pdf", file=sys.stderr)
+        return 2
+    register_fonts()
+    sheet(args[0])
+    return 0
+
+
 if __name__ == "__main__":
-    sheet("/home/claude/dial-card-WAverly-7-2004.pdf")
+    raise SystemExit(main())

@@ -1,6 +1,6 @@
 """Voice prompts and sample text for session 1 (tts_task.md 5.1, 5.2).
 
-Kept in one small module so Mark can edit the wording without going near the
+Kept in one small module so the wording can be edited without going near the
 session machinery — the template is the thing most likely to want changing
 after the first listen.
 """
@@ -22,8 +22,8 @@ TEMPLATE = (
     "Natural, conversational telephone speech, 1950s."
 )
 
-# 5.2: if the first line is shorter than this, the next one is appended, so
-# Mark judges a voice on enough speech to judge.
+# 5.2: if the first line is shorter than this, the next one is appended, so a
+# voice is judged on enough speech to judge.
 MIN_SAMPLE_SECONDS = 5.0
 
 # Conversational speech, unhurried, in words per second. Only used to decide

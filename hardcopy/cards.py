@@ -2,13 +2,19 @@
 
     python3 hardcopy/cards.py script.yml hardcopy/cards.pdf
 
-Both cards on one US Letter page, landscape; print at 100%. Needs pycairo, PyYAML
-and libfontconfig. The typeface is Special Elite (hardcopy/fonts, Apache 2.0),
+Both cards on one US Letter page, landscape; print at 100%. Needs pycairo,
+ruamel.yaml (for the script loader, tts/script.py) and libfontconfig. The typeface is Special Elite (hardcopy/fonts, Apache 2.0),
 drawn from real typewritten text; each character is struck with a little wobble
 and uneven ink, fixed by a seed so the cards come out the same every time.
 """
+from __future__ import annotations
+
 import csv, ctypes, math, os, random, sys
-import cairo, yaml
+
+import cairo
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from tts.script import Script, ScriptError, load  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FONT_FILE = os.path.join(HERE, "fonts", "SpecialElite-Regular.ttf")
@@ -44,23 +50,23 @@ LEAD = 1.6 * SIZE                      # a line and a half, near enough
 INK = (0.13, 0.12, 0.14)
 
 
-def register_font():
+def register_font() -> None:
     fc = ctypes.CDLL("libfontconfig.so.1")
     fc.FcConfigAppFontAddFile.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
     if not fc.FcConfigAppFontAddFile(None, FONT_FILE.encode()):
         sys.exit(f"cannot load {FONT_FILE}")
 
 
-def guests(script):
+def guests(script: Script) -> list[tuple[str, str]]:
     """(name, room label) for every jack with a guest:, by surname."""
-    def surname(name):
+    def surname(name: str) -> str:
         words = name.split()
         return words[-2] if words[-1] == "Family" else words[-1]
-    rows = [(j["guest"], str(j["label"])) for j in script["jacks"] if j.get("guest")]
+    rows = [(j["guest"], j["label"]) for j in script.jacks if j["guest"]]
     return sorted(rows, key=lambda r: (surname(r[0]), r[0]))
 
 
-def exchanges():
+def exchanges() -> dict[str, str]:
     """"782" -> "SU2": the exchange's two capital letters and its digit, as a
     phone book of 1958 prints them."""
     out = {}
@@ -71,10 +77,10 @@ def exchanges():
     return out
 
 
-def outside(script):
+def outside(script: Script) -> list[tuple[str, str]]:
     ex = exchanges()
     rows = []
-    for oid, o in script["outside"].items():
+    for oid, o in script.outside.items():
         if oid not in OUTSIDE:
             print(f"warning: outside {oid} has no entry in OUTSIDE")
             continue
@@ -92,7 +98,7 @@ def outside(script):
 class Typewriter:
     """Monospaced strikes on a card, with the faults of a used machine."""
 
-    def __init__(self, cr, seed):
+    def __init__(self, cr: cairo.Context, seed: int) -> None:
         self.cr = cr
         self.rng = random.Random(seed)
         cr.select_font_face(FONT)
@@ -103,10 +109,10 @@ class Typewriter:
         self.bar = {c: (bars.gauss(0, 0.18), bars.gauss(0, 0.25))
                     for c in map(chr, range(33, 127))}
 
-    def cols(self, width):
+    def cols(self, width: float) -> int:
         return int(width // self.pitch)
 
-    def type(self, x, y, text):
+    def type(self, x: float, y: float, text: str) -> None:
         cr, rng = self.cr, self.rng
         # the carriage wanders a hair along the line
         drift = rng.gauss(0, 0.2)
@@ -129,11 +135,11 @@ class Typewriter:
                 cr.move_to(rng.uniform(-0.4, 0.4), rng.uniform(-0.3, 0.3)); cr.show_text(c)
             cr.restore()
 
-    def centred(self, x, y, width, text):
+    def centred(self, x: float, y: float, width: float, text: str) -> None:
         n = self.cols(width)
         self.type(x + (n - len(text)) // 2 * self.pitch, y, text)
 
-    def leader(self, x, y, width, left, right):
+    def leader(self, x: float, y: float, width: float, left: str, right: str) -> None:
         n = self.cols(width)
         dots = n - len(left) - len(right) - 2
         if dots < 3:
@@ -141,7 +147,8 @@ class Typewriter:
         self.type(x, y, f"{left} {'.' * dots} {right}")
 
 
-def card(cr, tw, x, y, title, rows):
+def card(cr: cairo.Context, tw: Typewriter, x: float, y: float, title: list[str],
+         rows: list[tuple[str, str]]) -> None:
     w = CARD_W - 2 * MARGIN
     cx = x + MARGIN
     ty = y + MARGIN + SIZE
@@ -158,7 +165,8 @@ def card(cr, tw, x, y, title, rows):
         sys.exit(f"{title[0]}: {len(rows)} lines do not fit the card")
 
 
-def cut_marks(cr, x, y, w, h, l=0.2 * IN, off=0.06 * IN):
+def cut_marks(cr: cairo.Context, x: float, y: float, w: float, h: float,
+              l: float = 0.2 * IN, off: float = 0.06 * IN) -> None:
     cr.set_line_width(0.3); cr.set_source_rgb(0, 0, 0)
     for cx in (x, x + w):
         for cy in (y, y + h):
@@ -169,13 +177,23 @@ def cut_marks(cr, x, y, w, h, l=0.2 * IN, off=0.06 * IN):
     cr.stroke()
 
 
-def main():
-    script = yaml.safe_load(open(sys.argv[1]))
+def main(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else argv
+    if len(args) != 2:
+        print("usage: cards.py SCRIPT.yml OUT.pdf", file=sys.stderr)
+        return 2
+    try:
+        script = load(args[0])
+    except ScriptError as e:
+        print(f"{e.path}: {len(e.failures)} problem(s)", file=sys.stderr)
+        for f in e.failures:
+            print(f"  {f}", file=sys.stderr)
+        return 1
     register_font()
-    surf = cairo.PDFSurface(sys.argv[2], PAGE_W, PAGE_H)
+    surf = cairo.PDFSurface(args[1], PAGE_W, PAGE_H)
     cr = cairo.Context(surf)
     tw = Typewriter(cr, seed=929)
-    hotel = script["setting"]["hotel"]
+    hotel = script.setting["hotel"]
 
     gap = 0.5 * IN
     x0 = (PAGE_W - 2 * CARD_W - gap) / 2
@@ -194,7 +212,8 @@ def main():
     cr.move_to(x0, PAGE_H - 0.3 * IN)
     cr.show_text("Print at 100% / actual size, landscape. Cards 5 x 7 in.")
     surf.finish()
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

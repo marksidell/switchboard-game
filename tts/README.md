@@ -74,10 +74,10 @@ audience hears them and is the only fair basis for choosing.
 | `scenes` | plays the active scenes on one Digiface channel, stopping where the operator speaks; `--batch` writes every scene, the operator's lines included, to `mp3/<scene>.mp3`; `--batch --tutor` writes tutor mode's lesson scenes (game_control.md §7) with her lines where the game says them, to `mp3/tutor/`, plus `intro.mp3` and `demo.mp3` (the introduction and the first scene of each lesson group) |
 | `choose` | promotes the candidates named in `voices.yml`; `--only` for just some, so a hand-placed reference is not overwritten |
 | `record` | records a performed part's lines on this host (`--status`, `--print` a script to record elsewhere, `--import` those files); takes go to `recorded/`, never rendered over (tts_task.md §6.4) |
-| `playback.py` | playing a clip on the Digiface, for `audition` and `record` |
+| `playback.py` | playing audio on the Digiface, for `audition`, `record` and `scenes`; finds the card by name in `/proc/asound/cards`, or `$SBGAME_DIGIFACE` or `--device` names it |
 | `recorded.py` | which parts are performed, and which takes are current |
 | `--public` on `aws/generate`, `process`, `manifest` | leaves out the two private voices under `private/` (tts_task.md §5.1) |
-| `aws/` | session machinery; `IAM-SETUP.md` is the credential and policy record |
+| `aws/` | session machinery; `IAM-SETUP.md` is the credential and policy record; the VPC to launch into goes in `aws/local.env` (from `local.env.example`, not committed) |
 | `remote/` | what runs on the instance; `NOTES.md` holds the measured model facts |
 
 ## Two things worth knowing before changing anything
