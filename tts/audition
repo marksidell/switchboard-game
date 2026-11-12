@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audition the candidate voices and record Mark's choices (tts_task.md 5.4).
+"""Audition the candidate voices and record the choices (tts_task.md 5.4).
 
 Walks the cast in script order. For each person it prints who they are, plays
 the three candidates through the Digiface's headphone jack, and asks which one

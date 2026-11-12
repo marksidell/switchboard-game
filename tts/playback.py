@@ -29,7 +29,7 @@ PHONES = (32, 33)        # zero-based, the headphone jack — one-based 33/34
 MAX_CIRCUIT = 32         # one-based; the circuits are 1..32, the jack is beyond them
 RATE = 48000
 
-# " 1 [USB24306452   ]: USB-Audio - Digiface USB (24306452)": index, id, rest.
+# " 1 [USB12345678     ]: USB-Audio - Digiface USB (12345678)": index, id, rest.
 _CARD = re.compile(r"^\s*\d+\s+\[(\S+)\s*\]:\s*(.*)$")
 
 

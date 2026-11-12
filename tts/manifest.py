@@ -103,7 +103,7 @@ def plan(script: Script, *, voices: Path = VOICES, wav_dir: Path = Path("wav"),
 
         forced = u.name in only or u.scene in only
         if forced:
-            # A new seed, so Mark gets a different take rather than the same one.
+            # A new seed, so a forced line gets a different take, not the same one.
             seed = int(was.get("seed", seed_base)) + 1 if was else seed_base
             reason = "forced"
         else:

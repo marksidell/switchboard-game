@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Promote the candidate voices Mark picked (tts_task.md 5.4).
+"""Promote the candidate voices picked with tts/audition (tts_task.md 5.4).
 
 Reads tts/voices.yml — `<person>: <k>` — and copies that candidate, at its raw
 full-bandwidth rate, to tts/voices/<person>.wav with its .json beside it. The
