@@ -519,9 +519,9 @@ I used a fourth-order passive elliptic (Cauer) LC filter,
 which places two notches inside the 6-9 kHz pilot band.
 
 <p float="left">
-  <img src="docs/images/lowpass-filter-schematic.jpg" width="30%" />
-  <img src="docs/images/lowpass-filter-pcb.jpg" width="30%" />
-  <img src="docs/images/lowpass-filter.jpg" width="30%" />
+  <img src="docs/images/lowpass-filter-schematic.jpg" width="32%" />
+  <img src="docs/images/lowpass-filter-pcb.jpg" width="32%" />
+  <img src="docs/images/lowpass-filter.jpg" width="32%" />
 </p>
 
 
