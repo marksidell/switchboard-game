@@ -111,14 +111,14 @@ against simulated boards.
 
 ## Without the boards
 
-The PCBs have not arrived. With no controller and no audio program the game
+With no controller and no audio program the game
 starts, deals a call and stops at once — every scene wait fails while a client
 it needs is down, and `game_control.md` §2 stops the game when one goes. That
 is correct, and it makes the page untestable, so there is a stand-in:
 
 ```sh
-make -C host sim              # hardware only; you work the board
-make -C host sim OPERATOR=1   # it answers and connects the calls too
+./run-sim -o      # it answers and connects the calls too
+./run-sim         # the boards only; nothing works the board
 ```
 
 It reads `/etc/sbgame/game.toml`, the same file the daemon uses, and connects
