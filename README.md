@@ -8,8 +8,8 @@ A lamp lights, a caller waits, and the game listens for "Number, please."*
 Watch this [YouTube video](https://youtu.be/OEJ2QEtEweM) to
 see the game in action.
 
-On tours at the Connections Museum in Seattle, guests really enjoy
-learning the basics of operating a traditional switchboard. In this
+On tours at the Connections Museum in Seattle, guests are always
+eager to learn the basics of operating a traditional switchboard. In this
 project I built a game around a working switchboard in which simulated
 calls allow a player to more fully experience what it was like to be a
 telephone operator.
@@ -18,8 +18,8 @@ In the game, the player is the operator at the Hotel Ballard in 1958.[^1]
 Simulated calls arrive from various parties both inside and outside the
 hotel, and the operator connects the calls as requested. The operator
 answers a call by plugging in a cord, and then asks what the caller wants,
-plugs the other cord of the pair into the jack for the desired station or line,
-rings the called party or dials the number, and pulls both
+plugs the other cord of the pair into the jack for the desired destination,
+rings the called party or dials a number, and pulls both
 cords when the call is over.
 
 <p float="left">
@@ -54,7 +54,7 @@ Normally, the game doesn't start the next call until after the player
 has connected the current one. But in one scene everyone
 in the hotel calls at nearly the same time to complain about a dog who
 is causing havoc everywhere. (The dog is Martha, who can
-talk and in one scene orders room service.[^2])
+talk and in one scene orders room service.)[^2]
 
 <!-- pagebreak -->
 
@@ -65,10 +65,9 @@ Electric began producing in 1927. These switchboards were common
 in small businesses, hotels, schools, and similar establishments.
 
 My switchboard lived at the Southern California Edison office in Los
-Angeles. The longtime operator there was Marie Bell. When she retired,
-they replaced the switchboard with an automatic PBX and gave it to her
-as a retirement gift. She displayed it in her living room for many
-years.
+Angeles. The longtime operator there was Marie Bell.
+When she retired, they gave her the switchboard as a retirement gift and replaced it with an automatic PBX.
+She displayed it in her living room for many years.
 It is a beautiful device, and she kept it in lovely condition.
 In 2024, when she no longer had room for it, she donated it to the Connections Museum.
 The museum later passed it on to me for this project.
@@ -95,7 +94,7 @@ replace a few lamps, and replace a row of jacks that had failed.
 
 ### How the Switchboard Works
 
-A switchboard must provide these functions:[^3]
+A switchboard must provide these functions:
 
 - A person at a telephone must be able to *signal* the operator.
 - The operator must be able to answer the incoming call.
@@ -106,7 +105,7 @@ the person wants to call.
 - The operator must be able to alert the destination by
 ringing its telephone.
 - The operator must be able to *supervise* the call to know when the parties have hung up
-in order to tear down the connection.
+in order to tear down the connection.[^3]
 
 The photo below identifies the elements of a switchboard.
 
