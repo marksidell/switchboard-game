@@ -333,18 +333,16 @@ to power the relays and a 3.3 V regulator for the I2C interface.
 
 #### Debugging the Loop Detector
 
-When testing the board, I found that the trunk failed to reliably detect loop current.
-I debugged the problem
-by connecting a station circuit to a trunk circuit and writing software to repeatedly
-toggle the station between onhook and offhook. I used an Analog Discovery 3 logic analyzer
-to record the optoisolator output. The software was able to use the AD3 API to read the
-output and align it with the station toggles.
-The test showed that the trunk missed up to 27 of 100 offhooks with full loop current flowing.
-Measuring it, I found that the optoisolator's input sat at 3.28 V and 1.9 mA, inside its
-hysteresis band. That's above the voltage at which it turns off but
-below the one at which it turns on.  The output stayed wherever the
-relay's contact bounce left it. I fixed the problem by adjusting the
-values of the resistors in front of the optoisolator input.
+In testing, the trunk sometimes missed a station going offhook. To measure it,
+I wired a station circuit to a trunk circuit, had software toggle the station
+onhook and offhook, and used an Analog Discovery 3 to record the optoisolator
+output against each toggle. The trunk missed up to 27 of 100 offhooks
+with full loop current flowing.
+
+The cause was the resistors in front of the optoisolator. They left its input
+at 3.28 V and 1.9 mA, inside its hysteresis band: above the point at which it
+turns off but below the point at which it turns on. So the output stayed
+wherever the relay's contact bounce left it. New (and, ahem, correct) resistor values fixed it.
 
 ### The Station Board
 
