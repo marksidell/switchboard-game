@@ -942,6 +942,7 @@ async def to_operator(ctx: Ctx, trunk: int | None = None) -> Outcome:
         replied = False         # §3.3: she has answered the request
         told = False
         while True:
+            waiting = False     # a listen for her reply is running
             try:
                 if (lines or sc.closing) and not told:
                     # tutor: this caller wants her, not a connection (§7).
@@ -949,8 +950,10 @@ async def to_operator(ctx: Ctx, trunk: int | None = None) -> Outcome:
                     told = True
                 while i < len(lines):
                     line = lines[i]
+                    waiting = True
                     if await _operator_speaks(ctx, caller, line, gone):
                         replied = True
+                    waiting = False
                     await _lead_in(ctx, caller, line, gone)
                     await _play(ctx, caller, line, gone)
                     i += 1
@@ -959,6 +962,10 @@ async def to_operator(ctx: Ctx, trunk: int | None = None) -> Outcome:
             except TimeoutError:
                 return Outcome(False, Reason.TIMEOUT)
             except Abandoned:
+                # She started to reply and pulled the cord before the
+                # detector heard her stop: a curt answer is still an answer.
+                if waiting and ctx.b.saw(f"{caller}/listen", "speech"):
+                    replied = True
                 if replied:
                     # §3.3: she has answered it; the rest was a bonus.
                     ctx.say_event(f"{caller}: the operator left after replying")

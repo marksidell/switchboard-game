@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 116. The changes in each revision are in §15.*
+*Rev 117. The changes in each revision are in §15.*
 
 # 1. Overview
 
@@ -101,7 +101,7 @@ A call is **connected** at the point where the operator's routing work is done:
 
 These are the milestones the game program must expose to the scheduler. How it reaches each one — which listens, which timeouts — is the game program's flow and not this document's.
 
-**A call to the operator succeeds once she has replied.** After the request, each of the caller's lines waits for her to speak (§6.2); once she has spoken in reply, the call counts, whatever happens after. The caller's later lines, a punch line among them, are hers if she stays; if she pulls the cord, the caller hangs up and the call has still succeeded. An operator in a rush says something short and moves on, and nothing told her another line was coming.
+**A call to the operator succeeds once she has replied.** After the request, each of the caller's lines waits for her to speak (§6.2); once she has begun to reply — the speech detector has heard her start, whether or not it has heard her stop — the call counts, whatever happens after. The caller's later lines, a punch line among them, are hers if she stays; if she pulls the cord, the caller hangs up and the call has still succeeded. An operator in a rush says something short and moves on, and nothing told her another line was coming.
 
 **She may leave before replying.** Pulling the cord after the request and before she has replied does not end the call at once. From a room the station is still off-hook, so its lamp lights again, and the caller waits 10s for her alone, as it does before the request (§4) — in tutor pacing, as long as it takes. When she comes back on its line, the caller asks "Hello? Operator? Are you there?" (its `nudge` reaction, §3.5) and the call goes on where it was. Not back in 10s, it hangs up and the call is `cut off`. A caller rung in on a trunk has no lamp to light again: her leaving before a reply cuts it off, as before.
 
@@ -807,6 +807,12 @@ Before step 1: the certificate is issued (`host/README.md`, "The certificate"), 
 - **Screen wake lock** (§11.3). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 15. Revision History
+
+## 15.117 Changes in Rev 117
+
+— A reply counts from when she starts it, not when she finishes (§3.3), 2026-11-13. In the first panic under Rev 116, five calls to the operator failed as `cut off` though she had replied: she said something short and pulled the cord 0.6–1.6s into it, before the speech detector reported the silence that ended it, and the game took her as having left before replying.
+
+— Code consequence, for Claude Code: `to_operator()` counts a reply when she leaves during a wait for one in which the listen reached `speech`; `test_flows.py`.
 
 ## 15.116 Changes in Rev 116
 

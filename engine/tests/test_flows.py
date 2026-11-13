@@ -845,3 +845,33 @@ async def test_she_leaves_before_replying_and_does_not_come_back(monkeypatch):
     r = await h.run(to_operator, op)
     assert not r.ok and r.reason == Reason.CUT_OFF, f"cut off: {r.reason!r}"
     assert any("waits for the operator" in e for e in h.events), h.events
+
+
+async def test_she_replies_and_leaves_before_her_reply_ends():
+    """A curt reply and the cord pulled before the silence: it counts (§3.3)"""
+    h = Harness(_op_scene())
+
+    async def op(h: Harness) -> None:
+        c = "station/12"
+        await answers(h, c)
+        await request_heard(h, c)
+        await h.b.wait_until(lambda b: b.get(f"{c}/listen") == "speech", 5)
+        await h.b.update(f"{c}/op", "off")
+        await asyncio.sleep(60)
+
+    real = h.link._echo
+
+    async def echo(key: str, p: str) -> None:       # her reply never ends
+        if key.endswith("/listen/set") and p != "0" and h.b.saw("station/12/play", "t.1"):
+            base = key.removesuffix("/set")
+            await asyncio.sleep(D)
+            await h.b.update(base, "listening")
+            await asyncio.sleep(D)
+            await h.b.update(base, "speech")
+            return
+        await real(key, p)
+    h.link._echo = echo
+
+    r = await h.run(to_operator, op)
+    assert r.ok, f"succeeds: {r.reason!r}"
+    assert any("left after replying" in e for e in h.events), h.events
