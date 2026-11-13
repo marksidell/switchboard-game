@@ -60,6 +60,7 @@ DIAL_FIRST = 30.0
 NUDGE_AFTER = 6.0
 PATCH_WAIT = 8.0
 AWAY = 5.0                # s away from a caller before it asks again on her return
+BACK_PAUSE = 0.5          # s after she comes back before the caller asks if she is there
 # §6.2: speech that runs this long without a silence is taken as ended -
 # her greeting before the request, and any other wait for her. Greetings run
 # 1-2.6s; the detector has held "speech" for 5-12s on the loudspeaker's loop.
@@ -140,12 +141,15 @@ async def _tut(ctx: Ctx, key: str, until=None, abort_if=None) -> None:
 
 
 async def _operator_speaks(ctx: Ctx, where: str, sp: Speech, abort_if,
-                           request: bool = False) -> None:
+                           request: bool = False) -> bool:
     """The game waits for the operator to speak before `sp` (§6.2).
 
     In tutor mode she is told what to say first, and told again if she does
     not, at most REPEATS times; then the line plays, as it would after a
     listen that timed out.
+
+    Returns whether she spoke: False when every listen timed out and the
+    line goes on without her (§3.3, a reply to a call to the operator).
     """
     cap = GREETING_MAX if request else SPEECH_MAX
     t = _tutoring(ctx)
@@ -153,14 +157,15 @@ async def _operator_speaks(ctx: Ctx, where: str, sp: Speech, abort_if,
         voice = ctx.scene.caller_voice if sp.by == "caller" else ctx.scene.called_voice
         nudge = ctx.reaction("nudge", voice)
         if nudge is None:
-            await hear(ctx.b, ctx.hw, where, ctx.cfg.speak_timeout, abort_if=abort_if, max_speech=cap)
-            return
+            return await hear(ctx.b, ctx.hw, where, ctx.cfg.speak_timeout,
+                              abort_if=abort_if, max_speech=cap) == "silence"
         # Not 30s of silence: "Hello? Operator?", then on with the line.
         if await hear(ctx.b, ctx.hw, where, NUDGE_AFTER, abort_if=abort_if, max_speech=cap) == "timeout":
             ctx.say_event(f"{where}: the operator did not speak")
             await say(ctx.b, ctx.hw, where, nudge.name, nudge.seconds, abort_if=abort_if)
-            await hear(ctx.b, ctx.hw, where, NUDGE_AFTER, abort_if=abort_if, max_speech=cap)
-        return
+            return await hear(ctx.b, ctx.hw, where, NUDGE_AFTER,
+                              abort_if=abort_if, max_speech=cap) == "silence"
+        return True
     key = t.say_key(sp, request)
     speaking = lambda: ctx.b.get(f"{where}/listen") == "speech"
     timeouts = 0
@@ -169,8 +174,8 @@ async def _operator_speaks(ctx: Ctx, where: str, sp: Speech, abort_if,
             await t.say(key, abort_if=abort_if, listening=speaking)
             asked = t.asked
             if asked is None:                   # tutor switched off meanwhile
-                await hear(ctx.b, ctx.hw, where, ctx.cfg.speak_timeout, abort_if=abort_if, max_speech=cap)
-                return
+                return await hear(ctx.b, ctx.hw, where, ctx.cfg.speak_timeout,
+                                  abort_if=abort_if, max_speech=cap) == "silence"
             listen = asyncio.create_task(
                 hear(ctx.b, ctx.hw, where, REPEAT, abort_if=abort_if, max_speech=cap))
             press = asyncio.create_task(asked.wait())
@@ -187,12 +192,13 @@ async def _operator_speaks(ctx: Ctx, where: str, sp: Speech, abort_if,
                 await asyncio.gather(press, listen, return_exceptions=True)
             if pressed:
                 if not t.active:
-                    await hear(ctx.b, ctx.hw, where, ctx.cfg.speak_timeout, abort_if=abort_if, max_speech=cap)
-                    return
+                    return await hear(ctx.b, ctx.hw, where, ctx.cfg.speak_timeout,
+                                      abort_if=abort_if, max_speech=cap) == "silence"
                 continue                        # a press: not one of her repeats
             if listen.result() == "silence":
-                return
+                return True
             timeouts += 1
+        return False
     finally:
         await t.release()
 
@@ -931,15 +937,34 @@ async def to_operator(ctx: Ctx, trunk: int | None = None) -> Outcome:
 
         await ctx.slots.set_stage(ctx.call, Stage.OPERATOR,
                                   time.time() + ctx.cfg.speak_timeout)
-        if sc.conversation or sc.closing:
-            # tutor: this caller wants her, not a connection (§7).
-            await _tut(ctx, "for-you", abort_if=gone)
-        try:
-            await _replies(ctx, caller, sc.conversation, gone)
-        except TimeoutError:
-            return Outcome(False, Reason.TIMEOUT)
-        await _closing(ctx, caller, gone)
-        return Outcome(True)
+        lines = sc.conversation
+        i = 0                   # the next line, kept across her leaving
+        replied = False         # §3.3: she has answered the request
+        told = False
+        while True:
+            try:
+                if (lines or sc.closing) and not told:
+                    # tutor: this caller wants her, not a connection (§7).
+                    await _tut(ctx, "for-you", abort_if=gone)
+                    told = True
+                while i < len(lines):
+                    line = lines[i]
+                    if await _operator_speaks(ctx, caller, line, gone):
+                        replied = True
+                    await _lead_in(ctx, caller, line, gone)
+                    await _play(ctx, caller, line, gone)
+                    i += 1
+                await _closing(ctx, caller, gone)
+                return Outcome(True)
+            except TimeoutError:
+                return Outcome(False, Reason.TIMEOUT)
+            except Abandoned:
+                if replied:
+                    # §3.3: she has answered it; the rest was a bonus.
+                    ctx.say_event(f"{caller}: the operator left after replying")
+                    return Outcome(True)
+                if not await _waits_for_her(ctx, caller, trunk):
+                    raise
     except Abandoned:
         return Outcome(False, Reason.CUT_OFF)
     finally:
@@ -949,6 +974,44 @@ async def to_operator(ctx: Ctx, trunk: int | None = None) -> Outcome:
             await quietly(ctx.hw.ring_trunk(trunk, False))
         await quietly(ctx.hw.stop(caller))
 
+
+async def _waits_for_her(ctx: Ctx, caller: str, trunk: int | None) -> bool:
+    """§3.3: she has left a caller to the operator before answering it.
+
+    From a room the station is still off-hook, so its lamp lights again; the
+    caller waits ABANDON for her to come back on its line - in tutor pacing,
+    for as long as it takes - and then asks whether she is there, the
+    `nudge` reaction, and the call goes on where it was. Returns False if she
+    does not come back, or for a caller on a trunk, which has nothing to
+    light: the call is then cut off.
+    """
+    if trunk is not None:
+        return False
+    ctx.say_event(f"{caller}: left before a reply; waits for the operator")
+    back = lambda b: b.on(f"{caller}/op")
+    while True:
+        until = time.time() + ABANDON
+        while not back(ctx.b):
+            left = until - time.time()
+            if left <= 0:
+                if _tutoring(ctx) is not None:          # nobody hangs up (§7)
+                    until = time.time() + ABANDON
+                    continue
+                return False
+            try:
+                await ctx.b.wait_until(back, min(left, 1.0))
+            except TimeoutError:
+                pass
+        nudge = ctx.reaction("nudge", ctx.scene.caller_voice)
+        try:
+            await asyncio.sleep(BACK_PAUSE)
+            if nudge is not None:
+                await say(ctx.b, ctx.hw, caller, nudge.name, nudge.seconds,
+                          abort_if=_gone(caller))
+            ctx.say_event(f"{caller}: asks if the operator is there")
+            return True
+        except Abandoned:
+            continue                                    # she left again
 
 FLOWS = {
     Shape.STATION_TO_STATION: station_to_station,

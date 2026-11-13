@@ -751,3 +751,97 @@ async def test_a_call_to_the_operator_with_a_greeting_that_never_ends(monkeypatc
     played = [v for k, v in h.link.sent if k == "station/12/play/set"]
     assert r.ok, f"succeeds: {r.reason!r}"
     assert "t.1" in played and "t.2" in played, f"the request and the reply both played: {played}"
+
+
+# ---- §3.3: a call to the operator, and her leaving it (2026-11-13) ----------
+
+
+def _op_scene():
+    return scene(Shape.TO_OPERATOR, to_line="", to_station=None,
+                 conversation=(speech("t.2", "caller"), speech("t.3", "caller")))
+
+
+def _nudge(h: Harness) -> None:
+    h.ctx = dataclasses.replace(
+        h.ctx, reaction=lambda kind, voice: speech("nudge.1", "caller") if kind == "nudge" else None)
+
+
+async def test_she_leaves_after_replying_the_call_counts():
+    """She replies to the request and leaves during the punch line: success (§3.3)"""
+    h = Harness(_op_scene())
+
+    async def op(h: Harness) -> None:
+        c = "station/12"
+        await answers(h, c)
+        await h.b.wait_until(lambda b: b.get(f"{c}/play") == "t.2", 5)   # after her reply
+        await h.b.update(f"{c}/op", "off")
+        await asyncio.sleep(60)
+
+    r = await h.run(to_operator, op)
+    played = [v for k, v in h.link.sent if k == "station/12/play/set"]
+    assert r.ok, f"succeeds: {r.reason!r}"
+    assert "t.3" not in played, f"the rest is not played: {played}"
+    assert any("left after replying" in e for e in h.events), h.events
+
+
+async def test_she_leaves_before_replying_and_comes_back(monkeypatch):
+    """She leaves after the request, comes back: the caller asks if she is there (§3.3)"""
+    monkeypatch.setattr(flows, "ABANDON", D * 30)
+    monkeypatch.setattr(flows, "BACK_PAUSE", D)
+    h = Harness(_op_scene())
+    _nudge(h)
+
+    async def op(h: Harness) -> None:
+        c = "station/12"
+        await answers(h, c)
+        await request_heard(h, c)
+        await h.b.update(f"{c}/op", "off")              # before her reply is heard
+        await asyncio.sleep(D * 10)
+        await h.b.update(f"{c}/op", "on")
+        await asyncio.sleep(60)
+
+    # Her reply is heard only after she comes back: the listen echoes speech
+    # and silence on its own, so hold it until she is on the line again.
+    real = h.link._echo
+
+    async def echo(key: str, p: str) -> None:
+        if key.endswith("/listen/set") and p != "0":
+            await h.b.wait_until(lambda b: b.on("station/12/op"), 5)
+            await asyncio.sleep(D * 2)
+        await real(key, p)
+    h.link._echo = echo
+
+    r = await h.run(to_operator, op)
+    played = [v for k, v in h.link.sent if k == "station/12/play/set"]
+    assert r.ok, f"succeeds: {r.reason!r}"
+    assert "nudge.1" in played, f"asked if she is there: {played}"
+    assert played.index("nudge.1") < played.index("t.2"), f"before going on: {played}"
+    assert ("station/12/hook/set", "off") not in h.link.sent[:h.link.sent.index(("station/12/play/set", "nudge.1"))], \
+        "the station stayed off-hook while it waited, so its lamp lit"
+
+
+async def test_she_leaves_before_replying_and_does_not_come_back(monkeypatch):
+    """She leaves after the request and stays away: cut off after the wait (§3.3)"""
+    monkeypatch.setattr(flows, "ABANDON", D * 10)
+    h = Harness(_op_scene())
+
+    async def op(h: Harness) -> None:
+        c = "station/12"
+        await answers(h, c)
+        await request_heard(h, c)
+        await h.b.update(f"{c}/op", "off")
+        await asyncio.sleep(60)
+
+    real = h.link._echo
+
+    async def echo(key: str, p: str) -> None:       # she never replies
+        if key.endswith("/listen/set") and p != "0" and h.b.saw("station/12/play", "t.1"):
+            await asyncio.sleep(D)
+            await h.b.update(key.removesuffix("/set"), "listening")
+            return
+        await real(key, p)
+    h.link._echo = echo
+
+    r = await h.run(to_operator, op)
+    assert not r.ok and r.reason == Reason.CUT_OFF, f"cut off: {r.reason!r}"
+    assert any("waits for the operator" in e for e in h.events), h.events

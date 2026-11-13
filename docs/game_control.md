@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 115. The changes in each revision are in §15.*
+*Rev 116. The changes in each revision are in §15.*
 
 # 1. Overview
 
@@ -101,6 +101,10 @@ A call is **connected** at the point where the operator's routing work is done:
 
 These are the milestones the game program must expose to the scheduler. How it reaches each one — which listens, which timeouts — is the game program's flow and not this document's.
 
+**A call to the operator succeeds once she has replied.** After the request, each of the caller's lines waits for her to speak (§6.2); once she has spoken in reply, the call counts, whatever happens after. The caller's later lines, a punch line among them, are hers if she stays; if she pulls the cord, the caller hangs up and the call has still succeeded. An operator in a rush says something short and moves on, and nothing told her another line was coming.
+
+**She may leave before replying.** Pulling the cord after the request and before she has replied does not end the call at once. From a room the station is still off-hook, so its lamp lights again, and the caller waits 10s for her alone, as it does before the request (§4) — in tutor pacing, as long as it takes. When she comes back on its line, the caller asks "Hello? Operator? Are you there?" (its `nudge` reaction, §3.5) and the call goes on where it was. Not back in 10s, it hangs up and the call is `cut off`. A caller rung in on a trunk has no lamp to light again: her leaving before a reply cuts it off, as before.
+
 
 
 ## 3.4 Hanging Up
@@ -135,7 +139,7 @@ A failure is logged with its reason:
 | --- | --- |
 | `no answer` | The operator did not answer the calling line in time. |
 | `not connected` | The operator answered but did not connect the call in time — wrong station rung, number not dialled, or nothing done. |
-| `cut off` | A cord was pulled during the conversation — the calling or called line's `peer` went empty before the scene's end, and stayed empty for a second. Not through the switchboard's reset (§2): from `ctl/power_cut` `"on"` until a second after it is `"off"` again, the lines' `peer`, `op` and `seize` stand as they were, and then take their latest values. Or, before the call was connected, the caller was left alone and hung up: the operator not on its line, the line patched to nothing, and no trunk up — for a trunk caller its own, for a station any — for 10s, or 5s once a wrong number has been dialled for the call, counted afresh from the end of the tutor's wrong-cord line if the tutor says one meanwhile (§7.7). Never in tutor pacing (§7). |
+| `cut off` | A cord was pulled during the conversation — the calling or called line's `peer` went empty before the scene's end, and stayed empty for a second. Not through the switchboard's reset (§2): from `ctl/power_cut` `"on"` until a second after it is `"off"` again, the lines' `peer`, `op` and `seize` stand as they were, and then take their latest values. Or, before the call was connected, the caller was left alone and hung up: the operator not on its line, the line patched to nothing, and no trunk up — for a trunk caller its own, for a station any — for 10s, or 5s once a wrong number has been dialled for the call, counted afresh from the end of the tutor's wrong-cord line if the tutor says one meanwhile (§7.7). Never in tutor pacing (§7). A call to the operator is not cut off once she has replied, and from a room is cut off only if she stays away 10s (§3.3). |
 | `timeout` | The operator did not speak when a line was waiting for them (calls to the operator, busy scenes, and a `wait:` line, §6.2). |
 | `misdialled` | The operator dialled the number with too many digits — a digit more within 3s of the last it needs — or too few, stopping 10s short of it, or nothing, 30s after taking the trunk, outside tutor mode. The trunk gets reorder, the fast busy, until she releases it; she may then take a trunk and dial again, and the call fails as `misdialled` only when the connect timeout runs out after a reorder. |
 
@@ -803,6 +807,12 @@ Before step 1: the certificate is issued (`host/README.md`, "The certificate"), 
 - **Screen wake lock** (§11.3). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 15. Revision History
+
+## 15.116 Changes in Rev 116
+
+— A call to the operator succeeds once she has replied, and she may leave before replying and come back (§3.3, §4), Mark's decision, 2026-11-13. Calls to the operator had never succeeded in play: 0/16 on 2026-11-08, 0/8 on 2026-11-12 and 0/8 on 2026-11-13. A call counted only if she stayed through the punch line, and an operator in a rush says something short and pulls the cord, as he did ("I said something curt and cut the guest off"). Her key off for a second after the request was a pulled cord, so she could not leave a guest to answer another lamp and come back. Now a reply is the success and the punch line a bonus; leaving before a reply, from a room, lights the lamp again and the guest waits 10s, then asks "Hello? Operator? Are you there?" when she returns. Under this rule all eight of 2026-11-13's calls to the operator would have succeeded. The review is in `~/s/game/panic-review.md`.
+
+— Code consequence, for Claude Code: `to_operator()` keeps its place in the conversation across her leaving; `_operator_speaks()` returns whether she spoke; `_waits_for_her()` and `BACK_PAUSE` in `flows.py`; `test_flows.py`.
 
 ## 15.115 Changes in Rev 115
 
