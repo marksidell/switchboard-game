@@ -8,7 +8,8 @@ A lamp lights, a caller waits, and the game listens for "Number, please."*
 Watch this [YouTube video](https://youtu.be/LKre26_lzEU) to
 see the game in action.
 
-On tours at the Connections Museum in Seattle, guests are always
+On tours at the [Connections Museum](https://www.telcomhistory.org/ConnectionsSeattle.html)
+in Seattle, guests are always
 eager to learn the basics of operating a traditional switchboard. In this
 project I built a game around a working switchboard in which simulated
 calls allow a player to more fully experience what it was like to be a
@@ -77,7 +78,7 @@ The museum later passed it on to me for this project.
 </p>
 
 Many switchboards that show up on eBay are "gutless wonders" with the
-relays and other circuitry that made them work torn out. (Tearing out
+relays and other circuitry that made them work torn out. (Removing
 the guts makes a switchboard much lighter.) Fortunately, Ms. Bell's
 switchboard was essentially intact and operational.
 
@@ -184,7 +185,7 @@ the switchboard.
 analog telephone adapter (ATA), which allows people to call the switchboard
 from their mobile phones.
 
-Everything is packaged in a 6U travel case.
+Everything is packaged in a 6U travel case:
 
 <p float="left">
   <img src="docs/images/case-front.jpg" width="45%" />
@@ -207,7 +208,7 @@ stations via a daisy-chained I2C bus. I chose the Olimex part because
 it can be powered via its Ethernet interface using PoE.
 The ESP32's ground is tied to the 24 V supply that also powers
 the switchboard. PoE keeps that ground isolated from the PC.
-A small TP-Link 5-port switch connects the ESP32 to the PC and provides power.
+A TP-Link 5-port switch connects the ESP32 to the PC and provides power.
 
 <p align="center">
   <img src="docs/images/control-board.jpg" width="75%" />
@@ -224,7 +225,7 @@ own.
 
 In my design, the ESP32 generates a PWM digital signal,
 which controls a MOSFET H-bridge operating at 24 volts. The PWM
-signal is a 40 kHz carrier with a duty cycle that follows a 20 Hz sine.
+signal is a 40 kHz carrier whose duty cycle is modulated by a 20 Hz sine.
 The bridge drives a
 mains transformer wired backwards to step the signal up to about 80 volts.
 This was the best I could do with the available transformer, but it is high enough.
@@ -260,7 +261,7 @@ ESP32 can operate to cycle power to the switchboard, effectively rebooting it.
 ### The Trunk Board
 
 The circuit between a central office (CO) and a telephone (station) is a DC loop.
-To the trunk board, the switchboard is the telephone: the board plays the central office.
+To the trunk board, the switchboard is the telephone, and the board plays the central office.
 
 The CO powers the loop. When the phone is *onhook* (hung up) it presents an open
 circuit to the CO. When a person picks up the phone it goes *offhook* and presents
@@ -303,7 +304,7 @@ To apply ring voltage to the trunk, the ESP32 briefly pulses the relay,
 which sends 80 volts AC to the trunk.
 
 Normally, a CO would send the standard
-ring cadence of 2 seconds on, 4 seconds off. However, the trunk needs to detect
+ring cadence of 2 seconds on, 4 seconds off. However, my board needs to detect
 that the operator has plugged a cord into the trunk jack (and seized the trunk)
 as soon as it happens, and the circuit cannot sense loop current while
 its ring relay is on. Fortunately, the switchboard trunk ring relays latch
@@ -353,7 +354,7 @@ The station board is a mirror of the trunk board.
   <img src="docs/images/station-board.jpg" width="75%" />
 </p>
 
-The station board's eight circuits must do the following:
+The board's eight circuits must do the following:
 
 - Detect ring from the CO (in our case, from the switchboard).
 - Go offhook by presenting a DC load to the loop circuit.
@@ -389,7 +390,7 @@ With these two circuits
 used for other purposes, there are twenty-two game stations. I distributed
 the twenty-two stations and the real telephone across the thirty switchboard jacks, leaving seven unused.
 In theory I could have added a fourth station board, but the real limiting
-factor is the thirty-two Ferrofish channels.
+factor is the thirty-two-channel Ferrofish.
 
 The ESP32 controls and monitors all station circuits via an MCP23017 I2C I/O expander.
 Each station has a control output to activate the offhook relay and a sense input
@@ -411,7 +412,7 @@ Given the amount of code to be written and the short timeline
 I had set for the project, I simply threw up my hands and told Claude to write it all.
 
 So, this is how I divided the labor: I designed the hardware, drew the schematics,
-laid out the PCBs and assembled the boards. I set the requirements and reviewed the specifications;
+laid out the PCBs, and assembled the boards. I set the requirements and reviewed the specifications;
 Claude Code wrote most of the code
 and, equally important, maintained the specifications. Claude is a much better
 note-taker than I. It documents every step of the process, every design decision, every misstep,
@@ -423,7 +424,7 @@ with Claude to devise tests incorporating the Analog Discovery 3, game logs,
 and one-off test programs, which turned out to be far more useful than the debugging tools
 I'd built into the iPad display.
 
-I'm also thrilled to be able to work on the project anywhere I have my iPhone or
+I'm also happy to be able to work on the project anywhere I have my iPhone or
 iPad. I woke up at 4 a.m. recently and 
 got to wondering how often players ring the wrong cord.
 Lying in bed, I described the problem.
@@ -437,7 +438,8 @@ turn out to be wrong. Usually the errors are obvious,
 but sometimes I need to futz at the bench or force it to review logs
 to settle matters. Of course, it also can't see or touch the switchboard,
 so every hardware fact has to come from me or the test equipment.
-Occasionally I need to remind myself that I'm not becoming my intern's intern.
+With Claude telling me what it needs to diagnose a problem,
+sometimes I feel like I'm becoming my intern's intern.
 
 <!-- pagebreak -->
 
@@ -476,7 +478,7 @@ each other by cord pairs and which circuits the operator
 is keyed to. Without this knowledge the game wouldn't be able to
 monitor and progress through play.
 
-The solution I came up with is to have pilot tones constantly play on all
+The solution I devised is to have pilot tones constantly play on all
 channels, including on a tap on the operator headset, and to run an
 FFT on every channel. When a cord connects two circuits, each one hears
 the other's tone and reports which circuit it's patched
@@ -486,7 +488,7 @@ The tap also feeds the operator's voice to the audience loudspeaker when no call
 
 The pilot tone scheme made the game possible
 while maintaining my prime directive: not modifying the switchboard.
-A nice side benefit is that each channel can report an error when
+A side benefit is that each channel can report an error when
 it cannot hear its own tone, as a `deaf` message. When a channel
 hears more than one other tone, it reports `ambiguous`, which means
 a cord fault or crosstalk.
