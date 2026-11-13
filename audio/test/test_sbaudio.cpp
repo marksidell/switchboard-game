@@ -22,6 +22,7 @@
 #include "../src/cityring.h"
 #include "../src/detector.h"
 #include "../src/dsp.h"
+#include "../src/fbx.h"
 #include "../src/ipc.h"
 #include "../src/util.h"
 #include "../src/vad.h"
@@ -1154,6 +1155,7 @@ static void test_monitor_gate()
     auto sh = std::make_unique<Shared>();
     sh->opt.monitor_gate_db   = -60.0;
     sh->opt.monitor_gate_hold = 0.25;
+    sh->opt.monitor_fbx       = false;   // its steady tone would be notched (10.10)
     AlsaStream st;
     Engine eng(*sh, st);
     check(EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
@@ -1196,6 +1198,125 @@ static void test_monitor_gate()
     run(60, false);                                 // the rest of the hold, and 20ms up
     const double after = run(20, false);
     check(after > speech - 1.0, "then opens again");
+}
+
+// test_fbx()
+//   audio.md 10.10: a held tone gets a notch on its frequency, deepened while
+//   it stays; speech-like harmonics and a two-tone signal get none.
+static void test_fbx()
+{
+    std::printf("the monitor's feedback eliminator (audio.md 10.10)\n");
+    const double fs = chan::SAMPLE_RATE;
+    unsigned seed = 1;
+    auto noise = [&]() { seed = seed * 1103515245u + 12345u; return ((seed >> 9) & 0xffff) / 65536.0 - 0.5; };
+    // Feeds `secs` of sig(t) and returns the output's RMS over the last 0.2 s.
+    auto feed = [&](FeedbackEliminator& f, double secs, auto sig) {
+        const int n = (int)(secs * fs), tail = (int)(0.2 * fs);
+        double e = 0.0;
+        for (int i = 0; i < n; ++i) {
+            const double y = f.run(sig(i / fs) + 1e-4 * noise());
+            if (i >= n - tail) e += y * y;
+        }
+        return std::sqrt(e / tail);
+    };
+
+    FeedbackEliminator f;
+    check(f.prepare(fs, true), "prepares");
+    const double hz = 1234.5;
+    auto howl = [&](double t) { return 0.1 * std::sin(2.0 * M_PI * hz * t); };
+    feed(f, 0.15, howl);
+    check(f.active() == 0, "not in the first 150 ms");
+    feed(f, 0.4, howl);
+    check(f.active() == 1, "one notch after 550 ms");
+    check_near(f.notch_hz(0), hz, 6.0, "on the tone's frequency, Hz");
+    feed(f, 3.0, howl);
+    check_near(f.notch_db(0), FeedbackEliminator::MAX_DB, 0.01, "deepened to the most while it stays, dB");
+    const double out = feed(f, 0.5, howl);
+    check(20.0 * std::log10(out / (0.1 / M_SQRT2)) < -25.0, "and the tone is that much down");
+    check(f.active() == 1, "still one notch");
+
+    FeedbackEliminator sp;
+    sp.prepare(fs, true);
+    auto voice = [&](double t) {
+        double v = 0.0;                         // a held vowel, 120 Hz, 25 harmonics
+        for (int k = 1; k <= 25; ++k) v += (0.03 / k) * std::sin(2.0 * M_PI * 120.0 * k * t + k);
+        return v;
+    };
+    feed(sp, 2.0, voice);
+    check(sp.active() == 0, "a held vowel gets none");
+    auto dial = [&](double t) { return 0.05 * (std::sin(2.0 * M_PI * 350.0 * t) + std::sin(2.0 * M_PI * 440.0 * t)); };
+    feed(sp, 2.0, dial);
+    check(sp.active() == 0, "dial tone, two tones, gets none");
+    auto quiet = [&](double t) { return 0.002 * std::sin(2.0 * M_PI * hz * t); };
+    feed(sp, 2.0, quiet);
+    check(sp.active() == 0, "a tone below -45 dBFS gets none");
+
+    FeedbackEliminator off;
+    off.prepare(fs, false);
+    feed(off, 1.0, howl);
+    check(off.active() == 0, "off: nothing placed");
+}
+
+// test_listen_duck()
+//   audio.md 10.9: the monitor's source goes down while a listen runs on it,
+//   and comes back when it ends.
+static void test_listen_duck()
+{
+    std::printf("the monitor's listen duck (audio.md 10.9)\n");
+    auto sh = std::make_unique<Shared>();
+    sh->opt.monitor_listen_duck_db = 30.0;
+    sh->opt.monitor_fbx = false;          // a steady tone, which 10.10 would notch
+    AlsaStream st;
+    Engine eng(*sh, st);
+    check(EngineProbe(eng).prepare_detached(256, chan::N_PLAY_CH, chan::N_CAP_CH), "engine prepares");
+    Command m;
+    m.verb = Verb::Monitor; m.on = true; m.arg = 0.0f;
+    sh->cmdq.push(m);
+    Command src;
+    src.verb = Verb::MonitorSrc; src.idx = 5;
+    sh->cmdq.push(src);
+    EngineProbe(eng).drain();
+    double t = 0.0;
+    auto run = [&](int periods) {
+        double peak = 0.0;
+        for (int p = 0; p < periods; ++p) {
+            float* in = EngineProbe(eng).capture_row(5);
+            for (int i = 0; i < 256; ++i, t += 1.0 / chan::SAMPLE_RATE)
+                in[i] = (float)(0.03 * std::sin(2.0 * M_PI * 700.0 * t));
+            EngineProbe(eng).capture();
+            EngineProbe(eng).render();
+            const std::vector<int32_t>& out = EngineProbe(eng).playback();
+            const int n = (int)out.size() / chan::N_PLAY_CH;
+            for (int f = 0; f < n; ++f) {
+                const size_t i = (size_t)f * chan::N_PLAY_CH + chan::DIGIFACE_CH_A - 1;
+                peak = std::max(peak, std::fabs((double)out[i] / 2147483648.0));
+            }
+        }
+        return 20.0 * std::log10(peak + 1e-12);
+    };
+    run(100);
+    const double before = run(40);
+    Command l;
+    l.verb = Verb::Listen; l.idx = 5; l.arg = 10.0f;
+    sh->cmdq.push(l);
+    EngineProbe(eng).drain();
+    run(20);
+    const double during = run(40);
+    std::printf("    before %.1f dBFS, listening %.1f dBFS\n", before, during);
+    check_near(during - before, -30.0, 1.0, "30 dB down while it listens, dB");
+    Command c;
+    c.verb = Verb::Listen; c.idx = 5; c.arg = 0.0f;
+    sh->cmdq.push(c);
+    EngineProbe(eng).drain();
+    run(20);
+    check_near(run(40), before, 0.5, "back when the listen ends, dBFS");
+    // A listen on another circuit leaves the source alone.
+    Command o;
+    o.verb = Verb::Listen; o.idx = 6; o.arg = 10.0f;
+    sh->cmdq.push(o);
+    EngineProbe(eng).drain();
+    run(20);
+    check_near(run(40), before, 0.5, "a listen on another circuit: no duck, dBFS");
 }
 
 // test_monitor_limit()
@@ -1567,6 +1688,8 @@ int main()
     test_monitor_filter();
     test_monitor_limit();
     test_monitor_gate();
+    test_fbx();
+    test_listen_duck();
     test_detector();
     test_listener();
     test_hf_meter();

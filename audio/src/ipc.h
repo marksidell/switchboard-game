@@ -203,6 +203,10 @@ struct Shared {
     // packed by the audio thread as cdb * 1000 + peer * 10 + that; -1 for
     // none. Written once a second.
     std::atomic<int> peer_boost { -1 };
+    // audio.md 10.10: notches the feedback eliminator has placed or deepened,
+    // added once a second, and the last one as Hz * 100 + its cut in whole dB.
+    std::atomic<unsigned> fbx_events { 0 };
+    std::atomic<int>      fbx_last   { 0 };
 
     // Output self-check (audio.md 11.4), per playback channel 1-34, element 0
     // unused: periods whose peak exceeded the channel's ceiling, and the

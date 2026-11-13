@@ -752,6 +752,13 @@ void Net::report_counters(double now)
             last_peer_boost_ = pb;
         }
     }
+    // audio.md 10.10: a notch placed or deepened. Rare, and the reason to look.
+    const unsigned fe = sh_.fbx_events.exchange(0);
+    if (fe) {
+        const int last = sh_.fbx_last.load(std::memory_order_relaxed);
+        log_line("monitor: feedback at %d Hz, notch -%d dB (%u in the last second)",
+                 last / 100, last % 100, fe);
+    }
     if (now - last_count_report_ < 10.0) return;
     last_count_report_ = now;
 

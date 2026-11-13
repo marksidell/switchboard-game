@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 37. The changes in each revision are in §17.*
+*Rev 38. The changes in each revision are in §17.*
 
 # 1. Overview
 
@@ -315,11 +315,16 @@ high-pass 150Hz --> elliptic low-pass --> delay 10ms --------> line-disturbance 
                                                                    v
                                                          x peer boost (§10.8)
                                                                    |
+                                                         x listen duck (§10.9)
+                                                                   |
 file on the monitor (§10.4) --> elliptic low-pass, --> x file      |
                                 own state              trim -----> +
                                                                    |
                                                                    v
                                      x gain, ramped, plus --monitor-tap-trim on the tap (§10.2)
+                                                                   |
+                                                                   v
+                                                         feedback eliminator (§10.10)
                                                                    |
                                                                    v
                                                          limiter (--monitor-limit)
@@ -441,6 +446,24 @@ The monitor follows the calling line (game_control.md §9.1). On that line the c
 **Installation.** The figures are in §14, from the measurement in §17.28.
 
 **Log.** `monitor: peer boost +N.NdB, peer <circuit> (measured|start|fixed)` when the boost or its peer changes by more than 0.5dB, at most once a second.
+
+## 10.9 The Listen Duck
+
+The monitor plays the line the operator talks on (§10.3), and the loudspeaker is in her room. What it plays reaches her headset microphone and returns on that line, with whatever the room adds, a few milliseconds later. While the game listens for her to speak and stop (§9), that return keeps the speech detector in `speech` after she has stopped: the 2026-11-12 panic, in a quiet room, held five greetings and replies in `speech` for 4.7–12.2s, and the callers, waiting for silence, never spoke (game_control.md §6.2).
+
+So while a listen runs on the circuit the monitor plays, and no file plays on that circuit or on the circuit it is patched to, the source is lowered by `--monitor-listen-duck`, 30dB by default, in a 20ms ramp linear in dB, and comes back the same way when the listen ends. What the loudspeaker carries then is the operator's own voice, and she is in the room. A listen with a file running is one waiting for someone to talk over the file (§9.4); the audience should hear the file, and it is not lowered. A file on the monitor (§10.4) is never lowered. `--monitor-listen-duck 0` turns it off.
+
+## 10.10 The Feedback Eliminator
+
+With the loudspeaker loud enough, the same loop howls, as it did once at the conference in 2026-11 in a loud room. The eliminator finds the frequency and puts a narrow notch on it, ahead of the limiter, as a stage feedback suppressor does.
+
+**Finding it.** Every fourth sample of the monitor's signal after the notches, 12kHz, goes into a 512-point window; every 256 of those, 21ms, it is Hann-windowed and transformed. The monitor's signal is already held under 3.6kHz and 70dB down by 5.6kHz (§10.1), so the decimation aliases nothing that matters. Howl is one tone standing far above everything else and holding. A frame counts when, between 150Hz and 3.6kHz, its loudest bin is at least −45dBFS as a sine, at least 25dB above the mean of the band outside that bin's ±4 neighbours, and at least 20dB above the loudest bin there. Ten such frames running on the same bin, ±1, about 210ms, is howl. Speech has many harmonics within a few dB of each other; the trunk tones and the ringback cue are two tones (§8.2); neither passes.
+
+**The notch.** A peaking section, Q 10, at the frequency found, interpolated between bins from the parabola through the peak and its neighbours. A new notch cuts 12dB; howl found again within a notch's width, the larger of f/Q and 25Hz, deepens that notch by 6dB, to 30dB at most. Eight notches; with all eight in use, the one least recently placed or deepened is moved. Notches stay until the program restarts: the loop is the room's and does not change with the call. Running, it allocates nothing, takes no lock and does not log.
+
+**What else it catches.** Any steady single tone in the band on the monitor's source: the test tone (§11.1) on a circuit the monitor follows, and on the public line the special-information tones, whose segments last up to 380ms. Bench work with tones on the monitor runs with `--monitor-fbx off`.
+
+**Log.** `monitor: feedback at <Hz> Hz, notch -<dB> dB (<n> in the last second)`, each second a notch was placed or deepened.
 
 # 11. Diagnostics
 
@@ -581,6 +604,9 @@ Command-line options, each with the default given here, and no configuration fil
                        0 to 24, 0 = off (15) (§10.8)
 --monitor-peer-start DB the boost until both paths are measured, 0 to the
                        max (6)
+--monitor-listen-duck DB  the source lowered while a listen runs on it,
+                       0 to 60, 0 = off (30) (§10.9)
+--monitor-fbx on|off   the feedback eliminator (on) (§10.10)
 --monitor-lp HZ HZ DB  monitor low-pass passband edge, stopband edge,
                        stopband dB (3600 5600 70)
 --vad-margin DB        speech threshold above floor (10)
@@ -637,6 +663,14 @@ In order, with the switchboard connected:
 - **Listening on the tap channel.** Not offered — the rough specification says station or trunk — but the tap always carries the operator's voice, and "has the operator said anything" may turn out to be a question the game wants to ask. One more accepted topic if so.
 
 # 17. Revision History
+
+## 17.38 Changes in Rev 38
+
+— The listen duck (§10.9), Mark's request, 2026-11-13. In the panic played 2026-11-12 in a quiet room, five calls failed because the speech detector held the operator's greeting or reply in `speech` for 4.7–12.2s and the caller never spoke; every time, the monitor was playing the very line being listened on, and the loudspeaker reached her headset microphone. While a listen runs on the monitor's circuit and no file plays on it or its peer, the source is now 30dB down. game_control.md Rev 115 also caps the wait at 3–4s of unbroken speech, as the safety net.
+
+— The feedback eliminator (§10.10), Mark's request, 2026-11-13: at the conference the loudspeaker once fed back through the headset. A 512-point analysis of the monitor's signal at 12kHz finds a single tone that stands 25dB over the band and 20dB over anything else for 210ms, and places a peaking notch on it, −12dB, deepened by 6dB each time it is found again, to −30dB; eight notches, kept until restart.
+
+— Code consequence: `fbx.h` and `fbx.cpp`; `MonitorChain::duck_target()` and the eliminator in `process()`, which takes the listens running; `Engine::listening_`; `--monitor-listen-duck` and `--monitor-fbx`; `Shared::fbx_events` and `fbx_last`, logged by `Net::report_counters()`; `test_fbx()` and `test_listen_duck()`, and the gate and duck tests run with the eliminator off, since their stand-in for speech is a steady tone.
 
 ## 17.37 Changes in Rev 37
 

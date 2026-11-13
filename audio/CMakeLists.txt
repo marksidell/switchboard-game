@@ -42,6 +42,7 @@ add_library(sbaudio_core STATIC
   src/wav.cpp
   src/engine.cpp
   src/monitor.cpp
+  src/fbx.cpp
   src/ringdet.cpp
   src/tones.cpp
   src/detector.cpp

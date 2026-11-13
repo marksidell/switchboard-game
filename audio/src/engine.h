@@ -161,6 +161,7 @@ private:
     // element 0 unused (channels.h) except as MONITOR_PROG
     Prog   prog_[chan::N_SLOTS + 1];
     Vad    vad_[chan::N_SLOTS + 1];
+    bool listening_[chan::N_SLOTS + 1] = {};   // this period, for the monitor's duck (audio.md 10.9)
     std::vector<EchoCanceller> aec_;        // one per slot, on the heap: 3 KB each
     AecRef aec_ref_[chan::N_SLOTS + 1];
     uint64_t g_ = 0;                        // 48 kHz samples before this period

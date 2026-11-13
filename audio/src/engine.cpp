@@ -338,7 +338,9 @@ void Engine::process_capture()
         fn = (unsigned)std::min<size_t>(mf.buf->samples.size() - mf.pos, period_);
         fs = mf.buf->samples.data() + mf.pos;
     }
-    mon_.process(capf_.data(), fs, fn, g_);
+    for (int s = 1; s <= chan::N_SLOTS; ++s)
+        listening_[s] = chan::is_circuit_slot(s) && vad_[s].lis.active();
+    mon_.process(capf_.data(), fs, fn, g_, listening_);
     if (fs) {
         // As a circuit's file: `play` clears from the period after it ends.
         mf.pos += fn;

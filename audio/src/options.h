@@ -79,6 +79,12 @@ struct Options {
     // is raised by until both paths are measured.
     double monitor_peer_max_db   = 15.0;
     double monitor_peer_start_db = 6.0;
+    // audio.md 10.9: the source is lowered by this much while a listen runs on
+    // it and no file plays on it or its peer, so the loudspeaker does not keep
+    // the speech detector in speech through the operator's headset (0: off).
+    double monitor_listen_duck_db = 30.0;
+    // audio.md 10.10: the feedback eliminator.
+    bool   monitor_fbx = true;
     double lp_pass    = 3600.0;         // station_circuit.md §8.8
     double lp_stop    = 5600.0;
     double lp_att     = 70.0;

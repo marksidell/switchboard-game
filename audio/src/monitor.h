@@ -5,7 +5,9 @@
 //   circuit) -> 150 Hz high-pass -> elliptic low-pass -> 10 ms delay -> the
 //   line-disturbance gate (10.5) -> the peer boost (10.8)
 //   + a file on the monitor, through its own copy of the low-pass (10.4)
-//   -> gain, under a 20 ms ramp (10.2, 10.3) -> limiter -> row()
+//   -> the listen duck (10.9), on the source alone
+//   -> gain, under a 20 ms ramp (10.2, 10.3) -> feedback eliminator (10.10)
+//   -> limiter -> row()
 //
 // Engine sends the row to the channels --monitor-ch names. Everything here is
 // allocated in prepare(); the rest runs on the audio thread and does not
@@ -17,6 +19,7 @@
 #include <vector>
 
 #include "dsp.h"
+#include "fbx.h"
 #include "ipc.h"
 
 class MonitorChain {
@@ -51,8 +54,10 @@ public:
     // process()                                                        [audio]
     //   One period: capf is the capture, channel-major; file, fn the monitor's
     //   file for this period (nullptr, 0 for none); g the 48 kHz samples
-    //   before this period. Fills row().
-    void process(const float* capf, const float* file, unsigned fn, uint64_t g);
+    //   before this period; listening, by slot, whether a listen is running
+    //   on that circuit (nullptr: none). Fills row().
+    void process(const float* capf, const float* file, unsigned fn, uint64_t g,
+                 const bool* listening = nullptr);
 
     // hand_over()                                                      [audio]
     //   Once a second: the gate and limiter counts and the boost in use, to
@@ -73,6 +78,7 @@ private:
     void   ramp_to(double target);
     void   switch_to(int ch);               // at the bottom of the ramp
     double gate_step(float raw, double y);
+    double duck_target(uint64_t g, const bool* listening);   // 10.9
     int    peer_boost_begin(uint64_t g);    // which path this period measures
     void   peer_boost_end(int mode, double energy, bool gated);
 
@@ -130,4 +136,14 @@ private:
     double   pb_lin_ = 1.0;                 // the boost, linear
     double   pb_target_ = 1.0;              // this period's: pb_lin_ or 1
     double   pb_g_ = 1.0;                   // eased toward it, per sample
+
+    // ---- the listen duck (10.9)
+    double   duck_down_db_ = 0.0;           // -(--monitor-listen-duck); 0 = off
+    double   duck_step_ = 0.0;              // dB per sample, 20 ms end to end
+    double   duck_db_ = 0.0;                // where it is now, dB
+    double   duck_g_ = 1.0;                 // and as a gain
+    unsigned ducks_ = 0;                    // times it went down, for the tests
+
+    // ---- the feedback eliminator (10.10)
+    FeedbackEliminator fbx_;
 };

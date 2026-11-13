@@ -55,6 +55,13 @@ bool MonitorChain::prepare(unsigned period, unsigned ncap)
         log_line("monitor: peer boost up to %.1f dB, %.1f dB until measured",
                  o.monitor_peer_max_db, o.monitor_peer_start_db);
 
+    duck_down_db_ = -o.monitor_listen_duck_db;
+    duck_step_    = o.monitor_listen_duck_db / (0.020 * SAMPLE_RATE);
+    if (o.monitor_listen_duck_db > 0.0)
+        log_line("monitor: %.0f dB down while a listen runs on the source", o.monitor_listen_duck_db);
+    if (!fbx_.prepare(SAMPLE_RATE, o.monitor_fbx)) return false;
+    log_line("monitor: feedback eliminator %s", o.monitor_fbx ? "on" : "off");
+
     // The delay line is there whether or not the gate is on, so the chain's
     // latency does not depend on a setting.
     gate_on_     = o.monitor_gate_db != 0.0;
@@ -240,9 +247,11 @@ double MonitorChain::gate_step(float raw, double y)
 //   after the filter through a second copy of the low-pass, so it is held out
 //   of the pilot band as the source is - the loudspeaker is in the room with
 //   the operator's microphone. That copy runs with no file too.
-void MonitorChain::process(const float* capf, const float* file, unsigned fn, uint64_t g)
+void MonitorChain::process(const float* capf, const float* file, unsigned fn, uint64_t g,
+                           const bool* listening)
 {
     const int pb_mode = peer_boost_begin(g);
+    const double duck = duck_target(g, listening);     // dB
     double pb_e = 0.0;
     bool   pb_gated = false;
     if ((int)ncap_ < src_ch_) {
@@ -259,12 +268,18 @@ void MonitorChain::process(const float* capf, const float* file, unsigned fn, ui
         if (gate_g_ < 1.0) pb_gated = true;
         pb_g_ += (pb_target_ - pb_g_) * (1.0 / (0.020 * SAMPLE_RATE));
         y *= pb_g_;
+        if (duck_db_ != duck) {           // 20 ms from end to end, linear in dB
+            const double st = duck_step_;
+            duck_db_ = (duck < duck_db_) ? std::max(duck, duck_db_ - st) : std::min(duck, duck_db_ + st);
+            duck_g_ = db_to_lin(duck_db_);
+        }
+        y *= duck_g_;
         double f = (i < fn) ? (double)file[i] : 0.0;
         for (size_t s = 0; s < lp_.size(); ++s) f = file_lp_s_[s].run(lp_[s], f);
         if (ramp_ > 0) { gain_ += step_; --ramp_; }
         else           { gain_ = target_; }
         const double fg = (src_ch_ == chan::TAP_CH) ? file_on_tap_ : file_lin_;
-        row_[i] = (float)lim_.run((y + f * fg) * gain_);
+        row_[i] = (float)lim_.run(fbx_.run((y + f * fg) * gain_));
 
         // The bottom of a source ramp, mid-period, so the silence is the 20ms
         // audio.md 10.3 asks for and not 20ms plus the rest of the period.
@@ -284,6 +299,27 @@ void MonitorChain::process(const float* capf, const float* file, unsigned fn, ui
         }
     }
     peer_boost_end(pb_mode, pb_e, pb_gated);
+}
+
+// duck_target()                                                        [audio]
+//   audio.md 10.9. The source's gain for this period from the duck, in dB: down
+//   while a listen runs on the circuit the monitor plays and nothing plays a
+//   file on it or on its peer, 1 otherwise. A listen with a file running is
+//   one waiting for someone to talk over the file, and the audience should
+//   hear the file. The loudspeaker plays the line the operator talks on, and
+//   through her headset microphone it returns on that line and holds the
+//   speech detector in speech after she has stopped. 0 is no duck.
+double MonitorChain::duck_target(uint64_t g, const bool* listening)
+{
+    const int src = src_ch_;
+    if (duck_down_db_ >= 0.0 || !listening || pend_ch_ || !chan::is_circuit_slot(src) ||
+        !listening[src]) return 0.0;
+    if (g < file_until_[src]) return 0.0;
+    int peer = pb_peer_;
+    if (!peer) peer = sh_.heard_peer[src].load(std::memory_order_relaxed);
+    if (peer > 0 && peer <= chan::N_SLOTS && g < file_until_[peer]) return 0.0;
+    if (duck_db_ == 0.0) ++ducks_;
+    return duck_down_db_;
 }
 
 // peer_boost_begin()                                                   [audio]
@@ -366,6 +402,12 @@ void MonitorChain::hand_over()
                          ? (int)std::lround(2000.0 * std::log10(pb_lin_)) * 1000
                            + pb_peer_ * 10 + (fixed_ ? 2 : measured_ ? 1 : 0)
                          : -1, std::memory_order_relaxed);
+    const FeedbackEliminator::Event e = fbx_.take();
+    if (e.count) {
+        sh_.fbx_last.store((int)std::lround(e.hz) * 100 + (int)std::lround(-e.db),
+                           std::memory_order_relaxed);
+        sh_.fbx_events.fetch_add(e.count, std::memory_order_relaxed);
+    }
     const unsigned l = lim_.take_active();
     if (l) sh_.limiter_hits.fetch_add(l, std::memory_order_relaxed);
 }

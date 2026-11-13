@@ -114,6 +114,9 @@ static void usage(const char* p)
 "  --monitor-peer-max DB  most the source is raised while its peer plays a\n"
 "                         file, 0 to 24, 0 = off (15)\n"
 "  --monitor-peer-start DB  that boost until both paths are measured (6)\n"
+"  --monitor-listen-duck DB  lower the source this much while a listen runs on\n"
+"                         it, 0 to 60, 0 = off (30)\n"
+"  --monitor-fbx on|off   the monitor's feedback eliminator (on)\n"
 "  --monitor-lp HZ HZ DB  monitor low-pass passband edge, stopband edge,\n"
 "                         stopband dB (3600 5600 70)\n"
 "  --vad-margin DB        speech threshold above floor (10)\n"
@@ -327,6 +330,11 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         else if (a == "--monitor-gate-hold"){ if (!num(a, nx, o.monitor_gate_hold)) return false; ++i; }
         else if (a == "--monitor-peer-max")  { if (!num(a, nx, o.monitor_peer_max_db)) return false; ++i; }
         else if (a == "--monitor-peer-start"){ if (!num(a, nx, o.monitor_peer_start_db)) return false; ++i; }
+        else if (a == "--monitor-listen-duck"){ if (!num(a, nx, o.monitor_listen_duck_db)) return false; ++i; }
+        else if (a == "--monitor-fbx")    { const std::string v = nx ? nx : ""; ++i;
+                                            if (v == "on") o.monitor_fbx = true;
+                                            else if (v == "off") o.monitor_fbx = false;
+                                            else { std::fprintf(stderr, "--monitor-fbx: on or off\n"); return false; } }
         else if (a == "--monitor-lp")     { if (!want(argc, i, 3, "--monitor-lp")) return false;
                                             if (!num(a, argv[i + 1], o.lp_pass) ||
                                                 !num(a, argv[i + 2], o.lp_stop) ||
@@ -403,6 +411,10 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
     }
     if (o.monitor_peer_max_db < 0.0 || o.monitor_peer_max_db > 24.0) {
         std::fprintf(stderr, "--monitor-peer-max: %g dB is outside 0 to 24\n", o.monitor_peer_max_db);
+        return false;
+    }
+    if (o.monitor_listen_duck_db < 0.0 || o.monitor_listen_duck_db > 60.0) {
+        std::fprintf(stderr, "--monitor-listen-duck: %g dB is outside 0 to 60\n", o.monitor_listen_duck_db);
         return false;
     }
     if (o.monitor_peer_start_db < 0.0 || o.monitor_peer_start_db > o.monitor_peer_max_db) {
