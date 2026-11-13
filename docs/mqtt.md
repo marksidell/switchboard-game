@@ -2,7 +2,7 @@
 
 **MQTT Design**
 
-*Rev 51. The changes in each revision are in §12.*
+*Rev 52. The changes in each revision are in §12.*
 
 # 1. Overview
 
@@ -149,6 +149,7 @@ The ESP32 publishes hardware state as it debounces it (`control.md` §7 and §8)
 | `sbgame/ctl/esp_heartbeat` | uptime in seconds | no | Every 1s from the main loop, after the I²C poll (§8). |
 | `sbgame/ctl/i2c` | `"ok"` or `"missing: "` + absent addresses in hex, e.g. `"missing: 0x22 0x23"` | yes | Result of the boot-time expander scan, republished after any rescan (control.md §4.2, §6.2). While it reads missing, commands for circuits on the absent board are dropped. |
 | `sbgame/ctl/firmware` | `"control.md Rev <n>, <commit>, built <date>"` | yes | Which firmware is running: the revision of control.md it implements, the git commit it was built from (`-dirty` if `control/` had uncommitted changes, `unknown` if built without `control/compile`), and its build time in UTC. Published with the birth message (control.md §9.1). |
+| `sbgame/ctl/last_drop` | `"<reason> (<code>) at uptime <s>s, connected <s>s"` | yes | Why the ESP32's previous connection to the broker ended: the MQTT client's error, by name and number (`socket closed (0)` when the socket closed under it with no client error), the ESP32's uptime when it ended, and how long that connection had lasted. Published once on the connect that follows, after `ctl/firmware`; not after a boot (control.md §9.1). |
 
 The trunk topics are not the station topics with a different noun. A station is commanded off-hook and reports ring arriving; a trunk is commanded to ring and reports seizure. There is no hook to set on a trunk and a station has no ring command. `ring` keeps its name on both but inverts in meaning: on a station it reports ring received, on a trunk it echoes the ring the trunk board is applying. `seize` is the trunk analogue of `hook`.
 
@@ -491,6 +492,10 @@ Recorded so the reasoning survives the move from the circuit documents, whose ch
 - Moving past Mosquitto 2.x: what it means for this system is the `per_listener_settings` and password-file defaults. The WebSockets listener carries MQTT alone, which is not marked for removal.
 
 # 12. Revision History
+
+## 12.52 Changes in Rev 52
+
+— `sbgame/ctl/last_drop` added (§4), following control.md Rev 42, 2026-11-13: why the controller's last connection ended. On 2026-11-12 the controller dropped three times in eleven minutes, each drop ended a game, and the broker's log said only that the client had closed. An addition; no existing topic or payload changes.
 
 ## 12.51 Changes in Rev 51
 

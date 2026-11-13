@@ -2,7 +2,7 @@
 
 **Controller Firmware**
 
-*Rev 41. The changes in each revision are in §12.*
+*Rev 42. The changes in each revision are in §12.*
 
 # 1. Overview
 
@@ -395,6 +395,8 @@ Use a username and password; the broker is not anonymous (`mqtt.md` §9). Set TC
 
 With the birth message, publish `sbgame/ctl/firmware`, retained: `"control.md Rev <n>, <commit>, built <date>"`. `<n>` is `FIRMWARE_SPEC_REV`, the revision of this document the source implements; `<commit>` is the short commit hash at build time, with `-dirty` if `control/` had uncommitted changes, and `<date>` the build's UTC time, both stamped by `control/compile`, or `unknown` without it.
 
+**Why a connection ended.** When the connection is lost, record why: the client's error, by name and number, the uptime and how long the connection had lasted, and print it on the console at once. The client closes the socket on any error, including a PUBACK, PINGRESP or read that outlasts its 1s timeout, and keeps the error; a socket closed under it leaves the error at 0, `socket closed`. Nothing can be published while the connection is down, so the record goes out on the next connect, after `ctl/firmware`, as `sbgame/ctl/last_drop`, retained, once. A boot has no record and publishes none.
+
 **The banner.** The serial console, at 115200, prints a banner once at the end of `setup()` and then for Enter only: CR or LF, at most once every 2s (`BANNER_MIN_MS`). Every other byte on the line is discarded, and GPIO3, the receive pin, is pulled up, because with the USB cable unplugged the line floats and noise on it would otherwise read as keypresses. The limit matters because printing blocks the loop, for about 100ms.
 
 The banner gives the configuration and the live state: the waveform and GPIO4, the expanders, the firmware string, MQTT, OTA, the game heartbeat and the trunks ringing and queued. It also gives the loop timing since it last printed, which it then clears: the longest pass, the longest poll gap, the worst time of each section of the loop, and up to sixteen gaps of 20ms or more with what ran in them.
@@ -451,6 +453,12 @@ What the firmware cannot do is make the ring bus safe: the generator runs whenev
 - Read the banner's loop timing — longest pass and longest poll gap — with the broker up and a republish cycle in the window, and confirm the gap stays at the 5ms nominal. The banner lists each gap of 20ms or more with what ran in it: find what holds the loop when no section accounts for the time. §12.37's open question, why a QoS 1 publish took 150–300ms, belongs here too.
 
 # 12. Revision History
+
+## 12.42 Changes in Rev 42
+
+— `ctl/last_drop` (§9.1, mqtt.md Rev 52), 2026-11-13. On 2026-11-12, 12:54–13:05, the board's round trips to the broker rose from about 1ms to 10–50ms, the 30s republish took 1–5s instead of 0.37s, and the connection dropped three times, each ending a game. The broker logged only that the client closed. The firmware now says why.
+
+— Firmware consequence, made in the same commit: `recordDrop()` and the publish on connect in `sb_net.cpp`; `FIRMWARE_SPEC_REV` 42.
 
 ## 12.41 Changes in Rev 41
 

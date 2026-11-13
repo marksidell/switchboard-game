@@ -27,6 +27,8 @@ static uint32_t retry_wait_ms   = 0;      // from last_attempt_ms; 0 = try now
 static uint32_t backoff_ms      = MQTT_RECONNECT_MIN_MS;
 static uint32_t last_hb_ms      = 0;
 static bool     eth_up_logged   = false;
+static uint32_t connected_at_ms = 0;
+static char     last_drop[96]   = "";     // to publish on the next connect (9.1)
 
 /* Commands received, waiting to be acted on (control.md 9.4). The
  * client calls onMessage from inside mqtt.loop(), and acting there publishes
@@ -318,6 +320,11 @@ static void onConnected() {
   snprintf(fw, sizeof fw, "control.md Rev %u, %s, built %s",
            FIRMWARE_SPEC_REV, FIRMWARE_COMMIT, FIRMWARE_BUILT);
   netPublishCtl("firmware", fw, /*retained=*/true, /*qos=*/1);
+  // control.md 9.1: why the previous connection ended, once, if one did.
+  if (last_drop[0] != '\0') {
+    netPublishCtl("last_drop", last_drop, /*retained=*/true, /*qos=*/1);
+    last_drop[0] = '\0';
+  }
 
   char topic[64];
   snprintf(topic, sizeof topic, "%sstation/+/hook/set", TOPIC_PREFIX);
@@ -332,14 +339,40 @@ static void onConnected() {
   ctlTopic("sync",           topic, sizeof topic); mqtt.subscribe(topic, 1);
   ctlTopic("power_cut/set",  topic, sizeof topic); mqtt.subscribe(topic, 1);
 
-  backoff_ms     = MQTT_RECONNECT_MIN_MS;
-  retry_wait_ms  = 0;
-  just_connected = true;
+  backoff_ms      = MQTT_RECONNECT_MIN_MS;
+  retry_wait_ms   = 0;
+  just_connected  = true;
+  connected_at_ms = millis();
   Serial.printf("mqtt: connected to %s as %s\n", MQTT_BROKER_HOST, MQTT_CLIENT_ID);
 }
 
 static bool was_connected = false;
 static void (*on_lost)() = nullptr;
+
+/* control.md 9.1: why a connection ended. The client closes the socket on any
+ * error - a PUBACK, PINGRESP or read that outlasts its 1s timeout among them -
+ * and keeps the error; a socket closed under it leaves the error at 0. The
+ * record goes out as ctl/last_drop on the next connect, since nothing can be
+ * published now, and on the console at once. */
+static const char* lwmqttErrName(int e) {
+  switch (e) {
+    case  0: return "socket closed";            // LWMQTT_SUCCESS: not the client's doing
+    case -4: return "network timeout";
+    case -5: return "read failed";
+    case -6: return "write failed";
+    case -9: return "missing or wrong packet";
+    case -13: return "pong timeout";
+    default: return "error";
+  }
+}
+
+static void recordDrop(uint32_t now_ms) {
+  const int e = (int)mqtt.lastError();
+  snprintf(last_drop, sizeof last_drop, "%s (%d) at uptime %lus, connected %lus",
+           lwmqttErrName(e), e, (unsigned long)(now_ms / 1000),
+           (unsigned long)((now_ms - connected_at_ms) / 1000));
+  Serial.printf("mqtt: connection lost: %s\n", last_drop);
+}
 
 void netOnLost(void (*fn)()) { on_lost = fn; }
 
@@ -353,6 +386,7 @@ void netService(uint32_t now_ms) {
    * back within this pass still releases the relays (control.md 10). */
   if (was_connected) {
     was_connected = false;
+    recordDrop(now_ms);
     if (on_lost) on_lost();
   }
 
