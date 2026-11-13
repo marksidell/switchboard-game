@@ -21,7 +21,8 @@ from sbgame.flows import busy_scene, outside_to_station, station_to_station, \
     station_to_outside, to_operator
 from sbgame.script_data import Shape, Speech
 
-from harness import D, HOLD, Harness, answers, request_heard, scene, speech
+from harness import D, HOLD, FakeLink, Harness, answers, request_heard, scene, speech
+from sbgame.link import Hw
 
 
 @pytest.fixture(autouse=True)
@@ -700,3 +701,53 @@ async def test_if_busy_the_station_free_the_call_goes_through():
     assert r.ok and Stage.TALKING in h.stages and Stage.BUSY not in h.stages, f"talked: {h.stages}"
     assert ("station/12/play/set", "t.9") not in h.link.sent, "and no if_busy: line"
     assert ("station/2/hook/set", "off") in h.link.sent, "hung the called station up"
+
+
+class EndlessSpeech(FakeLink):
+    """The detector hears speech and never silence: the loudspeaker's loop
+    through the operator's headset (2026-11-12, game_control.md §6.2)."""
+
+    async def _echo(self, key: str, p: str) -> None:
+        base = key.removesuffix("/set")
+        if base.endswith("/listen") and p != "0":
+            await asyncio.sleep(D)
+            await self.b.update(base, "listening")
+            await asyncio.sleep(D)
+            await self.b.update(base, "speech")
+            return
+        await super()._echo(key, p)
+
+
+async def test_speech_that_never_ends_is_taken_as_ended():
+    """hear(): speech past max_speech is ended, and the listen cancelled (§6.2)"""
+    from sbgame.scenes import hear
+    h = Harness(scene(Shape.TO_OPERATOR, to_line="", to_station=None))
+    h.link = EndlessSpeech(h.b)
+    h.hw = Hw(h.link)
+    await h.live()
+    t0 = asyncio.get_running_loop().time()
+    r = await hear(h.b, h.hw, "station/12", 1.0, max_speech=D * 5)
+    took = asyncio.get_running_loop().time() - t0
+    assert r == "silence", f"taken as ended: {r!r}"
+    assert ("station/12/listen/set", "0") in h.link.sent, "the listen cancelled"
+    assert took < D * 15, f"after the cap, not the audio program's 30s: {took:.2f}s"
+    # A silence before the cap is the silence, with nothing cancelled.
+    h2 = Harness(scene(Shape.TO_OPERATOR, to_line="", to_station=None))
+    await h2.live()
+    assert await hear(h2.b, h2.hw, "station/12", 1.0, max_speech=D * 50) == "silence"
+    assert ("station/12/listen/set", "0") not in h2.link.sent, "nothing to cancel"
+
+
+async def test_a_call_to_the_operator_with_a_greeting_that_never_ends(monkeypatch):
+    """Her greeting heard as endless speech: the caller still speaks (§6.2)"""
+    monkeypatch.setattr(flows, "GREETING_MAX", D * 5)
+    monkeypatch.setattr(flows, "SPEECH_MAX", D * 5)
+    h = Harness(scene(Shape.TO_OPERATOR, to_line="", to_station=None,
+                      conversation=(speech("t.2", "caller"),)))
+    h.link = EndlessSpeech(h.b)
+    h.hw = Hw(h.link)
+    h.ctx = dataclasses.replace(h.ctx, hw=h.hw)
+    r = await h.run(to_operator, speaks_when_asked)
+    played = [v for k, v in h.link.sent if k == "station/12/play/set"]
+    assert r.ok, f"succeeds: {r.reason!r}"
+    assert "t.1" in played and "t.2" in played, f"the request and the reply both played: {played}"

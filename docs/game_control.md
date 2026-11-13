@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 114. The changes in each revision are in §15.*
+*Rev 115. The changes in each revision are in §15.*
 
 # 1. Overview
 
@@ -222,6 +222,8 @@ Keys on a conversation line:
 - **`ringback: <seconds>`** — ringback tone on the trunk before the line, up to 30s, stopped as the line starts. Only on a line spoken on a trunk: a `called:` line of a call to an outside line, or a `caller:` line of a call from one.
 
 A line's own lead-in runs in that order: the wait, then the pause, then the ringback, then the line. A cord pulled during any of them cuts the call off, as during speech (§4).
+
+**Speech that does not end.** Wherever the game waits for her to speak and stop — the greeting before a request, a reply in a call to the operator or a busy call, a `wait: true` line, the closing, a caller asking again — speech that has run without a silence for 3s in the greeting before a request or before a caller asks again, or 4s anywhere else, is taken as ended: the listen is cancelled and the line plays. Greetings run 1–2.6s and replies a little longer, so a real one is not cut; what the cap catches is the speech detector held in `speech` by sound from her own end, the loudspeaker through her headset or the room, so the caller would never speak. A free call's turns are not capped (§8): its caller is live and may talk for as long as it likes.
 
 The long-distance call is the case they were made for. The hotel operator dials 0 on a trunk; the local operator (`called.person`) answers, "Operator"; the hotel operator asks for long distance; the next line, marked `wait: true` and `person:` the long-distance operator, answers "Long distance", and the guest talks to that operator. The party the long-distance operator rings can speak on the trunk too, with a `person:` of their own. So can each operator on the route: the long-distance operator asks the rate operator for the route and the charge, then rings through each toll center on it, each answering with its town's name after a `pause:`, and the party answers after a `ringback:`.
 
@@ -801,6 +803,12 @@ Before step 1: the certificate is issued (`host/README.md`, "The certificate"), 
 - **Screen wake lock** (§11.3). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 15. Revision History
+
+## 15.115 Changes in Rev 115
+
+— Speech that runs without a silence for 3s in a greeting, or 4s in any other wait for the operator, is taken as ended (§6.2), Mark's decision, 2026-11-13. In the panic played 2026-11-12 in a quiet room, the speech detector held the operator's greeting or reply in `speech` for 4.7–12.2s in five calls; the caller waits for the silence before speaking, so it never spoke, and she left: beaumont, thornhill, crane, lobby and martha. Greetings that ended took 1.1–2.6s. The likely cause is the loudspeaker, which plays the line she is talking on, through her headset microphone; `audio.md` Rev 38 ducks it while a listen runs on its source. The cap stays as the safety net. The review is in `~/s/game/panic-review.md`.
+
+— Code consequence, for Claude Code: `max_speech` on `hear()` in `scenes.py`; `GREETING_MAX` and `SPEECH_MAX` in `flows.py`, passed by `_operator_speaks()` and by the asking again; `test_flows.py`.
 
 ## 15.114 Changes in Rev 114
 

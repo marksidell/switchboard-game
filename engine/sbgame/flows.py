@@ -60,6 +60,11 @@ DIAL_FIRST = 30.0
 NUDGE_AFTER = 6.0
 PATCH_WAIT = 8.0
 AWAY = 5.0                # s away from a caller before it asks again on her return
+# §6.2: speech that runs this long without a silence is taken as ended -
+# her greeting before the request, and any other wait for her. Greetings run
+# 1-2.6s; the detector has held "speech" for 5-12s on the loudspeaker's loop.
+GREETING_MAX = 3.0
+SPEECH_MAX = 4.0
 # s between a party's last words and its hanging up (§3.4): the time it takes
 # to put a receiver back on its hook.
 HANG_UP = 1.5
@@ -142,18 +147,19 @@ async def _operator_speaks(ctx: Ctx, where: str, sp: Speech, abort_if,
     not, at most REPEATS times; then the line plays, as it would after a
     listen that timed out.
     """
+    cap = GREETING_MAX if request else SPEECH_MAX
     t = _tutoring(ctx)
     if t is None:
         voice = ctx.scene.caller_voice if sp.by == "caller" else ctx.scene.called_voice
         nudge = ctx.reaction("nudge", voice)
         if nudge is None:
-            await hear(ctx.b, ctx.hw, where, ctx.cfg.speak_timeout, abort_if=abort_if)
+            await hear(ctx.b, ctx.hw, where, ctx.cfg.speak_timeout, abort_if=abort_if, max_speech=cap)
             return
         # Not 30s of silence: "Hello? Operator?", then on with the line.
-        if await hear(ctx.b, ctx.hw, where, NUDGE_AFTER, abort_if=abort_if) == "timeout":
+        if await hear(ctx.b, ctx.hw, where, NUDGE_AFTER, abort_if=abort_if, max_speech=cap) == "timeout":
             ctx.say_event(f"{where}: the operator did not speak")
             await say(ctx.b, ctx.hw, where, nudge.name, nudge.seconds, abort_if=abort_if)
-            await hear(ctx.b, ctx.hw, where, NUDGE_AFTER, abort_if=abort_if)
+            await hear(ctx.b, ctx.hw, where, NUDGE_AFTER, abort_if=abort_if, max_speech=cap)
         return
     key = t.say_key(sp, request)
     speaking = lambda: ctx.b.get(f"{where}/listen") == "speech"
@@ -163,10 +169,10 @@ async def _operator_speaks(ctx: Ctx, where: str, sp: Speech, abort_if,
             await t.say(key, abort_if=abort_if, listening=speaking)
             asked = t.asked
             if asked is None:                   # tutor switched off meanwhile
-                await hear(ctx.b, ctx.hw, where, ctx.cfg.speak_timeout, abort_if=abort_if)
+                await hear(ctx.b, ctx.hw, where, ctx.cfg.speak_timeout, abort_if=abort_if, max_speech=cap)
                 return
             listen = asyncio.create_task(
-                hear(ctx.b, ctx.hw, where, REPEAT, abort_if=abort_if))
+                hear(ctx.b, ctx.hw, where, REPEAT, abort_if=abort_if, max_speech=cap))
             press = asyncio.create_task(asked.wait())
             pressed = False
             try:
@@ -181,7 +187,7 @@ async def _operator_speaks(ctx: Ctx, where: str, sp: Speech, abort_if,
                 await asyncio.gather(press, listen, return_exceptions=True)
             if pressed:
                 if not t.active:
-                    await hear(ctx.b, ctx.hw, where, ctx.cfg.speak_timeout, abort_if=abort_if)
+                    await hear(ctx.b, ctx.hw, where, ctx.cfg.speak_timeout, abort_if=abort_if, max_speech=cap)
                     return
                 continue                        # a press: not one of her repeats
             if listen.result() == "silence":
@@ -421,7 +427,8 @@ async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
                 continue
             away = lambda b: not on_line(b)
             try:
-                await hear(ctx.b, ctx.hw, caller, NUDGE_AFTER, abort_if=away)
+                await hear(ctx.b, ctx.hw, caller, NUDGE_AFTER, abort_if=away,
+                           max_speech=GREETING_MAX)
                 if ctx.b.get(f"{caller}/play"):          # a wrong-cord line, say
                     continue
                 ctx.say_event(f"{caller}: asks again")

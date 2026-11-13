@@ -74,15 +74,33 @@ async def say(b: Board, hw: Hw, circuit: str, name: str, length: float,
 
 
 async def hear(b: Board, hw: Hw, circuit: str, start_within: float,
-               *, abort_if=None) -> str:
-    """Listen for the operator to speak and stop. Returns "silence" or "timeout"."""
+               *, abort_if=None, max_speech: float | None = None) -> str:
+    """Listen for the operator to speak and stop. Returns "silence" or "timeout".
+
+    `max_speech`: speech that has run this long without a silence is taken as
+    ended - the listen is cancelled and "silence" returned (game_control.md
+    §6.2). Room noise or the loudspeaker on her headset can keep the detector
+    in speech long after she has stopped, and the caller then never speaks.
+    """
     key = f"{circuit}/listen"
+    done = lambda b: b.get(key) in ("silence", "timeout") and b.get(key)
     await b.expect(key)  # the last listen's "silence" persists until replaced
     await hw.listen(circuit, start_within)
     try:
-        return await b.wait_until(
-            lambda b: b.get(key) in ("silence", "timeout") and b.get(key),
-            start_within + MAX_SPEECH + MARGIN, abort_if=abort_if, needs=(LIVE_AUDIO,))
+        if max_speech is None:
+            return await b.wait_until(done, start_within + MAX_SPEECH + MARGIN,
+                                      abort_if=abort_if, needs=(LIVE_AUDIO,))
+        r = await b.wait_until(lambda b: done(b) or (b.get(key) == "speech" and "speech"),
+                               start_within + MARGIN, abort_if=abort_if, needs=(LIVE_AUDIO,))
+        if r != "speech":
+            return r
+        try:
+            return await b.wait_until(done, max_speech, abort_if=abort_if, needs=(LIVE_AUDIO,))
+        except TimeoutError:
+            log.info("%s: speech ran %.0fs without a silence; taken as ended",
+                     circuit, max_speech)
+            await quietly(hw.listen(circuit, 0))
+            return "silence"
     except BaseException:
         await quietly(hw.listen(circuit, 0))
         raise
