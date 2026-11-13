@@ -54,7 +54,7 @@ Normally, the game doesn't start the next call until after the player
 has connected the current one. But in one scene everyone
 in the hotel calls at nearly the same time to complain about a dog who
 is causing havoc everywhere. (The dog is Martha, who can
-talk and in one scene orders room service.)[^2]
+talk and enjoys ordering room service.)[^2]
 
 <!-- pagebreak -->
 
