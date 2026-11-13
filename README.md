@@ -517,13 +517,12 @@ but players who are young enough can still hear the pilot tones. To eliminate th
 I added a low-pass filter in the headset receiver path.
 I used a fourth-order passive elliptic (Cauer) LC filter,
 which places two notches inside the 6-9 kHz pilot band.
+The filter sits in a box between the headset plug and the switchboard jack:
 
 <p float="left">
-  <img src="docs/images/lowpass-filter-schematic.jpg" width="32%" />
-  <img src="docs/images/lowpass-filter-pcb.jpg" width="32%" />
-  <img src="docs/images/lowpass-filter.jpg" width="32%" />
+  <img src="docs/images/lowpass-filter.jpg" width="45%" />
+  <img src="docs/images/lowpass-filter-schematic.jpg" width="45%" />
 </p>
-
 
 ### The ESP32 Firmware
 
@@ -614,7 +613,7 @@ Here's how the next call is timed in automatic mode:
 for example when a called room answers.
 The logic means that only one call is ever waiting for the operator. Calls do overlap,
 but the game never asks the player to handle two calls at once.
-- The gap shrinks as the game progresses: `gap_now = max(floor, gap - ramp x connected_calls)`.
+- The gap shrinks as the game progresses, speeding up play: `gap_now = max(floor, gap - ramp x connected_calls)`.
 With ramp 0, the rate is constant.
 - Jitter makes the timing feel less mechanical. The actual wait is drawn evenly from `gap_now` +/- `jitter` percent.
 
@@ -632,7 +631,7 @@ JavaScript on the client processes the messages and manages the display.
 An nginx web server running on the PC serves static content and proxies the Mosquitto WebSockets channel.
 It hosts the website at `game.kr3am.org` (my ham call sign) using a proper Let's Encrypt certificate,
 because web clients kinda insist on it. Of
-course, certbot renews it automatically, proving ownership through DNS (AWS Route 53),
+course, certbot renews the certificate automatically, proving ownership through DNS (AWS Route 53),
 so the PC never has to be exposed to the internet.
 
 The iPad displays a replica of the switchboard jacks, showing their status, along with a list of queued
@@ -737,10 +736,9 @@ The film is in the public domain, and the narrator has the perfect voice. So, I 
 from the film, transcribed it, and made that the tutor's reference clip in place
 of a designed voice.
 
-As I modify the game and tweak utterances, the software can spin up the instance
+As I modify the game and tweak utterances, the software can spin up the AWS instance
 to render only the changes.
-
-The AWS instance costs about $1 an hour to run, but the software ensures that it runs only long enough
+The instance costs about $1 an hour to run, but the software ensures that it runs only long enough
 to do the work. Traps in the software kill the instance, and there is a 4-hour self-destruct.
 
 ### Handling Player Mistakes
@@ -834,7 +832,6 @@ picks up the phone and can hear the person speaking.
 The pilot tones are also quite audible in the telephone's earpiece.
 I fixed that problem by stashing the same low-pass filter
 used for the operator headset inside the phone.
-
 The photo below
 shows the filter in the phone.
 The unpopulated section is an electret microphone circuit for the operator headset,
@@ -880,9 +877,9 @@ dials an outside number not in the game's list.
 
 ### Thank You
 
-In 2018 I saw a talk at Strange Loop by Emilia Lazer-Walker about a
-game she was building around a gutless switchboard. I came away
-thinking it would be fun to try something like it.
+In 2018 I saw a talk at Strange Loop by Emilia Lazer-Walker about
+the challenges of building a game around a gutless switchboard. I came away
+thinking it would be fun to try something like that.
 
 Without the generosity and encouragement of these people,
 this game would still be just an idea.
