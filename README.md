@@ -810,7 +810,7 @@ that flips the mode of the cord.)
 
 ### Real Phone Lines
 
-When I demoed the game to friends at the Connections Museum, we agreed that it would
+When I showed the game to friends at the Connections Museum, we agreed that it would
 be neat to have a real telephone connected to the switchboard. That way, people
 watching someone play operator could pick up the phone and pretend to be a hotel guest.
 As one can imagine, this idea led to significant feature creep. Next we decided
@@ -819,44 +819,35 @@ phones via one of the switchboard trunks. Sarah Autumn, the museum's Chief Engin
 configured a public phone number for the switchboard on her Asterisk server, and I
 added a Grandstream analog telephone adapter (ATA) to the game.
 
-I connected the telephone to a station jack and modified a station channel
-to work with it:
-
-- I removed the 330 &Omega; load resistor, because the telephone provides the load.
-- I turned the ring detector into a hook detector.
-- I kept the analog connection to the A32 and the offhook relay, so that the audio
-channel is connected only when the real phone is offhook.
-
-With this configuration, the game can detect when someone
-picks up the phone and can hear the person speaking.
-The pilot tones are also quite audible in the telephone's earpiece.
-I fixed that problem by stashing the same low-pass filter
-used for the operator headset inside the phone.
-The photo below
-shows the filter in the phone.
-The unpopulated section is an electret microphone circuit for the operator headset,
-which I ended up not needing.
+I connected the telephone to a station jack. The telephone provides its own
+load, so that channel's 330 &Omega; resistor came out, and its ring detector
+became an offhook detector. The game can tell when someone picks up the phone,
+and it can hear them speak.
+The pilot tones were quite audible in the telephone earpiece, so I placed a
+copy of the headset's low-pass filter inside the phone. (The unpopulated section of the
+board shown below is an electret microphone circuit for the headset, which I ended up
+not needing.)
 
 <p align="center">
   <img src="docs/images/telephone-filter.jpg" width="70%" />
 </p>
 
-I connected the ATA to trunk 8 and modified a trunk channel to work with
-it:
+I put the ATA on trunk 8. Because it supplies its own loop current and ring, I
+removed that channel's current source and ring relay, and I rewired the loop
+detector to float so that the ATA's polarity doesn't matter.
+I was surprised that even at its maximum 55 V RMS, the ATA couldn't trip the
+switchboard's trunk ring relay, because the loop detector's in-series resistor took
+too much of the voltage. I added back-to-back 220 &micro;F capacitors across the
+resistor to provide a low-impedance path for the AC ring.
+The game has no way to detect an outside call ringing; it first learns of one when the operator answers.
 
-- I removed the constant current source, because the ATA provides loop current.
-- I removed the ring relay; the ATA rings the line.
-- I rewired the loop detector to its AC input, so the loop floats and the ATA's
-polarity doesn't matter, and raised its resistor to 330 &Omega; for the ATA's 30 mA.
-- I kept the analog connection to the A32.
+The photo below shows the ATA bodge: the jack for the ATA (top left),
+the pair wired across the board to trunk 8, and the capacitors
+piggybacked on the resistor (lower right).
 
-After testing, I found that the trunk circuit required one tweak.
-Even at its maximum ring voltage, 55 V RMS, the ATA couldn't trip the switchboard's trunk ring relay
-because the loop detector's resistor took too much of the voltage.
-The fix was to put back-to-back 220 &micro;F electrolytic capacitors
-across the resistor to shunt it for AC ring.
-With that change,
-the game can't see the ATA's ring at all. It first learns of an outside call when the operator answers.
+<p align="center">
+  <img src="docs/images/ata-bodge.jpg" width="70%" />
+</p>
 
 Now that other people can call the switchboard, we had to figure out something for them to do.
 Sarah suggested having Lenny stay at the hotel.
