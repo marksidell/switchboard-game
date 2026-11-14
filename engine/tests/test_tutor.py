@@ -224,9 +224,15 @@ async def test_her_lines_from_script_yml_s_tutor():
     assert t["dial-pizza"].text.endswith("That's seven eight four, four one oh one."), "and as a person today says it, the exchange as digits"
     assert t["dial-rays"].text.endswith("That's seven eight four, five thousand."), "round thousands said whole, as with the exchange name"
     assert t["say-operator.1"].text == "Say: How may I connect your call?", "an operator line, as she is to say it"
-    assert (all(u.speaker == "tutor" and u.name == ("brief." + k.removeprefix("brief-")
-                                                   if k.startswith("brief-") else "tutor." + k)
-              for k, u in t.items())), "each said by the tutor, as tutor.<key>, or brief.<key> for a short form"
+    def named(k: str) -> str:
+        for p in ("brief", "terse"):
+            if k.startswith(p + "-"):
+                return p + "." + k.removeprefix(p + "-")
+        return "tutor." + k
+    assert all(u.speaker == "tutor" and u.name == named(k) for k, u in t.items()), \
+        "each said by the tutor, as tutor.<key>, or brief.<key> or terse.<key> for a short form"
+    assert t["terse-ring-rear-room403"].text == "Rear cord to room 403. Pull far switch to ring.", "a terse form per jack"
+    assert t["terse-dial-pizza"].text == "Dial seven eight four, four one oh one.", "a terse dial in digits alone"
     assert t["brief-ring-front-room403"].text.startswith("Front cord to room 403."), "a short form expanded per jack like its full line"
     assert all(f"brief-ring-rear-{st}" in t for st in cabled), "for every cabled station"
     assert not any(k.startswith(("brief-greet", "brief-say", "brief-intro")) for k in t), "none for the introduction or before the operator speaks"
@@ -293,13 +299,14 @@ async def test_repeat_help_while_the_game_listens_for_her():
     assert not await t.repeat() and not t.asked.is_set(), "refused once she has started speaking"
 
 
-async def test_a_prompt_short_once_said_twice_more_help_in():
-    """A prompt short once said twice, More Help in full"""
+async def test_a_prompt_full_then_brief_then_terse_more_help_in():
+    """A prompt full, then brief, then terse; More Help in full (§7.4)"""
     h = tutored(scene(Shape.STATION_TO_STATION))
     await h.live()
     t = h.ctx.tutor
     for k in ("answer-station", "hangup-pair"):
         t.lines["brief-" + k] = Speech("brief." + k, D * 2, "tutor")
+    t.lines["terse-answer-station"] = Speech("terse.answer-station", D * 2, "tutor")
     mores: list[str] = []
 
     async def on_more(key: str) -> None:
@@ -318,12 +325,13 @@ async def test_a_prompt_short_once_said_twice_more_help_in():
           and tutor_mod.prompt_of("center-ringing") == "center-ringing"), "every jack and number is the one prompt"
     never = lambda b: b.on("station/9/hook")
     await t.say("hangup-pair", hold=True)
-    for _ in range(2):
-        await t.say("answer-station", hold=True)
-    assert plays[-3:] == ["tutor.hangup-pair", "tutor.answer-station", "tutor.answer-station"], f"each prompt in full twice: {plays}"
+    await t.say("answer-station", hold=True)
+    await t.say("answer-station", hold=True)
+    assert plays[-3:] == ["tutor.hangup-pair", "tutor.answer-station", "brief.answer-station"], \
+        f"in full the first time, brief the second: {plays}"
     await t.say("answer-station", until=never)
-    assert plays[-1:] == ["brief.answer-station"], f"then the short form: {plays[-1:]}"
-    assert (t.repeat_key == "brief-answer-station" and t.more_key == "answer-station"
+    assert plays[-1:] == ["terse.answer-station"], f"then terse: {plays[-1:]}"
+    assert (t.repeat_key == "terse-answer-station" and t.more_key == "answer-station"
           and mores[-1:] == ["answer-station"]), "More Help offered, naming the full line"
     assert await t.more(), "More Help taken"
     await asyncio.sleep(D * 4)
@@ -333,7 +341,14 @@ async def test_a_prompt_short_once_said_twice_more_help_in():
     await t.say("talk", hold=True)
     assert plays[-1:] == ["tutor.talk"] and t.more_key == "", "a line with no short form said in full, no More Help"
     await t.say("hangup-pair", hold=True)
-    assert plays[-1:] == ["tutor.hangup-pair"], "a prompt said once so far: in full, its own count"
+    assert plays[-1:] == ["brief.hangup-pair"], "a prompt said once so far: brief, its own count"
+    await t.say("hangup-pair", hold=True)
+    assert plays[-1:] == ["brief.hangup-pair"], "and with no terse form it stays brief"
+    t.demote("answer-station")
+    await t.say("answer-station", hold=True)
+    assert plays[-1:] == ["brief.answer-station"], f"a mistake sends it back to brief: {plays[-1:]}"
+    await t.say("answer-station", hold=True)
+    assert plays[-1:] == ["terse.answer-station"], f"and then terse again: {plays[-1:]}"
     await t.stop()
     watch.cancel()
 

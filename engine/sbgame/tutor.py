@@ -16,8 +16,10 @@ REPEAT seconds while the condition stays false, at most REPEATS times, in the
 background, so a player who has not found the jack hears it again without the
 call waiting on her.
 
-Once she has said a prompt in full twice, it is said short where
-tutor: brief: gives a short form, and More Help says it in full.
+A prompt is said in full the first time, short the second where tutor:
+brief: gives a short form, and shorter still from the third where tutor:
+terse: does (§7.4). More Help says it in full. A wrong cord (§7.7), or a
+prompt said to the end of its repeats, sends the step back to brief.
 """
 
 from __future__ import annotations
@@ -40,8 +42,18 @@ REPEATS = 2                    # times a prompt is said again, at most
 NO_LIMIT = 3600.0              # s, for the timeouts tutor mode lifts (§7)
 # Her introduction, in order: each part but the last waits for More Help (§7.3).
 INTRO = ("intro-jacks", "intro-cords", "intro-switches")
-FULL_TIMES = 2                 # times a prompt is said in full before its short form
+# The levels a prompt is said at, by how often it has been said this game:
+# full the first time, then brief, then terse (§7.4, Rev 119).
 BRIEF = "brief-"               # a short form's key: brief-<key> (tts/script.py)
+TERSE = "terse-"               # the shortest: terse-<key>
+LEVELS = ("", BRIEF, TERSE)
+# A wrong cord (§7.7) sends the steps it is about back to brief.
+DEMOTES = {
+    "rang-trunk":    ("ring-rear",),
+    "rang-caller":   ("ring-front", "ring-rear"),
+    "rang-outside":  ("trunk-front", "dial", "dial-operator"),
+    "rear-in-trunk": ("trunk-front", "answer-trunk"),
+}
 
 
 def prompt_of(key: str) -> str:
@@ -75,9 +87,9 @@ class Tutor:
         self._again: asyncio.Task | None = None
         self._on_repeat = on_repeat
         self.repeat_key = ""
-        # How often she has said each prompt in full this game, which
-        # decides whether it is said short; and the full line More Help would
-        # say for the short one in repeat_key, published through `on_more`.
+        # How often she has said each prompt this game, which decides how
+        # short it is said; and the full line More Help would say for the
+        # short one in repeat_key, published through `on_more`.
         self.said: dict[str, int] = {}
         self._on_more = on_more
         self.more_key = ""
@@ -126,7 +138,7 @@ class Tutor:
             except Exception as e:
                 log.info("tutor repeat state: %s", e)
         # More Help lives exactly as long as a short line is repeatable.
-        full = key.removeprefix(BRIEF) if key.startswith(BRIEF) else ""
+        full = next((key.removeprefix(p) for p in (BRIEF, TERSE) if key.startswith(p)), "")
         if full != self.more_key:
             self.more_key = full
             if self._on_more is not None:
@@ -159,11 +171,14 @@ class Tutor:
         if until is not None and until(self.b):
             return
         prompt = prompt_of(key)
-        short = self.lines.get(BRIEF + key)
-        if short is not None and self.said.get(prompt, 0) >= FULL_TIMES:
-            key, sp = BRIEF + key, short
-        else:
-            self.said[prompt] = self.said.get(prompt, 0) + 1
+        level = min(self.said.get(prompt, 0), len(LEVELS) - 1)
+        self.said[prompt] = self.said.get(prompt, 0) + 1
+        # The shortest form rendered at or above this level: a step with no
+        # terse line stays brief, one with neither stays full.
+        for prefix in reversed(LEVELS[1:level + 1]):
+            if (short := self.lines.get(prefix + key)) is not None:
+                key, sp = prefix + key, short
+                break
         if await self._line(sp, until, abort_if):
             return                      # done before she finished: nothing to repeat
         if listening is not None:
@@ -223,6 +238,13 @@ class Tutor:
         except Exception as e:
             log.info("tutor repeat of %s ended: %s", sp.name, e)
 
+    def demote(self, *prompts: str) -> None:
+        """A mistake on these steps: next time each is said brief, not terse
+        (§7.4). A step not yet said short is left as it is."""
+        for p in prompts:
+            if self.said.get(p, 0) > 1:
+                self.said[p] = 1
+
     async def _repeat(self, sp: Speech, until) -> None:
         try:
             for i in range(REPEATS + 1):
@@ -233,7 +255,10 @@ class Tutor:
                     pass
                 if not self.active:
                     return
-                # After the last repeat, how to hear it again.
+                # After the last repeat, how to hear it again; and the step
+                # is said brief next time, not terse.
+                if i == REPEATS:
+                    self.demote(prompt_of(sp.name.split(".", 1)[-1]))
                 last = self.lines.get("stuck") if i == REPEATS else sp
                 if last is None:
                     break

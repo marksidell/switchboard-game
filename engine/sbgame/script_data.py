@@ -26,7 +26,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from tts.script import BRIEF_PREFIX, Script, Utterance, load
+from tts.script import BRIEF_PREFIX, TERSE_PREFIX, Script, Utterance, load
 
 
 class Shape:
@@ -353,7 +353,7 @@ def build(script_path: str | Path, wav_dir: str | Path) -> GameScript:
             # A short form not rendered yet is no gap: she says
             # the full line in its place. Nor is a wrong-cord line (§7.7),
             # said in every pacing and simply not said without it.
-            if not key.startswith((BRIEF_PREFIX, "rang-", "rear-")):
+            if not key.startswith((BRIEF_PREFIX, TERSE_PREFIX, "rang-", "rear-")):
                 missing.append(u.name)
 
     return GameScript(script=s, scenes=scenes, people=people, jacks=_jacks(s),

@@ -93,6 +93,11 @@ FREE_KEYS = ("greeting", "lines", "loop")
 # More Help is not offered while the game listens.
 BRIEF = "brief"
 BRIEF_PREFIX = "brief-"
+# Shorter still, from the third time on (Rev 119): terse.<key>, under
+# tutor: terse:, for the same lines as brief:.
+TERSE = "terse"
+TERSE_PREFIX = "terse-"
+SHORT = ((BRIEF, BRIEF_PREFIX), (TERSE, TERSE_PREFIX))
 BRIEF_KEYS = tuple(k for k in TUTOR_KEYS
                    if not k.startswith(("intro-", "rang-", "rear-"))
                    and k not in ("say", "greet", "respond", "stuck"))
@@ -357,7 +362,7 @@ def _line_names(stations: dict, outside: dict, scenes: dict, bad: Bad) -> set[st
         bad(f"{name}", "is both a station and an outside entry")
     if OPERATOR_SCENE in scenes:
         bad(f"scenes.{OPERATOR_SCENE}", "is reserved for the names of operator_lines:")
-    for reserved in (TUTOR, BRIEF, FREE, *REACTIONS):
+    for reserved in (TUTOR, BRIEF, TERSE, FREE, *REACTIONS):
         if reserved in scenes:
             bad(f"scenes.{reserved}", "is reserved for the names of the tutor's lines")
     return set(stations) | set(outside)
@@ -970,15 +975,18 @@ def _tutor_lines(raw: object, cast: dict, board: list[dict], stations: dict,
         return {}
     if TUTOR not in cast:
         bad("cast", f"no {TUTOR}, who speaks the lines under tutor:")
-    for key in sorted(set(map(str, raw)) - set(TUTOR_KEYS) - {"lessons", BRIEF}):
+    for key in sorted(set(map(str, raw)) - set(TUTOR_KEYS) - {"lessons", BRIEF, TERSE}):
         bad(f"tutor.{key}", "is not one of the tutor's lines (game_control.md 7)")
-    brief = raw.get(BRIEF) or {}
-    if not isinstance(brief, dict):
-        bad(f"tutor.{BRIEF}", "not a mapping")
-        brief = {}
-    for key in sorted(set(map(str, brief)) - set(BRIEF_KEYS)):
-        bad(f"tutor.{BRIEF}.{key}", "has no short form: not one of "
-            + ", ".join(BRIEF_KEYS) + " (game_control.md 7, Rev 55)")
+    shorts: dict[str, dict] = {}
+    for section, _ in SHORT:
+        given = raw.get(section) or {}
+        if not isinstance(given, dict):
+            bad(f"tutor.{section}", "not a mapping")
+            given = {}
+        for key in sorted(set(map(str, given)) - set(BRIEF_KEYS)):
+            bad(f"tutor.{section}.{key}", "has no short form: not one of "
+                + ", ".join(BRIEF_KEYS) + " (game_control.md 7, Rev 55)")
+        shorts[section] = given
 
     def checked(key: str, text: object, at: str) -> str | None:
         field_ = TUTOR_KEYS[key]
@@ -991,8 +999,11 @@ def _tutor_lines(raw: object, cast: dict, board: list[dict], stations: dict,
             bad(at, f"unreadable placeholder: {e}")
             return None
         want = {field_} if field_ else set()
-        # {number-digits} beside {number}: what to dial, as said today.
+        # {number-digits} beside {number}, or in its place: what to dial, as
+        # said today.
         may = want | ({DIGITS_FIELD} if field_ == "number" else set())
+        if field_ == "number" and DIGITS_FIELD in used:
+            want = set()
         if not want <= used or used - may:
             bad(at, "takes " + (f"{{{field_}}}" if field_ else "no placeholder")
                 + (" and may take {" + DIGITS_FIELD + "}" if may - want else "")
@@ -1007,15 +1018,17 @@ def _tutor_lines(raw: object, cast: dict, board: list[dict], stations: dict,
     for key in TUTOR_KEYS:
         if (t := checked(key, raw.get(key), f"tutor.{key}")) is not None:
             texts.append((key, "", t))
-    for key in BRIEF_KEYS:
-        if key in brief and (t := checked(key, brief[key], f"tutor.{BRIEF}.{key}")) is not None:
-            texts.append((key, BRIEF_PREFIX, t))
+    for section, prefix in SHORT:
+        for key in BRIEF_KEYS:
+            given = shorts[section]
+            if key in given and (t := checked(key, given[key], f"tutor.{section}.{key}")) is not None:
+                texts.append((key, prefix, t))
 
     out: dict[str, Utterance] = {}
 
     def add(key: str, text: str) -> None:
-        scene, id_ = ((BRIEF, key.removeprefix(BRIEF_PREFIX)) if key.startswith(BRIEF_PREFIX)
-                      else (TUTOR, key))
+        scene, id_ = next(((section, key.removeprefix(prefix)) for section, prefix in SHORT
+                           if key.startswith(prefix)), (TUTOR, key))
         u = Utterance(scene=scene, id=id_, speaker=TUTOR, text=text, role=TUTOR)
         why = name_problem(u.name)
         if why is not None:

@@ -10555,6 +10555,475 @@
     "text_sha": "709bc96093accb0f",
     "voice_sha": "16619c235a8d72ff"
   },
+  "terse.answer-station": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "48515ac3e80d890c",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.answer-trunk": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "cc3acb81fb27ea9a",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.center-dialled": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "3373bb54b86ff970",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.center-ringing": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "0f9c9286e86517ba",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.dial-canlis": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "f28fe5f5268c0f46",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.dial-ferries": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "db7fb274de596f45",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.dial-florist": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "efac50b6739dec17",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.dial-operator": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "e70d7884079a35c3",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.dial-paramount": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "d2211c2acb54d8cd",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.dial-pharmacy": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "acbb65e1ee58055e",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.dial-pizza": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "b3983cdc6022c5bc",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.dial-placepigalle": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "fefdb6c3950b179c",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.dial-police": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "9de379223e67ceb1",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.dial-rays": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "651e58cc4f0cb73e",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.dial-swedish": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "9a3979332ea0244e",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.dial-taxi": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "0503c18bf476d989",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.dial-times": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "c2cba9cd0f8e4b44",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.dial-v16company": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "f4c8bccf502fc5aa",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.dial-westernunion": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "bca9b290bdbe9f3f",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.hangup-one": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "7e7c11a0e653525d",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.hangup-pair": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "b1ff21b9db79a8ca",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-bellcaptain": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "1e5ab83a29fcb5cd",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-concierge": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "385964388477d1c1",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-frontdesk": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "3d56039571fce944",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-housekeeping": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "0db3ed52424c3a13",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-imperialsuite": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "54e26341969c332b",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-lobby": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "5a52f9bb1a11ea79",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-restaurant": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "316f06fa3e208126",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-room101": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "9b674ba65ecb956f",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-room102": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "726edf5e1fbe3574",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-room103": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "33f2cec75ed5455a",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-room105": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "7b5edda4843cc5b3",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-room201": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "1b188795c5d68e7e",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-room204": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "1eb52fc2a29ea8b9",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-room205": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "3d9e1268cb9d541e",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-room302": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "f47fb4f4baecba7b",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-room303": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "d3e29c451df412ff",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-room305": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "44af2d64f3f4164b",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-room401": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "39d6d00315b9cd1f",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-room403": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "323dda7b8adb5f8f",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-room404": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "fd271545b0e77905",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-roomservice": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "690eb9cb292b2c6d",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-front-valet": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "1504016e704f0acc",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-bellcaptain": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "64772427639cc2e8",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-concierge": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "a5cd46044091dd78",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-frontdesk": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "72c8d27152f816ab",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-housekeeping": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "bde4c61902c0dd4a",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-imperialsuite": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "e39057a70c30bf32",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-lobby": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "02ce91f2d615ba89",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-restaurant": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "3a96818a0f12d997",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-room101": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "5ec89e2e2b6a9794",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-room102": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "b6585d11a046dc61",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-room103": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "1efc259977f7b639",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-room105": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "a27266c39529e8bc",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-room201": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "6b7d477253b4cad8",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-room204": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "454442d075127dff",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-room205": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "8ea0af035d9785fc",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-room302": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "a8462b35883830cd",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-room303": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "275f66c50c26004d",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-room305": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "ec39efa4cf8bbc2e",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-room401": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "2ee62cb0311d4cbd",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-room403": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "7673b17ad524828e",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-room404": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "e0222fd4dd0e2225",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-roomservice": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "cbab1f529dfdaad8",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.ring-rear-valet": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "7d8fbcf617cf6747",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.talk": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "e77c4783eeae3fc2",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
+  "terse.trunk-front": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "tutor",
+    "text_sha": "362c05cb4bf74170",
+    "voice_sha": "8b4ed5260dcb435d"
+  },
   "times-hollis.1": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,

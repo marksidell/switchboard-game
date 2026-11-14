@@ -48,7 +48,7 @@ from .scenes import say
 from .script_data import GameScript, SceneDef, Shape
 from .session import SessionLog
 from . import sweep
-from .tutor import INTRO, NO_LIMIT, Tutor
+from .tutor import DEMOTES, INTRO, NO_LIMIT, Tutor
 
 _TRUNK_FAULT = re.compile(r"^trunk/(\d+)/fault$")     # §7.7
 _STATION_RINGING = re.compile(r"^station/(\d+)/ringing$")   # heard by sbaudio
@@ -1268,6 +1268,8 @@ class Game:
     async def _hint(self, call: Call, key: str) -> None:
         """Her line for a wrong cord, on the monitor, in any pacing (§7.7)."""
         await self.say(f"wrong cord: {key}", call.number)
+        if self.tutor is not None:              # §7.4: the step back to brief
+            self.tutor.demote(*DEMOTES.get(key, ()))
         sp = self.gs.tutor.get(key)
         if sp is None or self.hw is None:
             return

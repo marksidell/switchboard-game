@@ -1212,6 +1212,23 @@ tutor:
         ready-manual: Next Call, when you are ready.
         for-you: This call is for you.
 
+    # Shorter still, from the third time on (game_control.md 7.4, Rev 119):
+    # the cord and what to do with the switch, no more. A line not given here
+    # stays at its brief: form; a mistake sends the step back to brief:.
+    terse:
+        answer-station: Rear cord, push near switch.
+        answer-trunk: Front cord to the trunk.
+        talk: Push near switch, to talk.
+        ring-front: Front cord to {jack}. Pull near switch to ring.
+        ring-rear: Rear cord to {jack}. Pull far switch to ring.
+        center-ringing: Center near switch when they answer.
+        trunk-front: Front cord to a trunk.
+        dial: Dial {number-digits}.
+        dial-operator: Dial zero.
+        center-dialled: Center switch when they answer.
+        hangup-pair: Pull both cords, center switches.
+        hangup-one: Pull the cord, center switches.
+
     # The first calls of a game in tutor mode, one of each kind in this
     # order (game_control.md 7, Rev 30): each game picks one scene from
     # each group at random, so a restart does not repeat the last. Then the

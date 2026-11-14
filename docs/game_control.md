@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 118. The changes in each revision are in §15.*
+*Rev 119. The changes in each revision are in §15.*
 
 # 1. Overview
 
@@ -357,10 +357,12 @@ Pressed on a "Say:" prompt, Repeat Help stops the listen first, so the loudspeak
 
 `repeat/set` with nothing repeatable, or while the operator speaks, is refused on `game/error`.
 
-**Short prompts.** Each prompt is said in full the first two times it comes up, and from the third time short if script.yml's `tutor: brief:` has a short form for it: "Rear cord into the lighted jack, then push the near switch away from you." A prompt with no short form is always said in full.
+**Short prompts.** Each prompt is said at one of three levels. In full the first time it comes up; the second time, brief, if script.yml's `tutor: brief:` has a form for it: "A room is calling. Rear cord into the lighted jack, then push the near switch away from you."; from the third time on, terse, if `tutor: terse:` has one: "Rear cord, push near switch." — the cord and what to do with the switch, no more. A prompt with no terse form stays brief, and one with neither is always said in full. A terse `dial` gives the number in digits alone, as a person says it today.
+
+**A mistake sends the step back to brief.** A wrong cord (§7.7) sends the steps it is about back to the brief form for their next time — ringing the trunk or the caller, the ring prompts; ringing an outside line, the trunk and dial prompts; a rear cord in a trunk, the trunk and answer prompts — and so does a prompt said to the end of its repeats (§7.2), which the player did not manage on the shortest form. After that brief time, terse again.
 
 - **What is counted.** Times are counted from Start, or from Tutor chosen mid-game, prompt by prompt. A jack or a number in a prompt does not make another prompt, so `ring-front` to room 403 and to the Lobby count together, while `dial-operator` counts apart from `dial`. The tutor's own repeats, Repeat Help and More Help do not count.
-- **More Help for the full line.** Once a short prompt has finished and the game waits on the player, More Help (the deck's key 8, as in the introduction) says the full line at once. It is offered for as long as the short line could be repeated, and `game/tutor/more` carries the full line's key while it is, `""` otherwise. After the press, Repeat Help repeats the full line, and More Help is not offered again until the next short prompt. `more/set` outside the introduction with no short prompt waiting is refused on `game/error`.
+- **More Help for the full line.** Once a short prompt, brief or terse, has finished and the game waits on the player, More Help (the deck's key 8, as in the introduction) says the full line at once. It is offered for as long as the short line could be repeated, and `game/tutor/more` carries the full line's key while it is, `""` otherwise. After the press, Repeat Help repeats the full line, and More Help is not offered again until the next short prompt. `more/set` outside the introduction with no short prompt waiting is refused on `game/error`.
 - **What may have a short form.** Every prompt but the introduction and the three said before the operator speaks (`say`, `greet`, `respond`).
 
 ## 7.5 Calls in Tutor Mode
@@ -395,7 +397,7 @@ The lines are in script.yml under `tutor:`. Each key is one line, rendered as `t
 | `dial` | each outside line but the operator | `{number}`, as the operator's card prints it, and optionally `{number-digits}`, the number as a person today says it: "seven eight three, two two five oh", "seven eight four, five thousand" |
 | `say` | each operator line | `{line}` |
 
-Each is a whole sentence, not a phrase spliced into a sentence at play time, so it is spoken as one. A short form under `brief:` is expanded the same way and rendered as `brief.<key>`, `brief.ring-front-room403`, since `tutor.brief-…` would pass the 31 characters a name may have.
+Each is a whole sentence, not a phrase spliced into a sentence at play time, so it is spoken as one. A short form under `brief:` or `terse:` is expanded the same way and rendered as `brief.<key>` or `terse.<key>`, `brief.ring-front-room403`, since `tutor.brief-…` would pass the 31 characters a name may have.
 
 The tutor's voice is designed and chosen as any cast member's (`tts/aws/design --only tutor`, `tts/audition`, `tts/choose --only tutor`), and the lines are rendered and band-limited with the rest.
 
@@ -811,6 +813,12 @@ Before step 1: the certificate is issued (`host/README.md`, "The certificate"), 
 - **Screen wake lock** (§11.3). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 15. Revision History
+
+## 15.119 Changes in Rev 119
+
+— Prompts in three levels (§7.4), Mark's request, 2026-11-14: in full the first time, brief the second, terse from the third — "Rear cord, push near switch." Rev 55 said a prompt in full twice before its short form, and the short form for good; a player who had it after one hearing heard the long line again, and the short one never got shorter. A wrong cord, or a prompt that ran out of repeats, sends that step back to brief for its next time. The terse forms keep the switch movement, the part players forget; a terse `dial` is the number in digits.
+
+— Code consequence, for Claude Code: `tutor: terse:` in script.yml, rendered as terse.<key> (`TERSE`, `SHORT` in tts/script.py; a number line may take `{number-digits}` alone); `LEVELS`, `DEMOTES` and `Tutor.demote()` in tutor.py, called by `_hint()` in game.py and at a prompt's last repeat; `test_tutor.py`.
 
 ## 15.118 Changes in Rev 118
 
