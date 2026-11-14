@@ -38,6 +38,7 @@ pause = 3.0              # listen: seconds from the board emptying to the next c
 
 # Timeouts (§5). Starting values for play-testing.
 answer_timeout = 60.0    # the operator to answer a lamp
+scenario_answer_timeout = 90.0  # the same, for a scenario's calls (the panic)
 connect_timeout = 90.0   # to connect, after the request has played
 speak_timeout = 30.0     # the operator to speak when a line is waiting
 

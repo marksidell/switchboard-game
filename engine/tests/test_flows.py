@@ -31,7 +31,8 @@ def fast(monkeypatch):
     monkeypatch.setattr(dialling, "DIAL_SETTLE", D)
     monkeypatch.setattr(dialling, "DIAL_PAUSE", D * 6)
     for name, v in (("NUDGE_AFTER", D * 4), ("PATCH_WAIT", D * 6), ("ANSWER_AFTER", D),
-                    ("DIAL_FIRST", D * 10), ("BUSY_HOLD", D * 2), ("AWAY", D * 2)):
+                    ("DIAL_FIRST", D * 10), ("BUSY_HOLD", D * 2), ("AWAY", D * 2),
+                    ("FLICK", D)):
         monkeypatch.setattr(flows, name, v)
 
 
@@ -875,3 +876,200 @@ async def test_she_replies_and_leaves_before_her_reply_ends():
     r = await h.run(to_operator, op)
     assert r.ok, f"succeeds: {r.reason!r}"
     assert any("left after replying" in e for e in h.events), h.events
+
+
+# ------------------------------------------------- Rev 118 (2026-11-14) ----
+
+
+def _reactions(h: Harness) -> None:
+    """nudge and giveup, as rendered reactions (§3.5)."""
+    lines = {"nudge": speech("nudge.1", "caller"), "giveup": speech("giveup.1", "caller")}
+    h.ctx = dataclasses.replace(h.ctx, reaction=lambda kind, voice: lines.get(kind))
+
+
+async def test_ambiguous_in_conversation_is_not_a_pulled_cord():
+    """Keyed on two pairs for a moment: `ambiguous` is not a pulled cord (§4)"""
+    h = Harness(scene(Shape.STATION_TO_STATION))
+
+    async def op(h: Harness) -> None:
+        await good_station_operator(h)
+        await h.b.wait_until(lambda b: b.get("station/2/play") == "t.2", 5)
+        for c in ("station/12", "station/2"):
+            await h.b.update(f"{c}/peer", "ambiguous")
+        await asyncio.sleep(D * 4)
+        await h.b.update("station/12/peer", "station/2")
+        await h.b.update("station/2/peer", "station/12")
+        await asyncio.sleep(60)
+
+    r = await h.run(station_to_station, op)
+    assert r.ok, f"succeeds: {r.reason!r}"
+
+
+async def test_a_line_that_cannot_hear_keeps_the_operator():
+    """A howl: `op` off with `deaf`, for longer than HOLD, then back (§4)"""
+    h = Harness(scene(Shape.STATION_TO_STATION))
+
+    async def op(h: Harness) -> None:
+        c, want = "station/12", 2
+        await answers(h, c)
+        await h.b.wait_until(lambda b: b.get(f"{c}/play") == "t.1", 5)
+        await h.b.update(f"{c}/op", "off")
+        await h.b.update(f"{c}/peer", "deaf")
+        await asyncio.sleep(HOLD * 2)
+        await h.b.update(f"{c}/peer", "")             # hearing again
+        await h.b.update(f"{c}/op", "on")             # she was there all along
+        await h.b.wait_until(lambda b: not b.get(f"{c}/play"), 5)
+        await h.b.update(f"station/{want}/ring", "on")
+        await h.b.wait_until(lambda b: b.on(f"station/{want}/hook"), 5)
+        await h.b.update(f"station/{want}/ring", "off")
+        await h.b.update(f"{c}/peer", f"station/{want}")
+        await h.b.update(f"station/{want}/peer", c)
+        await asyncio.sleep(60)
+
+    r = await h.run(station_to_station, op)
+    assert r.ok, f"succeeds: {r.reason!r}"
+
+
+async def test_a_line_deaf_for_good_is_cut_off_in_the_end():
+    """`op` off and the line deaf from then on: cut off after DEAF_MAX (§4)"""
+    h = Harness(scene(Shape.STATION_TO_STATION))
+
+    async def op(h: Harness) -> None:
+        await good_station_operator(h)
+        await h.b.wait_until(lambda b: b.get("station/2/play") == "t.2", 5)
+        await h.b.update("station/12/peer", "deaf")
+        await h.b.update("station/12/peer", "")
+        await asyncio.sleep(60)
+
+    r = await h.run(station_to_station, op)
+    assert not r.ok and r.reason == Reason.CUT_OFF, f"cut off: {r.reason!r}"
+
+
+async def test_engaged_she_tells_the_caller_and_leaves():
+    """Engaged: she starts to tell the caller and pulls the cord: success (§3.3, §6.6)"""
+    h = Harness(scene(Shape.STATION_TO_STATION, if_busy=(speech("t.9", "caller"),)))
+    await h.b.update("station/2/hook", "on")
+
+    async def op(h: Harness) -> None:
+        c = "station/12"
+        await answers(h, c)
+        await request_heard(h, c)
+        await h.b.wait_until(lambda b: b.get(f"{c}/listen") == "speech", 5)
+        await h.b.update(f"{c}/op", "off")
+        await asyncio.sleep(60)
+
+    real = h.link._echo
+
+    async def echo(key: str, p: str) -> None:       # her words never end
+        if key.endswith("/listen/set") and p != "0" and h.b.saw("station/12/play", "t.1"):
+            base = key.removesuffix("/set")
+            await asyncio.sleep(D)
+            await h.b.update(base, "listening")
+            await asyncio.sleep(D)
+            await h.b.update(base, "speech")
+            return
+        await real(key, p)
+    h.link._echo = echo
+
+    r = await h.run(station_to_station, op)
+    played = [v for k, v in h.link.sent if k == "station/12/play/set"]
+    assert r.ok, f"succeeds: {r.reason!r}"
+    assert "t.9" not in played, f"the reply is a bonus: {played}"
+    assert any("left after telling them" in e for e in h.events), h.events
+
+
+async def test_engaged_she_leaves_without_a_word_is_cut_off(monkeypatch):
+    """Engaged: she pulls the cord before speaking: cut off, as before (§4)"""
+    monkeypatch.setattr(flows, "ABANDON", D * 10)
+    h = Harness(scene(Shape.STATION_TO_STATION, if_busy=(speech("t.9", "caller"),)))
+    await h.b.update("station/2/hook", "on")
+
+    async def op(h: Harness) -> None:
+        c = "station/12"
+        await answers(h, c)
+        await request_heard(h, c)
+        await h.b.update(f"{c}/op", "off")
+        await asyncio.sleep(60)
+
+    real = h.link._echo
+
+    async def echo(key: str, p: str) -> None:       # she never speaks
+        if key.endswith("/listen/set") and p != "0" and h.b.saw("station/12/play", "t.1"):
+            await asyncio.sleep(D)
+            await h.b.update(key.removesuffix("/set"), "listening")
+            return
+        await real(key, p)
+    h.link._echo = echo
+
+    r = await h.run(station_to_station, op)
+    assert not r.ok and r.reason == Reason.CUT_OFF, f"cut off: {r.reason!r}"
+
+
+async def test_a_caller_held_asks_if_she_is_there(monkeypatch):
+    """Held while she answers another lamp, then back: "Hello? Operator?" (§3.5)"""
+    monkeypatch.setattr(flows, "ABANDON", D * 40)
+    monkeypatch.setattr(flows, "HELD", D * 8)
+    monkeypatch.setattr(flows, "BACK_PAUSE", D)
+    h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
+                      dial="275-4101"))
+    _reactions(h)
+
+    async def op(h: Harness) -> None:
+        c = "station/12"
+        await answers(h, c)
+        await request_heard(h, c)
+        await h.b.update(f"{c}/op", "off")
+        await asyncio.sleep(HOLD + D * 10)
+        await h.b.update(f"{c}/op", "on")
+        await h.b.wait_until(lambda b: b.saw(f"{c}/play", "nudge.1"), 5)
+        await request_heard(h, c)                       # and asks again
+        await h.b.update("trunk/3/seize", "on")
+        await h.b.update("trunk/3/peer", c)
+        await h.b.update(f"{c}/peer", "trunk/3")
+        await h.b.wait_until(lambda b: b.get("trunk/3/tone") == "dial", 5)
+        for d in "2754101":
+            await asyncio.sleep(D / 2)
+            await h.b.update("trunk/3/digit", d)
+        await asyncio.sleep(60)
+
+    r = await h.run(station_to_outside, op)
+    played = [v for k, v in h.link.sent if k == "station/12/play/set"]
+    assert r.ok, f"succeeds: {r.reason!r}"
+    assert played.index("nudge.1") < len(played) - 1 - played[::-1].index("t.1"), \
+        f"asked if she was there, then asked again: {played}"
+
+
+async def test_after_a_wrong_number_asks_again_then_gives_up():
+    """Wrong number: first return asks again, second gives up, not connected (§3.5)"""
+    h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
+                      dial="275-4101"))
+    _reactions(h)
+
+    async def op(h: Harness) -> None:
+        c = "station/12"
+        await answers(h, c)
+        await request_heard(h, c)
+        await h.b.update("trunk/3/seize", "on")
+        await h.b.update("trunk/3/peer", c)
+        await h.b.update(f"{c}/peer", "trunk/3")
+        await h.b.wait_until(lambda b: b.get("trunk/3/tone") == "dial", 5)
+        for d in "2754109":                             # wrong
+            await asyncio.sleep(D / 2)
+            await h.b.update("trunk/3/digit", d)
+        await h.b.wait_until(lambda b: b.get("trunk/3/tone") == "busy", 5)
+        for _ in range(2):                              # out of the trunk, back to her
+            await h.b.update(f"{c}/op", "off")
+            await h.b.update("trunk/3/seize", "off")
+            await h.b.update("trunk/3/peer", "")
+            await h.b.update(f"{c}/peer", "")
+            await asyncio.sleep(HOLD + D * 2)
+            await h.b.update(f"{c}/op", "on")
+            await asyncio.sleep(D * 20)
+        await asyncio.sleep(60)
+
+    r = await h.run(station_to_outside, op)
+    played = [v for k, v in h.link.sent if k == "station/12/play/set"]
+    assert not r.ok and r.reason == Reason.NOT_CONNECTED, f"not connected: {r.reason!r}"
+    assert played.count("t.1") == 2, f"asked again once: {played}"
+    assert played[-1] == "giveup.1" or "giveup.1" in played, f"then gave up: {played}"
+    assert any("gives up" in e for e in h.events), h.events

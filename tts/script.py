@@ -76,7 +76,8 @@ TUTOR_KEYS: dict[str, str | None] = {
 #   nudge  - the operator has not spoken where they wait for her
 #   hello  - they have answered and nobody is on the line
 #   wrong  - the operator has put them through to the wrong party
-REACTIONS = ("nudge", "hello", "wrong")
+#   giveup - after a wrong number, she has come back to them a second time
+REACTIONS = ("nudge", "hello", "wrong", "giveup")
 # Free calls, Lenny mode (game_control.md 8), under freecall:,
 # per cast member: a greeting:, the lines: said once in order, and the loop:
 # said round and round after them. Named free.<cast>.g for the greeting and

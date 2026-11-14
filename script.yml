@@ -549,6 +549,9 @@ reactions:
     hello: Hello? ... Hello? Is anybody there?
     # She has put the caller through to the wrong party.
     wrong: Operator, that's not who I asked for.
+    # After a wrong number, she has come back to them a second time without
+    # putting them through: they give up and hang up.
+    giveup: Never mind, operator. I'll try again later.
 
 # Free calls, Lenny mode (game_control.md 8, Rev 74). A real person on
 # station 24 or the public trunk is put through to a room or an outside
@@ -4809,8 +4812,36 @@ scenes:
             id: 2
             text: Room 205, three minutes, two dollars and... Hello? Operator?
 
+    # The Colonel asks the Stoneburner for pecan pie; restaurant-beaumont is
+    # the chef's answer.
+    beaumont-pie:
+        active: true
+        calling:
+            line: room205
+            person: beaumont
+        called:
+            line: restaurant
+            person: hostess
+        request:
+            id: 1
+            operator: internal-greeting
+            text: Operator, the dining room, if you please.
+        conversation:
+            -   id: 2
+                called: The Stoneburner, good evening.
+            -   id: 3
+                caller: This is Colonel Beaumont, 205. I'd like a slice of pecan pie sent up.
+            -   id: 4
+                called: I'm sorry, Colonel, we have no pecan pie. Would you care for apple?
+            -   id: 5
+                caller: Apple. I'd sooner eat my hat, and it's a very fine hat.
+            -   id: 6
+                called: I'll speak to the chef, sir.
+
     restaurant-beaumont:
         active: true
+        after: beaumont-pie
+        delay: [30, 60]
         calling:
             line: restaurant
             person: hostess

@@ -885,6 +885,9 @@ class Game:
     async def _run_call(self, call: Call, scene: SceneDef, trunk: int | None) -> None:
         assert self.slots is not None and self.hw is not None
         cfg = self.cfg
+        if self.gs.in_scenario(scene.id):
+            # §4: a scenario's lamps wait their turn behind each other.
+            cfg = dataclasses.replace(cfg, answer_timeout=cfg.scenario_answer_timeout)
         if self.tutor is not None:
             # §7: nobody fails for being slow while she teaches.
             cfg = dataclasses.replace(cfg, answer_timeout=NO_LIMIT,

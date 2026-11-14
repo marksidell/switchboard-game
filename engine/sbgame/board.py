@@ -73,6 +73,14 @@ class Board:
     # whose "off" never comes.
     SETTLE = 1.0
     CUT_MAX = 3.0
+    # A line that cannot hear - `peer` "deaf" or "ambiguous" - says nothing
+    # about its cord (§4). A connection going away while it cannot hear, or
+    # just as it stops hearing, is believed only after HOLD more of hearing
+    # again, and at most DEAF_MAX after it went: a howl on the loudspeaker
+    # swamps the pilots for a second or two, and an operator keyed on two
+    # pairs at once makes every line on them hear two others.
+    DEAF_MAX = 5.0
+    UNHEARD = ("deaf", "ambiguous")
 
     def __init__(self, hold: float | None = None) -> None:
         self._v: dict[str, str] = {}
@@ -81,7 +89,11 @@ class Board:
         # A test's shorter hold shortens the cut's timings with it.
         self.settle = self.SETTLE * self.hold / self.HOLD
         self.cut_max = self.CUT_MAX * self.hold / self.HOLD
+        self.deaf_max = self.DEAF_MAX * self.hold / self.HOLD
         self._held: dict[str, asyncio.TimerHandle] = {}   # key -> its pending fall
+        self._held_since: dict[str, float] = {}           # key -> monotonic start of its fall
+        self._unheard: dict[str, float] = {}              # circuit -> monotonic time it last could not hear
+        self._deaf: set[str] = set()                      # circuits that cannot hear now
         self._watchers: set[asyncio.Queue[Change]] = set()
         self._frozen: dict[str, str] | None = None        # key -> latest, during a cut
         self._thaw: asyncio.TimerHandle | None = None
@@ -205,27 +217,39 @@ class Board:
     def _hold(self, key: str, payload: str) -> bool | None:
         """A circuit's `peer` and `op` going away, held (§4).
 
-        `deaf` is a circuit not hearing its own pilot, which says nothing
-        about what it is patched to: the last value stands. A `peer` going
-        empty or `op` going off is applied only if it is still the latest
-        after HOLD seconds. Returns whether anything changed, or None for a
-        message this does not handle.
+        `deaf` is a circuit not hearing its own pilot, and `ambiguous` one
+        hearing more than one other, which say nothing about what it is
+        patched to: the last value stands. A `peer` going empty or `op` going
+        off is applied only if it is still the latest after HOLD seconds, and
+        then only once the line has heard again for HOLD (DEAF_MAX). Returns
+        whether anything changed, or None for a message this does not handle.
         """
-        kind = key.rsplit("/", 1)[-1]
+        circuit, _, kind = key.rpartition("/")
         if not (key.startswith(("station/", "trunk/")) and kind in ("peer", "op")):
             return None
+        if kind == "peer":
+            if payload in self.UNHEARD:
+                self._deaf.add(circuit)
+                self._unheard[circuit] = time.monotonic()
+                return False
+            if circuit in self._deaf:
+                self._deaf.discard(circuit)
+                self._unheard[circuit] = time.monotonic()
         pending = self._held.pop(key, None)
         if pending is not None:
             pending.cancel()
-        if kind == "peer" and payload == "deaf":
-            return False
         going = (payload == "") if kind == "peer" else (payload != "on")
         if going and self._v.get(key) and self.hold > 0:
-            loop = asyncio.get_running_loop()
-            self._held[key] = loop.call_later(
-                self.hold, lambda: asyncio.ensure_future(self._settle(key, payload)))
+            self._held_since[key] = time.monotonic()
+            self._arm(key, payload, self.hold)
             return False
+        self._held_since.pop(key, None)
         return self._set(key, payload)
+
+    def _arm(self, key: str, payload: str, delay: float) -> None:
+        loop = asyncio.get_running_loop()
+        self._held[key] = loop.call_later(
+            delay, lambda: asyncio.ensure_future(self._settle(key, payload)))
 
     def _power_cut(self, payload: str) -> None:
         """Freeze the lines for the 1s reset, and thaw them SETTLE after it."""
@@ -252,6 +276,18 @@ class Board:
     async def _settle(self, key: str, payload: str) -> None:
         async with self.cond:
             self._held.pop(key, None)
+            circuit = key.rpartition("/")[0]
+            now = time.monotonic()
+            since = self._held_since.get(key, now)
+            # Not heard for part of the hold, or deaf still: wait for HOLD of
+            # hearing - but not past DEAF_MAX from the fall.
+            unheard = self._unheard.get(circuit, 0.0)
+            if (circuit in self._deaf or unheard >= since - 0.2) and now - since < self.deaf_max:
+                wait = self.hold if circuit in self._deaf else max(0.0, unheard + self.hold - now)
+                if wait > 0:
+                    self._arm(key, payload, min(wait, since + self.deaf_max - now))
+                    return
+            self._held_since.pop(key, None)
             if self._set(key, payload):
                 self.cond.notify_all()
 
@@ -311,6 +347,9 @@ class Board:
             for h in self._held.values():
                 h.cancel()
             self._held.clear()
+            self._held_since.clear()
+            self._unheard.clear()
+            self._deaf.clear()
             if self._thaw is not None:
                 self._thaw.cancel()
             self._frozen = self._thaw = None

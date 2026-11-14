@@ -16,8 +16,8 @@ of this file.
 |---|---|---|
 | `mqtt.md` | **52** | The MQTT design: broker, clients, topic naming, every message by publisher, QoS and retention, liveness, broker configuration and access list. |
 | `control.md` | **42** | The firmware specification: startup order, ring generation, I²C map, station and trunk behaviour, dial pulse timing, failsafes. |
-| `audio.md` | **39** | The audio program specification: channel plan, output mixer, detector scheduling, file playback, trunk tones, speech detection, audience monitor, MQTT interface. |
-| `game_control.md` | **117** | The game program, status page and Stream Deck: what a game is, call pacing, the deck of scenes, tallies, call slots, the log, the jack map. |
+| `audio.md` | **40** | The audio program specification: channel plan, output mixer, detector scheduling, file playback, trunk tones, speech detection, audience monitor, MQTT interface. |
+| `game_control.md` | **118** | The game program, status page and Stream Deck: what a game is, call pacing, the deck of scenes, tallies, call slots, the log, the jack map. |
 | `pilot-map.md` | — | Slot ↔ bin ↔ circuit assignment and the detector constants. Authoritative. |
 | `audio-io.md` | — | Channel map, measured reference levels, bench tools. |
 

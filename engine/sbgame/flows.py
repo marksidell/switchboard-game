@@ -46,10 +46,13 @@ from .scenes import quietly, hear, ringing_station, say
 from .tutor import REPEAT, REPEATS, Tutor
 
 # §3.5: a caller left with neither the operator nor a connection, and no trunk
-# up, hangs up after ABANDON before the call is connected; after ABANDON_MISDIALLED
-# once she has dialled a wrong number for it.
-ABANDON = 10.0
+# up, hangs up after ABANDON before the call is connected - long enough to be
+# held while she answers another lamp; after ABANDON_MISDIALLED once she has
+# dialled a wrong number for it.
+ABANDON = 30.0
 ABANDON_MISDIALLED = 5.0
+# §3.5: back after HELD or more, the caller asks whether she is there first.
+HELD = 10.0
 # §3.5: a trunk taken and not dialled for DIAL_FIRST gets reorder, outside
 # tutor mode; time to look a number up. Free calls wait less (freecall.py).
 DIAL_FIRST = 30.0
@@ -60,6 +63,7 @@ DIAL_FIRST = 30.0
 NUDGE_AFTER = 6.0
 PATCH_WAIT = 8.0
 AWAY = 5.0                # s away from a caller before it asks again on her return
+FLICK = 0.5               # s away that is only the switch passing centre
 BACK_PAUSE = 0.5          # s after she comes back before the caller asks if she is there
 # §6.2: speech that runs this long without a silence is taken as ended -
 # her greeting before the request, and any other wait for her. Greetings run
@@ -76,6 +80,10 @@ ANSWER_AFTER = 3.0        # s of ring before a room answers, right or wrong
 BUSY_HOLD = 3.5
 
 log = logging.getLogger("flow")
+
+
+class GaveUp(TimeoutError):
+    """The caller gave up waiting to be put through (§3.5): not connected."""
 
 
 @dataclass
@@ -410,7 +418,11 @@ async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
     When she comes back on the caller's line, the answering cord alone, after
     AWAY or more, the caller says the request again once she has spoken, or
     after NUDGE_AFTER if she does not (§3.5): a guest kept waiting does not
-    sit silent.
+    sit silent. Back after HELD or more, it first asks whether she is there.
+
+    After a wrong number (§3.5), her first return, however short, gets the
+    request again, and her second the caller giving up: GaveUp, which the
+    flow takes as `not connected`. Not in tutor pacing.
     """
     def lost(b: Board) -> bool:
         if b.on(f"{caller}/op") or b.get(f"{caller}/peer"):
@@ -422,21 +434,46 @@ async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
     def on_line(b: Board) -> bool:
         return b.on(f"{caller}/op") or "/" in (b.get(f"{caller}/peer") or "")
 
-    async def returns() -> None:
+    async def returns() -> str:
         """She leaves the caller and comes back on with the answering cord
-        alone, not patched on: the caller asks again."""
+        alone, not patched on: the caller asks again, or after a wrong
+        number gives up. Returns "gave up" when it has."""
+        misdial_returns = 0
         while True:
             await ctx.b.wait_until(lambda b: not on_line(b), None)
             left = time.time()
             await ctx.b.wait_until(on_line, None)
-            if time.time() - left < AWAY or "/" in (ctx.b.get(f"{caller}/peer") or ""):
+            gone_for = time.time() - left
+            if "/" in (ctx.b.get(f"{caller}/peer") or ""):
+                continue
+            after_wrong = ctx.misdialled and _tutoring(ctx) is None
+            if after_wrong:
+                if gone_for < FLICK:
+                    continue
+                misdial_returns += 1
+            elif gone_for < AWAY:
                 continue
             away = lambda b: not on_line(b)
             try:
+                if gone_for >= HELD:
+                    nudge = ctx.reaction("nudge", ctx.scene.caller_voice)
+                    if nudge is not None:
+                        await asyncio.sleep(BACK_PAUSE)
+                        ctx.say_event(f"{caller}: asks if the operator is there")
+                        await say(ctx.b, ctx.hw, caller, nudge.name, nudge.seconds,
+                                  abort_if=away)
                 await hear(ctx.b, ctx.hw, caller, NUDGE_AFTER, abort_if=away,
                            max_speech=GREETING_MAX)
                 if ctx.b.get(f"{caller}/play"):          # a wrong-cord line, say
                     continue
+                if after_wrong and misdial_returns >= 2:
+                    giveup = ctx.reaction("giveup", ctx.scene.caller_voice)
+                    ctx.say_event(f"{caller}: gives up")
+                    if giveup is not None:
+                        await say(ctx.b, ctx.hw, caller, giveup.name, giveup.seconds,
+                                  abort_if=away)
+                    await asyncio.sleep(HANG_UP)
+                    return "gave up"
                 ctx.say_event(f"{caller}: asks again")
                 try:
                     await say(ctx.b, ctx.hw, caller, ctx.scene.request.name,
@@ -476,12 +513,22 @@ async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
     asker = asyncio.ensure_future(returns())
     asker.add_done_callback(asker_failed)
     try:
-        done, _ = await asyncio.wait({task, watcher}, return_when=asyncio.FIRST_COMPLETED)
+        done, _ = await asyncio.wait({task, watcher, asker}, return_when=asyncio.FIRST_COMPLETED)
+        if done == {asker} and (asker.cancelled() or asker.exception() is not None
+                                or asker.result() != "gave up"):
+            # It failed (logged): routing goes on without it.
+            done, _ = await asyncio.wait({task, watcher}, return_when=asyncio.FIRST_COMPLETED)
     except BaseException:
         for t in (task, watcher, asker):
             t.cancel()
         await asyncio.gather(task, watcher, asker, return_exceptions=True)
         raise
+    if asker in done and task not in done and not asker.cancelled() \
+            and asker.exception() is None and asker.result() == "gave up":
+        for t in (task, watcher):
+            t.cancel()
+        await asyncio.gather(task, watcher, return_exceptions=True)
+        raise GaveUp("the caller gave up after a wrong number")
     asker.cancel()
     await asyncio.gather(asker, return_exceptions=True)
     if task in done:
@@ -671,8 +718,8 @@ async def _found_engaged(ctx: Ctx, caller: str, gone) -> Outcome:
     await ctx.slots.set_stage(ctx.call, Stage.BUSY, time.time() + ctx.cfg.speak_timeout)
     await ctx.mark_connected()                             # §3.3
     try:
-        await _replies(ctx, caller, ctx.scene.if_busy, gone)
-        await asyncio.sleep(HANG_UP)
+        if await _replies(ctx, caller, ctx.scene.if_busy, gone):
+            await asyncio.sleep(HANG_UP)
     except TimeoutError:
         return Outcome(False, Reason.TIMEOUT)
     return Outcome(True)
@@ -707,12 +754,32 @@ async def _open_call(ctx: Ctx, caller: str, trunk: int | None = None) -> Outcome
     return None
 
 
-async def _replies(ctx: Ctx, caller: str, lines, gone) -> None:
-    """The caller's lines, each played after she has spoken."""
+async def _replies(ctx: Ctx, caller: str, lines, gone) -> bool:
+    """The caller's lines, each played after she has spoken.
+
+    A caller told the line is busy or engaged (§3.3, §6.6): once she has
+    begun to speak to it - the detector has heard her start - the call is
+    handled, and her leaving after that ends it as a success; the replies
+    are a bonus for staying. Returns False if she left after speaking, True
+    if every line played. Abandoned if she left before.
+    """
+    told = False
     for line in lines:
-        await _operator_speaks(ctx, caller, line, gone)
-        await _lead_in(ctx, caller, line, gone)
-        await _play(ctx, caller, line, gone)
+        waiting = True
+        try:
+            if await _operator_speaks(ctx, caller, line, gone):
+                told = True
+            waiting = False
+            await _lead_in(ctx, caller, line, gone)
+            await _play(ctx, caller, line, gone)
+        except Abandoned:
+            if waiting and ctx.b.saw(f"{caller}/listen", "speech"):
+                told = True
+            if not told:
+                raise
+            ctx.say_event(f"{caller}: the operator left after telling them")
+            return False
+    return True
 
 
 async def _route_out(ctx: Ctx, caller: str) -> int:
@@ -857,7 +924,8 @@ async def busy_scene(ctx: Ctx) -> Outcome:
             await _hold(ctx, BUSY_HOLD, gone)
             await ctx.hw.tone(trunk, "off")
             await _tut(ctx, "busy-heard", abort_if=gone)                # tutor
-            await _replies(ctx, caller, sc.conversation, gone)
+            if not await _replies(ctx, caller, sc.conversation, gone):
+                return Outcome(True)                   # told, and left (§3.3)
         except TimeoutError:
             return Outcome(False, Reason.TIMEOUT)
         await _closing(ctx, caller, gone)

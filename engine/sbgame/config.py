@@ -61,6 +61,9 @@ class Config:
 
     # ---- timeouts (§4), all play-testing values ------------------------
     answer_timeout: float = 60.0   # operator to answer a lamp
+    # A scenario's calls come every few seconds, and a lamp waits its turn
+    # behind the others (§4, §6.5).
+    scenario_answer_timeout: float = 90.0
     connect_timeout: float = 90.0  # to connect, after the request has played
     speak_timeout: float = 30.0    # operator to speak when a line waits
     # audio.md §14's cap on one utterance. It is not ours to choose: it must
@@ -151,7 +154,8 @@ class Config:
             bad.append(f"pause {self.pause} outside 0-60")
         if self.floor > self.gap:
             bad.append(f"floor {self.floor} is above gap {self.gap}")
-        for name in ("answer_timeout", "connect_timeout", "speak_timeout", "max_speech"):
+        for name in ("answer_timeout", "scenario_answer_timeout", "connect_timeout",
+                     "speak_timeout", "max_speech"):
             if getattr(self, name) <= 0:
                 bad.append(f"{name} must be positive")
         if not isinstance(self.ata_host, str):

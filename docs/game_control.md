@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 117. The changes in each revision are in §15.*
+*Rev 118. The changes in each revision are in §15.*
 
 # 1. Overview
 
@@ -103,7 +103,9 @@ These are the milestones the game program must expose to the scheduler. How it r
 
 **A call to the operator succeeds once she has replied.** After the request, each of the caller's lines waits for her to speak (§6.2); once she has begun to reply — the speech detector has heard her start, whether or not it has heard her stop — the call counts, whatever happens after. The caller's later lines, a punch line among them, are hers if she stays; if she pulls the cord, the caller hangs up and the call has still succeeded. An operator in a rush says something short and moves on, and nothing told her another line was coming.
 
-**She may leave before replying.** Pulling the cord after the request and before she has replied does not end the call at once. From a room the station is still off-hook, so its lamp lights again, and the caller waits 10s for her alone, as it does before the request (§4) — in tutor pacing, as long as it takes. When she comes back on its line, the caller asks "Hello? Operator? Are you there?" (its `nudge` reaction, §3.5) and the call goes on where it was. Not back in 10s, it hangs up and the call is `cut off`. A caller rung in on a trunk has no lamp to light again: her leaving before a reply cuts it off, as before.
+**She may leave before replying.** Pulling the cord after the request and before she has replied does not end the call at once. From a room the station is still off-hook, so its lamp lights again, and the caller waits 30s for her alone, as any caller held before it is put through does (§4) — in tutor pacing, as long as it takes. When she comes back on its line, the caller asks "Hello? Operator? Are you there?" (its `nudge` reaction, §3.5) and the call goes on where it was. Not back in 30s, it hangs up and the call is `cut off`. A caller rung in on a trunk has no lamp to light again: her leaving before a reply cuts it off, as before.
+
+**A busy line or an engaged room is handled once she has told the caller.** After busy tone on a trunk (`busy: true`) or a station found engaged (§6.6), each of the caller's lines waits for her to speak, as above; once she has begun to — the speech detector has heard her start — the call counts, whatever happens after. The caller's reply, "Never mind, I'll try later", is hers if she stays; if she pulls the cord, the caller hangs up and the call has still succeeded. An operator in a rush says the line is busy and moves on.
 
 
 
@@ -117,7 +119,9 @@ When the call was on a trunk, the far end has gone too. If her cord is still in 
 
 A wrong connection is logged but is not a failure on its own (§4). A wrong room rung answers, "Hello?", the caller says it is not who they asked for, and it hangs up; a right room rung on a cord not patched to the caller says "Hello?" after 8s and hangs up after 8s more; a party waiting for her to speak says "Hello? Operator?" after 6s of silence; and a trunk taken and not dialled for 15s gets reorder and fails as `misdialled` (§15.60). An operator who plugs the wrong jack and corrects it within the connect timeout has made the call. A wrong number of the right length gets busy tone on the trunk until she hangs it up, and she may redial; one too long or too short is `misdialled`. The game takes a number as dialled 3s after its last digit, so as to hear a digit too many; a fresh seizure gets dial tone again, a second after it, as on every seizure for a call out.
 
-A caller she leaves before it is connected, and comes back to with the answering cord alone after 5s or more, says its request again: once she has spoken, or after 6s if she does not. A guest kept waiting does not sit silent, and an operator who has lost track of a call hears what it wanted. The log says "asks again". A shorter absence, such as centring the key before the front cord goes in, does not count.
+A caller she leaves before it is connected, and comes back to with the answering cord alone after 5s or more, says its request again: once she has spoken, or after 6s if she does not. A guest kept waiting does not sit silent, and an operator who has lost track of a call hears what it wanted. The log says "asks again". A shorter absence, such as centring the key before the front cord goes in, does not count. Back after 10s or more, it first asks "Hello? Operator? Are you there?" (its `nudge` reaction).
+
+After a wrong number, her first return to the caller, however short, gets the request again in the same way: she has had to take her cord out of the trunk, and the guest wants to know what happened. Her second, the call still not put through, gets the caller giving up — "Never mind, operator. I'll try again later.", its `giveup` reaction — and hanging up 1.5s later; the call fails as `not connected`. Not in tutor pacing.
 
 ## 3.6 Which Trunk a Call Rings In On
 
@@ -139,11 +143,11 @@ A failure is logged with its reason:
 | --- | --- |
 | `no answer` | The operator did not answer the calling line in time. |
 | `not connected` | The operator answered but did not connect the call in time — wrong station rung, number not dialled, or nothing done. |
-| `cut off` | A cord was pulled during the conversation — the calling or called line's `peer` went empty before the scene's end, and stayed empty for a second. Not through the switchboard's reset (§2): from `ctl/power_cut` `"on"` until a second after it is `"off"` again, the lines' `peer`, `op` and `seize` stand as they were, and then take their latest values. Or, before the call was connected, the caller was left alone and hung up: the operator not on its line, the line patched to nothing, and no trunk up — for a trunk caller its own, for a station any — for 10s, or 5s once a wrong number has been dialled for the call, counted afresh from the end of the tutor's wrong-cord line if the tutor says one meanwhile (§7.7). Never in tutor pacing (§7). A call to the operator is not cut off once she has replied, and from a room is cut off only if she stays away 10s (§3.3). |
+| `cut off` | A cord was pulled during the conversation — the calling or called line's `peer` went empty before the scene's end, and stayed empty for a second. A line that cannot hear — `peer` `"deaf"` or `"ambiguous"` — says nothing about its cord: its last `peer` stands, and a `peer` going empty or `op` going off while it cannot hear, or just as it stops, counts only after a second of hearing again, and at most 5s after it went. A howl on the loudspeaker swamps the pilots, and an operator keyed on two pairs at once makes every line on them hear two others. Not through the switchboard's reset (§2): from `ctl/power_cut` `"on"` until a second after it is `"off"` again, the lines' `peer`, `op` and `seize` stand as they were, and then take their latest values. Or, before the call was connected, the caller was left alone and hung up: the operator not on its line, the line patched to nothing, and no trunk up — for a trunk caller its own, for a station any — for 30s, or 5s once a wrong number has been dialled for the call, counted afresh from the end of the tutor's wrong-cord line if the tutor says one meanwhile (§7.7). Never in tutor pacing (§7). A call to the operator is not cut off once she has replied, and from a room is cut off only if she stays away 30s; a busy or engaged call, not once she has spoken to the caller (§3.3). |
 | `timeout` | The operator did not speak when a line was waiting for them (calls to the operator, busy scenes, and a `wait:` line, §6.2). |
 | `misdialled` | The operator dialled the number with too many digits — a digit more within 3s of the last it needs — or too few, stopping 10s short of it, or nothing, 30s after taking the trunk, outside tutor mode. The trunk gets reorder, the fast busy, until she releases it; she may then take a trunk and dial again, and the call fails as `misdialled` only when the connect timeout runs out after a reorder. |
 
-Timeouts are the game program's configuration, not the page's: 60s to answer, 90s to connect after the request has played, 30s for the operator to speak. They are starting values for play-testing.
+Timeouts are the game program's configuration, not the page's: 60s to answer — 90s for a scenario's calls (§6.5), `scenario_answer_timeout`, since its lamps light every few seconds and each waits its turn — 90s to connect after the request has played, 30s for the operator to speak. They are starting values for play-testing.
 
 A wrong connection is not a failure on its own (§3.5).
 
@@ -259,13 +263,13 @@ It is dealt in manual and auto pacing only: never in tutor mode, which is one ca
 
 **At most `live` waiting**. A scenario's first scene may carry `live: <n>`, 1 to 8. While any of the game's calls not yet connected (§3.3) number `n` or more, a follower whose delay has run out waits, as it waits for a free slot (§6.1), and starts when one of them is connected or ends. So the operator never has more than `n` calls waiting on her at once, however fast the scenario's delays run; a call connected and talking does not count. A call to the operator counts until its request has played. With no `live:`, the slots are the only bound.
 
-`panic` is the first, at the tenth call, with `live: 3`: Martha the dog loose in the hotel, a complaint from every guest room but hers, from the lobby and from the restaurant, four to eight seconds apart, ending with Martha calling from her own room.
+`panic` is the first, at the tenth call, with `live: 3`: Martha the dog loose in the hotel, a complaint from every guest room but hers, from the lobby and from the restaurant, four to eight seconds apart, ending with Martha calling from her own room. Its lamps wait 90s to be answered, not 60s (§4).
 
 ## 6.6 A Station Found Engaged
 
 A call from a room to a room may carry `if_busy:`, a list of caller lines like a busy call's conversation (§6.2), each played after the operator has spoken. It is for a station many want at once — the front desk in a scenario.
 
-The called station is **engaged** if the game has it off-hook in another call: the room is calling, or has answered. If it is engaged when the request has played, or becomes engaged before the operator rings it, the call is found engaged. It is then **connected** (§3.3), its stage is `busy` (§3.2), and the `if_busy:` lines play, each after she has spoken — "I'm sorry, the front desk is busy" — and the caller hangs up. The game does not answer a ring on an engaged station. Otherwise the call goes as any call between rooms, and `if_busy:` is not heard.
+The called station is **engaged** if the game has it off-hook in another call: the room is calling, or has answered. If it is engaged when the request has played, or becomes engaged before the operator rings it, the call is found engaged. It is then **connected** (§3.3), its stage is `busy` (§3.2), and the `if_busy:` lines play, each after she has spoken — "I'm sorry, the front desk is busy" — and the caller hangs up. Once she has begun to speak to the caller, the call is handled, and she may leave (§3.3). The game does not answer a ring on an engaged station. Otherwise the call goes as any call between rooms, and `if_busy:` is not heard.
 
 For dealing (§6.1), a scene with `if_busy:` does not hold its called line or its called person, and is not held back by them; once dealt, its call holds them as any call does. So several guests may ask for the front desk while it is talking, and the operator tells each of them to try later.
 
@@ -807,6 +811,20 @@ Before step 1: the certificate is issued (`host/README.md`, "The certificate"), 
 - **Screen wake lock** (§11.3). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 15. Revision History
+
+## 15.118 Changes in Rev 118
+
+— A line that cannot hear is not a pulled cord (§4), 2026-11-14. Twice that morning a long-distance call in conversation failed as `cut off` the instant the operator answered another lamp (10:01:59, 10:54:27): for 170ms her headset was keyed on two pairs, every line on them heard two others and reported `peer` `"ambiguous"`, which the game took at once as the cord gone, and hung the guest up. At 09:52 a howl on the loudspeaker swamped station 14's pilots; `op` went off with `peer` `"deaf"`, and a second later the call was cut off with the operator still on it. `"ambiguous"` is now treated as `"deaf"` was, and a `peer` going empty or `op` going off while the line cannot hear counts only after a second of hearing again, at most 5s.
+
+— A busy line or an engaged room is handled once she has told the caller (§3.3, §6.6, §4), Mark's decision, 2026-11-14. In the panic two calls to an engaged front desk and housekeeping failed as `cut off`: he told the guest and pulled the cord, as an operator in a rush does; the same rule as a call to the operator (Rev 116). Busy trunks too.
+
+— A caller held before it is put through waits 30s, not 10s, and asks "Hello? Operator? Are you there?" when she is back after 10s or more (§3.5, §4), Mark's decision, 2026-11-14. Hale asked for Sunny Hill Pizza, he went to answer the time-and-charges call on another trunk, and Hale hung up 11s later. A call to the operator left before a reply waits 30s too.
+
+— After a wrong number, her first return to the caller gets the request again, her second the caller giving up, `not connected` (§3.5), Mark's decision, 2026-11-14 (option 3). At 09:43 he dialled a wrong number for Martha's pizza, hung up the trunk and went back to her three times; she said nothing, each absence too short to ask again, and only the connect timeout would have ended it. A new reaction, `giveup`: "Never mind, operator. I'll try again later."
+
+— A scenario's calls wait 90s to be answered (§4, §6.5), Mark's decision, 2026-11-14: in the panic Crane's lamp went unanswered for 60s while he answered six others.
+
+— Code consequence, for Claude Code: `Board` (board.py) treats `"ambiguous"` as `"deaf"` and defers a held fall while a line cannot hear (`DEAF_MAX`); `_replies()` returns False once she has left after speaking, in `_found_engaged()` and `busy_scene()`; `ABANDON` 30s, `HELD`, `FLICK`, `GaveUp` and the asker's `giveup` in `_unless_abandoned()` (flows.py); `scenario_answer_timeout` in config.py and game.toml, applied in `_run_call()` (game.py); `giveup` in tts/script.py's `REACTIONS` and script.yml's `reactions:`; tests.
 
 ## 15.117 Changes in Rev 117
 
