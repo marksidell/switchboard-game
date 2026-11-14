@@ -15,7 +15,9 @@
 // outside its neighbours (+-4 bins) within ISOLATION_DB of it, louder than MIN_DBFS, on the same bin
 // (+-1) for HOLD_FRAMES frames running, about 210 ms. Speech has many harmonics
 // close in level; the trunk tones and the ringback cue are two tones; neither
-// passes. A new notch starts at FIRST_DB; howl again within a notch's width
+// passes. Above UPPER_HZ, judged over that part of the band alone, a looser
+// test also counts, and may wander +-2 bins: a real howl on 2026-11-14 stood
+// only 7-14 dB over a second peak, drifted 1547 to 1594 Hz, and was missed. A new notch starts at FIRST_DB; howl again within a notch's width
 // deepens that notch by STEP_DB, to MAX_DB. With the bank full, the notch
 // least recently placed or deepened is moved. Notches stay until the program
 // restarts: the room's loop does not change with the call.
@@ -42,6 +44,12 @@ public:
     static constexpr double MIN_DBFS     = -45.0;   // sine-referenced peak level
     static constexpr double PROMINENCE_DB = 25.0;   // over the rest of the band's mean power
     static constexpr double ISOLATION_DB = 20.0;    // over anything outside +-4 bins
+    // The upper tier (audio.md 10.10, Rev 40): above UPPER_HZ, measured over
+    // that part of the band only, looser, and allowed to wander two bins.
+    static constexpr double UPPER_HZ            = 800.0;
+    static constexpr double UPPER_PROMINENCE_DB = 20.0;
+    static constexpr double UPPER_ISOLATION_DB  = 10.0;
+    static constexpr int    UPPER_DRIFT         = 2;
     static constexpr int    HOLD_FRAMES  = 10;      // ~210 ms on one bin
     static constexpr double Q            = 10.0;    // notch width f/Q
     static constexpr double FIRST_DB     = -12.0;

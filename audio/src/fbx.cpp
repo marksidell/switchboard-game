@@ -60,33 +60,47 @@ void FeedbackEliminator::analyse()
     fftwf_execute(plan_);
 
     const double fa  = fs_ / DECIM;                     // 12 kHz
-    const int    lo  = (int)std::ceil(LOW_HZ * N / fa);
     const int    hi  = std::min(N / 2 - 1, (int)std::floor(HIGH_HZ * N / fa));
-    int    k = lo;
-    double pk = 0.0;
-    for (int b = lo; b <= hi; ++b) {
-        const double p = (double)out_[b][0] * out_[b][0] + (double)out_[b][1] * out_[b][1];
-        if (p > pk) { pk = p; k = b; }
-    }
-    // A Hann-windowed sine of amplitude A peaks at A N / 4.
-    const double amp_db = 10.0 * std::log10(pk + 1e-30) - 20.0 * std::log10(N / 4.0);
-    // The rest of the band: everything outside the peak's own +-4 bins, where
-    // a Hann window's leakage is over. Its mean and its loudest bin.
-    double other = 0.0, sum = 0.0;
-    int    nrest = 0;
-    for (int b = lo; b <= hi; ++b) {
-        if (std::abs(b - k) <= 4) continue;
-        const double p = (double)out_[b][0] * out_[b][0] + (double)out_[b][1] * out_[b][1];
-        other = std::max(other, p);
-        sum  += p;
-        ++nrest;
-    }
-    const double mean = sum / (double)std::max(nrest, 1);
-    const bool howl = amp_db >= MIN_DBFS
-                   && 10.0 * std::log10(pk / (mean + 1e-30)) >= PROMINENCE_DB
-                   && 10.0 * std::log10(pk / (other + 1e-30)) >= ISOLATION_DB;
-    if (!howl) { cand_bin_ = -1; cand_n_ = 0; return; }
-    if (cand_bin_ < 0 || std::abs(k - cand_bin_) > 1) { cand_bin_ = k; cand_n_ = 1; return; }
+    auto power = [&](int b) {
+        return (double)out_[b][0] * out_[b][0] + (double)out_[b][1] * out_[b][1];
+    };
+    // One tier's test over the bins from lo up: its loudest bin, and whether
+    // it stands `prom` over the rest's mean power and `iso` over the rest's
+    // loudest bin - the rest being everything outside the peak's own +-4
+    // bins, where a Hann window's leakage is over.
+    struct Peak { int k; bool howl; };
+    auto test = [&](int lo, double prom, double iso) -> Peak {
+        int    k = lo;
+        double pk = 0.0;
+        for (int b = lo; b <= hi; ++b)
+            if (const double p = power(b); p > pk) { pk = p; k = b; }
+        // A Hann-windowed sine of amplitude A peaks at A N / 4.
+        const double amp_db = 10.0 * std::log10(pk + 1e-30) - 20.0 * std::log10(N / 4.0);
+        double other = 0.0, sum = 0.0;
+        int    nrest = 0;
+        for (int b = lo; b <= hi; ++b) {
+            if (std::abs(b - k) <= 4) continue;
+            const double p = power(b);
+            other = std::max(other, p);
+            sum  += p;
+            ++nrest;
+        }
+        const double mean = sum / (double)std::max(nrest, 1);
+        return { k, amp_db >= MIN_DBFS
+                    && 10.0 * std::log10(pk / (mean + 1e-30)) >= prom
+                    && 10.0 * std::log10(pk / (other + 1e-30)) >= iso };
+    };
+    // The whole band, strictly; and above UPPER_HZ, where the room's howls
+    // have been (1.5-2.6 kHz) and the trunk tones and voices' strong low
+    // harmonics are not, a howl with a neighbour close in level or wandering
+    // two bins - one that rings through the guest's speech.
+    const Peak all   = test((int)std::ceil(LOW_HZ * N / fa), PROMINENCE_DB, ISOLATION_DB);
+    const Peak upper = test((int)std::ceil(UPPER_HZ * N / fa), UPPER_PROMINENCE_DB, UPPER_ISOLATION_DB);
+    int k, drift;
+    if (all.howl)        { k = all.k;   drift = 1; }
+    else if (upper.howl) { k = upper.k; drift = UPPER_DRIFT; }
+    else                 { cand_bin_ = -1; cand_n_ = 0; return; }
+    if (cand_bin_ < 0 || std::abs(k - cand_bin_) > drift) { cand_bin_ = k; cand_n_ = 1; return; }
     cand_bin_ = k;
     if (++cand_n_ < HOLD_FRAMES) return;
 

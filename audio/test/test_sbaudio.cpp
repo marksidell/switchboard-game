@@ -1251,6 +1251,24 @@ static void test_fbx()
     feed(sp, 2.0, quiet);
     check(sp.active() == 0, "a tone below -45 dBFS gets none");
 
+    // The upper tier: a howl 10-12 dB over a second tone and drifting, as on
+    // 2026-11-14 at 09:52 (1547 -> 1594 Hz, 1664 Hz beside it), is caught; the
+    // same pair low in the band, where the trunk tones are, is not.
+    FeedbackEliminator up;
+    up.prepare(fs, true);
+    auto pair = [&](double f0, double f1, double drift) {
+        return [=](double t) {                                // drift: Hz per second
+            return 0.1 * std::sin(2.0 * M_PI * (f0 * t + 0.5 * drift * t * t))
+                 + 0.03 * std::sin(2.0 * M_PI * f1 * t);
+        };
+    };
+    feed(up, 1.0, pair(1547.0, 1664.0, 45.0));
+    check(up.active() == 1, "a drifting howl beside a second tone, above 800 Hz, gets a notch");
+    FeedbackEliminator low;
+    low.prepare(fs, true);
+    feed(low, 2.0, pair(480.0, 620.0, 0.0));
+    check(low.active() == 0, "the same pair at 480/620 Hz, like busy tone, gets none");
+
     FeedbackEliminator off;
     off.prepare(fs, false);
     feed(off, 1.0, howl);

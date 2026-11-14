@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 39. The changes in each revision are in §17.*
+*Rev 40. The changes in each revision are in §17.*
 
 # 1. Overview
 
@@ -463,6 +463,8 @@ With the loudspeaker loud enough, the same loop howls, as it did once at the con
 
 **Finding it.** Every fourth sample of the monitor's signal after the notches, 12kHz, goes into a 512-point window; every 256 of those, 21ms, it is Hann-windowed and transformed. The monitor's signal is already held under 3.6kHz and 70dB down by 5.6kHz (§10.1), so the decimation aliases nothing that matters. Howl is one tone standing far above everything else and holding. A frame counts when, between 150Hz and 3.6kHz, its loudest bin is at least −45dBFS as a sine, at least 25dB above the mean of the band outside that bin's ±4 neighbours, and at least 20dB above the loudest bin there. Ten such frames running on the same bin, ±1, about 210ms, is howl. Speech has many harmonics within a few dB of each other; the trunk tones and the ringback cue are two tones (§8.2); neither passes.
 
+**The upper tier.** A frame also counts when, judged between 800Hz and 3.6kHz alone, its loudest bin there is at least −45dBFS, 20dB above that part's mean outside its ±4 neighbours and 10dB above the loudest bin there; and a run of such frames may wander ±2 bins. A real howl, at 09:52 on 2026-11-14, stood only 7–14dB over a second peak 120Hz away and drifted from 1547 to 1594Hz, so the test above missed it. The room's howls have all been between 1.5 and 2.6kHz, and the trunk tones and the strong low harmonics of voices are below 800Hz, where the looser test notched them: tried on 63 minutes of recorded games, it placed no false notch and caught that howl, where looser tests over the whole band placed up to ten, on the trunk tones and vowels.
+
 **The notch.** A peaking section, Q 10, at the frequency found, interpolated between bins from the parabola through the peak and its neighbours. A new notch cuts 12dB; howl found again within a notch's width, the larger of f/Q and 25Hz, deepens that notch by 6dB, to 30dB at most. Eight notches; with all eight in use, the one least recently placed or deepened is moved. Notches stay until the program restarts: the loop is the room's and does not change with the call. Running, it allocates nothing, takes no lock and does not log.
 
 **What else it catches.** Any steady single tone in the band on the monitor's source: the test tone (§11.1) on a circuit the monitor follows, and on the public line the special-information tones, whose segments last up to 380ms. Bench work with tones on the monitor runs with `--monitor-fbx off`.
@@ -668,6 +670,12 @@ In order, with the switchboard connected:
 - **Listening on the tap channel.** Not offered — the rough specification says station or trunk — but the tap always carries the operator's voice, and "has the operator said anything" may turn out to be a question the game wants to ask. One more accepted topic if so.
 
 # 17. Revision History
+
+## 17.40 Changes in Rev 40
+
+— The feedback eliminator's upper tier (§10.10), Mark's request, 2026-11-14. At 09:52 the guest's request on the loudspeaker howled at 1547–1594Hz for about a second, swamped the line's pilots and ended the call; the eliminator placed no notch, because a second peak at 1664Hz, then 1852Hz, stood within 7–14dB of the howl, and it drifted two bins. Above 800Hz a looser test now also counts. Tried offline on the three recordings of the loudspeaker made so far, 2026-11-01 and 2026-11-14: the looser test over the whole band notched dial, busy and ringback tones and vowels; above 800Hz it placed no notch in 63 minutes of games and caught the howl about a second in.
+
+— Code consequence: `UPPER_HZ`, `UPPER_PROMINENCE_DB`, `UPPER_ISOLATION_DB` and `UPPER_DRIFT` in `fbx.h`; `analyse()` runs the test over both ranges; `test_fbx()`.
 
 ## 17.39 Changes in Rev 39
 
