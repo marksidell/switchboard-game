@@ -19,7 +19,7 @@ Everything that is not audio moves over MQTT. The broker is Mosquitto on the Lin
 | The board test, on the bench only, with no game running | `sbgame-boardtest` | `sbgame-audio`, its default | loopback | `hook/set`, `ring/set` and `dial/set` to the ESP32; its own `game_heartbeat` while the game program is not online, at QoS 0 |
 | The play log | `sbgame-mqttlog`, which is `mosquitto_sub` writing to the journal | `sbgame-web` | loopback | Nothing. It records everything but the two heartbeats, and not retained messages replayed on connecting |
 
-`sbgame-sim` (`./run-sim`) stands in for the ESP32 and the audio program when the boards are not there, with a connection for each.
+`sbgame-sim` (`tools/run-sim`) stands in for the ESP32 and the audio program when the boards are not there, with a connection for each.
 
 The five that make up the system:
 

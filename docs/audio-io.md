@@ -165,15 +165,15 @@ pass what a dozen listening tests could not.
 
 ## Bench tools
 
-Sources in the repo root; each carries its reasoning in its own header comment. The
+Sources in `tools/`; each carries its reasoning in its own header comment. The
 ALSA plumbing they share is in `bench_alsa.h`, header-only, and `pilot_loopback_test`
 takes the pilot comb from `audio/src/channels.h`, so each builds from the repo root with
-one line (`libasound2-dev` is the only dependency):
+one line, into `tools/` (`libasound2-dev` is the only dependency):
 
 ```
-g++ -O2 -Wall -Wextra -o pilot_loopback_test pilot_loopback_test.cpp -lasound
-g++ -O2 -Wall -Wextra -o tone_out            tone_out.cpp            -lasound
-g++ -O2 -Wall -Wextra -o tone_monitor        tone_monitor.cpp        -lasound
+g++ -O2 -Wall -Wextra -o tools/pilot_loopback_test tools/pilot_loopback_test.cpp -lasound
+g++ -O2 -Wall -Wextra -o tools/tone_out            tools/tone_out.cpp            -lasound
+g++ -O2 -Wall -Wextra -o tools/tone_monitor        tools/tone_monitor.cpp        -lasound
 ```
 
 ```

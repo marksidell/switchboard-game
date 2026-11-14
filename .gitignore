@@ -1,7 +1,7 @@
 # Compiled bench tools. Sources are here; build them with the commands in CLAUDE.md.
-/pilot_loopback_test
-/tone_out
-/tone_monitor
+/tools/pilot_loopback_test
+/tools/tone_out
+/tools/tone_monitor
 
 # Editing backups
 *.bak

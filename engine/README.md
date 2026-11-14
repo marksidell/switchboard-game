@@ -117,8 +117,8 @@ it needs is down, and `game_control.md` §2 stops the game when one goes. That
 is correct, and it makes the page untestable, so there is a stand-in:
 
 ```sh
-./run-sim -o      # it answers and connects the calls too
-./run-sim         # the boards only; nothing works the board
+tools/run-sim -o  # it answers and connects the calls too
+tools/run-sim     # the boards only; nothing works the board
 ```
 
 It reads `/etc/sbgame/game.toml`, the same file the daemon uses, and connects

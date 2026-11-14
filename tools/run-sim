@@ -2,9 +2,9 @@
 # Stand in for the controller and the audio program, so the game can be played
 # without the boards.
 #
-#   ./run-sim -o           it answers and connects the calls too  <- what you want
-#   ./run-sim -o -d 0.3    the same, but a quick operator
-#   ./run-sim              hardware only, and nothing to work it: see below
+#   tools/run-sim -o           it answers and connects the calls too  <- what you want
+#   tools/run-sim -o -d 0.3    the same, but a quick operator
+#   tools/run-sim              hardware only, and nothing to work it: see below
 #
 # Without -o the simulator is only the boards. Nobody answers, so every call
 # runs to its timeout at the first stage — which looks exactly like the game
@@ -23,7 +23,7 @@
 set -eu
 
 SIM=/opt/sbgame/venv/bin/sbgame-sim
-DEV=./engine/.venv/bin/sbgame-sim
+DEV="$(dirname "$0")/../engine/.venv/bin/sbgame-sim"
 
 # The installed copy if there is one, else the checkout's, so this works
 # before `make -C host sbgame-install` has ever been run.
@@ -66,7 +66,7 @@ fi
 # than unattended, because the only symptom is every call timing out.
 if [ -z "$OPERATOR" ]; then
     echo "note: no -o, so nothing will answer and every call will time out." >&2
-    echo "      ./run-sim -o  to have the simulator work the board as well." >&2
+    echo "      tools/run-sim -o  to have the simulator work the board as well." >&2
 fi
 
 # Unbuffered, so its log appears as it happens rather than in blocks.

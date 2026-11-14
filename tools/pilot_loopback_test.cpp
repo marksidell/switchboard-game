@@ -28,7 +28,7 @@
 //     ./pilot_loopback_test -D hw:<card-id>
 //
 #include "bench_alsa.h"
-#include "audio/src/channels.h"
+#include "../audio/src/channels.h"
 
 #include <algorithm>
 #include <cmath>
