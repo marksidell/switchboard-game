@@ -70,6 +70,7 @@ static bool topic_for(Topic t, int idx, char* out, size_t n)
         return true;
     }
     case Topic::Test:    std::snprintf(out, n, ROOT "audio/test/%d", idx); return true;
+    case Topic::VadLog:
     case Topic::FreeBuf: return false;
     }
     return false;
@@ -698,6 +699,12 @@ void Net::drain_results(bool publishing)
     for (Spsc<Result, 512>* q : { &sh_.res_audio, &sh_.res_ana }) {
         while (q->pop(r)) {
             if (r.topic == Topic::FreeBuf) { std::unique_ptr<AudioBuffer> done(r.buf); continue; }
+            if (r.topic == Topic::VadLog) {                  // audio.md 9.6
+                char id[24];
+                chan::circuit_id(r.idx, id, sizeof id);
+                log_line("vad: %s %s", id, r.value);
+                continue;
+            }
             // While disconnected the state is discarded rather than queued: the
             // game sources were stopped when the connection dropped, so the
             // empty play and tone published on reconnect are true (mqtt.md 8.4).

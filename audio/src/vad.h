@@ -77,6 +77,10 @@ public:
     Phase  phase()    const { return phase_; }
     bool   active()   const { return phase_ != Phase::Off; }
     double floor_db() const { return floor_db_; }
+    // For the log (audio.md 9.6): the threshold the last valid frame of a
+    // listen was judged against, and the loudest frame of the history.
+    double thr_db()   const { return thr_db_; }
+    double history_max() const;
 
 private:
     void   clear_window() { win_ = 0; win_n_ = 0; quiet_ = 0; }
@@ -97,4 +101,5 @@ private:
     uint32_t quiet_    = 0;         // Speaking: frames the quiet condition has held
     uint32_t elapsed_  = 0;         // frames in the current phase, valid or not
     uint32_t start_frames_ = 0;     // Waiting: frames allowed for speech to start
+    double   thr_db_   = -120.0;    // threshold of the last valid frame judged
 };

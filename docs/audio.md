@@ -2,7 +2,7 @@
 
 **Audio Program Specification**
 
-*Rev 38. The changes in each revision are in §17.*
+*Rev 39. The changes in each revision are in §17.*
 
 # 1. Overview
 
@@ -297,6 +297,10 @@ Published on `sbgame/station/<n>/ringing` and `sbgame/trunk/<n>/ringing` on chan
 It is heard whether the station is on- or off-hook, but on-hook the relay has lifted Tx01 from the line and nothing reaches the channel, so in practice it reports off-hook ringing only. The ESP32's `station/<n>/ring` remains the report of a ringing on-hook station.
 
 **On a trunk**, this is how the game knows the public line's ATA is ringing the switchboard, since the ATA is wired in place of the trunk's ring relay and the controller cannot see it (trunk_circuit.md §4.5). Measured on trunk 8 at 2026-10-31, a call from an iPhone, with the pilot off: −17.5dBFS of 20Hz, 40Hz at −71.8dBFS, −128dBFS between rings, one ring every 6s of about 2s, and −102dBFS on trunk 7. The thresholds are the station's. The audio program does not know which trunk is the public line, so it watches all eight. On the others, ring from the game's own relay does not reach the channel, because the relay has lifted the line; the player ringing a trunk with a cord may be heard, and the controller's `fault` `"ring_on_trunk"` remains the report of that.
+
+## 9.6 The Listen Log
+
+To find what holds a listen in `speech` (§17.38), each listen is logged, as `vad: <circuit> ...`. At its start: the floor, the threshold, and the loudest frame of the second before. Then for each second of the listen, and for the part second at its end: the seconds since it started, the phase (`waiting`, `speech`) or how it ended (`silence`, `timeout`, `cancelled`, `restarted`), the floor and threshold as they then stood, the lowest, mean and highest level of the valid frames, and how many frames reached the threshold out of the frames in that stretch. Levels are dBFS, sine-referenced, as the detector measures them. The audio thread only counts; the line is formatted into a fixed buffer and logged by the MQTT thread. `--vad-log off` turns it off.
 
 # 10. Audience Monitor
 
@@ -607,6 +611,7 @@ Command-line options, each with the default given here, and no configuration fil
 --monitor-listen-duck DB  the source lowered while a listen runs on it,
                        0 to 60, 0 = off (30) (§10.9)
 --monitor-fbx on|off   the feedback eliminator (on) (§10.10)
+--vad-log on|off       each listen's floor and level, once a second (on) (§9.6)
 --monitor-lp HZ HZ DB  monitor low-pass passband edge, stopband edge,
                        stopband dB (3600 5600 70)
 --vad-margin DB        speech threshold above floor (10)
@@ -663,6 +668,12 @@ In order, with the switchboard connected:
 - **Listening on the tap channel.** Not offered — the rough specification says station or trunk — but the tap always carries the operator's voice, and "has the operator said anything" may turn out to be a question the game wants to ask. One more accepted topic if so.
 
 # 17. Revision History
+
+## 17.39 Changes in Rev 39
+
+— The listen log (§9.6), Mark's request, 2026-11-13. Rev 38's duck assumed the loudspeaker held listens in `speech`, but the loop dies away within tens of milliseconds once the operator stops unless it is near howl, and four greetings still ran over 3s with the duck on. Another reading: the floor is taken before her set is on the line, so her live microphone alone may sit 10dB over it. The log gives the floor, threshold and level of every listen, a second at a time, to tell the two apart.
+
+— Code consequence: `Listener::thr_db()` and `history_max()`; `Engine::vad_log_start()` and `vad_log_flush()`, counting in `Vad`; `Topic::VadLog`, logged by `Net::drain_results()`; `Result::value` 64 bytes, was 40; `--vad-log`.
 
 ## 17.38 Changes in Rev 38
 

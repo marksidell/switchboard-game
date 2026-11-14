@@ -94,6 +94,7 @@ enum class Topic : uint8_t {
     Op,         // idx = slot
     OpTone,
     Ringing,    // idx = circuit slot (audio.md 9.5)
+    VadLog,     // not a topic: a line for the log, idx = slot (audio.md 9.6)
     FreeBuf     // not a topic: a buffer the audio thread has finished with
 };
 
@@ -104,7 +105,7 @@ enum class Topic : uint8_t {
 struct Result {
     Topic        topic = Topic::FreeBuf;
     int16_t      idx   = 0;
-    char         value[40] = { 0 };
+    char         value[64] = { 0 };
     AudioBuffer* buf   = nullptr;
 };
 

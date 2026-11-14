@@ -85,6 +85,7 @@ struct Options {
     double monitor_listen_duck_db = 30.0;
     // audio.md 10.10: the feedback eliminator.
     bool   monitor_fbx = true;
+    bool   vad_log     = true;      // audio.md 9.6
     double lp_pass    = 3600.0;         // station_circuit.md §8.8
     double lp_stop    = 5600.0;
     double lp_att     = 70.0;

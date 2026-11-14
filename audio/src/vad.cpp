@@ -20,6 +20,14 @@ double Listener::history_p10() const
     return tmp[k];
 }
 
+// history_max()                                                        [audio]
+//   The loudest frame in the history; -120 dBFS if there is none.
+double Listener::history_max() const
+{
+    if (hist_n_ == 0) return -120.0;
+    return *std::max_element(hist_, hist_ + hist_n_);
+}
+
 // steady()                                                             [audio]
 //   Whether the last n frames of the history all lie within STEADY_DB of each
 //   other, and the highest of them in `top`. False with fewer than n, and
@@ -96,6 +104,7 @@ Listener::Event Listener::frame(float db, bool valid, const VadParams& p, bool k
         }
 
         const double thr = std::max({ floor_db_ + p.margin_db, p.abs_floor_db, min_db });
+        thr_db_ = thr;
         win_ = ((win_ << 1) | (db >= thr ? 1u : 0u)) & ((1u << WIN) - 1u);
         if (win_n_ < WIN) ++win_n_;
     }

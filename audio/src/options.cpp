@@ -117,6 +117,7 @@ static void usage(const char* p)
 "  --monitor-listen-duck DB  lower the source this much while a listen runs on\n"
 "                         it, 0 to 60, 0 = off (30)\n"
 "  --monitor-fbx on|off   the monitor's feedback eliminator (on)\n"
+"  --vad-log on|off       log each listen's floor and level once a second (on)\n"
 "  --monitor-lp HZ HZ DB  monitor low-pass passband edge, stopband edge,\n"
 "                         stopband dB (3600 5600 70)\n"
 "  --vad-margin DB        speech threshold above floor (10)\n"
@@ -331,6 +332,10 @@ bool parse_options(int argc, char** argv, Options& o, bool& exit_now)
         else if (a == "--monitor-peer-max")  { if (!num(a, nx, o.monitor_peer_max_db)) return false; ++i; }
         else if (a == "--monitor-peer-start"){ if (!num(a, nx, o.monitor_peer_start_db)) return false; ++i; }
         else if (a == "--monitor-listen-duck"){ if (!num(a, nx, o.monitor_listen_duck_db)) return false; ++i; }
+        else if (a == "--vad-log")        { const std::string v = nx ? nx : ""; ++i;
+                                            if (v == "on") o.vad_log = true;
+                                            else if (v == "off") o.vad_log = false;
+                                            else { std::fprintf(stderr, "--vad-log: on or off\n"); return false; } }
         else if (a == "--monitor-fbx")    { const std::string v = nx ? nx : ""; ++i;
                                             if (v == "on") o.monitor_fbx = true;
                                             else if (v == "off") o.monitor_fbx = false;

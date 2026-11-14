@@ -144,14 +144,56 @@ void Engine::stop_source(int slot, const char* echo)
 //   "listening".
 void Engine::start_listen(int slot, double seconds)
 {
+    if (vad_[slot].lis.active()) vad_log_flush(slot, "restarted");
     vad_[slot].lis.start(seconds);
+    vad_log_start(slot);
     post(Topic::Listen, slot, "listening");
+}
+
+// vad_log_start(), vad_log_flush()                                    [audio]
+//   audio.md 9.6. At a listen's start, its floor, threshold and the loudest
+//   frame of the second before; then each second, and at the end, the level
+//   over that stretch: frames, lowest/mean/highest of the valid ones, how many
+//   reached the threshold. Formatted here into a fixed buffer and handed to
+//   the MQTT thread to log; nothing here can block.
+void Engine::vad_log_start(int slot)
+{
+    Vad& v = vad_[slot];
+    v.st_frames = v.st_valid = v.st_above = v.st_secs = 0;
+    v.st_sum = 0.0;
+    if (!sh_.opt.vad_log) return;
+    const double fl  = v.lis.floor_db();
+    const double thr = std::max(fl + vad_params_.margin_db, vad_params_.abs_floor_db);
+    char b[64];
+    std::snprintf(b, sizeof b, "start floor %.1f thr %.1f before max %.1f",
+                  fl, thr, v.lis.history_max());
+    post(Topic::VadLog, slot, b);
+}
+
+void Engine::vad_log_flush(int slot, const char* why)
+{
+    Vad& v = vad_[slot];
+    if (sh_.opt.vad_log && v.st_frames > 0) {
+        char b[64];
+        if (v.st_valid > 0)
+            std::snprintf(b, sizeof b, "%us %s floor %.1f thr %.1f lvl %.0f/%.0f/%.0f above %u/%u",
+                          v.st_secs, why, v.lis.floor_db(), v.lis.thr_db(),
+                          v.st_min, v.st_sum / v.st_valid, v.st_max, v.st_above, v.st_frames);
+        else
+            std::snprintf(b, sizeof b, "%us %s no valid frames of %u",
+                          v.st_secs, why, v.st_frames);
+        post(Topic::VadLog, slot, b);
+    }
+    ++v.st_secs;
+    v.st_frames = v.st_valid = v.st_above = 0;
+    v.st_sum = 0.0;
 }
 
 // cancel_listen()                                                      [audio]
 //   Ends a listen with no result, publishing echo ("" clears the topic).
 void Engine::cancel_listen(int slot, const char* echo)
 {
+    if (vad_[slot].lis.active()) vad_log_flush(slot, "cancelled");
     vad_[slot].lis.cancel();
     if (echo) post(Topic::Listen, slot, echo);
 }
@@ -319,7 +361,26 @@ void Engine::process_capture()
             }
             v.src_seen = false;
 
-            switch (v.lis.frame(db, valid, vad_params_, keep, min_db)) {
+            const bool was = v.lis.active();
+            const Listener::Event ev = v.lis.frame(db, valid, vad_params_, keep, min_db);
+            if (was && sh_.opt.vad_log) {
+                // audio.md 9.6: the level the listen heard, a second at a time.
+                ++v.st_frames;
+                if (valid) {
+                    if (v.st_valid == 0) v.st_min = v.st_max = db;
+                    v.st_min = std::min(v.st_min, db);
+                    v.st_max = std::max(v.st_max, db);
+                    v.st_sum += db;
+                    ++v.st_valid;
+                    if (db >= v.lis.thr_db()) ++v.st_above;
+                }
+                if (ev == Listener::Event::Silence)      vad_log_flush(slot, "silence");
+                else if (ev == Listener::Event::Timeout) vad_log_flush(slot, "timeout");
+                else if (v.st_frames >= (uint32_t)Listener::FRAMES_PER_S)
+                    vad_log_flush(slot, v.lis.phase() == Listener::Phase::Speaking
+                                        ? "speech" : "waiting");
+            }
+            switch (ev) {
             case Listener::Event::Speech:  post(Topic::Listen, slot, "speech");  break;
             case Listener::Event::Silence: post(Topic::Listen, slot, "silence"); break;
             case Listener::Event::Timeout: post(Topic::Listen, slot, "timeout"); break;

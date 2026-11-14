@@ -93,7 +93,18 @@ private:
         int         nacc     = 0;           // samples in acc so far, 0-479
         bool        src_seen = false;       // a source ran during this frame
         Listener    lis;                    // history, floor, window, phases
+        // The listen's level, for the log (audio.md 9.6): one line a second
+        // while a listen runs, and one for the part second at its end.
+        uint32_t    st_frames = 0;          // frames this second
+        uint32_t    st_valid  = 0;          // of them valid
+        uint32_t    st_above  = 0;          // of them at or above the threshold
+        uint32_t    st_secs   = 0;          // whole seconds of this listen
+        float       st_min = 0.0f, st_max = 0.0f;
+        double      st_sum = 0.0;
     };
+
+    void vad_log_start(int slot);
+    void vad_log_flush(int slot, const char* why);
 
     // The echo canceller's reference (audio.md 9.4): the file through the
     // speech detector's band-pass, and the 8 kHz index its last echo sample
