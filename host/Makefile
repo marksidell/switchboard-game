@@ -40,7 +40,8 @@ FILES := \
   etc/systemd/system/sbgame-netcheck.service:root:root:644 \
   etc/udev/rules.d/70-sbgame-streamdeck.rules:root:root:644 \
   etc/sbgame/game.toml:root:root:644 \
-  etc/sbgame/ata-known_hosts:root:root:644
+  etc/sbgame/ata-known_hosts:root:root:644 \
+  etc/modprobe.d/sbgame-no-wifi.conf:root:root:644
 
 .PHONY: diff install passwd status check-clean sbgame-user sbgame-deck-user sbgame-host-user sbgame-data sbgame-install sbgame-web
 

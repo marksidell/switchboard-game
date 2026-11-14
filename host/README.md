@@ -33,6 +33,7 @@ etc/systemd/system/sbgame-netcheck.service    the public address and the public 
 etc/udev/rules.d/70-sbgame-streamdeck.rules   the deck, for the sbgame-deck user
 etc/sbgame/game.toml                          the game program's configuration
 etc/sbgame/ata-known_hosts                    the trunk 8 ATA's SSH host key, pinned
+etc/modprobe.d/sbgame-no-wifi.conf            no Wi-Fi driver: the card hung and froze the host (2026-11-13)
 iam/certbot-route53.json                      the certbot user's policy
 ```
 
