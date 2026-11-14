@@ -3,7 +3,7 @@
 *This game puts the player in front of a real Western Electric 551
 switchboard, unmodified, wired to modern hardware that plays sixty
 characters who are calling a 1950s hotel.
-A lamp lights, a caller waits, and the game listens for "Number, please."*
+A lamp lights, a caller waits, and the game listens for "Hotel Ballard."*
 
 Watch this [YouTube video](https://youtu.be/LKre26_lzEU) to
 see the game in action.
@@ -56,6 +56,22 @@ has connected the current one. But in one scene everyone
 in the hotel calls at nearly the same time to complain about a dog who
 is causing havoc everywhere. (The dog is Martha, who can
 talk and enjoys ordering room service.)[^2]
+
+At the game's first public outing, two dozen people sat down at the
+board, most of them for the first time, and the game put through about
+three hundred calls.
+Watching people play, I think I understand why the game draws them in.
+
+First, it's real. The switchboard isn't a replica or a screen; it's the
+same machine a real operator worked for years, and the player sits where she
+sat. Second, it's physical. The cords have weight, the plugs seat with a
+click, the keys spring back under your fingers, and a lamp lights in
+front of you when someone wants you. Nobody needs instructions on how to
+plug in a cord. The hands figure it out. And third, there are people
+on the other end. The guests have voices and personalities, they get
+impatient, they say thank you, and the dog orders a pizza. For a
+few minutes the player isn't operating a simulator. She's the operator
+at the Hotel Ballard in 1958, and the audience is listening in.
 
 <!-- pagebreak -->
 
@@ -155,6 +171,10 @@ goals was not to modify it in any way and to build the game hardware
 to stand in for the telephones and outside trunks that would connect to
 it. The game must infer what the player is doing solely from
 the switchboard's external connections.
+That raises the puzzle at the heart of the project. In essence, a cord pair is just
+a jumper. When the player plugs in a cord, nothing tells the game which
+two jacks it joined, or which call the operator is listening to. How the
+game works that out is in [Who's on First](#whos-on-first) below.
 
 The figure below is a block diagram of the game hardware.
 
@@ -582,40 +602,44 @@ sends with what it should be. The check found nothing wrong while the
 meters went wild, so the problem was downstream. It turned out to be
 the Digiface, and switching it to class-compliant mode fixed it.
 
+Demonstrating the game at a noisy conference, I found
+that a loud enough loudspeaker can feed back through the operator's headset
+and howl. To prevent this, `sbaudio` now runs a feedback eliminator. Every
+21 ms it looks at the loudspeaker's audio for a single tone that stands
+far above everything else and holds for about 210 ms.
+Above 800 Hz, where howls tend to happen, it is less strict: a tone
+only 10 dB above its nearest rival, wandering a little in pitch, still
+counts. A real howl did both and got past the first version of the algorithm.
+When the eliminator finds one, it places a narrow notch filter
+on that frequency: -12 dB at first, 6 dB deeper each time the howl
+returns, down to -30 dB. The eliminator keeps up to 8 notches in place until the program
+restarts.
+
 ### The Stream Deck
 
 <p align="left">
   <img src="docs/images/stream-deck.jpg" width="30%" />
 </p>
 
-A Stream Deck+ sits on the switchboard and provides buttons for controlling
-the game and checking the state of play. The `sbgame-streamdeck` program controls
-the deck. The program talks to the game only through MQTT. If the game program crashes, the deck stays up and shows the game as offline.
+A Stream Deck+ sits on the switchboard and provides buttons for
+controlling the game and checking the state of play. The
+`sbgame-streamdeck` program controls the deck. The program talks to
+the game only through MQTT. If the game program crashes, the deck
+stays up and shows the game as offline.
 
-The program talks to the deck through the open-source `streamdeck` Python library over USB. It draws each key's image itself with the Pillow imaging library.
+The program talks to the deck through the open-source `streamdeck`
+Python library over USB. It draws each key's image itself with the
+Pillow imaging library.
 
-A key press changes nothing on the deck by itself. The press publishes an MQTT command,
-and the key only changes when the game's state topic echoes the change. The deck therefore can't show something the game hasn't done.
-There are two exceptions to that rule: *Stop* lights up armed and waits for a second press, and *Next Call* goes dark briefly so it can't be double-pressed.
+A key press changes nothing on the deck by itself. The deck publishes an MQTT
+command, and the key changes only when the game echoes the new state. The
+deck can't show something the game hasn't done.
 
-Dials at the bottom of the deck control the call rate for automatic mode:
-
-| Dial | Sets |
-|---|---|
-| 1 | **gap**: the starting wait between calls |
-| 2 | **ramp**: how much the gap shrinks per connected call |
-| 3 | **floor**: the shortest the gap can get |
-| 4 | **jitter**: random spread around the gap |
-
-Here's how the next call is timed in automatic mode:
-
-- The clock starts when the latest call is connected or ends, whichever comes first. *Connected* means the operator's work is done,
-for example when a called room answers.
-The logic means that only one call is ever waiting for the operator. Calls do overlap,
-but the game never asks the player to handle two calls at once.
-- The gap shrinks as the game progresses, speeding up play: `gap_now = max(floor, gap - ramp x connected_calls)`.
-With ramp 0, the rate is constant.
-- Jitter makes the timing feel less mechanical. The actual wait is drawn evenly from `gap_now` +/- `jitter` percent.
+Four dials set the
+pace of automatic mode: the starting gap between calls, how fast it
+shrinks, the shortest it can get, and a random jitter so the calls don't
+arrive like clockwork. Only one call ever waits for the operator at a
+time; calls overlap, but the player never has to answer two at once.
 
 ### The iPad Display
 
@@ -634,16 +658,14 @@ because web clients kinda insist on it. Of
 course, certbot renews the certificate automatically, proving ownership through DNS (AWS Route 53),
 so the PC never has to be exposed to the internet.
 
-The iPad displays a replica of the switchboard jacks, showing their status, along with a list of queued
-calls, a log of game events, a game health panel, and buttons for controlling the game that duplicate
-the Stream Deck buttons. The display provides these functions:
-
-- Tapping a jack displays detailed status information and provides various debugging tools.
-- By long-pressing the *Next Call* button you can choose which scene to play next.
-- The *Tools* button opens commands for diagnosing the operator
-channel, sweeping the trunks and stations for basic connectivity,
-recording the monitor audio and playing back recordings, and turning
-the switchboard power on and off.
+The iPad shows a replica of the switchboard's jacks, lit as the real ones
+are, a list of queued calls, a game event log, and the game's health. Tapping
+a jack displays everything the game knows about that circuit and provides jack
+debugging commands. A tools menu has additional debugging commands, and commands
+for recording the loudspeaker. I ended up not using many of the debugging commands
+because I found it was more effective to have Claude write ad hoc tests
+to track down problems. Two commands are actually useful when setting up the game
+in a new venue: sweeps of the trunks and the stations, which check every circuit's connections.
 
 ### The Game Engine
 
@@ -860,7 +882,7 @@ characters say different things, based on their own personalities and back stori
 There are a total of 367 utterances. You can also talk to Lenny himself, if the operator
 dials an outside number not in the game's list.
 
-*Number, please?*
+*Hotel Ballard. How may I help you?*
 
 <!-- pagebreak -->
 
