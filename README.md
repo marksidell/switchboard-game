@@ -356,14 +356,16 @@ to power the relays and a 3.3 V regulator for the I2C interface.
 
 In testing, the trunk sometimes missed a station going offhook. To measure it,
 I wired a station circuit to a trunk circuit, had software toggle the station
-onhook and offhook, and used an Analog Discovery 3 to record the optoisolator
-output against each toggle. The trunk missed up to 27 of 100 offhooks
+onhook and offhook, and used an
+[Analog Discovery 3](https://digilent.com/shop/analog-discovery-3/)
+to record the optoisolator output against each toggle. The trunk missed up to 27 of 100 offhooks
 with full loop current flowing.
 
-The cause was the resistors in front of the optoisolator. They left its input
-at 3.28 V and 1.9 mA, inside its hysteresis band: above the point at which it
-turns off but below the point at which it turns on. So the output stayed
-wherever the relay's contact bounce left it. New (and, ahem, correct) resistor values fixed it.
+The cause was my choice of resistors in front of the optoisolator.
+They left its input at 3.28 V and 1.9 mA, inside its hysteresis band,
+above the point at which it turns off but below the point at which it
+turns on. So the output stayed wherever the relay's contact bounce
+left it. New (and, ahem, correct) resistor values fixed it.
 
 ### The Station Board
 
@@ -435,13 +437,12 @@ laid out the PCBs, and assembled the boards. I set the requirements and reviewed
 Claude Code wrote most of the code
 and, equally important, maintained the specifications. Claude is a much better
 note-taker than I. It documents every step of the process, every design decision, every misstep,
-every bug, every hardware test, everything. After five weeks of
+every bug, every hardware test, everything. After two months of
 development, the game's
-[specification](docs/game_control.md) is at its 100th revision.
+[specification](docs/game_control.md) is at its 118th revision.
 When there were problems that spanned hardware and software, I was able to work
 with Claude to devise tests incorporating the Analog Discovery 3, game logs,
-and one-off test programs, which turned out to be far more useful than the debugging tools
-I'd built into the iPad display.
+and one-off test programs.
 
 I'm also happy to be able to work on the project anywhere I have my iPhone or
 iPad. I woke up at 4 a.m. recently and 
@@ -479,7 +480,7 @@ functions over time. For example, when I thought of using the Stream Deck
 to control the game it was easy to add a new software module to control it,
 hooked to everything else via MQTT messages.
 
-MQTT messages are handled by a Mosquitto broker running on the PC. All
+A Mosquitto broker running on the PC handles the MQTT messages. All
 of the software modules, including the ESP32, communicate via connections
 to the broker.
 
@@ -501,7 +502,7 @@ The solution I devised is to have pilot tones constantly play on all
 channels, including on a tap on the operator headset, and to run an
 FFT on every channel. When a cord connects two circuits, each one hears
 the other's tone and reports which circuit it's patched
-to. When other channels
+to. When channels
 hear the tone from the operator tap, the game knows the operator is keyed to those circuits.
 The tap also feeds the operator's voice to the audience loudspeaker when no call is in play.
 
@@ -534,7 +535,7 @@ Cables connect the signals directly to pairs of DB25 connectors on the trunk and
 boards.
 
 The operator headset frequency response rolls off above the telephone band,
-but players who are young enough can still hear the pilot tones. To eliminate them,
+but players who are young enough can still hear the pilot tones. To hide the tones,
 I added a low-pass filter in the headset receiver path.
 I used a fourth-order passive elliptic (Cauer) LC filter,
 which places two notches inside the 6-9 kHz pilot band.
@@ -655,7 +656,7 @@ JavaScript on the client processes the messages and manages the display.
 
 An nginx web server running on the PC serves static content and proxies the Mosquitto WebSockets channel.
 It hosts the website at `game.kr3am.org` (my ham call sign) using a proper Let's Encrypt certificate,
-because web clients kinda insist on it. Of
+because browsers insist on it these days. Of
 course, certbot renews the certificate automatically, proving ownership through DNS (AWS Route 53),
 so the PC never has to be exposed to the internet.
 
@@ -670,7 +671,8 @@ in a new venue: sweeps of the trunks and the stations, which check every circuit
 
 ### The Game Engine
 
-The game engine, written in Python, runs the game. A single file, `script.yml`, completely specifies the game: the list
+The game engine, written in Python, runs the game. A single file, [`script.yml`](script.yml),
+completely specifies the game: the list
 of characters, details about each scene (who says what when), which jack each trunk and station is wired to,
 and more. The same file also drives the speech rendering, so adding a scene or a character needs no code changes.
 Below is one scene specification.
@@ -731,7 +733,7 @@ iPad and Stream Deck included, without a switchboard.
 
 ### Generating the Speech
 
-The Hotel Ballard acting troupe has 60 players who say 1717 pre-recorded utterances.
+The Hotel Ballard acting troupe has 60 players who say 1780 pre-recorded utterances.
 The software generates the speech using Qwen3-TTS, Alibaba's open-weights speech model.
 Since I don't have sufficient processing power at home, I run it on an AWS instance in the cloud.
 The instance is a g6.xlarge, with one NVIDIA L4 GPU (24 GB), 4 vCPUs, and 16 GB of RAM.
@@ -753,7 +755,7 @@ The file `tts/pronounce.yml` fixes Qwen3 pronunciation mistakes by respelling wo
 For example, the model reads room number "401" as "four hundred one," but a 1950s guest says "four oh one."
 
 The tutor is a special case. For that voice I wanted the sound of an experienced operator.
-Serendipitously, the Connections Museum recently posted an old Bell System film,
+Serendipitously, the Connections Museum recently posted an old Bell System training film,
 [*Operating Technique: "A" Board Toll Tickets*](https://youtu.be/H8G4E1qmFdo).
 The film is in the public domain, and the narrator has the perfect voice. So, I captured audio
 from the film, transcribed it, and made that the tutor's reference clip in place
@@ -766,7 +768,7 @@ to do the work. Traps in the software kill the instance, and there is a 4-hour s
 
 ### Handling Player Mistakes
 
-As friends and I play with the game, I've noticed common mistakes.
+As I watch people play with the game, I've noticed common mistakes.
 I modified the software to detect them and nudge the player in the right direction.
 Here are a few of those mistakes and how the software handles them:
 
@@ -962,10 +964,10 @@ dedicated, and provided a vital service.
 
     For more, read
     [*The Hello Girls: America's First Women Soldiers*](https://bookshop.org/p/books/the-hello-girls-america-s-first-women-soldiers-elizabeth-cobbs/6d5d2699661e0744?ean=9780674237438)
-    and watch the YouTube video [*Hello Girls of the US Army Signal Corps*](https://youtu.be/1A0bGx6eGZU?si=175j1o9cCcRtwwph).
+    and watch the YouTube video [*Hello Girls of the US Army Signal Corps*](https://youtu.be/1A0bGx6eGZU).
 
     To see a skilled long-distance operator at work, watch
-    [*An Answer for Linda*](https://youtu.be/vq1zu4fJaO0?si=9HILkZGjMddVzic7).
+    [*An Answer for Linda*](https://youtu.be/vq1zu4fJaO0).
 
 [^4]: George Coy opened the first telephone exchange in New Haven, CT, only two years
 after Bell received his patent. He designed a switchboard and built it from whatever was on hand: carriage bolts, teapot-lid handles,
