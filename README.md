@@ -720,8 +720,7 @@ call. The hotel-wide panic about Martha the dog is the extreme case: a chain of 
 start almost together.
 - The tutor watches the same board signals the game does. She
 stops mid-word once the player has done what she asked, repeats herself
-after 20 seconds, and switches to short prompts once the player has heard the full
-version twice.
+after 20 seconds, and shortens her prompts as the player progresses.
 - The pilot tones tell the engine which jacks are connected,
 and the speech detector tells it when the operator speaks.
 A call succeeds when the right parties end up talking, and fails on a timeout or a cut-off.
@@ -733,7 +732,7 @@ iPad and Stream Deck included, without a switchboard.
 
 ### Generating the Speech
 
-The Hotel Ballard acting troupe has 60 players who say 1780 pre-recorded utterances.
+The Hotel Ballard acting troupe has 60 players who say 1847 pre-recorded utterances.
 The software generates the speech using Qwen3-TTS, Alibaba's open-weights speech model.
 Since I don't have sufficient processing power at home, I run it on an AWS instance in the cloud.
 The instance is a g6.xlarge, with one NVIDIA L4 GPU (24 GB), 4 vCPUs, and 16 GB of RAM.
