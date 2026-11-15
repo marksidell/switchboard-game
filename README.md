@@ -938,7 +938,7 @@ is unaffected except that the operator's call to an unknown number has no one to
 the number in that exchange. For example: "MAin 6247". When AT&T introduced dial
 service, an engineer named W. G. Blauvelt suggested adding letters to the dial
 so that people could continue using the familiar names. Dial service came to
-Seattle in 1923, when the first panel switch was installed in the Parkway
+Seattle in 1923, when the first panel switch was installed in the Rainier
 central office.
 
     At that time, Seattle had six-digit phone numbers: the exchange
