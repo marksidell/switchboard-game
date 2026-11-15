@@ -80,7 +80,11 @@ wait_for_ssh
 echo "=== uploading ==="
 upload_tree "$REPO"
 rsync -az -e "$SSH" "$JOBS" ubuntu@"$PUBLIC_IP":~/jobs.json
-rsync -az -e "$SSH" "$REPO/tts/voices/" ubuntu@"$PUBLIC_IP":~/voices/
+# The chosen references only. upload_tree has just sent them, under ~/tts, so
+# they are copied over there rather than sent again; the audition files,
+# voices/candidates and voices/preview (274 MB), are never needed on the
+# instance, and sending them took 20 minutes a run on a home uplink.
+$SSH ubuntu@"$PUBLIC_IP" "mkdir -p ~/voices && cp ~/tts/voices/*.wav ~/tts/voices/*.json ~/voices/"
 [ -z "$PUBLIC" ] && [ -d "$REPO/private/voices" ] && \
     rsync -az -e "$SSH" "$REPO/private/voices/" ubuntu@"$PUBLIC_IP":~/voices/
 [ "$FROM_BAKED" = 0 ] && { echo "=== setup ==="; run_setup; }

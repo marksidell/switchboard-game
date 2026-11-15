@@ -5879,6 +5879,13 @@
     "text_sha": "095cee975fa4d71a",
     "voice_sha": "836ad4fb56ab66c9"
   },
+  "giveup.marysmith": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "marysmith",
+    "text_sha": "095cee975fa4d71a",
+    "voice_sha": "f71a6d34c480a1f5"
+  },
   "giveup.mrs_dunn": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
@@ -5983,6 +5990,13 @@
     "speaker": "telegraph_clerk",
     "text_sha": "095cee975fa4d71a",
     "voice_sha": "5bd68c7a51da664a"
+  },
+  "giveup.thornhill": {
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 1950,
+    "speaker": "thornhill",
+    "text_sha": "095cee975fa4d71a",
+    "voice_sha": "599242c8b5a9d37f"
   },
   "giveup.toll_a": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -8179,7 +8193,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "marysmith",
-    "text_sha": "e9e9528a434b2d40",
+    "text_sha": "66ae045c4a705f43",
     "voice_sha": "f71a6d34c480a1f5"
   },
   "marysmith-coffee.8": {
@@ -9390,7 +9404,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "marysmith",
-    "text_sha": "a8ec3a4545c4994c",
+    "text_sha": "fcc189be4f6c2fdd",
     "voice_sha": "f71a6d34c480a1f5"
   },
   "panic.2": {
