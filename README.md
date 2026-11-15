@@ -239,7 +239,7 @@ The figure below is a block diagram of the game hardware.
 
 I designed and built the following items:
 
-- A control board containing an Olimex ESP32-POE-ISO and a ring generator circuit.
+- A control board containing an [Olimex ESP32-POE-ISO](https://www.olimex.com/Products/IoT/ESP32/ESP32-POE/open-source-hardware) and a ring generator circuit.
 - A board containing eight trunk circuits.
 - Three boards each containing eight station circuits.
 
