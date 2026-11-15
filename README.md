@@ -916,10 +916,10 @@ Eric Rhinelander and Remco Enthoven cheered me on throughout. I learned
 the term gutless wonder from Remco.
 
 Beth Holmgren, my spouse, was the first player and my moral support.
-She suggested that Martha the dog be a rambunctious hotel guest, and
-said that if Roger Thornhill is staying at the Ballard, so should Richard Nugent,
+She suggested that Martha the dog be a rambunctious hotel guest.
+She added that if Roger Thornhill is staying at the Ballard, so should Richard Nugent,
 the man who says, "Hey, you remind me of a man."
-She also edited this document; any errors that remain are mine.
+Beth also edited this document; any errors that remain are mine.
 
 ### License
 
