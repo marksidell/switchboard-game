@@ -5078,7 +5078,7 @@ scenes:
                 called: Seattle? Time and charges on room 303. Three minutes. Ninety-five cents.
                 person: operator
             -   id: 23
-                caller: Ninety-five cents to be told I'm normal. Edna was right.
+                caller: Ninety-five cents. Put it on the expense account, under medical.
 
     # The long-distance operator rings back with the time and charges, once,
     # and hangs up (game_control.md 3.4, Rev 24).

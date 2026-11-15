@@ -2880,7 +2880,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "finch",
-    "text_sha": "b88a6acfef124f2c",
+    "text_sha": "c0e4c87ea181dfb6",
     "voice_sha": "70a782614f26cdb1"
   },
   "finch-wife.3": {
