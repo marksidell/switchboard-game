@@ -167,6 +167,8 @@ central office, which can ring and connect calls to the station.
 
 ## The Game Hardware
 
+### Who's on First
+
 Because the switchboard was intact, one of my design
 goals was not to modify it in any way and to build the game hardware
 to stand in for the telephones and outside trunks that would connect to
@@ -174,8 +176,59 @@ it. The game must infer what the player is doing solely from
 the switchboard's external connections.
 That raises the puzzle at the heart of the project. In essence, a cord pair is just
 a jumper. When the player plugs in a cord, nothing tells the game which
-two jacks it joined, or which call the operator is listening to. How the
-game works that out is in [Who's on First](#whos-on-first) below.
+two jacks it joined, or which call the operator is listening to.
+Without this knowledge the game wouldn't be able to
+monitor and progress through play.
+
+The solution I devised is to have pilot tones constantly play on all
+channels, including a tap on the operator headset, and to run an
+FFT on every channel. Below, the diagram on the left shows the idle
+state. Each game channel hears its own tone. On the right, the operator
+has connected Station 1 to Trunk 1 and keyed herself onto the call.
+Now each of the two channels hears the other's tone and the operator's.
+
+<p float="left">
+  <img src="docs/images/tones-idle.jpg" width="45%" />
+  <img src="docs/images/tones-connected.jpg" width="45%" />
+</p>
+
+The pilot tones also allow for basic hardware diagnostics.
+Each channel can report an error when
+it cannot hear its own tone, as a `deaf` message. When a channel
+hears more than one other tone, it reports `ambiguous`, which means
+a cord fault or crosstalk.
+
+The pilot tones start at 6 kHz, above the nominal 3.4 kHz telephone
+audio band, and go up to about 9 kHz. The frequencies are calibrated
+to fall in the middle of the FFT bins.
+A 4096-point FFT at 48 kHz gives 11.72 Hz bins. The tones are spaced
+8 bins (about 94 Hz) apart.
+The `sbaudio` program, described
+later, generates the tones, runs the FFTs, and reports the results via
+MQTT.
+
+The pilot tone decision also determined the audio hardware. At first
+I considered using a bank of telephony FXS (trunk) and FXO (station)
+cards, perhaps connected to an Asterisk telephone system. But the requirement
+that the hardware be able to hear tones up to 9 kHz made telephony
+interfaces unusable. My solution was to use a Ferrofish 32-channel
+professional audio interface connected to my own hardware.
+
+I bread-boarded the pilot tone scheme and was flabbergasted when it
+actually worked. And I couldn't hear the tones at all, because my hearing
+drops off a cliff above 2500 Hz. But a young enough player could hear
+the tones in the operator's headset. To hide the tones,
+I added a low-pass filter in the headset receiver path.
+I used a fourth-order passive elliptic (Cauer) LC filter,
+which places two notches inside the 6-9 kHz pilot band.
+The filter sits in a box between the headset plug and the switchboard jack:
+
+<p float="left">
+  <img src="docs/images/lowpass-filter.jpg" width="45%" />
+  <img src="docs/images/lowpass-filter-schematic.jpg" width="45%" />
+</p>
+
+### Hardware Overview
 
 The figure below is a block diagram of the game hardware.
 
@@ -489,62 +542,6 @@ game live. A debugging daemon, `sbgame-mqttlog`, records every message. When
 something doesn't seem right, I can note the time and describe the problem to
 Claude, which can then scour the logs. Usually it finds the problem in a few seconds
 and starts working on a fix.
-
-### Who's on First
-
-When I began designing the game, I needed to solve a problem:
-how would the game know which trunk and station circuits are connected to
-each other by cord pairs and which circuits the operator
-is keyed to. Without this knowledge the game wouldn't be able to
-monitor and progress through play.
-
-The solution I devised is to have pilot tones constantly play on all
-channels, including on a tap on the operator headset, and to run an
-FFT on every channel. When a cord connects two circuits, each one hears
-the other's tone and reports which circuit it's patched
-to. When channels
-hear the tone from the operator tap, the game knows the operator is keyed to those circuits.
-The tap also feeds the operator's voice to the audience loudspeaker when no call is in play.
-
-The pilot tone scheme made the game possible
-while maintaining my prime directive: not modifying the switchboard.
-A side benefit is that each channel can report an error when
-it cannot hear its own tone, as a `deaf` message. When a channel
-hears more than one other tone, it reports `ambiguous`, which means
-a cord fault or crosstalk.
-
-The pilot tones start at 6 kHz, above the nominal 3.4 kHz telephone
-audio band, and go up to about 9 kHz. The frequencies are calibrated
-to fall in the middle of the FFT bins.
-A 4096-point FFT at 48 kHz gives 11.72 Hz bins. The tones are spaced
-8 bins (about 94 Hz) apart.
-The `sbaudio` program, described
-later, generates the tones, runs the FFTs, and reports the results via
-MQTT.
-
-The pilot tone decision also determined the audio hardware. At first
-I considered using a bank of telephony FXS (trunk) and FXO (station)
-cards, perhaps connected to an Asterisk telephone system. But the requirement
-that the hardware be able to hear tones up to 9 kHz made telephony
-interfaces unusable. In the end the Ferrofish and my own hardware
-turned out to be a good solution.
-
-The Ferrofish also provides a very compact
-hardware interface for 32 input and 32 output channels. It uses eight DB25 connectors.
-Cables connect the signals directly to pairs of DB25 connectors on the trunk and station
-boards.
-
-The operator headset frequency response rolls off above the telephone band,
-but players who are young enough can still hear the pilot tones. To hide the tones,
-I added a low-pass filter in the headset receiver path.
-I used a fourth-order passive elliptic (Cauer) LC filter,
-which places two notches inside the 6-9 kHz pilot band.
-The filter sits in a box between the headset plug and the switchboard jack:
-
-<p float="left">
-  <img src="docs/images/lowpass-filter.jpg" width="45%" />
-  <img src="docs/images/lowpass-filter-schematic.jpg" width="45%" />
-</p>
 
 ### The ESP32 Firmware
 
@@ -920,8 +917,10 @@ Eric Rhinelander and Remco Enthoven cheered me on throughout. I learned
 the term gutless wonder from Remco.
 
 Beth Holmgren, my spouse, was the first player and my moral support.
-She suggested that Martha the dog be a rambunctious hotel guest and reminded me of, hey, you
-remind me of a man. She also edited this document; any errors that remain are mine.
+She suggested that Martha the dog be a rambunctious hotel guest, and
+said that if Roger Thornhill is staying at the Ballard, so should Richard Nugent,
+the man who says, "Hey, you remind me of a man."
+She also edited this document; any errors that remain are mine.
 
 ### License
 
