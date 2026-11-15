@@ -204,8 +204,7 @@ to fall in the middle of the FFT bins.
 A 4096-point FFT at 48 kHz gives 11.72 Hz bins. The tones are spaced
 8 bins (about 94 Hz) apart.
 The `sbaudio` program, described
-later, generates the tones, runs the FFTs, and reports the results via
-MQTT.
+later, generates the tones, runs the FFTs, and reports the results.
 
 The pilot tone decision also determined the audio hardware. At first
 I considered using a bank of telephony FXS (trunk) and FXO (station)
