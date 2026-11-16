@@ -880,6 +880,28 @@ characters say different things, based on their own personalities and back stori
 There are a total of 367 utterances. You can also talk to Lenny himself, if the operator
 dials an outside number not in the game's list.
 
+<!-- pagebreak -->
+
+## Ideas for Version 2
+
+- Characters that respond to what people who call the switchboard actually say.
+In Lenny mode today, every response is canned. Live responses would need speech
+recognition, a language model, and speech generated on the game machine.
+Making recognition and generation fast enough for a natural conversation would be a challenge.
+I'd need a bigger PC!
+
+- Ring trip, so the trunk board can tell when the operator has
+answered while the ring is still on. As I explained, this would be a
+completely gratuitous feature because only a short burst of ring is
+required to trigger the switchboard's trunk ring relays. But I'd enjoy
+experimenting with adding ring on top of the DC loop.
+
+- A smaller, inverter-based ring generator. The current design works fine, but it bothers
+my aesthetic sensibilities. Plus, with an inverter I could wind my own transformer.
+
+- Echo cancellation, so the audience loudspeaker can be louder without howling.
+I'll need to add this before I take the game to another conference.
+
 *Hotel Ballard. How may I help you?*
 
 <!-- pagebreak -->
