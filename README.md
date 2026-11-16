@@ -455,10 +455,11 @@ diode across tip and ring.
 
 There are three station boards. On the third board, one circuit is a tap on
 the operator's headset, and includes only the transformer section. The tap inserts
-a pilot tone for the operator and allows the audience loudspeaker to play the operator’s voice when the headset is not connected to a call. A second circuit on the same board is configured
+a pilot tone for the operator. It also lets the audience loudspeaker play the
+operator's voice when she is not keyed onto a call. A second circuit on the same board is configured
 to work with a real telephone connected to the switchboard. This allows people
 watching the game to pick up a phone and talk to the operator. The special
-telephone circuit simply omits the loop load resistor. (More on this later, too.)
+telephone circuit simply omits the loop load resistor. (More on this later.)
 With these two circuits
 used for other purposes, there are twenty-two game stations. I distributed
 the twenty-two stations and the real telephone across the thirty switchboard jacks, leaving seven unused.
