@@ -454,8 +454,8 @@ are sized to survive the 80 volts. The first line of protection is a TVS
 diode across tip and ring.
 
 There are three station boards. On the third board, one circuit is a tap on
-the operator's headset, and includes only the transformer section. I'll explain
-the purpose of the tap later. A second circuit on the same board is configured
+the operator's headset, and includes only the transformer section. The tap inserts
+a pilot tone for the operator and allows the audience loudspeaker to play the operator’s voice when the headset is not connected to a call. A second circuit on the same board is configured
 to work with a real telephone connected to the switchboard. This allows people
 watching the game to pick up a phone and talk to the operator. The special
 telephone circuit simply omits the loop load resistor. (More on this later, too.)
