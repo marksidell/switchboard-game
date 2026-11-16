@@ -18,7 +18,9 @@ BREAK = re.compile(r"<!--\s*pagebreak\s*-->", re.I)
 def render(source: str) -> str:
     """Markdown as HTML: tables, raw HTML, footnotes as endnotes, and a line
     reading <!-- pagebreak --> as a page break."""
-    source = BREAK.sub('<div style="break-after: page"></div>', source)
+    # A <div> block runs to the next blank line, so end it with one: a heading
+    # straight after the comment would otherwise print as raw text.
+    source = BREAK.sub('<div style="break-after: page"></div>\n', source)
     md = MarkdownIt("commonmark", {"html": True}).enable("table").use(footnote_plugin)
     # A plain superscript number, not the plugin's "[1]".
     md.add_render_rule("footnote_caption", lambda self, tokens, idx, *_: str(tokens[idx].meta["id"] + 1))

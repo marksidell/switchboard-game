@@ -921,6 +921,7 @@ She added that if Roger Thornhill is staying at the Ballard, so should Richard N
 the man who says, "Hey, you remind me of a man."
 Beth also edited this document; any errors that remain are mine.
 
+<!-- pagebreak -->
 ### License
 
 The code and documents here are under the [MIT License](LICENSE), with two exceptions.
