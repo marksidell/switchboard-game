@@ -897,8 +897,8 @@ required to trigger the switchboard's trunk ring relays. But I'd enjoy
 experimenting with adding ring on top of the DC loop.
 
 - A smaller, inverter-based ring generator. The current design works fine, but it bothers
-my aesthetic sensibilities. Plus, with an inverter I could wind my own transformer,
-something I haven’t done in sixty years, when I built a motor with nails and magnet wire.
+my aesthetic sensibilities. Plus, with an inverter I could wind my own transformer, something I haven't done
+since I built a motor out of nails and magnet wire sixty years ago.
 
 - Echo cancellation, so the audience loudspeaker can be louder without howling.
 I'll need to add this before I take the game to another conference.
