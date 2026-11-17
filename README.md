@@ -902,9 +902,9 @@ experimenting with adding ring on top of the DC loop.
 my aesthetic sensibilities. Plus, with an inverter I could wind my own transformer, something I haven't done
 since I built a motor out of nails and magnet wire sixty years ago.
 
-- Echo cancellation. The feedback eliminator only acts once a howl has started,
+- Echo cancellation on the operator's microphone. The feedback eliminator only acts once a howl has started,
 and the audience hears a chirp first. Echo cancellation would subtract the
-loudspeaker's sound from the operator's microphone before it goes anywhere, so a
+loudspeaker's sound from the microphone signal before it goes anywhere, so a
 howl could never start, and the speech detector would hear only the operator.
 I'd like to have it before I take the game to another conference.
 
