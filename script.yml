@@ -385,6 +385,16 @@ cast:
         sex: female
         accent: French, charming but firm
         description: reservationist at Place Pigalle
+        sample: >
+            Place Pigalle, bonsoir. Oui, madame, of course. But tonight, it is
+            very, very difficult. For how many persons? Ah, eight o'clock, by
+            the window. Très bien.
+        voice: >
+            A Frenchwoman in her forties, born and raised in Paris, speaking
+            English with a strong French accent: French vowels, no h sounds,
+            a soft uvular r, and the stress on the last syllable of each phrase.
+            Warm and charming but firm, a little theatrical. Natural,
+            conversational telephone speech, 1950s.
     rays_host:
         sex: male
         accent: Pacific Northwest, easygoing and casual

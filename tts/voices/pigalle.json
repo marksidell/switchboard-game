@@ -1,16 +1,13 @@
 {
   "person": "pigalle",
-  "take": 3,
-  "seed": 1953,
+  "take": 4,
+  "seed": 1954,
   "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
-  "instruct": "A female voice. Accent: French, charming but firm. reservationist at Place Pigalle.\nNatural, conversational telephone speech, 1950s.",
-  "sample_text": "Place Pigalle, bonsoir. Mais oui, madame. Eight o'clock? By the window, you can see the ferries on the Sound.",
-  "sample_from": [
-    "albright-pigalle.2",
-    "albright-pigalle.4"
-  ],
+  "instruct": "A Frenchwoman in her forties, born and raised in Paris, speaking English with a strong French accent: French vowels, no h sounds, a soft uvular r, and the stress on the last syllable of each phrase. Warm and charming but firm, a little theatrical. Natural, conversational telephone speech, 1950s.",
+  "sample_text": "Place Pigalle, bonsoir. Oui, madame, of course. But tonight, it is very, very difficult. For how many persons? Ah, eight o'clock, by the window. Tr\u00e8s bien.",
+  "sample_from": [],
   "rate": 24000,
-  "seconds": 6.72,
-  "generate_seconds": 10.27,
-  "chosen_candidate": 3
+  "seconds": 16.0,
+  "generate_seconds": 27.67,
+  "chosen_candidate": 4
 }
