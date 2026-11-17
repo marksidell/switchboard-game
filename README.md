@@ -994,6 +994,9 @@ the older manual method.
     I based the call on a 1949 *Dragnet* episode, ["The Big Missing,"](https://youtu.be/iLe6cj7WcvQ?t=1549)
     in which Sgt. Friday delivers good news to a mother in Utah. I'm pretty sure the show recorded
     real long-distance operators.
+    In the game, the guest asks for the charges. In practice, the
+    long-distance operator also called the hotel operator after the call
+    with the time and charges, so the hotel could bill the guest.
 
 [^3]: Martha is inspired by the children's book
 [*Martha Calling*](https://bookshop.org/p/books/martha-calling-susan-meddaugh/1ac79748684d5a6e?ean=9780395827413),
