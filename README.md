@@ -310,8 +310,9 @@ inductance collapses and only the winding resistance limits the
 current. Fortunately, my bench supply current limiter prevented the
 MOSFETs from frying.
 
-My third choice, an Antek toroidal mains transformer, didn't saturate,
-but its first power-up put the 40 kHz
+My third choice, an
+[Antek toroidal mains transformer](https://www.antekinc.com/as-0522-50va-22v-transformer/),
+didn't saturate, but its first power-up put the 40 kHz
 carrier on the output at over &plusmn;250 V peaks, until a 1 &micro;F capacitor
 across the winding turned it into a sine. (Observant readers may discern this is the
 first time I've built one of these things.)
