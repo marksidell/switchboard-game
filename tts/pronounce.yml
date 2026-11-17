@@ -65,20 +65,6 @@
 # One person's way of saying things, applied to that person's lines only
 # and matched whatever the case. Checked before the entries above.
 speakers:
-    # The reservationist at Place Pigalle, in her French (Mark, 2026-09-29).
-    # The guests say "Place Pigalle" their own way, by the general entry.
-    pigalle:
-        "Place Pigalle": plahss pig-GAHL
-        "bonsoir": bohn-SWAHR
-        # Whole, so its "a" is spoken "ah", not as a letter.
-        "a bientot": ah byenn-TOH
-        "bientot": byehn-TOH
-        "mais oui": may WEE
-        "madame": mah-DAHM
-        "mademoiselle": mad-mwah-ZELL
-        "monsieur": me-SYUR
-        "non": nohn
-        "desolee": day-zoh-LAY
     # Lindqvist's Swedish "ja", long and open. Miss Vance's "will ya?" is
     # hers and stays American.
     lindqvist:

@@ -50,6 +50,7 @@ it. What is missing, and where it lives instead:
 | `control/secrets.h` | the controller's password, gitignored, and the source of `sbgame-control`'s entry |
 | `/root/.aws/credentials` | the Route 53 key for certbot, `[default]`, 600 |
 | `/etc/letsencrypt/` | the certificate, its key, and the ACME account |
+| `~/.config/sbgame/elevenlabs-key` | the ElevenLabs API key, for rendering lines at authoring time only (`tts/`), 600; never used in a game |
 
 ## Rebuilding the host from nothing
 

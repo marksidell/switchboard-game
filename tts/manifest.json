@@ -178,7 +178,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "pigalle",
-    "text_sha": "5439c310ae8893b1",
+    "text_sha": "50e737a9ca3e7c12",
     "voice_sha": "34ca4483ffc88929"
   },
   "albright-pigalle.3": {
@@ -192,7 +192,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "pigalle",
-    "text_sha": "f1e2acc8c2a45b5e",
+    "text_sha": "9728e9d1921602fd",
     "voice_sha": "34ca4483ffc88929"
   },
   "albright-pigalle.5": {
@@ -206,7 +206,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "pigalle",
-    "text_sha": "ea44ddc3f8c220dc",
+    "text_sha": "8888d4032e160761",
     "voice_sha": "34ca4483ffc88929"
   },
   "albright-pigalle.7": {
@@ -220,7 +220,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "pigalle",
-    "text_sha": "f6fc8ad0c9383248",
+    "text_sha": "16fee0df91ac3712",
     "voice_sha": "34ca4483ffc88929"
   },
   "albright-portland.1": {
@@ -507,7 +507,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "pigalle",
-    "text_sha": "5439c310ae8893b1",
+    "text_sha": "50e737a9ca3e7c12",
     "voice_sha": "34ca4483ffc88929"
   },
   "beaumont-pigalle.3": {
@@ -521,7 +521,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "pigalle",
-    "text_sha": "be7bbb673def7a50",
+    "text_sha": "92bd2d97f7bc8c07",
     "voice_sha": "34ca4483ffc88929"
   },
   "beaumont-pigalle.5": {
@@ -4826,7 +4826,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "pigalle",
-    "text_sha": "eec102776cd9609d",
+    "text_sha": "8cbd192922e4e31f",
     "voice_sha": "34ca4483ffc88929"
   },
   "free.pigalle.6": {
@@ -4861,7 +4861,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "pigalle",
-    "text_sha": "5439c310ae8893b1",
+    "text_sha": "50e737a9ca3e7c12",
     "voice_sha": "34ca4483ffc88929"
   },
   "free.pike.1": {
@@ -12204,7 +12204,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "pigalle",
-    "text_sha": "5439c310ae8893b1",
+    "text_sha": "50e737a9ca3e7c12",
     "voice_sha": "34ca4483ffc88929"
   },
   "vance-pigalle.3": {
@@ -12218,7 +12218,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "pigalle",
-    "text_sha": "e9c09e3006c94bce",
+    "text_sha": "f07b0d8da8b32d59",
     "voice_sha": "34ca4483ffc88929"
   },
   "vance-pigalle.5": {
@@ -12232,7 +12232,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "pigalle",
-    "text_sha": "49ec6b5e517bf6d7",
+    "text_sha": "e43bcc723a1e8998",
     "voice_sha": "34ca4483ffc88929"
   },
   "vance-pigalle.7": {
@@ -12246,7 +12246,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "pigalle",
-    "text_sha": "f48e779df0e740f6",
+    "text_sha": "a416bb7a0db2858c",
     "voice_sha": "34ca4483ffc88929"
   },
   "vance-tea.1": {
