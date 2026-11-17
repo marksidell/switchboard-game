@@ -2,7 +2,8 @@
 @page {
   size: letter;
   margin: 0.9in 1in 0.9in 1in;
-  @bottom-center { content: counter(page); font: 10pt "Liberation Serif", serif; }
+  @bottom-left { font: 9pt "Liberation Serif", serif; }
+  @bottom-right { content: counter(page); font: 10pt "Liberation Serif", serif; }
 }
 
 html { font: 11pt/1.38 "Liberation Serif", serif; color: #000; }
