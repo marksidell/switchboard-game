@@ -1,11 +1,12 @@
 # hardware
 
 Mechanical design files other than the circuit boards (those are in `kicad/`).
-Front panels are Front Panel Designer files (Schaeffer / Front Panel Express).
+Front panels are Front Panel Designer files. The panels are from
+[Front Panel Express](https://www.frontpanelexpress.com/).
 
-- `panel1.fpd` — connectors for the cabling to the switchboard.
-- `panel2.fpd` — connectors for everything else: the Stream Deck, the audience monitor,
-  the travel router and the Next Scene pushbutton.
+- `panel-back.fpd` — connectors for the cabling to the switchboard.
+- `panel-front.fpd` — connectors for everything else: the Stream Deck, the audience loudspeaker,
+  and a LAN connection (or a travel router).
 - `station-wiring.csv` — the station lines from the station boards' RJ45s to the
   switchboard: one 25-pair colour group to each RJ45, the slate pair unused.
 - `switchboard-wiring.md` — the ring and power feeds into the switchboard: which game
