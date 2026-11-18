@@ -98,12 +98,13 @@ plugged in and the key bridged to a line held off-hook by a 500 set.
 
 Inductors are modelled as L plus DCR, without core loss, so real notches are shallower.
 At 2.5–3.4 kHz the filter's input impedance is 0.35–0.47 of the receiver's, which may
-move the sidetone balance at the top of the band. Bench checks once built: the response
-across the receiver with the AD3 network analyzer, sidetone by ear, the outgoing level
-on the tap channel, and `optone` and `op` detection with the operator bridged.
+move the sidetone balance at the top of the band.
 
-No specification in `docs/` yet. R11 is selected on the bench to match the carbon
-element's level on the tap channel. Untested.
+The low-pass is built and was measured in place on 2026-11-03: the response, the pilots
+at the receiver and the headset are in `docs/headset.md` §6, which is its specification.
+
+The electret transmitter is not built and has no specification in `docs/` yet. R11 is
+selected on the bench to match the carbon element's level on the tap channel.
 
 ## The same filter in the station 24 500 set
 
