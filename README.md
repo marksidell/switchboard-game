@@ -63,7 +63,7 @@ three hundred calls.
 Watching people play, I think I understand why the game draws them in.
 
 First, it's real. The switchboard isn't a replica or a screen; it's the
-same machine a real operator worked for years, and the player sits where she
+same machine a real operator worked at for years, and the player sits where she
 sat. Second, it's physical. The cords have weight, the plugs seat with a
 click, the keys spring back under your fingers, and a lamp lights in
 front of you when someone wants you. Nobody needs instructions on how to
@@ -215,7 +215,7 @@ professional audio interface connected to my own hardware.
 
 I bread-boarded the pilot tone scheme and was flabbergasted when it
 actually worked. And I couldn't hear the tones at all, because my hearing
-drops off a cliff above 2500 Hz. But a young enough player could hear
+drops off a cliff above 2500 Hz. But a younger player could hear
 the tones in the operator's headset. To hide the tones,
 I added a low-pass filter in the headset receiver path.
 I used a fourth-order passive elliptic (Cauer) LC filter,
