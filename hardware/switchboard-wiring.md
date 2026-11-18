@@ -53,7 +53,7 @@ one retard coil and GND reaches its ring through a separate retard coil.
 ## The game cable
 
 Inside the game hardware, ring (J102's red/black cable) and power each run to an
-Anderson Powerpole connector of their own on the front panel (`panel1.fpd`). From the
+Anderson Powerpole connector of their own on the back panel (`panel-back.fpd`). From the
 panel, one four-conductor cable carries both to the switchboard:
 
 | Wire | Signal | At the switchboard |
