@@ -708,7 +708,7 @@ martha-roomservice:
 
 Here is a simulation of the scene as the game plays it:
 
-https://github.com/user-attachments/assets/44511be3-a3a2-49cf-a1b4-f211fd734c48
+https://github.com/user-attachments/assets/6b8ea08a-b585-44b5-a244-d250a9f95f27
 
 There's a lot of complexity under the hood; here are a few of the more interesting parts:
 
