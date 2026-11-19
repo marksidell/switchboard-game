@@ -9,11 +9,13 @@ README starts a new page here and is invisible on GitHub. The automatic rules
 in readme-pdf.css. Footnotes ([^1]) print as endnotes at the end, as on GitHub.
 The foot of each page names the last commit of README.md and its date, with
 "edited" after it when the file differs from that commit; commit the README
-before rendering for a clean stamp.
+before rendering for a clean stamp. A video GitHub plays in place (a
+user-attachments URL alone on its line) prints as a link to it.
 Needs python3-markdown-it, python3-mdit-py-plugins and Google Chrome 131 or later."""
 from __future__ import annotations
 
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -21,6 +23,7 @@ from md_pdf import print_pdf, render
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
+VIDEO = re.compile(r"^(https://github\.com/user-attachments/assets/\S+)$", re.M)
 
 
 def stamp() -> str:
@@ -36,7 +39,8 @@ def stamp() -> str:
 
 def main() -> None:
     out = pathlib.Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else HERE / "README.pdf"
-    body = render((ROOT / "README.md").read_text())
+    source = VIDEO.sub(r"[Play the video (on GitHub)](\1)", (ROOT / "README.md").read_text())
+    body = render(source)
     css = (HERE / "readme-pdf.css").read_text()
     css += '@page { @bottom-left { content: "%s"; } }\n' % stamp()
     print_pdf(body, css, "The Switchboard Game", ROOT, out)
