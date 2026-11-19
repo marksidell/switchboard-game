@@ -706,11 +706,9 @@ martha-roomservice:
         caller: woof! woof! woof!
 ```
 
-Here is the scene as the game plays it:
+Here is a simulation of the scene as the game plays it:
 
-<p align="center">
-  <video src="https://github.com/user-attachments/assets/44511be3-a3a2-49cf-a1b4-f211fd734c48" width="480" controls></video>
-</p>
+https://github.com/user-attachments/assets/44511be3-a3a2-49cf-a1b4-f211fd734c48
 
 There's a lot of complexity under the hood; here are a few of the more interesting parts:
 
