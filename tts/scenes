@@ -20,8 +20,16 @@ busy call ends with her closing: line, if it has one.
 
 Every line, both sides of the call, goes to one channel, zero-based index 0
 by default — circuit 1. pause: is silence; ringback: and the ring of an
-outside line are the 420Hz ringback of audio.md §8.2, and busy tone is its
+outside line, and a station rung, are the 420Hz ringback of audio.md §8.2, and busy tone is its
 busy, both at the same −20dBFS peak.
+
+--batch also puts in the switchboard's buzzer, which the audience hears in the
+room and the line does not carry: two seconds of it when a station's lamp
+lights, before the operator answers, and two more a second after the last line,
+when the parties have hung up and the cord lamps call her to take the cords
+down. Her answer comes a second after she plugs in. The buzzer is two seconds
+of the room recorded during the YouTube demo (tts/sounds/buzzer.wav, from
+~/s/GameDemo/room-buzzer.wav at 21:30.4), set at BUZZ_RMS.
 
 Audio path as tts/audition (tts/playback.py): the Digiface, 34 playback
 channels of S32_LE at 48kHz, docs/audio-io.md. The device must be free, so
@@ -64,6 +72,12 @@ BUSY_FOR = 3.0               # how much busy tone to play before the operator go
 # operator takes to ring a station or dial a number.
 TURN = 0.4
 ROUTE = 1.5
+# --batch only: the buzzer, and the beat before the operator's answer and before
+# the buzzer at the end.
+BUZZER = Path(__file__).resolve().parent / "sounds" / "buzzer.wav"
+BUZZ_RMS = -30.0             # dBFS; the lines' speech is near −19.5 RMS
+PLUG_IN = 1.0
+HANG_UP = 1.0
 
 
 class Player:
@@ -158,6 +172,7 @@ def steps(raw: dict, lines: list[Utterance], script: Script,
         jack = next((j["jack"] for j in script.jacks if j.get("station") == to_line), None)
         yield from tut(f"ring-{'rear' if from_line in outside else 'front'}-{jack}")
         yield ("route", f"operator rings {to_line}")
+        yield ("tone", "ringback", RING_OUT)
         if from_line in outside and last_wait is None:
             yield from tut("center-ringing")
     else:
@@ -215,11 +230,15 @@ def render_scene(raw: dict, lines: list[Utterance], script: Script, wav: Path,
                  tutor: bool = False) -> np.ndarray:
     """The whole scene as one recording, the operator's lines in their places,
     and with `tutor` the tutor's."""
-    parts: list[np.ndarray] = []
+    buzz = buzzer()
+    station = raw["calling"]["line"] not in script.outside
+    parts: list[np.ndarray] = [buzz] if station else []
+    answered = False
     for step in steps(raw, lines, script, tutor):
         kind = step[0]
         if kind == "operator":
-            parts += [silence(TURN), wav_audio(wav / step[2].filename)]
+            parts += [silence(TURN if answered else PLUG_IN), wav_audio(wav / step[2].filename)]
+            answered = True
         elif kind == "route":
             parts.append(silence(ROUTE))
         elif kind in ("line", "tutor"):
@@ -228,8 +247,18 @@ def render_scene(raw: dict, lines: list[Utterance], script: Script, wav: Path,
             parts.append(tone_audio(step[1], step[2]))
         elif kind == "silence":
             parts.append(silence(step[1]))
-    parts.append(silence(TURN))
+    parts += [silence(HANG_UP), buzz, silence(TURN)]
     return np.concatenate(parts)
+
+
+def buzzer() -> np.ndarray:
+    """The switchboard's buzzer at BUZZ_RMS, with 20ms fades."""
+    audio = wav_audio(BUZZER)
+    audio = audio * 10 ** (BUZZ_RMS / 20) / np.sqrt(np.mean(audio ** 2))
+    fade = np.linspace(0.0, 1.0, int(0.02 * RATE))
+    audio[:len(fade)] *= fade
+    audio[-len(fade):] *= fade[::-1]
+    return audio
 
 
 def needs(sid: str, lines: list[Utterance], script: Script, wav: Path,
