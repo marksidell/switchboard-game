@@ -706,6 +706,10 @@ martha-roomservice:
         caller: woof! woof! woof!
 ```
 
+Here is the scene as the game plays it:
+
+https://github.com/user-attachments/assets/44511be3-a3a2-49cf-a1b4-f211fd734c48
+
 There's a lot of complexity under the hood; here are a few of the more interesting parts:
 
 - The engine shuffles scenes like cards, so every scene plays once
