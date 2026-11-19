@@ -9,7 +9,9 @@ README starts a new page here and is invisible on GitHub. The automatic rules
 in readme-pdf.css. Footnotes ([^1]) print as endnotes at the end, as on GitHub.
 The foot of each page names the last commit of README.md and its date, with
 "edited" after it when the file differs from that commit; commit the README
-before rendering for a clean stamp.
+before rendering for a clean stamp. GitHub does not resolve a relative image
+path inside a footnote, so an image there names its full URL on GitHub; it is
+read from this tree instead.
 Needs python3-markdown-it, python3-mdit-py-plugins and Google Chrome 131 or later."""
 from __future__ import annotations
 
@@ -21,6 +23,7 @@ from md_pdf import print_pdf, render
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
+GITHUB = "https://github.com/marksidell/switchboard-game/raw/main/"
 
 
 def stamp() -> str:
@@ -36,7 +39,7 @@ def stamp() -> str:
 
 def main() -> None:
     out = pathlib.Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else HERE / "README.pdf"
-    body = render((ROOT / "README.md").read_text())
+    body = render((ROOT / "README.md").read_text().replace(GITHUB, ""))
     css = (HERE / "readme-pdf.css").read_text()
     css += '@page { @bottom-left { content: "%s"; } }\n' % stamp()
     print_pdf(body, css, "The Switchboard Game", ROOT, out)
