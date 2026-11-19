@@ -966,17 +966,18 @@ hear Lenny, download [Lenny.zip](https://crosstalksolutions.com/pub/Lenny.zip) a
 the files as `tts/recorded/PERFORMERS.md` describes. Without them, the rest of the game
 is unaffected except that the operator's call to an unknown number has no one to answer it.
 
-[^1]: Before dial service, a caller told the operator the name of the exchange and
-the number in that exchange. For example: "MAin 6247". When AT&T introduced dial
-service, an engineer named W. G. Blauvelt suggested adding letters to the dial
-so that people could continue using the familiar names. Dial service came to
+[^1]: When operators connected every call, a caller asked for the exchange by
+name and then the number: "Main 6247, please." When AT&T introduced dial
+service, an engineer named W. G. Blauvelt suggested putting letters on the dial
+so that people could keep using the familiar names. A caller dialed the first
+two letters of the name, which is why the number was written MAin 6247. Dial service came to
 Seattle in 1923, when the first panel switch was installed in the Rainier
 central office.
 
     At that time, Seattle had six-digit phone numbers: the exchange
     name followed by four digits. In 1958 the city converted to a seven-digit
     dialing plan, where the first three digits named the exchange. The conversion
-    was part of a national push to standardize for direct-dial long distance calling.
+    was part of a national push to standardize for direct-dial long-distance calling.
 
     The Connections Museum still has that 1923 switch, the last panel
     switch in the world, and it still works. It's my favorite artifact in the museum.
