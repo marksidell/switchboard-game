@@ -111,18 +111,15 @@ replace a few lamps, and replace a row of jacks that had failed.
 
 ### How the Switchboard Works
 
-A switchboard must provide these functions:
+To complete a call, a switchboard must let the operator:
 
-- A person at a telephone must be able to *signal* the operator.
-- The operator must be able to answer the incoming call.
-- The operator must be able to talk to the caller to determine whom
-the person wants to call.
-- The operator must be able to determine if the desired destination is available. (It is busy if a cord is already in its jack.)
-- The operator must be able to connect to the destination.
-- The operator must be able to alert the destination by
-ringing its telephone.
-- The operator must be able to *supervise* the call to know when the parties have hung up
-in order to tear down the connection.[^5]
+- see that a person at a telephone is *signaling* her,
+- answer the incoming call,
+- talk to the caller to learn whom the person wants to call,
+- check that the destination is available,
+- connect to the destination,
+- alert the destination by ringing its telephone, and
+- *supervise* the call, to know when the parties have hung up and the connection can be torn down.[^5]
 
 The photo below identifies the elements of a switchboard.
 
@@ -143,6 +140,7 @@ Below the jacks are ten pairs of cords the operator uses to connect
 calls. Each pair has a front and a rear cord.
 She[^6] plugs one cord into a jack to answer an incoming call and
 then plugs the other cord into the desired destination.
+A station is busy if a cord is already in its jack.
 With ten cord pairs, the switchboard can handle at most ten calls at
 once.
 Lamps in front of the cords signal when the parties have hung up
