@@ -66,8 +66,7 @@ First, it's real. The switchboard isn't a replica or a screen; it's the
 same machine a real operator worked at for years, and the player sits where she
 sat. Second, it's physical. The cords have weight, the plugs seat with a
 click, the keys spring back under your fingers, and a lamp lights in
-front of you when someone wants you. Nobody needs instructions on how to
-plug in a cord. The hands figure it out. And third, there are people
+front of you when someone wants you. And third, there are people
 on the other end. The guests have voices and personalities, they get
 impatient, they say thank you, and the dog orders a pizza. For a
 few minutes the player isn't operating a simulator. She's the operator
