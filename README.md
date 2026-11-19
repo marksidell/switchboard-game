@@ -1039,7 +1039,7 @@ the transmitter, which was AC-coupled to the receiver and loop by a transformer.
 A ringer sat across the loop, and a magneto with a crank generated a ring signal.
 
     <p align="left">
-      <img src="https://github.com/marksidell/switchboard-game/raw/main/docs/images/local-battery.jpg" width="40%" />
+      <img src="https://github.com/marksidell/switchboard-game/raw/main/docs/images/local-battery.jpg" width="50%" />
     </p>
 
     To signal the operator, the caller cranked the magneto. The ring voltage
