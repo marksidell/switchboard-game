@@ -334,9 +334,9 @@ ESP32 can operate to cycle power to the switchboard, effectively rebooting it.
 The circuit between a central office (CO) and a telephone (station) is a DC loop.
 To the trunk board, the switchboard is the telephone, and the board plays the central office.
 
-The CO powers the loop.[^8] When the phone is *onhook* (hung up) it presents an open
+The CO powers the loop. When the phone is *onhook* (hung up) it presents an open
 circuit to the CO. When a person picks up the phone it goes *offhook* and presents
-a DC resistance. The analog audio signal rides on top of the DC.
+a DC resistance. The analog audio signal rides on top of the DC.[^8]
 (The phone's ringer, which is connected when the phone is onhook,
 is in series with a capacitor so that the ringer passes the AC but no DC,
 and the line still reads as open.)
