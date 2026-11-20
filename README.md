@@ -651,8 +651,7 @@ JavaScript on the client processes the messages and manages the display.
 
 An nginx web server running on the PC serves static content and proxies the Mosquitto WebSockets channel.
 It hosts the website at `game.kr3am.org` (my ham call sign) using a proper Let's Encrypt certificate,
-because browsers insist on it these days. Of
-course, certbot renews the certificate automatically, proving ownership through DNS (AWS Route 53),
+because browsers insist on HTTPS these days. Certbot renews the certificate automatically, proving ownership through DNS (AWS Route 53),
 so the PC never has to be exposed to the internet.
 
 The iPad shows a replica of the switchboard's jacks, lit as the real ones
