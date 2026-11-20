@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 119. The changes in each revision are in §15.*
+*Rev 120. The changes in each revision are in §15.*
 
 # 1. Overview
 
@@ -541,7 +541,7 @@ An Elgato Stream Deck+ on a USB cable from the host, beside the switchboard, car
 
 ## 10.1 The Program
 
-`sbgame-streamdeck`, a Python program in `engine/`, drives it through the `streamdeck` library over hidapi. It is a process of its own and not part of the game program, for the page's reason (§1): it reads the bus directly, so it shows the game offline rather than going dark with it, and a USB fault cannot disturb a game. It connects to the broker on loopback as `sbgame-deck`, with the page's access list: it reads `sbgame/#` and writes only `sbgame/game/+/set` (`mqtt.md` §9). It runs as a systemd service, `sbgame-streamdeck`, as the system user `sbgame-deck`, which a udev rule lets open the deck and nothing else. It has no will and no heartbeat, for the page's reason (`mqtt.md` §8.2): nothing depends on it.
+`sbgame-streamdeck`, a Python program in `engine/`, drives it through the `streamdeck` library over hidapi. It is a process of its own and not part of the game program, for the page's reason (§1): it reads the bus directly, so it shows the game offline rather than going dark with it, and a USB fault cannot disturb a game. It connects to the broker on loopback as `sbgame-deck`, with the page's access list: it reads `sbgame/#` and writes only `sbgame/game/+/set` (`mqtt.md` §9). It runs as a systemd service, `sbgame-streamdeck`, as the system user `sbgame-deck`, which a udev rule lets open the deck and nothing else. It has no will and no heartbeat, for the page's reason (`mqtt.md` §8.2): nothing depends on it. One thing it does is not a publish: it powers the host off (§10.2), through logind, which a polkit rule lets `sbgame-deck` do and nothing more (`host/etc/polkit-1/rules.d/`).
 
 It follows every rule of §11.2. It shows only what was echoed, and a press changes nothing on the deck until the echo arrives. Every command is absolute but Next Call. Durations are computed against the host's clock, taken from each `game_heartbeat`. Stale values are greyed, not blanked. It subscribes to `sbgame/#` on every connect and needs nothing else.
 
@@ -564,11 +564,13 @@ It follows every rule of §11.2. It shows only what was echoed, and a press chan
 | 7 Percent | success percentage of handled. While the tutor has a line to repeat (§7), "Repeat" over "Help" instead, lit teal, and dark while the tutor speaks | nothing. While the tutor has a line to repeat, `repeat/set` at QoS 0, then dark for 1s or until the tutor's voice starts, so a double press does not say it twice. |
 | 8 Health | a lamp each for the game program, the controller and the audio program, red when offline or its heartbeat is 2.5s late; the whole key red while `game/error` is set. While the tutor introduces the board (§7), "More" over "Help" instead, lit teal while a further part remains, and flashing once a second while `game/tutor/waiting` is `"more"`. The same while `game/tutor/more` is set, a short prompt waiting, dark while the tutor speaks | shows the last `game/error` on the strip again. While the tutor introduces the board, `more/set` at QoS 0, guarded as Next Call is: dark from the press until `game/tutor/intro` changes, or 3s pass. On a short prompt, the same, until `game/tutor/more` changes. |
 
-**Dials**, left to right: `gap`, `ramp`, `floor`, `jitter`. One detent is one step of the page's stepper: 5s, 1s, 1s and 10%. A push does nothing.
+**Dials**, left to right: `gap`, `ramp`, `floor`, `jitter`. One detent is one step of the page's stepper: 5s, 1s, 1s and 10%. A push does nothing, except a held push of the first dial: shutting down the host, below.
 
 **Turning a dial.** The dial reports steps and the command is absolute, so the program keeps a target. The first detent starts the target at the echoed value; each detent adds a step to the target, clamped to the §5.4 range, and publishes it. The target is held while detents keep coming and is dropped when the echo equals it or 1s after the last detent, so a fast turn loses no steps and a value the game clamped differently — `floor` above `gap` — settles on the echo. A dial whose value has not been echoed yet does nothing.
 
 **Switchboard reset**. Key 5 held for 2s, with no sweep running, publishes `game/power_cut/set` `"on"`, once per hold, at the 2s mark rather than on release, so the operator knows when to let go. From the press until then the key reads "Hold to" over "reset", with a bar filling across its foot; let go sooner and nothing is sent. A hold is one press to the sweep's double press: a second press within 0.5s of the first still starts the trunk sweep, and the hold then counts for nothing. While a sweep runs the key behaves as the table says and a hold does nothing more. While `ctl/power_cut` reads `"on"` the key reads "Switchboard" over "reset", lit red, whoever sent it. While the game program is offline a hold does nothing and the key does not show it. During a game it works as without one: the game program freezes the lines through the cut, so the calls in progress carry on (§4), and a trunk lamp left lit clears.
+
+**Shutting down the host.** The first dial pushed and held for 3s, with no game running, powers the host off (`systemctl poweroff`), at the 3s mark rather than on release. From the push until then its segment of the strip reads "hold to" over "shut down", with a bar filling across its foot; let go sooner and nothing happens. Then the whole strip reads "Shutting down", in red, until the deck goes dark. During a game a push does nothing: stop the game first. With the game program offline or its heartbeat late a hold works, so a hung game program cannot keep the host up; with the broker lost it works too. The services stop as at any shutdown: the game program ends a game cleanly, and the controller, losing the broker, releases every relay (`mqtt.md` §8.2). If logind refuses, the strip shows why for 5s, as an error is shown, and a touch dismisses it. Nothing is published; it is local to the host, like the deck itself.
 
 ## 10.3 Errors and Staleness
 
@@ -813,6 +815,12 @@ Before step 1: the certificate is issued (`host/README.md`, "The certificate"), 
 - **Screen wake lock** (§11.3). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 15. Revision History
+
+## 15.120 Changes in Rev 120
+
+— Shutting down the host from the deck (§10.1, §10.2), Mark's request, 2026-11-20: the first dial pushed and held 3s with no game running runs `systemctl poweroff`, so the host can be shut down at the end of a day without a keyboard or a VNC session. 3s, a second longer than the switchboard reset's hold, since it cannot be undone from the deck. Allowed with the game program offline, so a hung game cannot prevent it. A push of any dial did nothing before.
+
+— Code consequence, for Claude Code: `on_dial_push()`, `holding_shutdown()`, `shutdown_due()` and the strip's hold and "Shutting down" in streamdeck.py, with `poweroff()` in `run()`; `test_shutdown_the_first_dial_held_3s`. Host: `host/etc/polkit-1/rules.d/50-sbgame-deck-poweroff.rules`, allowing `sbgame-deck` the three logind power-off actions.
 
 ## 15.119 Changes in Rev 119
 

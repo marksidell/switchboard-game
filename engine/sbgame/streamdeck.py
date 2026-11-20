@@ -17,6 +17,9 @@ The deck shows only what was echoed (§11.2). A press publishes and changes
 nothing on the deck until the game program's state topic changes, with two
 exceptions that are local by nature: Stop armed for its second press, and
 Next Call dark while its guard holds (§5.1).
+
+One thing it does that is not a publish: the first dial held 3s with no game
+running powers the host off, through logind (§10.2).
 """
 
 from __future__ import annotations
@@ -98,6 +101,13 @@ SWEEP_KEYS = {4: "trunks", 5: "stations"}
 RESET_KEY = 4
 RESET_HOLD = 2.0
 
+# The first dial pushed and held this long with no game running: the host
+# powers off (§10.2). Longer than the reset's hold; it cannot be undone from
+# the deck.
+SHUTDOWN_DIAL = 0
+SHUTDOWN_HOLD = 3.0
+NOTE_SHOW = 5.0      # the deck's own message across the strip
+
 
 # ---- the panel: state and rules, no I/O ------------------------------------
 
@@ -127,6 +137,12 @@ class Panel:
         self.last_sweep_press: tuple[int, float] | None = None
         # When key 5 went down for a switchboard reset, or None.
         self.reset_down: float | None = None
+        # When the first dial was pushed for a shutdown, or None; and once
+        # sent, the host is going down.
+        self.shutdown_down: float | None = None
+        self.shutting_down = False
+        # The deck's own message on the strip, as an error's: [text, until].
+        self.note: tuple[str, float] | None = None
 
     # -- reading --
 
@@ -361,6 +377,41 @@ class Panel:
             return [("game/sweep/set", "off", 1)]
         return [("game/sweep/set", SWEEP_KEYS[key], 1)]
 
+    def _shutdown_allowed(self, now: float) -> bool:
+        """Not while a game runs. With the game program offline it is
+        allowed: a hung game program must not keep the host up."""
+        return not (self.running() and not self.game_stale(now))
+
+    def on_dial_push(self, dial: int, down: bool, now: float) -> None:
+        """Dial 0-3 pushed or let go. Only the first does anything: held, the
+        host powers off (§10.2)."""
+        if dial != SHUTDOWN_DIAL or self.shutting_down:
+            return
+        self.shutdown_down = now if down and self._shutdown_allowed(now) else None
+
+    def holding_shutdown(self, now: float) -> float | None:
+        """How far through the hold, 0 to 1, or None when not holding."""
+        if self.shutdown_down is None:
+            return None
+        if not self._shutdown_allowed(now):
+            self.shutdown_down = None
+            return None
+        return min(1.0, (now - self.shutdown_down) / SHUTDOWN_HOLD)
+
+    def shutdown_due(self, now: float) -> bool:
+        """The hold reached SHUTDOWN_HOLD: true once, while the dial is still
+        down, and the caller powers the host off."""
+        h = self.holding_shutdown(now)
+        if h is None or h < 1.0:
+            return False
+        self.shutdown_down = None
+        self.shutting_down = True
+        return True
+
+    def shutdown_failed(self, why: str, now: float) -> None:
+        self.shutting_down = False
+        self.note = (f"shutdown failed: {why}", now + NOTE_SHOW)
+
     def on_dial(self, dial: int, detents: int, now: float) -> list[Command]:
         """Dial 0-3 turned by `detents` (negative anticlockwise)."""
         if self.game_stale(now) or detents == 0 or not 0 <= dial < len(DIALS):
@@ -383,6 +434,7 @@ class Panel:
 
     def on_touch(self, now: float) -> None:
         self.error_until = 0.0           # dismiss (§10)
+        self.note = None
 
     def tick(self, now: float) -> None:
         """Expire what times out, so a redraw after it shows the change."""
@@ -404,6 +456,21 @@ class Panel:
     def strip(self, now: float) -> Image.Image:
         img = Image.new("RGB", (STRIP_W, STRIP_H), BG)
         d = ImageDraw.Draw(img)
+        # The shutdown first: it works without the broker or the game.
+        if self.shutting_down:
+            d.rectangle((0, 0, STRIP_W, STRIP_H), fill=DANGER)
+            _centre(d, (0, 0, STRIP_W, STRIP_H), "Shutting down", 40, INK)
+            return img
+        if self.note and now < self.note[1]:
+            d.rectangle((0, 0, STRIP_W, STRIP_H), fill=(60, 18, 18))
+            _wrap(d, (12, 6, STRIP_W - 12, STRIP_H - 6), self.note[0], 26, INK)
+            return img
+        if (h := self.holding_shutdown(now)) is not None:
+            d.rectangle((0, 0, SEG_W, STRIP_H), fill=PANEL)
+            _text(d, (14, 8), "hold to", 20, DIM)
+            _text(d, (14, 34), "shut down", 34, INK)
+            d.rectangle((0, STRIP_H - 8, round(SEG_W * h), STRIP_H), fill=DANGER)
+            return img
         if not self.broker_up:
             _centre(d, (0, 0, STRIP_W, STRIP_H), "no broker", 36, DANGER)
             return img
@@ -815,6 +882,28 @@ async def run(args: argparse.Namespace) -> int:
                 log.warning("dropped %s: %s", topic, e)
                 return
 
+    async def poweroff(now: float) -> None:
+        """The host off, through logind; a polkit rule lets this user do it
+        (host/etc/polkit-1/rules.d/50-sbgame-deck-poweroff.rules). With
+        --fake, only said."""
+        if args.fake:
+            log.info("shutdown: --fake, not powering off")
+            return
+        log.warning("shutdown: the first dial held %.0fs; powering the host off", SHUTDOWN_HOLD)
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "systemctl", "poweroff", stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT)
+            out, _ = await proc.communicate()
+            if proc.returncode == 0:
+                return
+            why = out.decode(errors="replace").strip() or f"exit {proc.returncode}"
+        except OSError as e:
+            why = str(e)
+        log.error("shutdown failed: %s", why)
+        panel.shutdown_failed(why, time.monotonic())
+        dirty.set()
+
     async def broker() -> None:
         nonlocal client
         delay = 1.0
@@ -856,6 +945,8 @@ async def run(args: argparse.Namespace) -> int:
                 panel.on_key_up(ev[1], now)
             elif ev[0] == "dial" and ev[2] == "TURN":
                 await publish(panel.on_dial(ev[1], ev[3], now))
+            elif ev[0] == "dial" and ev[2] == "PUSH":
+                panel.on_dial_push(ev[1], bool(ev[3]), now)
             elif ev[0] == "touch":
                 panel.on_touch(now)
             dirty.set()
@@ -865,8 +956,10 @@ async def run(args: argparse.Namespace) -> int:
         # and the timeouts above tick on their own.
         have = False
         while True:
-            # Faster while key 5 is held, for its bar and its 2s mark.
-            wait = 0.1 if panel.reset_down is not None else 0.5
+            # Faster while key 5 or the first dial is held, for the bar and
+            # the mark.
+            held = panel.reset_down is not None or panel.shutdown_down is not None
+            wait = 0.1 if held else 0.5
             try:
                 await asyncio.wait_for(dirty.wait(), wait)
             except asyncio.TimeoutError:
@@ -876,6 +969,8 @@ async def run(args: argparse.Namespace) -> int:
             panel.tick(now)
             if cmds := panel.reset_due(now):
                 await publish(cmds)
+            if panel.shutdown_due(now):
+                asyncio.create_task(poweroff(now))
             if deck is not None and not deck.present():
                 have = False
                 if not await asyncio.to_thread(deck.rescan):

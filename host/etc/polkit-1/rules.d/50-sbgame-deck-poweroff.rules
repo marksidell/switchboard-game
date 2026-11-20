@@ -1,0 +1,13 @@
+// The Stream Deck program may power the host off (game_control.md 10.2):
+// the first dial held 3s with no game running. It runs as sbgame-deck, a
+// system user with no login session, so logind would otherwise refuse it;
+// "multiple-sessions" because Mark is usually logged in (VNC), and
+// "ignore-inhibit" so a desktop's inhibitor cannot block it. Nothing else.
+polkit.addRule(function(action, subject) {
+    if (subject.user == "sbgame-deck" &&
+        (action.id == "org.freedesktop.login1.power-off" ||
+         action.id == "org.freedesktop.login1.power-off-multiple-sessions" ||
+         action.id == "org.freedesktop.login1.power-off-ignore-inhibit")) {
+        return polkit.Result.YES;
+    }
+});

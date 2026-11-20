@@ -126,6 +126,34 @@ def test_switchboard_reset_key_5_held_2s():
     assert r.reset_due(26.0) == [("game/power_cut/set", "on", 1)], "and while a game runs"
 
 
+def test_shutdown_the_first_dial_held_3s():
+    """Shutting down the host: the first dial pushed and held 3s (§10.2)."""
+    p = live()
+    p.on_dial_push(1, True, 10.0)
+    assert p.shutdown_down is None, "only the first dial"
+    p.on_dial_push(0, True, 10.0)
+    assert p.holding_shutdown(11.5) == 0.5, "half way at 1.5s"
+    assert p.strip(11.5).getpixel((5, 95)) == (197, 48, 48), "a red bar fills under the first dial"
+    assert not p.shutdown_due(12.9), "nothing before 3s"
+    assert p.shutdown_due(13.0) and p.shutting_down, "at 3s, still held: power off"
+    assert not p.shutdown_due(13.5), "once"
+    assert p.strip(13.5).getpixel((5, 5)) == (197, 48, 48), "the strip says so, in red"
+    p.shutdown_failed("Access denied", 14.0)
+    assert not p.shutting_down and p.note, "a refusal goes on the strip"
+    p.on_touch(14.5)
+    assert p.note is None, "and a touch dismisses it"
+    p.on_dial_push(0, True, 20.0)
+    p.on_dial_push(0, False, 21.0)
+    assert not p.shutdown_due(25.0), "let go sooner: nothing"
+    p.on_message("game/run", "on", 26.0)
+    p.on_message("ctl/game_heartbeat", "1000026.0", 26.0)
+    p.on_dial_push(0, True, 26.0)
+    assert p.shutdown_down is None and not p.shutdown_due(30.0), "not while a game runs"
+    p.on_dial_push(0, False, 30.0)
+    p.on_dial_push(0, True, 40.0)
+    assert p.shutdown_due(43.0), "but with the game program silent, a game it reported does not stop it"
+
+
 def test_stop_needs_a_second_press_within_3s():
     """Stop needs a second press within 3s."""
     p = after_the_keys()
