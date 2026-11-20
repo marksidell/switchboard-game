@@ -982,8 +982,8 @@ central office.
     switch in the world, and it still works. It's my favorite artifact in the museum.
 
 [^2]: AT&T began deploying direct-dial long-distance calling in 1951. But long-distance
-calls from Seattle were operator-assisted until after 1958. By then, operators could
-dial the calls straight through, but in the game I chose to have the operators use
+calls from Seattle were still operator-assisted in 1958. By then, operators could
+dial the calls straight through, but in the game I chose to have them use
 the older manual method.
 
     To connect a call, the long-distance operator in Seattle first asked a rate and route
