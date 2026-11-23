@@ -22,7 +22,7 @@ import soundfile as sf
 import soxr
 from scipy import signal
 
-from tts.script import DEFAULT_SCRIPT, Script, ScriptError, load, name_problem
+from tts.script import DEFAULT_SCRIPT, Script, ScriptError, far_hops, load, name_problem
 
 WORK_RATE = 16000          # station 8.8: speech is authored here
 DELIVERY_RATE = 48000      # audio.md 7.2: anything else is refused on load
@@ -39,6 +39,12 @@ TRIM_FLOOR_DB = 40.0       # a frame this far below the loudest is silence
 FRAME_S = 0.010
 
 TARGET_RMS_DBFS = -20.0
+# A long-distance call's far voices, by hops away (tts_task.md 7, 2026-11-23):
+# quieter and narrower each hop, as a toll circuit was. Gain below the speech
+# level, then the band of a fourth-order Butterworth band-pass. Mark chose
+# these by ear from finch-wife and beaumont-sister; hiss was tried and left
+# out, since it can only sound while a line plays.
+FAR = {1: (-4.0, 350.0, 3000.0), 2: (-8.0, 400.0, 2600.0), 3: (-10.0, 450.0, 2400.0)}
 PEAK_CEILING_DBFS = -3.0
 
 # audio.md 5.3 / 7.2: the program warns above this; here it is a refusal.
@@ -186,8 +192,15 @@ def level(x: np.ndarray, rate: int, target_db: float,
 
 
 # -------------------------------------------------------------------- driver
+def far(x: np.ndarray, rate: int, hops: int) -> tuple[np.ndarray, float]:
+    """A far voice's band, and the gain it takes below the speech level."""
+    gain, lo, hi = FAR[min(hops, max(FAR))]
+    sos = signal.butter(4, (lo, hi), btype="bandpass", fs=rate, output="sos")
+    return signal.sosfilt(sos, x), gain
+
+
 def process_file(src: Path, dst: Path, target_db: float = TARGET_RMS_DBFS,
-                 ceiling_db: float = PEAK_CEILING_DBFS) -> Result:
+                 ceiling_db: float = PEAK_CEILING_DBFS, hops: int = 0) -> Result:
     why = name_problem(dst.stem)
     if why is not None:
         return Result(src, None, False, f"name {dst.stem!r} is not usable: {why}")
@@ -200,7 +213,10 @@ def process_file(src: Path, dst: Path, target_db: float = TARGET_RMS_DBFS,
     x = trim(x, in_rate)
     x = soxr.resample(x, in_rate, WORK_RATE, quality="VHQ")
     x = band_limit(x, WORK_RATE)
-    x, rms_db, peak_db = level(x, WORK_RATE, target_db, ceiling_db)
+    gain = 0.0
+    if hops:
+        x, gain = far(x, WORK_RATE, hops)
+    x, rms_db, peak_db = level(x, WORK_RATE, target_db + gain, ceiling_db)
     y = soxr.resample(x, WORK_RATE, DELIVERY_RATE, quality="VHQ")
 
     seconds = len(y) / DELIVERY_RATE
@@ -285,7 +301,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"no input files in {args.raw}", file=sys.stderr)
         return 1
 
-    results = [process_file(s, args.out / f"{s.stem}.wav", args.rms, args.peak) for s in sources]
+    # The private pass has no script, and no long-distance line is private.
+    hops = far_hops(script) if script is not None else {}
+    results = [process_file(s, args.out / f"{s.stem}.wav", args.rms, args.peak, hops.get(s.stem, 0))
+               for s in sources]
     for r in sorted(results, key=lambda r: r.src.name):
         if r.ok:
             warn = "  <- sbaudio will warn" if r.hf_program_db > HF_LIMIT_DBFS else ""

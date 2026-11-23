@@ -219,6 +219,34 @@ class Script:
         return [u for u in self.utterances if u.speaker == person]
 
 
+# A long-distance call's far voices (tts_task.md 7, 2026-11-23): the side of
+# a scene whose line is the long-distance operator's, less the operators in
+# Seattle. Each toll operator is a hop further, in the order they first speak,
+# and the far party is as far as the last of them, or one hop with none.
+LONG_DISTANCE_LINE = "operator"
+NEAR_OPERATORS = ("operator", "local_operator", "rate_operator", HOTEL_OPERATOR)
+TOLL_PREFIX = "toll_"
+
+
+def far_hops(script: Script) -> dict[str, int]:
+    """Utterance name -> hops away, for every far voice of a long-distance call."""
+    out: dict[str, int] = {}
+    for sid, sc in script.scenes.items():
+        side = next((role for role, key in (("called", "called"), ("caller", "calling"))
+                     if (sc.get(key) or {}).get("line") == LONG_DISTANCE_LINE), None)
+        if side is None:
+            continue
+        far = [u for u in script.utterances if u.scene == sid and u.role == side
+               and u.speaker not in NEAR_OPERATORS]
+        tolls: list[str] = []
+        for u in far:
+            if u.speaker.startswith(TOLL_PREFIX) and u.speaker not in tolls:
+                tolls.append(u.speaker)
+        for u in far:
+            out[u.name] = tolls.index(u.speaker) + 1 if u.speaker in tolls else max(len(tolls), 1)
+    return out
+
+
 def name_problem(name: str) -> str | None:
     """Return why `name` is not a legal file base name, or None if it is."""
     if len(name) > MAX_NAME:

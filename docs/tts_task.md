@@ -249,11 +249,20 @@ For each raw file, in order:
 2. **Trim** leading and trailing silence, keeping 150ms at each end.
 3. **Resample to 16kHz**, high-quality (soxr).
 4. **Band-limit to 300–3400Hz.** Second-order high-pass at 300Hz. Low-pass as an elliptic or Chebyshev Type II, passband edge 3400Hz, stopband edge 4500Hz, at least 70dB down, as cascaded second-order sections. The steep low-pass is what clears the region between 5.5kHz and the 8kHz Nyquist limit at 16kHz.
-5. **Level.** Normalise so every line sits at the same speech level: default −20dBFS RMS over the voiced portion, with a peak ceiling of −3dBFS. Both are options. The level on the line is finally set by ear during commissioning (audio.md §15); what matters here is that the lines match each other.
-6. **Resample to 48kHz** and write 24-bit PCM mono to `wav/<scene-id>.<utterance-id>.wav`. The output directory is an option, default `wav/`.
-7. **Check** the written file: 48000Hz, mono, name per §2, and energy above 5.5kHz below −60dBFS, measured the way audio.md §7.2 describes. Delete the file and report it if any check fails.
+5. **A long-distance call's far voices** (2026-11-23, Mark's request). In a scene whose caller or called line is `operator`, the long-distance operator, every voice on that side but the operators in Seattle — `operator`, `local_operator`, `rate_operator`, `hotel_operator` — is far. Each toll operator is a hop further than the last, in the order they first speak in the scene; the far party is as far as the last toll operator, or one hop where there is none. A far line is band-passed, fourth-order Butterworth, and set below the speech level of step 6:
 
-No other effects. The period character comes from the real handset and the real switchboard, not from processing.
+   | Hops | Band | Level |
+   | --- | --- | --- |
+   | 1 | 350–3000Hz | −4dB |
+   | 2 | 400–2600Hz | −8dB |
+   | 3 | 450–2400Hz | −10dB |
+
+   So in `beaumont-sister` Chicago, Atlanta and Savannah each sound further off than the last, and the Seattle operator who asks for each stays clear. The player could not tell the operators apart, or hear the call pass from city to city. Mark chose the figures by ear from `finch-wife` and `beaumont-sister`. Line hiss was tried and left out: in a file it can sound only while the line plays, and on a real circuit it would be continuous. `far_hops()` in `tts/script.py` says which lines are far, `FAR` in `tts/process.py` the treatment.
+6. **Level.** Normalise so every line sits at the same speech level: default −20dBFS RMS over the voiced portion, with a peak ceiling of −3dBFS. Both are options. The level on the line is finally set by ear during commissioning (audio.md §15); what matters here is that the lines match each other.
+7. **Resample to 48kHz** and write 24-bit PCM mono to `wav/<scene-id>.<utterance-id>.wav`. The output directory is an option, default `wav/`.
+8. **Check** the written file: 48000Hz, mono, name per §2, and energy above 5.5kHz below −60dBFS, measured the way audio.md §7.2 describes. Delete the file and report it if any check fails.
+
+No other effects but step 5's. The period character comes from the real handset and the real switchboard, not from processing.
 
 A take in `tts/recorded/` (§6.4) is processed in place of a file of the same name in `tts/raw/`.
 
