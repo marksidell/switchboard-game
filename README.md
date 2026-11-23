@@ -157,7 +157,7 @@ dials of their own.)
 
 Trunks to the outside world run to a *central office* in the city.
 From the point of view of the central office, the switchboard looks
-like eight telephones, each with its own line.
+like eight telephones, each with its own line.[^8]
 
 From the point of view of a station, the switchboard looks like a
 central office, which can ring and connect calls to the station.
@@ -336,7 +336,7 @@ To the trunk board, the switchboard is the telephone, and the board plays the ce
 
 The CO powers the loop. When the phone is *onhook* (hung up) it presents an open
 circuit to the CO. When a person picks up the phone it goes *offhook* and presents
-a DC resistance. The analog audio signal rides on top of the DC.[^8]
+a DC resistance. The analog audio signal rides on top of the DC.[^9]
 (The phone's ringer, which is connected when the phone is onhook,
 is in series with a capacitor so that the ringer passes the AC but no DC,
 and the line still reads as open.)
@@ -381,7 +381,7 @@ as soon as it happens, and the circuit cannot sense loop current while
 its ring relay is on. Fortunately, the switchboard trunk ring relays latch
 on the first burst of ring. So the ESP32 firmware is designed to send a
 single burst. I found that a one-second burst is sufficient to cause
-the switchboard relays to latch reliably.[^9]
+the switchboard relays to latch reliably.[^10]
 
 The optoisolator on the lower right completes the circuit. It detects that current
 is flowing through the loop, indicating that the station (in our case, the switchboard)
@@ -592,7 +592,7 @@ playing a recorded utterance.
 plain busy and fast busy, played on the trunks as the operator dials out. These
 are the Bell System tones of the 1950s, not the modern ones.
 The ringback is rebuilt from a recording of a real 803C tone alternator,
-because my museum friends insisted.[^10]
+because my museum friends insisted.[^11]
 - Check its own output. When the Ferrofish's meters started showing
 bursts of noise, I added a check that compares every sample `sbaudio`
 sends with what it should be. The check found nothing wrong while the
@@ -875,7 +875,7 @@ piggybacked on the resistor (lower right).
 
 Now that other people can call the switchboard, we had to figure out something for them to do.
 Sarah suggested having Lenny stay at the hotel.
-Lenny is a famous telephone chatbot, sixteen recordings played one at a time whenever the caller pauses.[^11]
+Lenny is a famous telephone chatbot, sixteen recordings played one at a time whenever the caller pauses.[^12]
 
 The operator can connect a human caller to any of the local stations and can also dial out
 to any of the businesses configured in the game. That's 37 characters who could answer. So,
@@ -1033,7 +1033,13 @@ directly, allowing a dial telephone to be used to place outgoing calls.
 This setting also allows for nighttime operation, when the operator is away.
 A call from the outside will ring the connected station.
 
-[^8]: In the late 19th and early 20th centuries, telephones used a *local battery*
+[^8]: When placing an outbound call, the operator can use any available trunk.
+For inbound calls, the hotel has a single phone number, WA7-2004. When
+someone calls the number, the central office switch hunts for a free trunk to ring.
+At the switchboard, the ring signal lights the trunk's lamp and sounds a buzzer
+to alert the operator. The lamp stays lit until the operator plugs in a cord.
+
+[^9]: In the late 19th and early 20th centuries, telephones used a *local battery*
 and there was no DC on the loop. As shown in the simplified figure below, a battery powered
 the transmitter, which was AC-coupled to the receiver and loop by a transformer.
 A ringer sat across the loop, and a magneto with a crank generated a ring signal.
@@ -1054,19 +1060,19 @@ A ringer sat across the loop, and a magneto with a crank generated a ring signal
     [Old-Time Telephones](https://www.oldphoneshop.com/products/old-time-telephones-3rd-edition-by-ralph-o-meyer.html)
     by Ralph O. Meyer.
 
-[^9]: A real central office solves the problem of detecting seizure while ringing,
+[^10]: A real central office solves the problem of detecting seizure while ringing,
 called ring trip, by applying the ring voltage on top of the DC loop voltage. That way,
 the trunk equipment can detect the flow of loop current caused by the remote
 station going offhook even while the phone is ringing. If I build a rev 2 trunk board,
 it would be interesting to have it do proper ring trip.
 
-[^10]: The 803C was one of many tone plants used in Bell System central offices,
+[^11]: The 803C was one of many tone plants used in Bell System central offices,
 a machine that generated ringing, dial tone, busy and ringback. Its ringback isn't a
 clean tone. It is 420 Hz mixed with the 20 Hz ringing current,
 which gives it a charming warble. 
 The recording I used is from an Atlanta office, and I rebuilt the sound from its 48 strongest frequencies.
 
-[^11]: Lenny is a polite old man whose responses are odd, confused, and off-the-wall.
+[^12]: Lenny is a polite old man whose responses are odd, confused, and off-the-wall.
 He was released on the internet in 2013 to waste
 telemarketers' time, and callers have stayed on the line with him
 longer than one might imagine. A 2017 study (Sahin et al., SOUPS)
