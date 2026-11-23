@@ -115,8 +115,8 @@ async def test_jacks_and_script_checks(tmp_path):
         ("a jack naming no station",
          spare.replace('label: "Garage"\n', 'label: "Garage"\n        station: attic\n', 1)),
         ("wait: in a call to the operator",
-         real.replace("                caller: Thank you. Room 404.\n",
-                      "                caller: Thank you. Room 404.\n"
+         real.replace("                caller: Thank you. I'm always afraid I'll sleep through it.\n",
+                      "                caller: Thank you. I'm always afraid I'll sleep through it.\n"
                       "                wait: true\n", 1)),
         ("a line whose person: is not in the cast",
          real.replace("                called: Valet service.\n",
