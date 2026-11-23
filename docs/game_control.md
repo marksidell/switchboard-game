@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 120. The changes in each revision are in §15.*
+*Rev 121. The changes in each revision are in §15.*
 
 # 1. Overview
 
@@ -304,7 +304,7 @@ The tutor speaks at each step, before the player has to act, and the call is hel
 | A trunk's lamp lights | which cord, and the trunk jack | the trunk's `seize`, which the cord makes |
 | That trunk is seized | the switch to push | the trunk's `op` |
 | A call to the operator, once the caller has asked | "This call is for you, not for another line. Answer the caller yourself." | the next line |
-| Before every listen | "Say:" and the operator line the script gives there (§6.3), or "Greet the caller" for a request, or "Now it is your turn to speak" | the listen |
+| Before every listen | "Say:" and the operator line the script gives there (§6.3), or "Greet the caller" for a request, or "Now it is your turn to speak". A request's greeting is "Greet the caller" from its second time (§7.4) | the listen |
 | Ringing a room | the cord, the jack for that room by name, and the switch that rings it: the front cord and the near switch for a call from a room, the rear cord and the far switch for a call from a trunk | that station's `ring` |
 | The room rings, on a call from a trunk | return the near switch to the centre, before the room answers | — |
 | Calling out | the front cord, into any free trunk | any trunk's `seize` |
@@ -364,6 +364,7 @@ Pressed on a "Say:" prompt, Repeat Help stops the listen first, so the loudspeak
 - **What is counted.** Times are counted from Start, or from Tutor chosen mid-game, prompt by prompt. A jack or a number in a prompt does not make another prompt, so `ring-front` to room 403 and to the Lobby count together, while `dial-operator` counts apart from `dial`. The tutor's own repeats, Repeat Help and More Help do not count.
 - **More Help for the full line.** Once a short prompt, brief or terse, has finished and the game waits on the player, More Help (the deck's key 8, as in the introduction) says the full line at once. It is offered for as long as the short line could be repeated, and `game/tutor/more` carries the full line's key while it is, `""` otherwise. After the press, Repeat Help repeats the full line, and More Help is not offered again until the next short prompt. `more/set` outside the introduction with no short prompt waiting is refused on `game/error`.
 - **What may have a short form.** Every prompt but the introduction and the three said before the operator speaks (`say`, `greet`, `respond`).
+- **The greeting.** A request's operator line, "Say: How may I connect your call?" or "Say: Hotel Ballard. How may I help you?", is said in full the first time each comes up, and as "Greet the caller." from the second: one step, straight to the shortest. The two count apart, and as the rest are counted. A scene's own operator line, heard once a scene, is always said in full. More Help is not offered for it, as for any prompt before a listen; Repeat Help says "Greet the caller." again.
 
 ## 7.5 Calls in Tutor Mode
 
@@ -815,6 +816,12 @@ Before step 1: the certificate is issued (`host/README.md`, "The certificate"), 
 - **Screen wake lock** (§11.3). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 15. Revision History
+
+## 15.121 Changes in Rev 121
+
+— The greeting said short (§7.4), Mark's request, 2026-11-23: a request's greeting, "Say: How may I connect your call?", is said in full the first time and as "Greet the caller." from the second. Said in full every time, it was the longest prompt a player heard over and over, for a line learnt after one hearing. No brief step: "Greet the caller." is already as short as a prompt gets. The words do not matter to the game, which listens for speech and a pause.
+
+— Code consequence, for Claude Code: `Tutor.greeted` and `Tutor.say_key()` in tutor.py; `test_a_greeting_in_full_once_then_greet_the_caller`. No new line: `tutor.greet` was rendered already.
 
 ## 15.120 Changes in Rev 120
 

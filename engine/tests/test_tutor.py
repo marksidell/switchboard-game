@@ -353,6 +353,21 @@ async def test_a_prompt_full_then_brief_then_terse_more_help_in():
     watch.cancel()
 
 
+async def test_a_greeting_in_full_once_then_greet_the_caller():
+    """A greeting in full once, then "Greet the caller." (§7.4, Rev 121)"""
+    h = tutored(scene(Shape.STATION_TO_STATION))
+    ln = lines() | {k: Speech(f"tutor.{k}", D * 3, "tutor")
+                    for k in ("say-operator.1", "say-operator.2", "say-crane-wakeup.3")}
+    t = Tutor(h.b, h.hw, ln)
+    room, trunk = Speech("x.1", 1.0, "caller", operator="operator.1"), Speech("y.1", 1.0, "caller", operator="operator.2")
+    assert t.say_key(room, True) == "say-operator.1", "the room greeting in full the first time"
+    assert t.say_key(trunk, True) == "say-operator.2", "and the trunk greeting, counted apart"
+    assert t.say_key(room, True) == t.say_key(trunk, True) == "greet", "then each is Greet the caller"
+    reply = Speech("crane-wakeup.2", 1.0, "caller", operator="crane-wakeup.3")
+    assert t.say_key(reply, False) == t.say_key(reply, False) == "say-crane-wakeup.3", "a scene's own line is said in full every time"
+    assert Tutor(h.b, h.hw, ln).say_key(room, True) == "say-operator.1", "a new game starts in full again"
+
+
 async def test_after_the_last_repeat_how_to_hear_it_again(monkeypatch):
     """After the last repeat, how to hear it again"""
     h = tutored(scene(Shape.STATION_TO_STATION))

@@ -18,7 +18,8 @@ call waiting on her.
 
 A prompt is said in full the first time, short the second where tutor:
 brief: gives a short form, and shorter still from the third where tutor:
-terse: does (§7.4). More Help says it in full. A wrong cord (§7.7), or a
+terse: does (§7.4), and a greeting is "Greet the caller." from the second
+time. More Help says it in full. A wrong cord (§7.7), or a
 prompt said to the end of its repeats, sends the step back to brief.
 """
 
@@ -93,6 +94,9 @@ class Tutor:
         self.said: dict[str, int] = {}
         self._on_more = on_more
         self.more_key = ""
+        # The greetings she has prompted in full this game: from the
+        # second time, "Greet the caller." (§7.4, Rev 121).
+        self.greeted: set[str] = set()
         self._until: Callable[[Board], object] | None = None
         # A prompt before a listen: set while it is repeatable, and
         # what says the operator has started, when it is refused.
@@ -100,10 +104,17 @@ class Tutor:
         self._speaking: Callable[[], bool] = lambda: False
 
     def say_key(self, sp: Speech, request: bool) -> str:
-        """What she prompts before the operator speaks ahead of `sp` (§6.3)."""
-        if sp.operator and f"say-{sp.operator}" in self.lines:
-            return f"say-{sp.operator}"
-        return "greet" if request else "respond"
+        """What she prompts before the operator speaks ahead of `sp` (§6.3).
+        A request's greeting is said in full the first time this game and as
+        "Greet the caller." after that (§7.4)."""
+        key = f"say-{sp.operator}" if sp.operator else ""
+        if key not in self.lines:
+            return "greet" if request else "respond"
+        if request:
+            if key in self.greeted and "greet" in self.lines:
+                return "greet"
+            self.greeted.add(key)
+        return key
 
     async def _line(self, sp: Speech, until=None, abort_if=None) -> bool:
         """Say one line; True if `until` came true and cut it short.
