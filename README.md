@@ -994,6 +994,12 @@ the older manual method.
 
     You can hear the operators connect a call from Seattle to Savannah in my
     [YouTube demo](https://youtu.be/LKre26_lzEU?t=267).
+    The game makes each operator down the chain sound a little quieter and
+    thinner than the one before, as a long chain of toll circuits did, and the
+    distant party sounds as far away as the last operator. I added this
+    adjustment to make it easier for the audience to tell which operator
+    is speaking.
+
     I based the call on a 1949 *Dragnet* episode, ["The Big Missing,"](https://youtu.be/iLe6cj7WcvQ?t=1549)
     in which Sgt. Friday delivers good news to a mother in Utah. I'm pretty sure the show recorded
     real long-distance operators.
