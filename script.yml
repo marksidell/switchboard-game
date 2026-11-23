@@ -1687,11 +1687,11 @@ scenes:
             -   id: 2
                 operator:
                     id: 3
-                    text: Certainly, six-thirty. And your room, please?
-                caller: Thank you. Room 404.
+                    text: Certainly, Miss Crane. Six-thirty.
+                caller: Thank you. I'm always afraid I'll sleep through it.
         closing:
             id: 4
-            text: Six-thirty tomorrow, room 404. Good day, ma'am.
+            text: Six-thirty tomorrow, then. Good day, ma'am.
 
     # Outgoing.
     lindqvist-canlis:

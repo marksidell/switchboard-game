@@ -1655,21 +1655,21 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "crane",
-    "text_sha": "e97291621155827b",
+    "text_sha": "5febd8f1e1daff71",
     "voice_sha": "0de8f6ca1a8afb2f"
   },
   "crane-wakeup.3": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "hotel_operator",
-    "text_sha": "3f5ad87ab8185622",
+    "text_sha": "75d8b39a09b1d398",
     "voice_sha": "16619c235a8d72ff"
   },
   "crane-wakeup.4": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "hotel_operator",
-    "text_sha": "da03f447b9ff2e71",
+    "text_sha": "512bbe6fb9e9162d",
     "voice_sha": "16619c235a8d72ff"
   },
   "desk-hollis.1": {
@@ -11735,14 +11735,14 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "327d043c194adff7",
+    "text_sha": "c4cf1a619b39dea8",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.say-crane-wakeup.4": {
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "tutor",
-    "text_sha": "19307672b357cc0d",
+    "text_sha": "ea5dd5854769f6af",
     "voice_sha": "8b4ed5260dcb435d"
   },
   "tutor.say-dobbs-stamp.5": {
