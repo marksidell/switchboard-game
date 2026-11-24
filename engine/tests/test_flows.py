@@ -582,6 +582,33 @@ async def test_a_trunk_left_up_from_an_earlier_call_is():
     assert h.call.trunk == "trunk/3", f"the trunk she took: {h.call.trunk}"
 
 
+async def plugs_in_early(h: Harness) -> None:
+    """She takes the trunk while the request is still being said, and the
+    peer comes in after routing has begun, as on the switchboard 2026-11-23."""
+    c = "station/12"
+    await answers(h, c)
+    await h.b.wait_until(lambda b: b.get(f"{c}/play") == "t.1", 5)
+    await h.b.update("trunk/3/seize", "on")
+    await h.b.wait_until(lambda b: not b.get(f"{c}/play"), 5)
+    await asyncio.sleep(D)
+    await h.b.update("trunk/3/peer", c)
+    await h.b.update(f"{c}/peer", "trunk/3")
+    await h.b.wait_until(lambda b: b.get("trunk/3/tone") == "dial", 5)
+    for d in "2754101":
+        await asyncio.sleep(D / 2)
+        await h.b.update("trunk/3/digit", d)
+
+
+async def test_a_trunk_taken_during_the_request():
+    """A trunk taken before the request ends is this call's once patched to the caller"""
+    h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,
+                      dial="275-4101"))
+    r = await h.run(station_to_outside, plugs_in_early)
+    assert r.ok, f"succeeds: {r.reason!r}"
+    assert ("trunk/3/tone/set", "dial") in h.link.sent, "dial tone on it"
+    assert h.call.trunk == "trunk/3", f"the trunk she took: {h.call.trunk}"
+
+
 async def test_a_trunk_taken_and_not_dialled():
     """A trunk taken and not dialled"""
     h = Harness(scene(Shape.STATION_TO_OUTSIDE, to_line="pizza", to_station=None,

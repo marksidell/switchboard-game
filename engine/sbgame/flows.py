@@ -114,8 +114,10 @@ class Ctx:
     reaction: Callable[[str, str], Speech | None] = lambda kind, voice: None
     occupant: Callable[[int], str] = lambda n: ""
     # Trunks already up when this call began to route, and not released
-    # since: not this call's, so never taken as the one she seized.
+    # since: not this call's, so never taken as the one she seized, unless
+    # patched to `out_caller`, the caller of this call out.
     stale_trunks: set[int] = field(default_factory=set)
+    out_caller: str | None = None
     # Free calls (§8): the circuits of free callers, whether one is waiting
     # to be put through, and the public line, which no scene takes.
     free_callers: Callable[[], set[str]] = lambda: set()
@@ -379,7 +381,9 @@ async def _picks_up(ctx: Ctx, caller: str, n: int, deadline: float) -> bool:
 
 def _fresh(ctx: Ctx):
     """A trunk up that is this call's to take: not one already up when it
-    began to route. A stale trunk released and taken again is fresh."""
+    began to route. A stale trunk released and taken again is fresh, and so
+    is one patched to this call's caller, taken while the request was still
+    being said (§3.5)."""
     def seized(b: Board) -> int | None:
         free = ctx.free_callers()
         for n in ctx.cfg.fitted_trunks():
@@ -387,7 +391,8 @@ def _fresh(ctx: Ctx):
                 ctx.stale_trunks.discard(n)
             elif n == ctx.public_trunk or b.get(f"trunk/{n}/peer") in free:
                 continue                # the public line, or a free call's
-            elif n not in ctx.stale_trunks:
+            elif n not in ctx.stale_trunks or (
+                    ctx.out_caller and b.get(f"trunk/{n}/peer") == ctx.out_caller):
                 return n
         return None
     return seized
@@ -788,6 +793,7 @@ async def _route_out(ctx: Ctx, caller: str) -> int:
     sc = ctx.scene
     deadline = time.time() + ctx.cfg.connect_timeout
     await ctx.slots.set_stage(ctx.call, Stage.ROUTING, deadline)
+    ctx.out_caller = caller
     _note_stale(ctx)
 
     async def route() -> int:

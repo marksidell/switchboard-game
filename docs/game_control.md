@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 121. The changes in each revision are in §15.*
+*Rev 122. The changes in each revision are in §15.*
 
 # 1. Overview
 
@@ -117,7 +117,7 @@ When the call was on a trunk, the far end has gone too. If her cord is still in 
 
 ## 3.5 Wrong Moves
 
-A wrong connection is logged but is not a failure on its own (§4). A wrong room rung answers, "Hello?", the caller says it is not who they asked for, and it hangs up; a right room rung on a cord not patched to the caller says "Hello?" after 8s and hangs up after 8s more; a party waiting for her to speak says "Hello? Operator?" after 6s of silence; and a trunk taken and not dialled for 15s gets reorder and fails as `misdialled` (§15.60). An operator who plugs the wrong jack and corrects it within the connect timeout has made the call. A wrong number of the right length gets busy tone on the trunk until she hangs it up, and she may redial; one too long or too short is `misdialled`. The game takes a number as dialled 3s after its last digit, so as to hear a digit too many; a fresh seizure gets dial tone again, a second after it, as on every seizure for a call out.
+A wrong connection is logged but is not a failure on its own (§4). A wrong room rung answers, "Hello?", the caller says it is not who they asked for, and it hangs up; a right room rung on a cord not patched to the caller says "Hello?" after 8s and hangs up after 8s more; a party waiting for her to speak says "Hello? Operator?" after 6s of silence; and a trunk taken and not dialled for 15s gets reorder and fails as `misdialled` (§15.60). An operator who plugs the wrong jack and corrects it within the connect timeout has made the call. A wrong number of the right length gets busy tone on the trunk until she hangs it up, and she may redial; one too long or too short is `misdialled`. The game takes a number as dialled 3s after its last digit, so as to hear a digit too many; a fresh seizure gets dial tone again, a second after it, as on every seizure for a call out. A trunk already up when a call out begins to route belongs to another call, or is a cord left in, and gets nothing, unless it is patched to this call's caller: she may take the trunk before the caller has finished asking.
 
 A caller she leaves before it is connected, and comes back to with the answering cord alone after 5s or more, says its request again: once she has spoken, or after 6s if she does not. A guest kept waiting does not sit silent, and an operator who has lost track of a call hears what it wanted. The log says "asks again". A shorter absence, such as centring the key before the front cord goes in, does not count. Back after 10s or more, it first asks "Hello? Operator? Are you there?" (its `nudge` reaction).
 
@@ -816,6 +816,12 @@ Before step 1: the certificate is issued (`host/README.md`, "The certificate"), 
 - **Screen wake lock** (§11.3). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 15. Revision History
+
+## 15.122 Changes in Rev 122
+
+— A trunk taken during the request (§3.5), found on the switchboard 2026-11-23, call 35, beaumont-times: the operator took trunk 1 a second before the caller finished asking for the Times, and got no dial tone. Routing began with the trunk already up, so it was counted with the cords left in from other calls (Rev 60) and never taken as this call's. A trunk up before routing is now this call's once it is patched to the caller, since a cord from the caller's own jack belongs to no other call.
+
+— Code consequence, for Claude Code: `Ctx.out_caller`, set in `_route_out()`, and `_fresh()` in flows.py; `test_a_trunk_taken_during_the_request`.
 
 ## 15.121 Changes in Rev 121
 
