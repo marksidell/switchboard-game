@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 122. The changes in each revision are in §15.*
+*Rev 123. The changes in each revision are in §15.*
 
 # 1. Overview
 
@@ -33,7 +33,7 @@ The game program, the page and the Stream Deck program are written by Claude Cod
 
 A game is one player's turn. It begins with `game/run/set` `"on"` and ends with `"off"`.
 
-**Start.** Accepted only while `run` is `"off"`; while running it is ignored. A switchboard switched off from the page (§11.7) is powered first, `ctl/power_cut/set` `"off"`. The tallies are zeroed (§4), the call number restarts at 1, the gap returns to its configured value (§5.4), the scenes are shuffled (§6.1), the loudspeaker's source is set to the tap (§9.1), and `run` reads `"on"`. In scheduled pacing, auto or listen, the first call starts at once; in manual pacing nothing happens until the page asks for a call. A game is one session in the game program's SQLite log.
+**Start.** Accepted only while `run` is `"off"`; while running it is ignored. A switchboard switched off from the page (§11.7) is powered first, `ctl/power_cut/set` `"off"`. The tallies are zeroed (§4), the call number restarts at 1, the gap returns to its configured value (§5.4), the scenes are shuffled, or the shuffle goes on if the game stopped only a little while ago (§6.1), the loudspeaker's source is set to the tap (§9.1), and `run` reads `"on"`. In scheduled pacing, auto or listen, the first call starts at once; in manual pacing nothing happens until the page asks for a call. A game is one session in the game program's SQLite log.
 
 **Stop.** Every call in progress is torn down at once: stations on-hook, trunk ring off, every file and tone stopped, every listen cancelled; every `after:` scene that was waiting is dropped; the call slots clear (§3.2); the loudspeaker's source goes back to the tap (§9.1). `run` reads `"off"`. Calls torn down this way are neither successes nor failures (§4). Every diagnostic running is ended too (§11.4), and a board sweep (§11.5), and a chosen next scene is forgotten (§6.4). Last, with the controller online, the switchboard's power is cut for 1s, `ctl/power_cut/set` `"on"`: a trunk rung in holds its lamp and buzzer on the switchboard's own battery until a cord goes in, and only the cut clears it. The deck's reset during a game (§10) is the same cut; the calls ride through it (§4). `run` reads `"off"` without waiting for the cut to end. The tallies stay as they were until the next start, so the player can see the score.
 
@@ -207,6 +207,8 @@ Mark wants, later, a mode where a new call can arrive before the operator has co
 **Dealing.** A new call takes the first scene in the shuffle whose lines and people are all free, and removes it. A scene's lines are its calling and called lines, stations and outside names alike. Its people are the `person:` under `calling` and `called`. A call to the operator has no called line or person. A line or person is busy if it belongs to a call in progress, or to a waiting `after:` scene (below). Scenes passed over stay where they are, so a scene held back because its line was busy, or by `follows:` (below), comes up at the next call. If no scene in the shuffle can be dealt, the call does not start, the log says so, and in scheduled pacing the scheduler tries again after `gap_now`. A `next/set` that cannot be satisfied this way is reported on `game/error`.
 
 **Stories: a scene dealt after others.** A scene in the shuffle may carry `follows:`, a list of scenes. While any scene it names is still to come in this round, the shuffle passes it over, as it passes over a scene whose line is busy, and it is dealt after them. A named scene is still to come while it is in the shuffle, while it is a call in progress or a waiting `after:` scene, and, for an `after:` scene, while the scene it follows is still to come. So it can name a scene down a chain, such as `pemb-canary`. A named scene that can no longer come this round holds nothing back: one already played, one dropped because the scene before it was not connected (below), or one that is inactive or out of the circuits fitted. A chosen scene (§6.4) and a tutor lesson (§7) are dealt regardless. It is how a guest's story is told in order across the game: Pike does not leave for his train before his other calls, and the Colonel does not book a table for Mrs. Pemberton before he has asked her. `follows:` is not on an `after:` scene or a scenario's first scene (§6.5), names no scene twice, and does not loop.
+
+**Started again soon.** A game started within `resume_within` seconds of the last stop, 600 by default, deals on from the shuffle it had, where it left off, rather than shuffling afresh: a player who stops and starts again at once is still in the same sitting and should not hear the same scenes over. The scenes dealt stay dealt, a scenario played stays played (§6.5), and in tutor mode a lesson already dealt from the shuffle is not taught again (§7.5). The tallies are still zeroed, and it is a new session in the SQLite log, recording the same seed and, as its first shuffle, the scenes left. The log says "game started, the shuffle continued: N scenes left". 0 always shuffles afresh. The shuffle lives in the game program, so a restart of it shuffles afresh too.
 
 **Reshuffle.** When the shuffle is empty it is shuffled again from the full list, and dealing carries on. If the new shuffle would start with the scene dealt last, that scene moves to second place, so no scene plays twice in a row across the reshuffle. The log records each reshuffle.
 
@@ -816,6 +818,12 @@ Before step 1: the certificate is issued (`host/README.md`, "The certificate"), 
 - **Screen wake lock** (§11.3). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 15. Revision History
+
+## 15.123 Changes in Rev 123
+
+— Started again soon, the shuffle goes on (§2, §6.1), Mark's request, 2026-11-24: a player often stops a game and starts again at once, and each Start shuffled afresh, so the same sitting heard scenes over. A Start within `resume_within`, 600s by default, deals on from the shuffle where it stopped. The scenarios played stay played, and a tutored game skips a lesson already dealt from the shuffle. Tallies, call numbers and the session record start new as before; the record keeps the seed and gives the scenes left as the first shuffle.
+
+— Code consequence, for Claude Code: `Config.resume_within` and its check; `Deck.left`; `Game._stopped_at`, `_orders_seen` and the resume in `Game.start()`; `resume_within` in host/etc/sbgame/game.toml; `test_started_again_soon_the_shuffle_goes_on`.
 
 ## 15.122 Changes in Rev 122
 

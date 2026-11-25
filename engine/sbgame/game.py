@@ -112,7 +112,9 @@ class Game:
         self._pending_after: dict[str, Holding] = {}    # what a waiting after holds
         self._after_due: dict[str, float] = {}          # a waiting after past its delay: when it fell due
         self._scheduler: asyncio.Task | None = None
-        self._decks_recorded = 0        # how many of deck.orders are in SQLite
+        self._decks_recorded = 0        # how many shuffles this game has in SQLite
+        self._orders_seen = 0           # how many of deck.orders those cover
+        self._stopped_at: float | None = None   # the last stop, for resume_within (§6.1)
         self.diag: Diagnostics | None = None
         self.free = FreeCalls(self)           # §8
         self.queued = ""                # the chosen next scene (§6.4)
@@ -560,18 +562,27 @@ class Game:
         self.next_number = 1
         self.pacing.connected = 0
         self.pacing.gap = self.cfg.gap              # the gap returns to configured (§2)
-        self.deck = Deck(self.gs)
-        self.pacing.seed(self.deck.seed)
-        self._delays = random.Random(f"delays {self.deck.seed}")
-        self._scenarios_dealt = set()
+        # §6.1: started again soon after a stop, the game deals on from the
+        # shuffle it had, so a player who stops and starts again does not
+        # hear the same scenes over. The scenarios played stay played.
+        resumed = (self.deck is not None and self._stopped_at is not None
+                   and time.time() - self._stopped_at <= self.cfg.resume_within)
+        if not resumed:
+            self.deck = Deck(self.gs)
+            self.pacing.seed(self.deck.seed)
+            self._delays = random.Random(f"delays {self.deck.seed}")
+            self._scenarios_dealt = set()
+        assert self.deck is not None
         await self.session.start_game(self.deck.seed, self.pacing.pace,
                                       self.pacing.gap, self.pacing.ramp,
                                       self.pacing.floor, self.pacing.jitter,
                                       self.pacing.pause)
-        self.session.deck(1, self.deck.orders[0])
+        self.session.deck(1, self.deck.left)
         self._decks_recorded = 1
+        self._orders_seen = len(self.deck.orders)
         await self.log.clear()
-        await self.say("game started")
+        await self.say(f"game started, the shuffle continued: {self.deck.remaining} scenes left"
+                       if resumed else "game started")
         await self.monitor("tap")                  # §9.1
         await self.link.state("game/run", "on")
         await self.link.state("game/error", "")
@@ -586,6 +597,10 @@ class Game:
             # game's seed apart from the deck's own shuffle, so a replay
             # picks the same and a restart most likely does not.
             self._lessons = pick_lessons(self.gs.lessons, self.deck.seed)
+            if resumed:
+                # A lesson dealt already from this shuffle is not taught again.
+                left = set(self.deck.left)
+                self._lessons = [q for q in self._lessons if q in left]
             if self._lessons:
                 await self.say("tutor lessons: " + ", ".join(self._lessons))
             self._intro = True
@@ -628,6 +643,7 @@ class Game:
             # clears it. Not waited for.
             await self.hw.power_cut()
             await self.say("switchboard power cut")
+        self._stopped_at = time.time()
         await self.session.end_game(why, self.tallies.started,
                                     self.tallies.success, self.tallies.fail)
         await self.link.state("game/run", "off")
@@ -840,12 +856,12 @@ class Game:
                 return
             # deal() reshuffles when the deck runs out (§6.1). Record each new
             # order for the replay, and log it, which the specification asks for.
-            while self._decks_recorded < len(self.deck.orders):
+            while self._orders_seen < len(self.deck.orders):
+                self._orders_seen += 1
                 self._decks_recorded += 1
                 self.session.deck(self._decks_recorded,
-                                  self.deck.orders[self._decks_recorded - 1])
-                if self._decks_recorded > 1:
-                    await self.say("deck reshuffled")
+                                  self.deck.orders[self._orders_seen - 1])
+                await self.say("deck reshuffled")
 
         # A call from an outside line rings in on a trunk: to a room, or to
         # the operator herself.

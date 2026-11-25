@@ -118,5 +118,10 @@ class Deck:
         return True
 
     @property
+    def left(self) -> list[str]:
+        """The scenes still to deal from this shuffle, in order."""
+        return list(self._cards)
+
+    @property
     def remaining(self) -> int:
         return len(self._cards)

@@ -52,6 +52,9 @@ class Config:
     # Back to tutor after this long stopped in another pacing, so
     # the next visitor finds the game as a newcomer should; 0 never does.
     idle_tutor: float = 300.0
+    # Started again within this long of a stop, the game deals on from the
+    # shuffle it had rather than shuffling afresh (§6.1); 0 always shuffles.
+    resume_within: float = 600.0
     # A running game stops after this long with nothing from the player:
     # no cord, switch, dial or ringing key on the board, no key or button
     # pressed. Start resumes it as a new game. 0 never stops it.
@@ -148,6 +151,8 @@ class Config:
             bad.append(f"jitter {self.jitter} outside 0-100")
         if not 0 <= self.idle_tutor <= 86400:
             bad.append(f"idle_tutor {self.idle_tutor} outside 0-86400")
+        if not 0 <= self.resume_within <= 86400:
+            bad.append(f"resume_within {self.resume_within} outside 0-86400")
         if not 0 <= self.idle_stop <= 86400:
             bad.append(f"idle_stop {self.idle_stop} outside 0-86400")
         if not 0 <= self.pause <= 60:

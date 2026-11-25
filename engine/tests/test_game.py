@@ -616,6 +616,35 @@ async def test_deck_deals_every_scene_before_repeating(tmp_path):
     await sess.close()
 
 
+async def test_started_again_soon_the_shuffle_goes_on(tmp_path):
+    """Started again within resume_within of a stop, the game deals on from
+    its shuffle; later, it shuffles afresh (§6.1)"""
+    b, link, g, sess = await build_game(tmp_path, pace="manual")
+    await g.start()
+    deck, seed = g.deck, g.deck.seed
+    first = [g.deck.deal([])[0].id for _ in range(3)]
+    left = g.deck.left
+    await g.stop("stop")
+    await g.start()
+    assert g.deck is deck and g.deck.left == left, "the same shuffle, where it was"
+    assert not set(first) & set(g.deck.left), f"the scenes dealt stay dealt: {first}"
+    assert any("shuffle continued" in e for e in g.log._lines), "logged"
+    rows = sqlite3.connect(tmp_path / "s.db").execute(
+        "SELECT seed FROM sessions ORDER BY rowid").fetchall()
+    assert rows[-1][0] == seed, "the new session records the same seed"
+    await g.stop("stop")
+    g._stopped_at -= g.cfg.resume_within + 1
+    await g.start()
+    assert g.deck is not deck, "stopped longer: a new shuffle"
+    await g.stop("stop")
+    g.cfg.resume_within = 0
+    deck = g.deck
+    await g.start()
+    assert g.deck is not deck, "0: always a new shuffle"
+    await g.stop("stop")
+    await sess.close()
+
+
 def test_follows_deals_a_story_in_order():
     class _G:
         gs = build(SCRIPT, WAV)

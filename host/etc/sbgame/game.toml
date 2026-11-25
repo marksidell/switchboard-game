@@ -30,6 +30,7 @@ session_db = "/var/lib/sbgame/sessions.db"
 # Pacing at start-up (§4.3): tutor, manual, auto or listen. tutor since Rev 44.
 pace = "tutor"
 idle_tutor = 300            # stopped this long in another pacing: back to tutor (Rev 44)
+resume_within = 600         # started again within this long of a stop: the shuffle goes on (Rev 123)
 gap = 20.0
 ramp = 1.0
 floor = 8.0
