@@ -5,7 +5,7 @@ switchboard, unmodified, wired to modern hardware that plays sixty
 characters who are calling a 1950s hotel.
 A lamp lights, a caller waits, and the game listens for "Hotel Ballard."*
 
-Watch this [YouTube video](https://youtu.be/mKIxmTu1CBU) to
+Watch this [YouTube video](https://youtu.be/mKIxmTu1CBU) tour
 see the game in action.
 
 On tours at the [Connections Museum](https://www.telcomhistory.org/ConnectionsSeattle.html)
@@ -816,7 +816,7 @@ the tutor explains the mistake.
 
 - *Plugging a rear cord into a trunk*. Rear cords always look like trunks, providing
 loop current to stations. But front cords are ambidextrous. When plugged into
-a station jack they are trunks, and when plugged into trunk jacks they are stations.
+station jacks they are trunks, and when plugged into trunk jacks they are stations.
 (The switchboard pulls this off by putting ground on station jack sleeves and
 24 volts on trunk jack sleeves. The 24 volts cause the cord to trigger a *trunk relay*
 that flips the mode of the cord.)
