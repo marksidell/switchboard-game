@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 123. The changes in each revision are in §15.*
+*Rev 124. The changes in each revision are in §15.*
 
 # 1. Overview
 
@@ -444,7 +444,7 @@ There are two kinds of free caller, both real people.
 
 **Station 24**, the real telephone on jack 18 (§12.2, real_phone.md). When `station/24/lifted` goes on, the game closes station 24's relay (`hook/set` `"on"`), which puts the line on channel 24 so its pilot, `op` and `peer` work. The phone's own lamp is the switchboard's. The caller is gone when `lifted` goes off, and the relay is opened again.
 
-**Trunk 8**, the public line: the Grandstream ATA's FXS port, which outside callers reach by dialling its number (trunk_circuit.md §4.5). The controller cannot see it ring. The audio program hears it, `trunk/8/ringing` (audio.md §9.5), and the page flashes the tile with each ring (§11.1), but the game does nothing with it. The free call begins when the operator answers it, with `trunk/8/seize` and `trunk/8/op` both on. The caller is gone when `seize` goes off for more than a second, because the operator has pulled the cord, or the far end hung up and the ATA dropped the loop. Which trunk is the public line is `public_trunk` in the configuration, 8 by default, and no scene ever uses it (§12.2).
+**Trunk 8**, the public line: the Grandstream ATA's FXS port, which outside callers reach by dialling its number (trunk_circuit.md §4.5). The controller cannot see it ring. The audio program hears it, `trunk/8/ringing` (audio.md §9.5), and the page flashes the tile with each ring (§11.1). While a game runs the game does nothing with it. While none runs, a ring is logged, "trunk/8: the public line is ringing", since anyone who knows the number may call. The ring latches the trunk's signal on the switchboard's own battery until a cord goes in, and only a power cut clears it (§2), so if `seize` has not come on 30s after the first ring, the game cuts the switchboard's power for its 1s, `ctl/power_cut/set` `"on"`, and logs "switchboard reset". It waits first until the line has not rung for 10s, so that a caller still ringing does not latch the signal again straight after; a board switched off from the page (§11.7) is not cut, and the log says so. An answer is logged too. The free call begins when the operator answers it, with `trunk/8/seize` and `trunk/8/op` both on. The caller is gone when `seize` goes off for more than a second, because the operator has pulled the cord, or the far end hung up and the ATA dropped the loop. Which trunk is the public line is `public_trunk` in the configuration, 8 by default, and no scene ever uses it (§12.2).
 
 ## 8.2 Answering and Connecting
 
@@ -818,6 +818,12 @@ Before step 1: the certificate is issued (`host/README.md`, "The certificate"), 
 - **Screen wake lock** (§11.3). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 15. Revision History
+
+## 15.124 Changes in Rev 124
+
+— The public line rung while no game runs (§8.1), Mark's request, 2026-11-24: people who know trunk 8's number sometimes call when nobody is playing, and the ring latched the trunk's signal, lamp and buzzer, until someone noticed. The game now logs the ring, and resets the switchboard if nobody answers within 30s of the first ring, once the line has been quiet for 10s.
+
+— Code consequence, for Claude Code: `PUBLIC_ANSWER`, `PUBLIC_QUIET`, `Game._public_watch` and `Game._public_rung()` in game.py, started from `_on_change()`; `test_the_public_line_rung_while_stopped`.
 
 ## 15.123 Changes in Rev 123
 

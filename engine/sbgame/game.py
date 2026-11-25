@@ -60,6 +60,12 @@ REAR_HOLD = 1.0
 # still in the trunk, the trunk gets reorder this long after, until she
 # takes it down.
 REORDER_AFTER = 4.0
+# §8.1: the public line rung while no game runs. Unanswered this long from its
+# first ring, the switchboard is reset to drop the trunk's latched signal,
+# once the line has not rung for PUBLIC_QUIET, so the ring does not latch it
+# again straight after.
+PUBLIC_ANSWER = 30.0
+PUBLIC_QUIET = 10.0
 # What the player does at the board: a cord in or out (peer, op, a
 # trunk's seize), a digit dialled, a station rung. Not `hook`, which the game
 # itself drives, nor anything of the game's own.
@@ -130,6 +136,7 @@ class Game:
         self._waiting_for = ""          # game/tutor/waiting
         self._lessons: list[str] = []   # the scenes a tutored game starts with
         self._to_tutor: asyncio.Task | None = None    # back to tutor when stopped
+        self._public_watch: asyncio.Task | None = None  # the public line rung, stopped (§8.1)
         self._active_at = time.time()                 # the player's last act
         self._sweep: asyncio.Task | None = None       # a board sweep (§11.5)
         self._sweep_kind = ""
@@ -649,6 +656,52 @@ class Game:
         await self.link.state("game/run", "off")
         await self._publish_pacing()
         self._arm_idle()
+
+    # ---- the public line rung while stopped (§8.1) -----------------------
+
+    async def _public_rung(self, p: int) -> None:
+        """Note a ring on the public line while no game runs, and reset the
+        switchboard if it is not answered within PUBLIC_ANSWER: the trunk's
+        signal latches on the board's own battery until a cord goes in, and
+        only a power cut clears it."""
+        t = f"trunk/{p}"
+        ringing = f"{t}/ringing"
+        seized = lambda b: b.on(f"{t}/seize")
+        try:
+            await self.say(f"{t}: the public line is ringing")
+            try:
+                await self.b.wait_until(seized, PUBLIC_ANSWER)
+                await self.say(f"{t}: the public line answered")
+                return
+            except TimeoutError:
+                pass
+            while True:                     # until it has stopped ringing
+                mark = self.b.changed_at(ringing)
+                quiet = time.monotonic() - mark
+                wait = PUBLIC_QUIET if self.b.on(ringing) else PUBLIC_QUIET - quiet
+                if wait <= 0:
+                    break
+                try:
+                    await self.b.wait_until(
+                        lambda b: seized(b) or b.changed_at(ringing) != mark, wait)
+                except TimeoutError:
+                    if not self.b.on(ringing):
+                        break
+                    continue                # a ring held on: wait it out
+                if seized(self.b):
+                    await self.say(f"{t}: the public line answered")
+                    return
+            if self.b.get("ctl/power_cut") == "hold":
+                await self.say(f"{t}: the public line not answered; the switchboard is off")
+                return
+            assert self.hw is not None
+            await self.hw.power_cut()
+            await self.say(f"{t}: the public line not answered in "
+                           f"{PUBLIC_ANSWER:g}s: switchboard reset")
+        except Offline as e:
+            log.info("public line rung: %s offline", e)
+        finally:
+            self._public_watch = None
 
     # ---- back to tutor when stopped (§7) ------------------------
 
@@ -1313,6 +1366,10 @@ class Game:
             self._spawn(self._hint(*key), "wrong-cord", hint=True)
         if self.running:
             self._rear_check(ch)
+        p = self.cfg.public_trunk
+        if (p and ch.key == f"trunk/{p}/ringing" and ch.new == "on"
+                and not self.running and self._public_watch is None):
+            self._public_watch = self._spawn(self._public_rung(p), "public-rung")
         if ch.key in (LIVE_CONTROL, LIVE_AUDIO) and ch.new == "off" and self.running:
             who = "controller" if ch.key == LIVE_CONTROL else "audio program"
             await self.stop(f"{who} went offline")

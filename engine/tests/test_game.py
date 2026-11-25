@@ -974,6 +974,56 @@ async def test_auto_keeps_the_start_its_connection_scheduled(tmp_path):
     await sess.close()
 
 
+async def test_the_public_line_rung_while_stopped(tmp_path, monkeypatch):
+    """The public line rung with no game: noted, and the switchboard reset if
+    nobody answers, once the ringing has stopped (§8.1)"""
+    monkeypatch.setattr(game_mod, "PUBLIC_ANSWER", 0.3)
+    monkeypatch.setattr(game_mod, "PUBLIC_QUIET", 0.2)
+    b, link, g, sess = await build_game(tmp_path, pace="manual")
+    watcher = asyncio.create_task(g.watch_clients())
+    await asyncio.sleep(0)
+    cut = ("ctl/power_cut/set", "on")
+    logged = lambda text: any(text in line for line in g.log._lines)
+
+    link.sent.clear()
+    await b.update("trunk/8/ringing", "on")
+    await asyncio.sleep(0.4)                       # past the answer time, still ringing
+    assert cut not in link.sent, "not while it still rings"
+    await b.update("trunk/8/ringing", "off")
+    await asyncio.sleep(0.1)
+    assert cut not in link.sent, "nor just after"
+    await asyncio.sleep(0.3)
+    assert link.sent.count(cut) == 1, f"reset once it has stopped: {link.sent}"
+    assert logged("public line is ringing") and logged("switchboard reset"), "both logged"
+
+    link.sent.clear()
+    await b.update("trunk/8/ringing", "on")
+    await asyncio.sleep(0.1)
+    await b.update("trunk/8/seize", "on")
+    await b.update("trunk/8/ringing", "off")
+    await asyncio.sleep(0.8)
+    assert cut not in link.sent and logged("public line answered"), "answered: no reset"
+    await b.update("trunk/8/seize", "off")
+
+    await b.update("ctl/power_cut", "hold")
+    link.sent.clear()
+    await b.update("trunk/8/ringing", "on")
+    await b.update("trunk/8/ringing", "off")
+    await asyncio.sleep(0.8)
+    assert cut not in link.sent and logged("the switchboard is off"), "a board held off: no reset"
+    await b.update("ctl/power_cut", "off")
+
+    await g.start()
+    link.sent.clear()
+    await b.update("trunk/8/ringing", "on")
+    await b.update("trunk/8/ringing", "off")
+    await asyncio.sleep(0.8)
+    assert cut not in link.sent and g._public_watch is None, "a game running: not watched"
+    await g.stop("stop")
+    watcher.cancel()
+    await sess.close()
+
+
 async def test_switchboard_power_cut(tmp_path):
     tmp = tmp_path
     b, link, g, sess = await build_game(tmp, pace="manual")
