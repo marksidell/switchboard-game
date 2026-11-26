@@ -144,6 +144,7 @@ class Harness:
 
     async def _connected(self) -> None:
         self.connected = True
+        self.call.connected = True
 
     async def _monitor(self, src: str) -> None:
         self.monitor.append(src)

@@ -38,6 +38,7 @@ class Reason:
     NO_ANSWER = "no answer"
     NOT_CONNECTED = "not connected"
     CUT_OFF = "cut off"
+    HUNG_UP = "hung up on"        # a trunk caller's front cord pulled before connecting
     TIMEOUT = "timeout"
     MISDIALLED = "misdialled"     # too many digits or too few
 

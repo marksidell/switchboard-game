@@ -235,21 +235,32 @@ async def _answer(ctx: Ctx, caller: str) -> None:
     deadline = time.time() + ctx.cfg.answer_timeout
     await ctx.slots.set_stage(ctx.call, Stage.SIGNALLING, deadline)
     op = lambda b: b.on(f"{caller}/op")
+    pulled = None
     if caller.startswith("trunk/"):
         # Only a front cord seizes a trunk: the operator heard through a
         # rear cord has not answered (§9.1).
         op = lambda b: b.on(f"{caller}/op") and b.on(f"{caller}/seize")
+        # §3.5: a front cord in the trunk has answered it, key or no key;
+        # taken out again, she has hung up on the caller.
+        seized = False
+
+        def pulled(b: Board):
+            nonlocal seized
+            if b.on(f"{caller}/seize"):
+                seized = True
+                return False
+            return seized and "the front cord pulled before she spoke"
     # tutor: from a room the game cannot see the cord go in, so both steps
     # are one line; a trunk is seized by the cord, so they are two (§7).
     if _tutoring(ctx) is not None:
         if caller.startswith("station/"):
             await _tut(ctx, "answer-station", until=op)
         else:
-            seized = lambda b: b.on(f"{caller}/seize")
-            await _tut(ctx, "answer-trunk", until=seized)
-            await ctx.b.wait_until(seized, ctx.left(deadline))
-            await _tut(ctx, "talk", until=op)
-    await ctx.b.wait_until(op, ctx.left(deadline))
+            plugged = lambda b: b.on(f"{caller}/seize")
+            await _tut(ctx, "answer-trunk", until=plugged)
+            await ctx.b.wait_until(plugged, ctx.left(deadline))
+            await _tut(ctx, "talk", until=op, abort_if=pulled)
+    await ctx.b.wait_until(op, ctx.left(deadline), abort_if=pulled)
     # §9.1: the answer is the one point the loudspeaker moves.
     await ctx.set_monitor(caller)
     ctx.say_event(f"monitor: {ctx.scene.from_line}")
@@ -491,9 +502,11 @@ async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
             except Abandoned:
                 pass                                    # she left again
 
-    async def watch() -> None:
+    async def watch() -> str:
         while True:
             await ctx.b.wait_until(lost, None)
+            if caller.startswith("trunk/") and _tutoring(ctx) is None:
+                return "hung up on"         # §3.5: her front cord out of the trunk
             wait = ABANDON_MISDIALLED if ctx.misdialled else ABANDON
             until = time.time() + wait
             while True:
@@ -509,7 +522,7 @@ async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
                     # A wrong-cord line restarts the wait from its end.
                     until = ctx.hint_end() + wait
                     if until <= time.time():
-                        return
+                        return "left alone"
 
     def asker_failed(t: asyncio.Task) -> None:
         if not t.cancelled() and (e := t.exception()) is not None:
@@ -544,7 +557,8 @@ async def _unless_abandoned(ctx: Ctx, caller: str, work: Awaitable):
         return task.result()
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
-    watcher.result()                                  # Offline, if that is what ended it
+    if watcher.result() == "hung up on":              # or Offline, if that ended it
+        raise Abandoned("the front cord pulled before connecting")
     ctx.say_event(f"{caller} hung up, left alone before connecting")
     raise Abandoned("caller lost before connecting")
 
@@ -736,6 +750,19 @@ def _gone(caller: str):
     """abort_if: she has pulled the answering cord, and the caller is on nothing."""
     return lambda b: (not b.on(f"{caller}/op") and not b.get(f"{caller}/peer")
                       and "operator pulled the answering cord")
+
+
+def _lost(ctx: Ctx, caller: str) -> Outcome:
+    """The failure for a caller lost (Abandoned): `hung up on` for a trunk
+    caller whose front cord she pulled before the call was connected, which
+    may call back (§3.5); else `cut off`."""
+    b = ctx.b
+    if (caller.startswith("trunk/") and not ctx.call.connected
+            and not b.on(f"{caller}/seize") and not b.on(f"{caller}/op")
+            and not b.get(f"{caller}/peer")):
+        ctx.say_event(f"{caller}: the operator hung up on the caller")
+        return Outcome(False, Reason.HUNG_UP)
+    return Outcome(False, Reason.CUT_OFF)
 
 
 async def _open_call(ctx: Ctx, caller: str, trunk: int | None = None) -> Outcome | None:
@@ -1003,7 +1030,7 @@ async def outside_to_station(ctx: Ctx, trunk: int) -> Outcome:
             return Outcome(False, Reason.TIMEOUT)
         return Outcome(True)
     except Abandoned:
-        return Outcome(False, Reason.CUT_OFF)
+        return _lost(ctx, caller)
     finally:
         await quietly(ctx.hw.ring_trunk(trunk, False))
         if sc.to_station is not None:
@@ -1070,7 +1097,7 @@ async def to_operator(ctx: Ctx, trunk: int | None = None) -> Outcome:
                 if not await _waits_for_her(ctx, caller, trunk):
                     raise
     except Abandoned:
-        return Outcome(False, Reason.CUT_OFF)
+        return _lost(ctx, caller)
     finally:
         if sc.from_station is not None:
             await quietly(ctx.hw.hook(sc.from_station, False))

@@ -1153,7 +1153,61 @@ async def test_she_leaves_a_trunk_before_the_request():
         await asyncio.sleep(60)
 
     r = await h.run(outside_to_station, op, 3)
+    assert not r.ok and r.reason == Reason.HUNG_UP, f"hung up on: {r.reason!r}"
+
+
+async def test_she_releases_the_key_on_a_trunk_before_the_request():
+    """Her key released with the front cord still in the trunk: cut off, not hung up on"""
+    h = Harness(scene(Shape.OUTSIDE_TO_STATION, from_line="pizza", from_station=None,
+                      to_line="room214", to_station=2))
+
+    async def op(h: Harness) -> None:
+        await answers(h, "trunk/3")
+        await asyncio.sleep(D)
+        await h.b.update("trunk/3/op", "off")
+        await asyncio.sleep(60)
+
+    r = await h.run(outside_to_station, op, 3)
     assert not r.ok and r.reason == Reason.CUT_OFF, f"cut off: {r.reason!r}"
+
+
+async def test_she_plugs_into_a_trunk_and_pulls_out_before_the_key():
+    """A front cord into the ringing trunk and out again, the key never thrown: hung up on (§3.5)"""
+    h = Harness(scene(Shape.OUTSIDE_TO_STATION, from_line="pizza", from_station=None,
+                      to_line="room214", to_station=2))
+
+    async def op(h: Harness) -> None:
+        await h.b.wait_until(lambda b: b.on("trunk/3/ring"), 5)
+        await h.b.wait_until(lambda b: not b.on("trunk/3/ring"), 5)
+        await h.b.update("trunk/3/seize", "on")
+        await asyncio.sleep(D * 3)
+        await h.b.update("trunk/3/seize", "off")
+        await asyncio.sleep(60)
+
+    t0 = asyncio.get_running_loop().time()
+    r = await h.run(outside_to_station, op, 3)
+    assert not r.ok and r.reason == Reason.HUNG_UP, f"hung up on: {r.reason!r}"
+    assert asyncio.get_running_loop().time() - t0 < 2, "at once, not at the answer timeout"
+
+
+async def test_she_pulls_the_trunk_cord_while_routing(monkeypatch):
+    """The front cord out of the trunk while she routes the call: hung up on at once (§3.5)"""
+    monkeypatch.setattr(flows, "ABANDON", 10.0)
+    h = Harness(scene(Shape.OUTSIDE_TO_STATION, from_line="pizza", from_station=None,
+                      to_line="room214", to_station=2))
+
+    async def op(h: Harness) -> None:
+        await answers(h, "trunk/3")
+        await request_heard(h, "trunk/3")
+        await asyncio.sleep(D * 3)
+        await h.b.update("trunk/3/op", "off")
+        await h.b.update("trunk/3/seize", "off")
+        await asyncio.sleep(60)
+
+    t0 = asyncio.get_running_loop().time()
+    r = await h.run(outside_to_station, op, 3)
+    assert not r.ok and r.reason == Reason.HUNG_UP, f"hung up on: {r.reason!r}"
+    assert asyncio.get_running_loop().time() - t0 < 3, "at once, not after ABANDON"
 
 
 async def test_an_unanswered_trunk_rings_again(monkeypatch):

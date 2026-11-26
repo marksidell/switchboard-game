@@ -31,6 +31,12 @@ class Holding:
     people: frozenset[str]
 
 
+# §3.5: a trunk caller hung up on calls back half the time, dealt again
+# between the third and the fifth call after.
+CALL_BACK = 0.5
+CALL_BACK_IN = (2, 4)
+
+
 class Deck:
     def __init__(self, gs: GameScript, seed: int | None = None) -> None:
         self.gs = gs
@@ -115,6 +121,16 @@ class Deck:
         if scene.id in self._cards:
             self._cards.remove(scene.id)
         self._last_dealt = scene.id
+        return True
+
+    def call_back(self, sid: str) -> bool:
+        """§3.5: a caller hung up on calls back CALL_BACK of the time, a few
+        calls later: put back CALL_BACK_IN cards on, or last if fewer are left.
+        Returns whether it will."""
+        if self._rng.random() >= CALL_BACK:
+            return False
+        lo, hi = CALL_BACK_IN
+        self._cards.insert(min(len(self._cards), self._rng.randint(lo, hi)), sid)
         return True
 
     @property

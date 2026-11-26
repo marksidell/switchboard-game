@@ -1201,3 +1201,32 @@ def test_simulator_hands_out_each_trunk_once():
     assert sim._free_trunk_now() is None, "a ninth request gets nothing"
     sim.taken.discard(3)
     assert sim._free_trunk_now() == 3, "a released trunk comes back"
+
+
+async def test_a_caller_hung_up_on_may_call_back(tmp_path, monkeypatch):
+    """Hung up on: back in the deck a few calls on, half the time (§3.5)"""
+    import sbgame.deck as deckmod
+    from sbgame.calls import Reason
+    from sbgame.flows import Outcome
+    b, link, g, sess = await build_game(tmp_path, pace="manual")
+    await g.start()
+    sid = next(i for i in g.deck.left if not g.gs.followers(i))   # its log line on top
+    sc = g.gs.scenes[sid]
+    g.deck._cards.remove(sid)
+    for n, (p, calls) in enumerate([(1.0, True), (0.0, False)], start=1):
+        monkeypatch.setattr(deckmod, "CALL_BACK", p)
+        call = Call(slot=1, number=n, scene=sid, from_line=sc.from_line, to_line=sc.to_line)
+        await g.slots.open(call)
+        await g._finish_call(call, sc, Outcome(False, Reason.HUNG_UP))
+        log = link.state_v.get("game/log", "").splitlines()[0]
+        if calls:
+            at = g.deck.left.index(sid)
+            assert 2 <= at <= 4, f"put back a few calls on: {at}"
+            assert "will call back" in log, log
+            g.deck._cards.remove(sid)
+        else:
+            assert sid not in g.deck.left, "not put back"
+            assert "will not call back" in log, log
+    assert g.tallies.fail == 2, "each counted as a failure"
+    await g.stop("stop")
+    await sess.close()

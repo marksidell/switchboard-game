@@ -35,7 +35,7 @@ import re
 import time
 
 from .board import Abandoned, Board, Change, LIVE_AUDIO, LIVE_CONTROL, Offline
-from .calls import Call, Slots, Tallies
+from .calls import Call, Reason, Slots, Tallies
 from .config import Config
 from .deck import Deck, Holding
 from .diag import TESTS, Diagnostics, kind_of
@@ -1017,6 +1017,11 @@ class Game:
             self.tallies.fail += 1
             await self.say(f"failed: {outcome.reason}", call.number)
             self.session.call_ended(call.number, outcome.reason, call.trunk, call.digits)
+            if (outcome.reason == Reason.HUNG_UP and self.tutor is None
+                    and self.deck is not None and scene.id in self.gs.deck_scenes()):
+                # §3.5: the caller may ring in again a few calls later.
+                calls = "will call back" if self.deck.call_back(scene.id) else "will not call back"
+                await self.say(f"{scene.id} {calls}", call.number)
         await self.slots.close(call)
         await self._publish_tallies()
         if call.trunk and self.running:
