@@ -2,7 +2,7 @@
 
 **Game Control and the Status Page**
 
-*Rev 124. The changes in each revision are in §15.*
+*Rev 125. The changes in each revision are in §15.*
 
 # 1. Overview
 
@@ -50,8 +50,8 @@ The game program always starts with `run` `"off"`.
 Every call follows the same course, whichever way it comes in. The sections after this one give each step's rules.
 
 1. **Dealt.** The game program picks a scene (§6.1) and gives the call a slot (§3.2). The tallies count it as started (§4).
-2. **The caller signals.** A room goes off-hook and its line lamp lights, or a trunk chosen by §3.6 gets one short ring and its lamp lights.
-3. **The operator answers** by plugging a cord into the lit jack and bridging on, which `op` shows. The loudspeaker moves to the caller (§9.1) and the request plays.
+2. **The caller signals.** A room goes off-hook and its line lamp lights, or a trunk chosen by §3.6 gets one short ring and its lamp lights. An unanswered trunk rings short again every 10s, unless a front cord is already in it.
+3. **The operator answers** by plugging a cord into the lit jack and bridging on, which `op` shows. The loudspeaker moves to the caller (§9.1) and the request plays. If she leaves a room before the request has played, the room waits for her as after the request (§3.3, "She may leave before replying"), then asks if she is there and makes its request; a trunk caller is cut off.
 4. **She routes the call.** To a room, she rings it with the other cord, and the room answers. To an outside line, she takes a trunk, hears dial tone a second after seizing it, and dials; the far end rings back and answers, or gives busy tone. A wrong move costs time, not the call (§3.5). A call to the operator has no routing: she deals with the caller herself.
 5. **Connected.** The routing is done (§3.3), and scheduled pacing takes its timing from here (§5).
 6. **The conversation plays**, with any waits for the operator the script asks for (§6.2).
@@ -103,7 +103,7 @@ These are the milestones the game program must expose to the scheduler. How it r
 
 **A call to the operator succeeds once she has replied.** After the request, each of the caller's lines waits for her to speak (§6.2); once she has begun to reply — the speech detector has heard her start, whether or not it has heard her stop — the call counts, whatever happens after. The caller's later lines, a punch line among them, are hers if she stays; if she pulls the cord, the caller hangs up and the call has still succeeded. An operator in a rush says something short and moves on, and nothing told her another line was coming.
 
-**She may leave before replying.** Pulling the cord after the request and before she has replied does not end the call at once. From a room the station is still off-hook, so its lamp lights again, and the caller waits 30s for her alone, as any caller held before it is put through does (§4) — in tutor pacing, as long as it takes. When she comes back on its line, the caller asks "Hello? Operator? Are you there?" (its `nudge` reaction, §3.5) and the call goes on where it was. Not back in 30s, it hangs up and the call is `cut off`. A caller rung in on a trunk has no lamp to light again: her leaving before a reply cuts it off, as before.
+**She may leave before replying.** Pulling the cord after the request and before she has replied does not end the call at once. From a room the station is still off-hook, so its lamp lights again, and the caller waits 30s for her alone, as any caller held before it is put through does (§4) — in tutor pacing, as long as it takes. When she comes back on its line, the caller asks "Hello? Operator? Are you there?" (its `nudge` reaction, §3.5) and the call goes on where it was. Not back in 30s, it hangs up and the call is `cut off`. A caller rung in on a trunk has no lamp to light again: her leaving before a reply cuts it off, as before. The same holds in every kind of call between her answer and the end of the request: a room waits, asks if she is there, and makes its request once she has spoken again; a trunk is cut off.
 
 **A busy line or an engaged room is handled once she has told the caller.** After busy tone on a trunk (`busy: true`) or a station found engaged (§6.6), each of the caller's lines waits for her to speak, as above; once she has begun to — the speech detector has heard her start — the call counts, whatever happens after. The caller's reply, "Never mind, I'll try later", is hers if she stays; if she pulls the cord, the caller hangs up and the call has still succeeded. An operator in a rush says the line is busy and moves on.
 
@@ -818,6 +818,14 @@ Before step 1: the certificate is issued (`host/README.md`, "The certificate"), 
 - **Screen wake lock** (§11.3). Possible now that the page is served over HTTPS: the page would hold a wake lock while `run` is on, and Auto-Lock could stay on. Whether it holds reliably for a Home Screen page on the iPad's iOS version is to be tried before it replaces the Auto-Lock instruction.
 
 # 15. Revision History
+
+## 15.125 Changes in Rev 125
+
+— Left before the request, a room waits for her (§3.1, §3.3), Mark's report, 2026-11-25: twice in one game the operator answered a room, her key dropped as her greeting ended, and the game cut the call off within a second, before the request was heard; answering again found nothing. Between her answer and the end of the request, her leaving now does what it does after the request in a call to the operator: the room stays off-hook, waits 30s (in tutor pacing, as long as it takes), asks "Hello? Operator? Are you there?" when she is back, and makes its request once she has spoken. A trunk caller is cut off as before.
+
+— An unanswered trunk call rings again (§3.1), Mark's report, 2026-11-25: a call in on trunk 2 got its one short ring while he was busy, and only its lamp showed it until he stopped the game with the deck reading "Next: waiting". A trunk not yet answered now gets another short ring every 10s until she answers or the answer timeout ends it, but not while a front cord is in it.
+
+— Code consequence, for Claude Code: `RERING` and `_rings_again()` in flows.py, started and cancelled by `_open_call()`, which now retries `_request()` after `_waits_for_her()`, whose message names what she left before; `test_she_leaves_before_the_request_and_comes_back`, `test_she_leaves_a_trunk_before_the_request`, `test_an_unanswered_trunk_rings_again`, `test_a_trunk_with_a_cord_in_it_rings_no_more`.
 
 ## 15.124 Changes in Rev 124
 

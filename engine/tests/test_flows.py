@@ -1100,3 +1100,88 @@ async def test_after_a_wrong_number_asks_again_then_gives_up():
     assert played.count("t.1") == 2, f"asked again once: {played}"
     assert played[-1] == "giveup.1" or "giveup.1" in played, f"then gave up: {played}"
     assert any("gives up" in e for e in h.events), h.events
+
+
+async def test_she_leaves_before_the_request_and_comes_back(monkeypatch):
+    """She answers a room and leaves before the request: it waits, asks if she is there, asks again (§3.3)"""
+    monkeypatch.setattr(flows, "ABANDON", D * 30)
+    monkeypatch.setattr(flows, "BACK_PAUSE", D)
+    h = Harness(_op_scene())
+    _nudge(h)
+    back = asyncio.Event()
+
+    async def op(h: Harness) -> None:
+        c = "station/12"
+        await answers(h, c)
+        await asyncio.sleep(D * 2)                      # before she has spoken
+        await h.b.update(f"{c}/op", "off")
+        await asyncio.sleep(D * 10)
+        back.set()
+        await h.b.update(f"{c}/op", "on")
+        await asyncio.sleep(60)
+
+    real = h.link._echo
+
+    async def echo(key: str, p: str) -> None:           # nothing heard while she is away
+        if key.endswith("/listen/set") and p != "0" and not back.is_set():
+            await asyncio.sleep(D)
+            await h.b.update(key.removesuffix("/set"), "listening")
+            return
+        await real(key, p)
+    h.link._echo = echo
+
+    r = await h.run(to_operator, op)
+    played = [v for k, v in h.link.sent if k == "station/12/play/set"]
+    assert r.ok, f"succeeds: {r.reason!r}"
+    assert any("left before the request" in e for e in h.events), h.events
+    assert "nudge.1" in played and played.index("nudge.1") < played.index("t.1"), \
+        f"asked if she is there, then made the request: {played}"
+    assert ("station/12/hook/set", "off") not in h.link.sent[:h.link.sent.index(("station/12/play/set", "nudge.1"))], \
+        "the station stayed off-hook while it waited, so its lamp lit"
+
+
+async def test_she_leaves_a_trunk_before_the_request():
+    """She answers a trunk and leaves before the request: cut off, as before (§3.3)"""
+    h = Harness(scene(Shape.OUTSIDE_TO_STATION, from_line="pizza", from_station=None,
+                      to_line="room214", to_station=2))
+
+    async def op(h: Harness) -> None:
+        await answers(h, "trunk/3")
+        await asyncio.sleep(D)
+        await h.b.update("trunk/3/op", "off")
+        await h.b.update("trunk/3/seize", "off")
+        await asyncio.sleep(60)
+
+    r = await h.run(outside_to_station, op, 3)
+    assert not r.ok and r.reason == Reason.CUT_OFF, f"cut off: {r.reason!r}"
+
+
+async def test_an_unanswered_trunk_rings_again(monkeypatch):
+    """A call in not answered: another short ring every RERING (§3.3)"""
+    monkeypatch.setattr(flows, "RERING", D * 8)
+    h = Harness(scene(Shape.TO_OPERATOR, from_line="operator", from_station=None,
+                      to_line="", to_station=None, conversation=()))
+    h.ctx.cfg.answer_timeout = D * 30
+    r = await h.run(to_operator, never_answers, 3)
+    rings = [k for k, v in h.link.sent if k == "trunk/3/shortring/set" and v == "on"]
+    assert r.reason == Reason.NO_ANSWER, r.reason
+    assert 3 <= len(rings) <= 4, f"rang again while unanswered: {len(rings)}"
+
+
+async def test_a_trunk_with_a_cord_in_it_rings_no_more(monkeypatch):
+    """A front cord in the trunk and the key not thrown: no ring again (§3.3)"""
+    monkeypatch.setattr(flows, "RERING", D * 8)
+    h = Harness(scene(Shape.TO_OPERATOR, from_line="operator", from_station=None,
+                      to_line="", to_station=None, conversation=()))
+    h.ctx.cfg.answer_timeout = D * 30
+
+    async def plugs_in(h: Harness) -> None:
+        await h.b.wait_until(lambda b: b.on("trunk/3/ring"), 5)
+        await h.b.wait_until(lambda b: not b.on("trunk/3/ring"), 5)
+        await h.b.update("trunk/3/seize", "on")
+        await asyncio.sleep(60)
+
+    r = await h.run(to_operator, plugs_in, 3)
+    rings = [k for k, v in h.link.sent if k == "trunk/3/shortring/set" and v == "on"]
+    assert r.reason == Reason.NO_ANSWER, r.reason
+    assert len(rings) == 1, f"rang once only: {len(rings)}"

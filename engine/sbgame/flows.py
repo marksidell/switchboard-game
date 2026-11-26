@@ -65,6 +65,8 @@ PATCH_WAIT = 8.0
 AWAY = 5.0                # s away from a caller before it asks again on her return
 FLICK = 0.5               # s away that is only the switch passing centre
 BACK_PAUSE = 0.5          # s after she comes back before the caller asks if she is there
+# §3.3: a call in on a trunk not yet answered gets another short ring every RERING.
+RERING = 10.0
 # §6.2: speech that runs this long without a silence is taken as ended -
 # her greeting before the request, and any other wait for her. Greetings run
 # 1-2.6s; the detector has held "speech" for 5-12s on the loudspeaker's loop.
@@ -740,23 +742,44 @@ async def _open_call(ctx: Ctx, caller: str, trunk: int | None = None) -> Outcome
     """The caller signals, she answers, and the request plays (§3.1): from a
     room, off-hook; from outside, a ring on `trunk`. None once the request has
     played, else the failure."""
+    rering = None
     if trunk is None:
         await ctx.hw.hook(ctx.scene.from_station, True)        # the lamp lights
     else:
         await ctx.slots.set(ctx.call, "trunk", caller)
         await ctx.hw.short_ring(trunk)                          # §3.3
+        rering = asyncio.create_task(_rings_again(ctx, caller, trunk))
     try:
         await _answer(ctx, caller)
     except TimeoutError:
         return Outcome(False, Reason.NO_ANSWER)
     finally:
+        if rering is not None:
+            rering.cancel()
+            await asyncio.gather(rering, return_exceptions=True)
         if trunk is not None:
             await quietly(ctx.hw.ring_trunk(trunk, False))
-    try:
-        await _request(ctx, caller, _gone(caller))
-    except TimeoutError:
-        return Outcome(False, Reason.TIMEOUT)
-    return None
+    while True:
+        try:
+            await _request(ctx, caller, _gone(caller))
+            return None
+        except TimeoutError:
+            return Outcome(False, Reason.TIMEOUT)
+        except Abandoned:
+            # §3.3: she left before the request was heard; a room waits for
+            # her to come back, asks if she is there, and asks again.
+            if not await _waits_for_her(ctx, caller, trunk, "the request"):
+                raise
+
+
+async def _rings_again(ctx: Ctx, caller: str, trunk: int) -> None:
+    """§3.3: a short ring every RERING until the trunk is answered, so a
+    call in is heard again and not only seen by its lamp. Not while a front
+    cord is in it: she has it, and has only to throw the key."""
+    while True:
+        await asyncio.sleep(RERING)
+        if not ctx.b.on(f"{caller}/seize"):
+            await quietly(ctx.hw.short_ring(trunk))
 
 
 async def _replies(ctx: Ctx, caller: str, lines, gone) -> bool:
@@ -1056,8 +1079,10 @@ async def to_operator(ctx: Ctx, trunk: int | None = None) -> Outcome:
         await quietly(ctx.hw.stop(caller))
 
 
-async def _waits_for_her(ctx: Ctx, caller: str, trunk: int | None) -> bool:
-    """§3.3: she has left a caller to the operator before answering it.
+async def _waits_for_her(ctx: Ctx, caller: str, trunk: int | None,
+                         before: str = "a reply") -> bool:
+    """§3.3: she has left a caller before its request was heard, or a
+    caller to the operator before answering it (`before` says which).
 
     From a room the station is still off-hook, so its lamp lights again; the
     caller waits ABANDON for her to come back on its line - in tutor pacing,
@@ -1068,7 +1093,7 @@ async def _waits_for_her(ctx: Ctx, caller: str, trunk: int | None) -> bool:
     """
     if trunk is not None:
         return False
-    ctx.say_event(f"{caller}: left before a reply; waits for the operator")
+    ctx.say_event(f"{caller}: left before {before}; waits for the operator")
     back = lambda b: b.on(f"{caller}/op")
     while True:
         until = time.time() + ABANDON
