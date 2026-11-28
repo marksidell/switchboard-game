@@ -4111,7 +4111,7 @@ scenes:
             -   id: 4
                 called: I'm terribly sorry, Mr. Thornhill. She's quite friendly.
             -   id: 5
-                caller: Friendly. I've been chased by friendlier things than that. Across a cornfield.
+                caller: Friendly. I've been chased by worse. Across a cornfield, by a crop duster.
         if_busy:
             -   id: 6
                 operator: desk-busy

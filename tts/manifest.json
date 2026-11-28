@@ -9348,7 +9348,7 @@
     "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
     "seed": 1950,
     "speaker": "thornhill",
-    "text_sha": "1717c49ec35635de",
+    "text_sha": "31048398f34702ec",
     "voice_sha": "599242c8b5a9d37f"
   },
   "panic-thornhill.6": {
